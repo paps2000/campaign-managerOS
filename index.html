@@ -738,6 +738,7 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
             </div>
             <div style="display:flex;gap:8px;">
               <button class="btn btn-ghost btn-sm" onclick="openEditCampaignModal()"><span class="icn-edit"></span> Editar</button>
+              <button class="btn btn-ghost btn-sm" onclick="deleteCampaign()" style="color:var(--red);"><span class="icn-trash"></span> Eliminar</button>
               <button class="btn btn-primary btn-sm" onclick="openAddTaskModal()">+ Tarea</button>
             </div>
           </div>
@@ -893,13 +894,36 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
       </div>
     </div>
 
-    <!-- DOCUMENTOS PLACEHOLDER -->
+    <!-- DOCUMENTOS -->
     <div class="page" id="page-documentos">
-      <div class="placeholder-page">
-        <div class="ph-icon" data-ic="documentos"></div>
-        <h2>Documentos</h2>
-        <p>Próximamente: repositorio centralizado de briefs, contratos, reportes y presupuestos.</p>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:12px;">
+        <h3 style="font-family:'Fraunces',serif;font-size:28px;font-weight:400;letter-spacing:-0.4px;">Documentos</h3>
+        <button class="btn btn-primary" onclick="openAddDocModalGlobal()">+ Agregar documento</button>
       </div>
+
+      <div class="card" style="margin-bottom:16px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr 200px;gap:12px;align-items:end;">
+          <div>
+            <label class="form-label">Campaña</label>
+            <select class="form-input" id="docPageCampaign" onchange="renderDocumentosPage()"></select>
+          </div>
+          <div>
+            <label class="form-label">Buscar por nombre</label>
+            <input type="text" class="form-input" id="docPageSearch" placeholder="Buscar..." oninput="renderDocumentosPage()">
+          </div>
+          <div>
+            <label class="form-label">Ordenar por</label>
+            <select class="form-input" id="docPageSort" onchange="renderDocumentosPage()">
+              <option value="added-desc">Recién añadido</option>
+              <option value="added-asc">Más antiguo</option>
+              <option value="alpha-asc">Alfabético A→Z</option>
+              <option value="alpha-desc">Alfabético Z→A</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" id="docPageList"></div>
     </div>
 
     <!-- CALENDARIO PLACEHOLDER -->
@@ -923,20 +947,10 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
     <!-- AJUSTES -->
     <div class="page" id="page-ajustes">
       <h3 style="font-family:'Fraunces',serif;font-size:28px;font-weight:400;letter-spacing:-0.4px;margin-bottom:20px;">Ajustes</h3>
-      <div class="settings-section">
-        <div class="settings-title">Perfil</div>
-        <div class="settings-desc">Tu nombre e información que aparece en la app.</div>
-        <div class="form-row">
-          <div class="form-group">
-            <label class="form-label">Tu nombre</label>
-            <input type="text" class="form-input" id="settingsName" placeholder="Génesis">
-          </div>
-          <div class="form-group">
-            <label class="form-label">Agencia</label>
-            <input type="text" class="form-input" id="settingsAgency" placeholder="Think Y.">
-          </div>
-        </div>
-        <button class="btn btn-primary" onclick="saveSettings()">Guardar perfil</button>
+      <div class="settings-section" id="teamSection">
+        <div class="settings-title">Equipo</div>
+        <div class="settings-desc">Miembros de Think Y. Los administradores pueden asignar roles y ver datos sensibles (presupuestos).</div>
+        <div id="teamList" style="margin-top:12px;"></div>
       </div>
 
       <div class="settings-section">
@@ -961,8 +975,8 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
 
       <div class="settings-section" style="border:1px solid #fee2e2;background:#fff5f5;">
         <div class="settings-title" style="color:var(--red);">Zona de peligro</div>
-        <div class="settings-desc">Elimina todos los datos de la app. Esta acción no se puede deshacer.</div>
-        <button class="btn" style="background:var(--red);color:#fff;" onclick="resetAllData()"><span class="icn-trash"></span> Borrar todos los datos</button>
+        <div class="settings-desc">Borrar todas las campañas y tareas globales del workspace. Solo admin. No se puede deshacer.</div>
+        <button class="btn" style="background:var(--red);color:#fff;" onclick="nukeAllCampaigns()"><span class="icn-trash"></span> Borrar todas las campañas</button>
       </div>
     </div>
 
@@ -1012,8 +1026,8 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
       <input type="text" class="form-input" id="fCampCore" placeholder="Ej: Vive la pasión">
     </div>
     <div class="form-row">
-      <div class="form-group">
-        <label class="form-label">Presupuesto</label>
+      <div class="form-group" id="fCampBudgetGroup">
+        <label class="form-label">Presupuesto 🔒</label>
         <input type="text" class="form-input" id="fCampBudget" placeholder="Ej: $250,000 MXN">
       </div>
       <div class="form-group">
@@ -1141,9 +1155,18 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
       <div class="modal-title">Agregar documento</div>
       <button class="modal-close" onclick="closeModal('docModal')"><span class="icn-close"></span></button>
     </div>
+    <div class="form-group" id="fDocCampaignGroup" style="display:none;">
+      <label class="form-label">Campaña</label>
+      <select class="form-input" id="fDocCampaign"></select>
+    </div>
     <div class="form-group">
-      <label class="form-label">Nombre del documento</label>
-      <input type="text" class="form-input" id="fDocName" placeholder="Ej: BRIEF CAMPAÑA v1.pdf">
+      <label class="form-label">URL del documento (Google Drive, Sheets, Docs...)</label>
+      <input type="text" class="form-input" id="fDocUrl" placeholder="https://drive.google.com/..." oninput="onDocUrlInput()">
+      <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">Pega el link compartible. Detectaremos el tipo y sugeriremos un nombre.</div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Título (editable)</label>
+      <input type="text" class="form-input" id="fDocName" placeholder="Ej: Brief campaña v1">
     </div>
     <div class="form-row">
       <div class="form-group">
@@ -1153,6 +1176,7 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
           <option>Sheets</option>
           <option>Doc</option>
           <option>Presentación</option>
+          <option>Drive</option>
           <option>Otro</option>
         </select>
       </div>
@@ -1161,13 +1185,25 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
         <input type="date" class="form-input" id="fDocDate">
       </div>
     </div>
-    <div class="form-group">
-      <label class="form-label">URL (opcional)</label>
-      <input type="text" class="form-input" id="fDocUrl" placeholder="https://...">
-    </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('docModal')">Cancelar</button>
       <button class="btn btn-primary" onclick="saveDoc()">Agregar documento</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: ASIGNAR PERSONAS -->
+<div class="modal-overlay" id="assignModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Asignar participantes</div>
+      <button class="modal-close" onclick="closeModal('assignModal')">✕</button>
+    </div>
+    <div class="settings-desc" style="margin-bottom:16px;">Marca a quién quieres dar acceso a esta campaña. Los seleccionados verán la campaña en su dashboard.</div>
+    <div id="assignList"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('assignModal')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveAssignees()">Guardar</button>
     </div>
   </div>
 </div>
@@ -1220,7 +1256,19 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 const WORKSPACE = 'default'; // shared workspace for all users
+
+// === ACCESS CONTROL ===
+const ALLOWED_DOMAINS = ['thinkydigital.com'];
+const INITIAL_ADMINS = ['paulo@thinkydigital.com'];
+
+function isAllowedEmail(email) {
+  if(!email) return false;
+  return ALLOWED_DOMAINS.some(d => email.toLowerCase().endsWith('@'+d));
+}
+
 let currentUser = null;
+let currentUserProfile = null; // {name, email, role, ...}
+let allUsers = []; // cached list of users
 let unsubscribers = [];
 
 // ============================================================
@@ -1333,6 +1381,17 @@ function attachListeners() {
     _cache.settings = doc.exists ? doc.data() : {};
     rerenderCurrent();
   }, err => console.error('settings listener',err)));
+
+  // Users listener (for assignee selectors + team page)
+  unsubscribers.push(db.collection('users').onSnapshot(snap => {
+    allUsers = snap.docs.map(d => ({uid:d.id, ...d.data()}));
+    if(currentPage==='ajustes') renderTeam();
+    rerenderCurrent();
+  }, err => console.error('users listener',err)));
+}
+
+function visibleCampaigns() {
+  return _cache.campaigns.filter(c => canSeeCampaign(c));
 }
 
 function rerenderCurrent() {
@@ -1470,6 +1529,7 @@ function navigate(page) {
   if(page==='pendientes') renderPendientes();
   if(page==='metricas') renderMetrics();
   if(page==='generador') populateCampaignSelects();
+  if(page==='documentos') renderDocumentosPage();
   if(page==='ajustes') loadSettingsUI();
 }
 
@@ -1477,7 +1537,7 @@ function navigate(page) {
 // DASHBOARD
 // ============================================================
 function renderDashboard() {
-  const campaigns = getData('campaigns');
+  const campaigns = visibleCampaigns();
   const globalTasks = getData('globalTasks');
   const today = new Date().toISOString().split('T')[0];
 
@@ -1599,7 +1659,7 @@ function renderDashboard() {
 // CAMPAÑAS
 // ============================================================
 function renderCampaignGrid() {
-  const campaigns = getData('campaigns');
+  const campaigns = visibleCampaigns();
   const grid = document.getElementById('campaignGrid');
   const statusBadge = (s) => {
     const map = {'En proceso':'badge-blue','Ajustes':'badge-yellow','Pendiente cliente':'badge-orange','En reporte':'badge-red','En producción':'badge-purple','Completado':'badge-green'};
@@ -1645,6 +1705,11 @@ function openCampaignDetail(cid) {
   const campaigns = getData('campaigns');
   const c = campaigns.find(x=>x.id===cid);
   if(!c) return;
+  if(!canSeeCampaign(c)) {
+    showToast('No tienes acceso a esta campaña','error');
+    showCampaignList();
+    return;
+  }
 
   document.getElementById('campaignList').style.display='none';
   document.getElementById('campaignDetailView').classList.add('active');
@@ -1658,16 +1723,39 @@ function openCampaignDetail(cid) {
   document.getElementById('detailCampaignStatus').innerHTML = statusBadge(c.status);
   document.getElementById('detailCampaignSub').textContent = `${c.client} · ${c.season||''}`;
 
-  // Info grid
+  // Info grid — budget only visible to admin
+  const budgetField = isAdmin()
+    ? `<div class="info-field"><div class="info-label">Presupuesto</div><div class="info-value">${c.budget||'—'}</div></div>`
+    : `<div class="info-field"><div class="info-label">Presupuesto</div><div class="info-value" style="color:var(--text-muted);font-style:italic;">🔒 Solo admin</div></div>`;
+
+  // Assignees list
+  const assignedUids = Array.isArray(c.assignedTo) ? c.assignedTo : [];
+  const assignedUsers = assignedUids.map(uid => allUsers.find(u=>u.uid===uid)).filter(Boolean);
+  const assigneeChips = assignedUsers.length === 0
+    ? '<span style="color:var(--text-muted);font-size:13px;">Sin asignados</span>'
+    : assignedUsers.map(u => `
+        <span class="badge" style="background:var(--lavender-pale);color:var(--lavender);display:inline-flex;align-items:center;gap:6px;">
+          <span style="width:18px;height:18px;border-radius:50%;background:var(--lavender);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;">${(u.name||u.email)[0].toUpperCase()}</span>
+          ${u.name||u.email}
+          ${(isAdmin() || c.createdBy===currentUser.uid) ? `<button onclick="removeAssignee('${c.id}','${u.uid}')" style="background:none;border:none;cursor:pointer;color:var(--lavender);font-size:11px;padding:0 0 0 4px;">✕</button>` : ''}
+        </span>`).join(' ');
+
   document.getElementById('campaignInfoGrid').innerHTML = `
     <div class="info-field"><div class="info-label">Cliente</div><div class="info-value">${c.client}</div></div>
     <div class="info-field"><div class="info-label">Temporada</div><div class="info-value">${c.season||'—'}</div></div>
     <div class="info-field"><div class="info-label">Objetivo</div><div class="info-value">${c.objective||'—'}</div></div>
     <div class="info-field"><div class="info-label">Core Message</div><div class="info-value">${c.coreMessage||'—'}</div></div>
-    <div class="info-field"><div class="info-label">Presupuesto</div><div class="info-value">${c.budget||'—'}</div></div>
+    ${budgetField}
     <div class="info-field"><div class="info-label">Responsable</div><div class="info-value">${c.responsible||'—'}</div></div>
     <div class="info-field"><div class="info-label">Fecha límite</div><div class="info-value">${formatDate(c.deadline)||'—'}</div></div>
     <div class="info-field"><div class="info-label">Status</div><div class="info-value">${statusBadge(c.status)}</div></div>
+    <div class="info-field" style="grid-column:1/-1;">
+      <div class="info-label" style="display:flex;justify-content:space-between;align-items:center;">
+        <span>Participantes</span>
+        ${(isAdmin() || c.createdBy===currentUser.uid) ? `<button class="btn btn-ghost btn-sm" onclick="openAssignModal()" style="font-size:11px;">+ Asignar</button>` : ''}
+      </div>
+      <div class="info-value" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;">${assigneeChips}</div>
+    </div>
   `;
 
   renderCampaignInfluencers(c);
@@ -1767,7 +1855,7 @@ function updateFlowStep(cid, idx, status) {
 let currentFilter = 'hoy';
 
 function renderPendientes() {
-  const campaigns = getData('campaigns');
+  const campaigns = visibleCampaigns();
   const globalTasks = getData('globalTasks');
   const today = new Date().toISOString().split('T')[0];
   const weekEnd = new Date(); weekEnd.setDate(weekEnd.getDate()+7);
@@ -1962,7 +2050,7 @@ function displayMetrics(rows) {
 // TEXT GENERATOR
 // ============================================================
 function populateCampaignSelects() {
-  const campaigns = getData('campaigns');
+  const campaigns = visibleCampaigns();
   const opts = campaigns.map(c=>`<option value="${c.id}">${c.name} (${c.client})</option>`).join('');
   ['dashGenCampaign','fullGenCampaign','fTaskCampaign'].forEach(id=>{
     const el=document.getElementById(id);
@@ -2040,11 +2128,17 @@ function copyGenText(scope) {
 function openModal(id) { document.getElementById(id).classList.add('open'); }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 
+function applyBudgetVisibility() {
+  const grp = document.getElementById('fCampBudgetGroup');
+  if(grp) grp.style.display = isAdmin() ? '' : 'none';
+}
+
 function openNewCampaignModal() {
   editingCampaignId = null;
   document.getElementById('campaignModalTitle').textContent='Nueva campaña';
   ['fCampName','fCampClient','fCampSeason','fCampObjective','fCampCore','fCampBudget','fCampResponsible','fCampDeadline'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('fCampStatus').value='En proceso';
+  applyBudgetVisibility();
   openModal('campaignModal');
 }
 
@@ -2052,6 +2146,10 @@ function openEditCampaignModal() {
   if(!currentCampaignId) return;
   const c = getData('campaigns').find(x=>x.id===currentCampaignId);
   if(!c) return;
+  // Permission: only admin or creator can edit
+  if(!isAdmin() && c.createdBy !== currentUser.uid) {
+    showToast('No tienes permisos para editar esta campaña','error'); return;
+  }
   editingCampaignId = c.id;
   document.getElementById('campaignModalTitle').textContent='Editar campaña';
   document.getElementById('fCampName').value=c.name||'';
@@ -2063,7 +2161,95 @@ function openEditCampaignModal() {
   document.getElementById('fCampBudget').value=c.budget||'';
   document.getElementById('fCampResponsible').value=c.responsible||'';
   document.getElementById('fCampDeadline').value=c.deadline||'';
+  applyBudgetVisibility();
   openModal('campaignModal');
+}
+
+// === ASSIGNEES ===
+function openAssignModal() {
+  if(!currentCampaignId) return;
+  const c = _cache.campaigns.find(x=>x.id===currentCampaignId);
+  if(!c) return;
+  if(!isAdmin() && c.createdBy !== currentUser.uid) {
+    showToast('Solo el creador o admin puede asignar','error'); return;
+  }
+  const assigned = new Set(Array.isArray(c.assignedTo) ? c.assignedTo : []);
+  const list = document.getElementById('assignList');
+  list.innerHTML = allUsers.map(u => `
+    <label style="display:flex;align-items:center;gap:10px;padding:10px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;cursor:pointer;">
+      <input type="checkbox" data-uid="${u.uid}" ${assigned.has(u.uid)?'checked':''} ${u.uid===c.createdBy?'disabled':''} style="width:16px;height:16px;cursor:pointer;">
+      <div style="width:32px;height:32px;border-radius:50%;background:var(--lavender);color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;">${(u.name||u.email)[0].toUpperCase()}</div>
+      <div style="flex:1;">
+        <div style="font-size:13px;font-weight:600;">${u.name||'—'} ${u.uid===c.createdBy?'<span style="font-size:10px;color:var(--text-muted);">(creador)</span>':''}</div>
+        <div style="font-size:11px;color:var(--text-muted);">${u.email}</div>
+      </div>
+      <span class="badge ${u.role==='admin'?'badge-pink':'badge-gray'}">${u.role==='admin'?'Admin':'Miembro'}</span>
+    </label>`).join('') || '<div class="empty-state"><p>No hay usuarios registrados todavía.</p></div>';
+  openModal('assignModal');
+}
+
+function saveAssignees() {
+  if(!currentCampaignId) return;
+  const checks = document.querySelectorAll('#assignList input[type="checkbox"]');
+  const newAssignees = Array.from(checks).filter(c=>c.checked).map(c=>c.dataset.uid);
+  const campaigns = getData('campaigns');
+  const idx = campaigns.findIndex(x=>x.id===currentCampaignId);
+  if(idx===-1) return;
+  // Always include creator
+  const creator = campaigns[idx].createdBy;
+  if(creator && !newAssignees.includes(creator)) newAssignees.push(creator);
+  campaigns[idx] = {...campaigns[idx], assignedTo: newAssignees};
+  setData('campaigns', campaigns);
+  closeModal('assignModal');
+  showToast('Participantes actualizados','success');
+  openCampaignDetail(currentCampaignId);
+}
+
+function removeAssignee(cid, uid) {
+  const campaigns = getData('campaigns');
+  const idx = campaigns.findIndex(x=>x.id===cid);
+  if(idx===-1) return;
+  const c = campaigns[idx];
+  if(!isAdmin() && c.createdBy !== currentUser.uid) {
+    showToast('Sin permisos','error'); return;
+  }
+  if(c.createdBy === uid) {
+    showToast('No puedes quitar al creador','error'); return;
+  }
+  campaigns[idx] = {...c, assignedTo: (c.assignedTo||[]).filter(x=>x!==uid)};
+  setData('campaigns', campaigns);
+  openCampaignDetail(cid);
+}
+
+// === TEAM MGMT ===
+function renderTeam() {
+  const list = document.getElementById('teamList');
+  if(!list) return;
+  list.innerHTML = allUsers.map(u => `
+    <div style="display:flex;align-items:center;gap:12px;padding:12px;border:1px solid var(--border);border-radius:10px;margin-bottom:8px;">
+      <div style="width:36px;height:36px;border-radius:50%;background:var(--pink-deep);color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;">${(u.name||u.email)[0].toUpperCase()}</div>
+      <div style="flex:1;">
+        <div style="font-size:14px;font-weight:600;">${u.name||'—'} ${u.uid===currentUser.uid?'<span style="font-size:11px;color:var(--text-muted);">(tú)</span>':''}</div>
+        <div style="font-size:12px;color:var(--text-muted);">${u.email}</div>
+      </div>
+      ${isAdmin() && u.uid !== currentUser.uid
+        ? `<select onchange="changeRole('${u.uid}',this.value)" style="padding:5px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:inherit;background:var(--white);cursor:pointer;">
+            <option value="member" ${u.role==='member'?'selected':''}>Miembro</option>
+            <option value="admin" ${u.role==='admin'?'selected':''}>Admin</option>
+          </select>`
+        : `<span class="badge ${u.role==='admin'?'badge-pink':'badge-gray'}">${u.role==='admin'?'Admin':'Miembro'}</span>`
+      }
+    </div>`).join('') || '<div class="empty-state"><p>Sin miembros aún.</p></div>';
+}
+
+async function changeRole(uid, newRole) {
+  if(!isAdmin()) { showToast('Solo admin puede cambiar roles','error'); return; }
+  try {
+    await db.collection('users').doc(uid).update({role: newRole});
+    showToast('Rol actualizado','success');
+  } catch(e) {
+    showToast('Error: '+e.message,'error');
+  }
 }
 
 function saveCampaign() {
@@ -2094,6 +2280,8 @@ function saveCampaign() {
       budget:document.getElementById('fCampBudget').value,
       responsible:document.getElementById('fCampResponsible').value,
       deadline:document.getElementById('fCampDeadline').value,
+      createdBy: currentUser.uid,
+      assignedTo: [currentUser.uid],
       flowSteps:FLOW_STEPS.map(s=>({step:s,status:'Pendiente'})),
       influencers:[], documents:[], tasks:[]
     });
@@ -2184,29 +2372,172 @@ function saveInfluencer() {
   showToast('Influencer agregado','success');
 }
 
+// === DOC URL HELPERS ===
+function detectDocTypeFromUrl(url) {
+  if(!url) return 'Otro';
+  const u = url.toLowerCase();
+  if(u.includes('docs.google.com/spreadsheets')) return 'Sheets';
+  if(u.includes('docs.google.com/document')) return 'Doc';
+  if(u.includes('docs.google.com/presentation')) return 'Presentación';
+  if(u.includes('drive.google.com')) return 'Drive';
+  if(u.endsWith('.pdf') || u.includes('.pdf?')) return 'PDF';
+  if(u.endsWith('.xlsx') || u.endsWith('.csv')) return 'Sheets';
+  if(u.endsWith('.docx')) return 'Doc';
+  if(u.endsWith('.pptx')) return 'Presentación';
+  return 'Otro';
+}
+
+function suggestTitleFromUrl(url) {
+  if(!url) return '';
+  try {
+    const u = new URL(url);
+    // Try filename in path
+    const segs = u.pathname.split('/').filter(Boolean);
+    let cand = segs[segs.length-1] || '';
+    cand = decodeURIComponent(cand).replace(/[-_]/g,' ').replace(/\.[a-z0-9]+$/i,'');
+    // Drive style /file/d/ID/view → use type label
+    if(cand === 'view' || cand === 'edit' || /^[A-Za-z0-9_-]{20,}$/.test(cand) || cand === '') {
+      const type = detectDocTypeFromUrl(url);
+      return `Nuevo documento ${type}`;
+    }
+    return cand.charAt(0).toUpperCase() + cand.slice(1);
+  } catch {
+    return '';
+  }
+}
+
+function onDocUrlInput() {
+  const url = document.getElementById('fDocUrl').value.trim();
+  const nameEl = document.getElementById('fDocName');
+  const typeEl = document.getElementById('fDocType');
+  // Auto-detect type
+  typeEl.value = detectDocTypeFromUrl(url);
+  // Only auto-fill title if empty (don't clobber edits)
+  if(!nameEl.dataset.userEdited) nameEl.value = suggestTitleFromUrl(url);
+}
+
 function openAddDocModal() {
   document.getElementById('fDocDate').value=new Date().toISOString().split('T')[0];
-  ['fDocName','fDocUrl'].forEach(id=>document.getElementById(id).value='');
+  ['fDocName','fDocUrl'].forEach(id=>{
+    const el=document.getElementById(id);
+    el.value='';
+    delete el.dataset.userEdited;
+  });
+  document.getElementById('fDocCampaignGroup').style.display = 'none';
+  // mark name field as user-edited once they type
+  document.getElementById('fDocName').oninput = (e) => { e.target.dataset.userEdited = '1'; };
+  openModal('docModal');
+}
+
+function openAddDocModalGlobal() {
+  document.getElementById('fDocDate').value=new Date().toISOString().split('T')[0];
+  ['fDocName','fDocUrl'].forEach(id=>{
+    const el=document.getElementById(id);
+    el.value='';
+    delete el.dataset.userEdited;
+  });
+  // Show campaign selector
+  const grp = document.getElementById('fDocCampaignGroup');
+  const sel = document.getElementById('fDocCampaign');
+  const camps = visibleCampaigns();
+  if(camps.length === 0) { showToast('Crea una campaña primero','error'); return; }
+  sel.innerHTML = camps.map(c=>`<option value="${c.id}">${c.name} (${c.client})</option>`).join('');
+  // Pre-select selected page campaign if any
+  const pageSel = document.getElementById('docPageCampaign');
+  if(pageSel && pageSel.value) sel.value = pageSel.value;
+  grp.style.display = 'block';
+  document.getElementById('fDocName').oninput = (e) => { e.target.dataset.userEdited = '1'; };
   openModal('docModal');
 }
 
 function saveDoc() {
   const name=document.getElementById('fDocName').value.trim();
-  if(!name) { showToast('El nombre es requerido','error'); return; }
-  if(!currentCampaignId) return;
+  const url=document.getElementById('fDocUrl').value.trim();
+  if(!url) { showToast('El URL es requerido','error'); return; }
+  if(!name) { showToast('El título es requerido','error'); return; }
+
+  // Determine target campaign: explicit selector if shown, else currentCampaignId
+  const grp = document.getElementById('fDocCampaignGroup');
+  const targetCid = (grp && grp.style.display !== 'none')
+    ? document.getElementById('fDocCampaign').value
+    : currentCampaignId;
+  if(!targetCid) { showToast('Selecciona una campaña','error'); return; }
+
   const campaigns=getData('campaigns');
-  const c=campaigns.find(x=>x.id===currentCampaignId);
+  const c=campaigns.find(x=>x.id===targetCid);
   if(!c) return;
+  if(!c.documents) c.documents = [];
   c.documents.push({
     id:id(), name,
     type:document.getElementById('fDocType').value,
     date:document.getElementById('fDocDate').value,
-    url:document.getElementById('fDocUrl').value
+    url,
+    addedAt: Date.now(),
+    addedBy: currentUser.uid
   });
   setData('campaigns',campaigns);
-  renderCampaignDocs(c);
+  if(currentCampaignId === targetCid) renderCampaignDocs(c);
+  if(currentPage === 'documentos') renderDocumentosPage();
   closeModal('docModal');
   showToast('Documento agregado','success');
+}
+
+// === DOCUMENTOS PAGE ===
+function renderDocumentosPage() {
+  const camps = visibleCampaigns();
+  const sel = document.getElementById('docPageCampaign');
+  const prev = sel.value;
+  sel.innerHTML = '<option value="">— Selecciona una campaña —</option>' +
+    camps.map(c=>`<option value="${c.id}">${c.name} (${c.client})</option>`).join('');
+  if(prev && camps.find(c=>c.id===prev)) sel.value = prev;
+
+  const list = document.getElementById('docPageList');
+  const cid = sel.value;
+  if(!cid) {
+    list.innerHTML = '<div class="empty-state"><div class="empty-icon">📁</div><p>Selecciona una campaña para ver sus documentos.</p></div>';
+    return;
+  }
+  const c = camps.find(x=>x.id===cid);
+  if(!c) return;
+  let docs = (c.documents||[]).slice();
+  const search = document.getElementById('docPageSearch').value.toLowerCase().trim();
+  if(search) docs = docs.filter(d => (d.name||'').toLowerCase().includes(search));
+
+  const sort = document.getElementById('docPageSort').value;
+  docs.sort((a,b)=>{
+    if(sort==='alpha-asc') return (a.name||'').localeCompare(b.name||'');
+    if(sort==='alpha-desc') return (b.name||'').localeCompare(a.name||'');
+    if(sort==='added-asc') return (a.addedAt||0) - (b.addedAt||0);
+    return (b.addedAt||0) - (a.addedAt||0);
+  });
+
+  if(docs.length === 0) {
+    list.innerHTML = '<div class="empty-state"><div class="empty-icon">📁</div><p>Sin documentos en esta campaña.</p></div>';
+    return;
+  }
+  const docIcons={PDF:'📄',Sheets:'📊',Doc:'📝',Presentación:'📋',Drive:'📦',Otro:'📎'};
+  list.innerHTML = docs.map(d=>`
+    <div class="doc-item" style="padding:12px 0;">
+      <div class="doc-icon ${d.type==='PDF'?'doc-pdf':'doc-sheets'}">${docIcons[d.type]||'📎'}</div>
+      <div class="doc-info">
+        <div class="doc-name">${d.name}</div>
+        <div class="doc-campaign">${d.type} · ${formatDateShort(d.date)||''}</div>
+      </div>
+      ${d.url?`<a href="${d.url}" target="_blank" class="card-link" style="margin-right:8px;">Abrir →</a>`:''}
+      <button onclick="deleteDocFromPage('${c.id}','${d.id}')" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:14px;padding:4px;">✕</button>
+    </div>`).join('');
+}
+
+function deleteDocFromPage(cid, docId) {
+  const campaigns = getData('campaigns');
+  const c = campaigns.find(x=>x.id===cid);
+  if(!c) return;
+  if(!isAdmin() && c.createdBy !== currentUser.uid && !(c.assignedTo||[]).includes(currentUser.uid)) {
+    showToast('Sin permisos','error'); return;
+  }
+  c.documents = (c.documents||[]).filter(d=>d.id!==docId);
+  setData('campaigns', campaigns);
+  renderDocumentosPage();
 }
 
 // ============================================================
@@ -2214,18 +2545,9 @@ function saveDoc() {
 // ============================================================
 function loadSettingsUI() {
   const s=getSettings();
-  document.getElementById('settingsName').value=s.name||'';
-  document.getElementById('settingsAgency').value=s.agency||'Think Y.';
   document.getElementById('settingsApiKey').value=s.claudeApiKey||'';
   document.getElementById('settingsSheetsUrl').value=s.sheetsUrl||'';
-}
-
-function saveSettings() {
-  saveSettingsData({name:document.getElementById('settingsName').value,agency:document.getElementById('settingsAgency').value});
-  showToast('Perfil guardado','success');
-  const name=document.getElementById('settingsName').value||'Génesis';
-  document.getElementById('userNameSidebar').textContent=name;
-  document.getElementById('userAvatarSidebar').textContent=name[0].toUpperCase();
+  renderTeam();
 }
 
 function saveApiKey() {
@@ -2242,6 +2564,32 @@ function resetAllData() {
   if(!confirm('¿Seguro? Se borrarán TODOS los datos. Esta acción no se puede deshacer.')) return;
   localStorage.clear();
   location.reload();
+}
+
+async function deleteCampaign() {
+  if(!currentCampaignId) return;
+  const campaigns = getData('campaigns');
+  const c = campaigns.find(x=>x.id===currentCampaignId);
+  if(!c) return;
+  if(!isAdmin() && c.createdBy !== currentUser.uid) {
+    showToast('Solo admin o creador puede eliminar','error'); return;
+  }
+  if(!confirm(`¿Eliminar la campaña "${c.name}"? Esta acción no se puede deshacer.`)) return;
+  const filtered = campaigns.filter(x=>x.id!==currentCampaignId);
+  setData('campaigns', filtered);
+  showCampaignList();
+  showToast('Campaña eliminada','success');
+}
+
+async function nukeAllCampaigns() {
+  if(!isAdmin()) { showToast('Solo admin','error'); return; }
+  if(!confirm('⚠️ Esto BORRARÁ TODAS las campañas y tareas globales del workspace para todos los usuarios. ¿Continuar?')) return;
+  if(!confirm('Última confirmación. ¿Seguro?')) return;
+  setData('campaigns', []);
+  setData('globalTasks', []);
+  showToast('Todas las campañas eliminadas','success');
+  if(currentPage === 'campannas') { showCampaignList(); renderCampaignGrid(); }
+  if(currentPage === 'dashboard') renderDashboard();
 }
 
 // ============================================================
@@ -2330,14 +2678,13 @@ async function loginSubmit() {
   const errEl = document.getElementById('loginError');
   errEl.textContent='';
   if(!email || !pw) { errEl.textContent='Email y contraseña requeridos'; return; }
+  if(!isAllowedEmail(email)) { errEl.textContent='Solo se permiten correos @thinkydigital.com'; return; }
   if(isSignupMode && !name) { errEl.textContent='Ingresa tu nombre'; return; }
   try {
     if(isSignupMode) {
       const cred = await auth.createUserWithEmailAndPassword(email, pw);
       await cred.user.updateProfile({displayName: name});
-      await db.collection('users').doc(cred.user.uid).set({
-        name, email, createdAt: firebase.firestore.FieldValue.serverTimestamp()
-      });
+      // user profile created in onAuthStateChanged
     } else {
       await auth.signInWithEmailAndPassword(email, pw);
     }
@@ -2350,13 +2697,15 @@ async function loginGoogle() {
   const errEl = document.getElementById('loginError');
   try {
     const provider = new firebase.auth.GoogleAuthProvider();
+    // Restrict to thinkydigital.com workspace at the picker level
+    provider.setCustomParameters({hd:'thinkydigital.com'});
     const result = await auth.signInWithPopup(provider);
-    // Save user profile
-    await db.collection('users').doc(result.user.uid).set({
-      name: result.user.displayName, email: result.user.email,
-      photoURL: result.user.photoURL,
-      createdAt: firebase.firestore.FieldValue.serverTimestamp()
-    }, {merge:true});
+    if(!isAllowedEmail(result.user.email)) {
+      await auth.signOut();
+      errEl.textContent='Solo se permiten correos @thinkydigital.com';
+      return;
+    }
+    // user profile is created/merged in onAuthStateChanged
   } catch(e) {
     errEl.textContent = traduceFirebaseError(e.code) || e.message;
   }
@@ -2389,19 +2738,50 @@ auth.onAuthStateChanged(async (user) => {
     document.getElementById('loginScreen').classList.remove('hidden');
     return;
   }
+  // Domain enforcement
+  if(!isAllowedEmail(user.email)) {
+    await auth.signOut();
+    document.getElementById('loginError').textContent = 'Solo se permiten correos @thinkydigital.com';
+    document.getElementById('loginScreen').classList.remove('hidden');
+    return;
+  }
   currentUser = user;
   document.getElementById('loginScreen').classList.add('hidden');
 
+  // Get/create user profile with role
+  const userDocRef = db.collection('users').doc(user.uid);
+  const userSnap = await userDocRef.get();
+  if(!userSnap.exists) {
+    currentUserProfile = {
+      uid: user.uid,
+      name: user.displayName || user.email.split('@')[0],
+      email: user.email,
+      role: INITIAL_ADMINS.includes(user.email.toLowerCase()) ? 'admin' : 'member',
+      photoURL: user.photoURL || null,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    };
+    await userDocRef.set(currentUserProfile);
+  } else {
+    currentUserProfile = {uid: user.uid, ...userSnap.data()};
+    // First user ever becomes admin if no admins exist
+    if(currentUserProfile.role !== 'admin' && INITIAL_ADMINS.includes(user.email.toLowerCase())) {
+      await userDocRef.update({role:'admin'});
+      currentUserProfile.role = 'admin';
+    }
+  }
+
   // Initial fetch
   const ws = db.collection('workspaces').doc(WORKSPACE);
-  const [campaignsSnap, tasksSnap, settingsDoc] = await Promise.all([
+  const [campaignsSnap, tasksSnap, settingsDoc, usersSnap] = await Promise.all([
     ws.collection('campaigns').get(),
     ws.collection('globalTasks').get(),
-    ws.collection('config').doc('settings').get()
+    ws.collection('config').doc('settings').get(),
+    db.collection('users').get()
   ]);
   _cache.campaigns = campaignsSnap.docs.map(d=>d.data());
   _cache.globalTasks = tasksSnap.docs.map(d=>d.data());
   _cache.settings = settingsDoc.exists ? settingsDoc.data() : {};
+  allUsers = usersSnap.docs.map(d => ({uid:d.id, ...d.data()}));
 
   // Seed sample data ONLY if workspace empty AND first time globally
   const seeded = await ws.collection('config').doc('seeded').get();
@@ -2414,9 +2794,12 @@ auth.onAuthStateChanged(async (user) => {
   attachListeners();
 
   // Update UI with user info
-  const displayName = user.displayName || user.email.split('@')[0];
+  const displayName = currentUserProfile.name || user.email.split('@')[0];
   document.getElementById('userNameSidebar').textContent = displayName;
   document.getElementById('userAvatarSidebar').textContent = displayName[0].toUpperCase();
+  // Add role badge in sidebar
+  const roleBadge = document.getElementById('userRoleSidebar');
+  if(roleBadge) roleBadge.textContent = currentUserProfile.role === 'admin' ? 'Admin' : 'Miembro';
 
   // Date
   const now = new Date();
@@ -2425,6 +2808,15 @@ auth.onAuthStateChanged(async (user) => {
   populateCampaignSelects();
   renderDashboard();
 });
+
+function isAdmin() { return currentUserProfile && currentUserProfile.role === 'admin'; }
+function canSeeCampaign(c) {
+  if(!c) return false;
+  if(isAdmin()) return true;
+  if(c.createdBy === currentUser.uid) return true;
+  if(Array.isArray(c.assignedTo) && c.assignedTo.includes(currentUser.uid)) return true;
+  return false;
+}
 
 async function seedSampleData() {
   const today = new Date();
@@ -2489,6 +2881,8 @@ async function seedSampleData() {
   const globalTasks = [
     {id:id(),title:'Actualizar minuta del weekly',campaignId:'',campaignName:'Interno',dueDate:fmt(today),priority:'medium',done:false,assignee:'Génesis'}
   ];
+  // Stamp creator/assignee so seeded campaigns are visible to the seeding user
+  campaigns.forEach(c => { c.createdBy = currentUser.uid; c.assignedTo = [currentUser.uid]; });
   _cache.campaigns = campaigns;
   _cache.globalTasks = globalTasks;
   await persistCampaigns(campaigns);
