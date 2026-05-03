@@ -311,6 +311,13 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
 .progress-label { display:flex; justify-content:space-between; font-size:11px; color:var(--text-muted); margin-bottom:4px; }
 .progress-bar { height:4px; background:var(--border); border-radius:2px; overflow:hidden; }
 .progress-fill { height:100%; background:linear-gradient(90deg,var(--pink),var(--lavender)); border-radius:2px; transition:width .8s var(--ease); }
+.sub-btn { font-size:11px; font-family:'Quicksand',sans-serif; font-weight:600; padding:3px 9px; border-radius:20px; border:1.5px solid var(--border); background:var(--white); color:var(--text-muted); cursor:pointer; transition:all .2s var(--ease); white-space:nowrap; }
+.sub-btn:hover { border-color:var(--pink); color:var(--pink-deep); }
+.sub-btn.sub-active { background:var(--pink-pale); border-color:var(--pink); color:var(--pink-deep); }
+.sheets-sync-bar { display:flex; align-items:center; gap:10px; padding:10px 14px; background:var(--mint-pale); border-radius:10px; margin-bottom:14px; flex-wrap:wrap; }
+.sheets-sync-bar input { flex:1; min-width:200px; font-size:12px; }
+.dashboard-sub-hint { text-align:center; padding:32px 20px; color:var(--text-muted); font-size:14px; }
+.dashboard-sub-hint a { color:var(--pink-deep); cursor:pointer; font-weight:600; text-decoration:underline; }
 
 /* CAMPAIGN DETAIL */
 .campaign-detail { display:none; }
@@ -449,6 +456,28 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
 .toast.show { transform:translateY(0); }
 .toast.success { background:#15803d; }
 .toast.error { background:var(--red); }
+
+/* GOOGLE CALENDAR WIDGET */
+.cal-card { background:var(--white); border-radius:var(--radius); padding:20px 24px; box-shadow:var(--shadow); border:1px solid var(--border); margin-bottom:20px; }
+.cal-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; }
+.cal-summary-count { font-family:'Fraunces',serif; font-size:18px; font-weight:400; color:var(--text); margin-left:10px; }
+.cal-events { display:flex; flex-direction:column; gap:6px; }
+.cal-event { display:flex; align-items:center; gap:12px; padding:10px 14px; border-radius:10px; border:1px solid var(--border); cursor:pointer; transition:all .2s var(--ease); position:relative; }
+.cal-event:hover { border-color:var(--pink); background:var(--pink-pale); box-shadow:var(--shadow); z-index:10; }
+.cal-event.no-meet { cursor:default; }
+.cal-event.no-meet:hover { border-color:var(--sky); background:var(--sky-pale); box-shadow:none; }
+.cal-time { font-size:11px; font-weight:700; color:var(--pink-deep); min-width:90px; letter-spacing:.3px; }
+.cal-title { font-size:13px; font-weight:600; flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.cal-meet-badge { font-size:10px; font-weight:700; padding:2px 8px; border-radius:20px; background:#1a73e8; color:#fff; white-space:nowrap; flex-shrink:0; }
+.cal-tooltip-box { display:none; position:absolute; left:0; bottom:calc(100% + 8px); z-index:600; background:var(--text); color:#fff; border-radius:12px; padding:14px 16px; min-width:260px; max-width:400px; font-size:12px; line-height:1.6; box-shadow:var(--shadow-lg); pointer-events:none; }
+.cal-event:hover .cal-tooltip-box { display:block; }
+.cal-tooltip-title { font-weight:700; font-size:13px; margin-bottom:8px; color:#fff; }
+.cal-tooltip-row { color:rgba(255,255,255,.75); margin-top:3px; }
+.cal-tooltip-meet { color:#86efac; font-weight:600; margin-top:10px; }
+.cal-connect-empty { text-align:center; padding:24px; color:var(--text-muted); font-size:13px; }
+.cal-connect-empty p { margin-bottom:14px; line-height:1.5; }
+.cal-dot { width:8px; height:8px; border-radius:50%; background:var(--lavender); flex-shrink:0; }
+.cal-event.has-meet .cal-dot { background:#1a73e8; }
 
 /* INFLUENCER ADD ROW */
 .inf-add-row {
@@ -622,6 +651,9 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
         </div>
       </div>
 
+      <!-- GOOGLE CALENDAR WIDGET -->
+      <div id="calendarWidget"></div>
+
       <div class="grid-main-side">
         <!-- TODAY TASKS -->
         <div class="card">
@@ -758,6 +790,11 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
 
         <!-- TAB: INFLUENCERS -->
         <div class="tab-content" id="tab-influencers">
+          <div class="sheets-sync-bar">
+            <span style="font-size:12px;font-weight:600;color:#3a7a5e;white-space:nowrap;">📊 Google Sheets</span>
+            <input type="text" id="campaignSheetsUrl" class="form-input" placeholder="Pega URL del Sheet de esta campaña..." oninput="saveCampaignSheetsUrl()">
+            <button class="btn btn-ghost btn-sm" onclick="syncInfluencersFromSheets()" style="white-space:nowrap;">Sincronizar creadores</button>
+          </div>
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
             <h4 style="font-size:13px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;">Influencers en esta campaña</h4>
             <button class="btn btn-primary btn-sm" onclick="openAddInfluencerModal()">+ Agregar influencer</button>
@@ -1537,7 +1574,20 @@ function navigate(page) {
 // DASHBOARD
 // ============================================================
 function renderDashboard() {
-  const campaigns = visibleCampaigns();
+  const campaigns = isAdmin()
+    ? visibleCampaigns()
+    : visibleCampaigns().filter(c => isSubscribed(c.id));
+
+  // Non-admin with no subscriptions: show hint instead of empty dashboard
+  if(!isAdmin() && campaigns.length === 0 && _cache.campaigns.length > 0) {
+    ['statActive','statToday','statUrgent','statPubs'].forEach(id => { const el=document.getElementById(id); if(el) el.textContent='—'; });
+    const hint = `<div class="dashboard-sub-hint">Aún no sigues ninguna campaña.<br><a onclick="navigate('campannas')">Ve a Campañas</a> y haz clic en <strong>+ Seguir</strong> para ver su info aquí.</div>`;
+    ['todayTasksList','alertsList','recentDocsList','upcomingPubs'].forEach(id => { const el=document.getElementById(id); if(el) el.innerHTML=hint; });
+    const dct=document.getElementById('dashCampaignTable'); if(dct) dct.innerHTML=`<tr><td colspan="5">${hint}</td></tr>`;
+    document.getElementById('pendientesBadge').textContent='0';
+    return;
+  }
+
   const globalTasks = getData('globalTasks');
   const today = new Date().toISOString().split('T')[0];
 
@@ -1652,6 +1702,7 @@ function renderDashboard() {
       <span class="doc-date">${formatDateShort(d.date)}</span>
     </div>`).join('') || '<div class="empty-state"><p>Sin documentos.</p></div>';
 
+  renderCalendarWidget();
   populateCampaignSelects();
 }
 
@@ -1659,7 +1710,7 @@ function renderDashboard() {
 // CAMPAÑAS
 // ============================================================
 function renderCampaignGrid() {
-  const campaigns = visibleCampaigns();
+  const campaigns = _cache.campaigns;
   const grid = document.getElementById('campaignGrid');
   const statusBadge = (s) => {
     const map = {'En proceso':'badge-blue','Ajustes':'badge-yellow','Pendiente cliente':'badge-orange','En reporte':'badge-red','En producción':'badge-purple','Completado':'badge-green'};
@@ -1672,13 +1723,15 @@ function renderCampaignGrid() {
   grid.innerHTML = campaigns.map(c=>{
     const done = c.flowSteps.filter(f=>f.status==='Completado'||f.status==='Aprobado').length;
     const pct = Math.round((done/c.flowSteps.length)*100);
+    const sub = isSubscribed(c.id);
+    const subBtn = !isAdmin() ? `<button class="sub-btn ${sub?'sub-active':''}" onclick="toggleSubscribeCampaign('${c.id}',event)" title="${sub?'Dejar de seguir':'Seguir campaña'}">${sub?'✓ Siguiendo':'+ Seguir'}</button>` : '';
     return `<div class="campaign-card" onclick="openCampaignDetail('${c.id}')">
       <div class="campaign-card-header">
         <div>
           <div class="campaign-name">${c.name}</div>
           <div class="campaign-client">${c.client}</div>
         </div>
-        ${statusBadge(c.status)}
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">${statusBadge(c.status)}${subBtn}</div>
       </div>
       <div class="campaign-meta">
         <span class="badge badge-lavender"><span class="badge-icn">${ICN_users}</span>${c.influencers.length} influencers</span>
@@ -1771,6 +1824,8 @@ function openCampaignDetail(cid) {
 }
 
 function renderCampaignInfluencers(c) {
+  const sheetsInput = document.getElementById('campaignSheetsUrl');
+  if(sheetsInput) sheetsInput.value = c.sheetsUrl || '';
   const infStatusBadge = (s) => {
     const map={Publicado:'badge-green',Aprobado:'badge-blue','En producción':'badge-purple',Pendiente:'badge-gray'};
     return `<span class="badge ${map[s]||'badge-gray'}">${s}</span>`;
@@ -2372,6 +2427,91 @@ function saveInfluencer() {
   showToast('Influencer agregado','success');
 }
 
+function saveCampaignSheetsUrl() {
+  if(!currentCampaignId) return;
+  const url = document.getElementById('campaignSheetsUrl').value.trim();
+  const campaigns = getData('campaigns');
+  const c = campaigns.find(x=>x.id===currentCampaignId);
+  if(!c) return;
+  c.sheetsUrl = url;
+  setData('campaigns', campaigns);
+}
+
+async function syncInfluencersFromSheets() {
+  if(!currentCampaignId) return;
+  const url = document.getElementById('campaignSheetsUrl').value.trim();
+  if(!url) { showToast('Pega primero la URL del Google Sheet','error'); return; }
+  // Extract spreadsheet ID
+  const match = url.match(/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
+  if(!match) { showToast('URL de Google Sheets inválida','error'); return; }
+  const sheetId = match[1];
+  const gvizUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json`;
+  showToast('Sincronizando desde Sheets...');
+  try {
+    const res = await fetch(gvizUrl);
+    const raw = await res.text();
+    const json = JSON.parse(raw.replace(/^[^(]+\(/, '').replace(/\);?\s*$/, ''));
+    const cols = json.table.cols.map(c => (c.label || '').toLowerCase().trim());
+    const rows = json.table.rows || [];
+    const idx = (names) => { for(const n of names) { const i=cols.indexOf(n); if(i>=0) return i; } return -1; };
+    const iName = idx(['nombre','name','creador','creator','influencer']);
+    const iHandle = idx(['handle','@handle','usuario','user']);
+    const iPlatform = idx(['plataforma','platform','red social']);
+    const iFormat = idx(['formato','format','tipo','type']);
+    const iDate = idx(['fecha','date','fecha publicación','publish date']);
+    const iStatus = idx(['status','estado','estatus']);
+    const iReach = idx(['alcance','reach']);
+    const iImpr = idx(['impresiones','impressions']);
+    const iInter = idx(['interacciones','interactions','engagement']);
+    const iEr = idx(['er','engagement rate','tasa']);
+    if(iName < 0) { showToast('No se encontró columna "Nombre" en el Sheet','error'); return; }
+    const campaigns = getData('campaigns');
+    const c = campaigns.find(x=>x.id===currentCampaignId);
+    if(!c) return;
+    const cell = (row, i) => i>=0 && row.c[i] ? (row.c[i].v != null ? String(row.c[i].v) : row.c[i].f || '') : '';
+    let added = 0, updated = 0;
+    rows.forEach(row => {
+      if(!row.c) return;
+      const name = cell(row, iName).trim();
+      if(!name) return;
+      const existing = c.influencers.find(inf => inf.name.toLowerCase() === name.toLowerCase());
+      if(existing) {
+        if(iHandle>=0) existing.handle = cell(row,iHandle) || existing.handle;
+        if(iPlatform>=0) existing.platform = cell(row,iPlatform) || existing.platform;
+        if(iFormat>=0) existing.format = cell(row,iFormat) || existing.format;
+        if(iDate>=0) existing.publishDate = cell(row,iDate) || existing.publishDate;
+        if(iStatus>=0) existing.status = cell(row,iStatus) || existing.status;
+        if(iReach>=0) existing.reach = parseInt(cell(row,iReach))||existing.reach;
+        if(iImpr>=0) existing.impressions = parseInt(cell(row,iImpr))||existing.impressions;
+        if(iInter>=0) existing.interactions = parseInt(cell(row,iInter))||existing.interactions;
+        if(iEr>=0) existing.er = cell(row,iEr) || existing.er;
+        updated++;
+      } else {
+        c.influencers.push({
+          id: id(), name,
+          handle: cell(row,iHandle) || '',
+          platform: cell(row,iPlatform) || 'Instagram',
+          format: cell(row,iFormat) || 'Post',
+          publishDate: cell(row,iDate) || '',
+          status: cell(row,iStatus) || 'Pendiente',
+          reach: parseInt(cell(row,iReach))||0,
+          impressions: parseInt(cell(row,iImpr))||0,
+          interactions: parseInt(cell(row,iInter))||0,
+          er: cell(row,iEr) || '—'
+        });
+        added++;
+      }
+    });
+    c.sheetsUrl = url;
+    setData('campaigns', campaigns);
+    renderCampaignInfluencers(c);
+    showToast(`Sincronizado: ${added} nuevos, ${updated} actualizados`, 'success');
+  } catch(err) {
+    console.error('syncSheets error', err);
+    showToast('Error al leer el Sheet. Verifica que sea público (compartido → "Cualquier persona con el enlace").', 'error');
+  }
+}
+
 // === DOC URL HELPERS ===
 function detectDocTypeFromUrl(url) {
   if(!url) return 'Otro';
@@ -2697,13 +2837,18 @@ async function loginGoogle() {
   const errEl = document.getElementById('loginError');
   try {
     const provider = new firebase.auth.GoogleAuthProvider();
-    // Restrict to thinkydigital.com workspace at the picker level
     provider.setCustomParameters({hd:'thinkydigital.com'});
+    provider.addScope('https://www.googleapis.com/auth/calendar.readonly');
     const result = await auth.signInWithPopup(provider);
     if(!isAllowedEmail(result.user.email)) {
       await auth.signOut();
       errEl.textContent='Solo se permiten correos @thinkydigital.com';
       return;
+    }
+    // Store calendar token immediately so dashboard connects without extra step
+    if(result.credential && result.credential.accessToken) {
+      calendarAccessToken = result.credential.accessToken;
+      sessionStorage.setItem('gcalToken', calendarAccessToken);
     }
     // user profile is created/merged in onAuthStateChanged
   } catch(e) {
@@ -2807,15 +2952,185 @@ auth.onAuthStateChanged(async (user) => {
 
   populateCampaignSelects();
   renderDashboard();
+  // Load calendar if token already in session (returning user)
+  if(calendarAccessToken) loadCalendarEvents();
+  else renderCalendarWidget();
 });
 
 function isAdmin() { return currentUserProfile && currentUserProfile.role === 'admin'; }
+function isSubscribed(cid) {
+  if(isAdmin()) return true;
+  return (currentUserProfile.subscribedCampaigns || []).includes(cid);
+}
 function canSeeCampaign(c) {
   if(!c) return false;
   if(isAdmin()) return true;
   if(c.createdBy === currentUser.uid) return true;
   if(Array.isArray(c.assignedTo) && c.assignedTo.includes(currentUser.uid)) return true;
+  if(isSubscribed(c.id)) return true;
   return false;
+}
+async function toggleSubscribeCampaign(cid, e) {
+  e.stopPropagation();
+  if(isAdmin()) return;
+  const subs = currentUserProfile.subscribedCampaigns || [];
+  const alreadySub = subs.includes(cid);
+  const newSubs = alreadySub ? subs.filter(x=>x!==cid) : [...subs, cid];
+  currentUserProfile.subscribedCampaigns = newSubs;
+  try {
+    await db.collection('users').doc(currentUser.uid).update({subscribedCampaigns: newSubs});
+  } catch(e) { console.error('toggleSubscribe error', e); }
+  renderCampaignGrid();
+  if(currentPage==='dashboard') renderDashboard();
+  showToast(alreadySub ? 'Campaña removida de tu dashboard' : 'Campaña añadida a tu dashboard', 'success');
+}
+
+// ============================================================
+// GOOGLE CALENDAR
+// ============================================================
+let calendarEvents = [];
+let calendarAccessToken = sessionStorage.getItem('gcalToken') || null;
+let _calendarConnecting = false;
+
+function isGoogleUser() {
+  return currentUser && currentUser.providerData.some(p => p.providerId === 'google.com');
+}
+
+async function connectGoogleCalendar() {
+  if(_calendarConnecting) return;
+  _calendarConnecting = true;
+  const btn = document.querySelector('[onclick="connectGoogleCalendar()"]');
+  if(btn) { btn.disabled = true; btn.textContent = 'Conectando...'; }
+  try {
+    const provider = new firebase.auth.GoogleAuthProvider();
+    provider.addScope('https://www.googleapis.com/auth/calendar.readonly');
+    const result = await currentUser.reauthenticateWithPopup(provider);
+    calendarAccessToken = result.credential.accessToken;
+    sessionStorage.setItem('gcalToken', calendarAccessToken);
+    await loadCalendarEvents();
+  } catch(e) {
+    if(e.code !== 'auth/popup-closed-by-user') {
+      showToast('Error conectando calendario: ' + (traduceFirebaseError(e.code) || e.message), 'error');
+    }
+    renderCalendarWidget();
+  } finally {
+    _calendarConnecting = false;
+  }
+}
+
+async function loadCalendarEvents() {
+  if(!calendarAccessToken) { renderCalendarWidget(); return; }
+  const today = new Date();
+  const start = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0).toISOString();
+  const end   = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59).toISOString();
+  try {
+    const res = await fetch(
+      `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${encodeURIComponent(start)}&timeMax=${encodeURIComponent(end)}&singleEvents=true&orderBy=startTime&maxResults=25`,
+      { headers: { Authorization: `Bearer ${calendarAccessToken}` } }
+    );
+    if(res.status === 401) {
+      calendarAccessToken = null;
+      sessionStorage.removeItem('gcalToken');
+      renderCalendarWidget();
+      return;
+    }
+    const data = await res.json();
+    calendarEvents = (data.items || []).filter(e => e.status !== 'cancelled');
+    renderCalendarWidget();
+  } catch(e) {
+    console.error('Calendar fetch error', e);
+    renderCalendarWidget();
+  }
+}
+
+function renderCalendarWidget() {
+  const el = document.getElementById('calendarWidget');
+  if(!el) return;
+  if(!isGoogleUser()) { el.innerHTML = ''; return; }
+
+  if(!calendarAccessToken) {
+    el.innerHTML = `
+      <div class="cal-card">
+        <div class="cal-header">
+          <span class="card-title">📅 Llamadas de hoy</span>
+        </div>
+        <div class="cal-connect-empty">
+          <p>Conecta tu Google Calendar para ver las reuniones del día, descripciones y links de Meet directamente aquí.</p>
+          <button class="btn btn-primary" onclick="connectGoogleCalendar()">Conectar Google Calendar</button>
+        </div>
+      </div>`;
+    return;
+  }
+
+  const getMeetLink = (ev) => {
+    if(ev.hangoutLink) return ev.hangoutLink;
+    const ep = (ev.conferenceData?.entryPoints || []).find(p => p.entryPointType === 'video');
+    return ep?.uri || null;
+  };
+
+  const fmtTime = (dt) => {
+    if(!dt) return '';
+    if(dt.dateTime) return new Date(dt.dateTime).toLocaleTimeString('es-MX', {hour:'2-digit', minute:'2-digit'});
+    return 'Todo el día';
+  };
+
+  const fmtRange = (ev) => {
+    const s = fmtTime(ev.start), e = fmtTime(ev.end);
+    return (s && e && s !== 'Todo el día') ? `${s} – ${e}` : (s || 'Todo el día');
+  };
+
+  const total = calendarEvents.length;
+  const meetCount = calendarEvents.filter(e => getMeetLink(e)).length;
+  const summaryText = total === 0
+    ? 'Sin eventos hoy'
+    : `${total} evento${total !== 1 ? 's' : ''} hoy${meetCount > 0 ? ` · ${meetCount} con Google Meet` : ''}`;
+
+  const eventsHtml = total === 0
+    ? `<div class="cal-connect-empty" style="padding:12px 0"><p style="margin:0">¡Sin reuniones hoy! 🎉</p></div>`
+    : calendarEvents.map(ev => {
+        const meetLink = getMeetLink(ev);
+        const attendees = (ev.attendees || [])
+          .filter(a => !a.self)
+          .slice(0, 6)
+          .map(a => a.displayName || a.email)
+          .join(', ');
+        const organizer = ev.organizer?.displayName || ev.organizer?.email || '';
+        const rawDesc = ev.description || '';
+        const desc = rawDesc.replace(/<[^>]+>/g, '').replace(/&nbsp;/g,' ').trim().substring(0, 220);
+        const hasMeet = !!meetLink;
+
+        // Escape any quotes in meetLink for inline onclick
+        const safeLink = meetLink ? meetLink.replace(/'/g, "\\'") : '';
+
+        return `
+          <div class="cal-event ${hasMeet ? 'has-meet' : 'no-meet'}"
+               ${hasMeet ? `onclick="window.open('${safeLink}','_blank')"` : ''}>
+            <div class="cal-dot"></div>
+            <div class="cal-time">${fmtRange(ev)}</div>
+            <div class="cal-title">${ev.summary || '(Sin título)'}</div>
+            ${hasMeet ? '<span class="cal-meet-badge">Meet</span>' : ''}
+            <div class="cal-tooltip-box">
+              <div class="cal-tooltip-title">${ev.summary || 'Sin título'}</div>
+              <div class="cal-tooltip-row">🕐 ${fmtRange(ev)}</div>
+              ${organizer ? `<div class="cal-tooltip-row">👤 Organiza: ${organizer}</div>` : ''}
+              ${attendees ? `<div class="cal-tooltip-row">👥 ${attendees}</div>` : ''}
+              ${desc ? `<div class="cal-tooltip-row" style="margin-top:8px;border-top:1px solid rgba(255,255,255,.15);padding-top:8px;">${desc}</div>` : ''}
+              ${hasMeet ? `<div class="cal-tooltip-meet">→ Clic para abrir Google Meet</div>` : ''}
+            </div>
+          </div>`;
+      }).join('');
+
+  el.innerHTML = `
+    <div class="cal-card">
+      <div class="cal-header">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span class="card-title">📅 Llamadas de hoy</span>
+          <span class="cal-summary-count">${summaryText}</span>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="loadCalendarEvents()" title="Actualizar">↻</button>
+      </div>
+      <div class="cal-events">${eventsHtml}</div>
+    </div>`;
 }
 
 async function seedSampleData() {
