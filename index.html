@@ -59,6 +59,12 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
 .badge-icn svg { width:100%; height:100%; }
 .badge-lavender { background:var(--lavender-pale); color:#6a5a9a; }
 .badge-mint { background:var(--mint-pale); color:#3a7a5e; }
+.badge-area-Operaciones { background:var(--mint-pale); color:#3a7a5e; }
+.badge-area-Cuentas { background:var(--peach-pale); color:#b05a1a; }
+.badge-area-Creativo { background:var(--lavender-pale); color:#6a5a9a; }
+.badge-area-Data { background:var(--sky-pale); color:#2a6080; }
+.login-area-select { display:none; width:100%; padding:12px 16px; border:1.5px solid var(--border); border-radius:10px; font-family:'Quicksand',sans-serif; font-size:14px; background:var(--white); color:var(--text); margin-top:0; cursor:pointer; }
+.login-area-select:focus { outline:none; border-color:var(--pink-deep); }
 
 /* ============ ANIMATIONS ============ */
 @keyframes fadeUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
@@ -544,6 +550,13 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
 
     <div id="loginForm">
       <input type="text" class="login-input" id="loginNameInput" placeholder="Tu nombre" style="display:none;">
+      <select class="login-area-select" id="loginAreaInput">
+        <option value="">Selecciona tu área</option>
+        <option value="Operaciones">Operaciones</option>
+        <option value="Cuentas">Cuentas</option>
+        <option value="Creativo">Creativo</option>
+        <option value="Data">Data</option>
+      </select>
       <input type="email" class="login-input" id="loginEmail" placeholder="tu@email.com">
       <input type="password" class="login-input" id="loginPassword" placeholder="Contraseña">
       <button class="login-btn login-btn-primary" id="loginSubmitBtn" onclick="loginSubmit()">Entrar</button>
@@ -1083,8 +1096,22 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
     </div>
     <div class="form-row">
       <div class="form-group">
-        <label class="form-label">Responsable</label>
-        <input type="text" class="form-input" id="fCampResponsible" placeholder="Ej: Génesis">
+        <label class="form-label">Responsable Operaciones</label>
+        <select class="form-input" id="fCampRespOps"></select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Responsable Cuentas</label>
+        <select class="form-input" id="fCampRespCuentas"></select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Responsable Creativo</label>
+        <select class="form-input" id="fCampRespCreativo"></select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Responsable Data</label>
+        <select class="form-input" id="fCampRespData"></select>
       </div>
     </div>
     <div class="form-group">
@@ -1753,7 +1780,7 @@ function renderCampaignGrid() {
       <div class="campaign-meta">
         <span class="badge badge-lavender"><span class="badge-icn">${ICN_users}</span>${c.influencers.length} influencers</span>
         <span class="badge badge-mint"><span class="badge-icn">${ICN_calendar}</span>${c.season||'—'}</span>
-        ${c.responsible?`<span class="badge badge-pink">${c.responsible}</span>`:''}
+        ${(()=>{ const r=c.responsables||{}; return ['operaciones','cuentas','creativo','data'].map(k=>{ if(!r[k]) return ''; const u=allUsers.find(x=>x.uid===r[k]); return u?`<span class="badge badge-area-${u.area||k.charAt(0).toUpperCase()+k.slice(1)}">${u.name||u.email.split('@')[0]}</span>`:''; }).join(''); })()||''}
       </div>
       <div class="campaign-progress">
         <div class="progress-label"><span>Flujo</span><span>${pct}%</span></div>
@@ -1836,7 +1863,16 @@ function openCampaignDetail(cid) {
     <div class="info-field"><div class="info-label">Objetivo</div><div class="info-value">${c.objective||'—'}</div></div>
     <div class="info-field"><div class="info-label">Core Message</div><div class="info-value">${c.coreMessage||'—'}</div></div>
     ${budgetField}
-    <div class="info-field"><div class="info-label">Responsable</div><div class="info-value">${c.responsible||'—'}</div></div>
+    ${(()=>{
+      const r = c.responsables || {};
+      const areaLabel = {operaciones:'Operaciones', cuentas:'Cuentas', creativo:'Creativo', data:'Data'};
+      const areaColor = {operaciones:'badge-area-Operaciones', cuentas:'badge-area-Cuentas', creativo:'badge-area-Creativo', data:'badge-area-Data'};
+      return Object.entries(areaLabel).map(([key, label]) => {
+        const uid = r[key];
+        const content = uid ? userChip(uid) : `<span style="color:var(--text-muted);font-size:13px;">Sin asignar</span>`;
+        return `<div class="info-field"><div class="info-label"><span class="badge ${areaColor[key]}" style="font-size:10px;">${label}</span></div><div class="info-value">${content}</div></div>`;
+      }).join('');
+    })()}
     <div class="info-field"><div class="info-label">Fecha límite</div><div class="info-value">${formatDate(c.deadline)||'—'}</div></div>
     <div class="info-field"><div class="info-label">Status</div><div class="info-value">${statusBadge(c.status)}</div></div>
     <div class="info-field" style="grid-column:1/-1;">
@@ -2188,7 +2224,7 @@ async function generateText(scope) {
 
   const campaigns = getData('campaigns');
   const c = campaigns.find(x=>x.id===campId);
-  const campInfo = c ? `Campaña: ${c.name}, Cliente: ${c.client}, Objetivo: ${c.objective||'—'}, Core message: ${c.coreMessage||'—'}, Responsable: ${c.responsible||'—'}` : 'Sin campaña específica';
+  const campInfo = c ? `Campaña: ${c.name}, Cliente: ${c.client}, Objetivo: ${c.objective||'—'}, Core message: ${c.coreMessage||'—'}` : 'Sin campaña específica';
 
   const prompts = {
     'Follow up cliente': `Escribe un email corto y profesional de follow up para el cliente de esta campaña de influencer marketing. Tono: amable, ejecutivo, en español. ${campInfo}. Contexto adicional: ${ctx||'ninguno'}. Firma con el nombre del responsable.`,
@@ -2259,12 +2295,46 @@ function calcBudgetOps() {
     : `$${ops.toLocaleString('es-MX',{maximumFractionDigits:0})} MXN`;
 }
 
+const AREAS = ['Operaciones','Cuentas','Creativo','Data'];
+const AREA_IDS = {Operaciones:'fCampRespOps', Cuentas:'fCampRespCuentas', Creativo:'fCampRespCreativo', Data:'fCampRespData'};
+
+function populateCampResponsibles(responsables) {
+  responsables = responsables || {};
+  AREAS.forEach(area => {
+    const sel = document.getElementById(AREA_IDS[area]);
+    if(!sel) return;
+    // Show users of this area, plus users with no area set (backward compat)
+    const opts = allUsers.filter(u => !u.area || u.area === area);
+    sel.innerHTML = `<option value="">Sin asignar</option>` +
+      opts.map(u => `<option value="${u.uid}">${u.name || u.email.split('@')[0]}</option>`).join('');
+    sel.value = responsables[area.toLowerCase()] || '';
+  });
+}
+
+function areaBadge(area) {
+  if(!area) return '';
+  return `<span class="badge badge-area-${area}" style="font-size:10px;">${area}</span>`;
+}
+
+function userChip(uid, fallbackName) {
+  const u = allUsers.find(x => x.uid === uid);
+  if(!u && !fallbackName) return '';
+  const name = u ? (u.name || u.email.split('@')[0]) : fallbackName;
+  const initial = name[0]?.toUpperCase() || '?';
+  const area = u?.area || '';
+  return `<span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;background:var(--white);border:1px solid var(--border);border-radius:20px;padding:3px 10px 3px 4px;">
+    <span style="width:20px;height:20px;border-radius:50%;background:var(--pink-deep);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;">${initial}</span>
+    ${name}${area?` <span class="badge badge-area-${area}" style="font-size:9px;padding:1px 5px;">${area}</span>`:''}
+  </span>`;
+}
+
 function openNewCampaignModal() {
   editingCampaignId = null;
   document.getElementById('campaignModalTitle').textContent='Nueva campaña';
-  ['fCampName','fCampClient','fCampSeason','fCampObjective','fCampCore','fCampBudgetClient','fCampMargin','fCampResponsible','fCampDeadline'].forEach(id=>document.getElementById(id).value='');
+  ['fCampName','fCampClient','fCampSeason','fCampObjective','fCampCore','fCampBudgetClient','fCampMargin','fCampDeadline'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
   document.getElementById('fCampBudgetOpsResult').textContent='—';
   document.getElementById('fCampStatus').value='En proceso';
+  populateCampResponsibles({});
   applyBudgetVisibility();
   openModal('campaignModal');
 }
@@ -2288,7 +2358,7 @@ function openEditCampaignModal() {
   document.getElementById('fCampBudgetClient').value=c.budgetClient||'';
   document.getElementById('fCampMargin').value=c.budgetMargin||'';
   calcBudgetOps();
-  document.getElementById('fCampResponsible').value=c.responsible||'';
+  populateCampResponsibles(c.responsables||{});
   document.getElementById('fCampDeadline').value=c.deadline||'';
   applyBudgetVisibility();
   openModal('campaignModal');
@@ -2386,16 +2456,32 @@ function renderTeam() {
       <div style="width:36px;height:36px;border-radius:50%;background:var(--pink-deep);color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;">${(u.name||u.email)[0].toUpperCase()}</div>
       <div style="flex:1;">
         <div style="font-size:14px;font-weight:600;">${u.name||'—'} ${u.uid===currentUser.uid?'<span style="font-size:11px;color:var(--text-muted);">(tú)</span>':''}</div>
-        <div style="font-size:12px;color:var(--text-muted);">${u.email}</div>
+        <div style="font-size:12px;color:var(--text-muted);display:flex;align-items:center;gap:6px;margin-top:2px;">${u.email}${u.area?`<span class="badge badge-area-${u.area}" style="font-size:10px;">${u.area}</span>`:''}</div>
       </div>
       ${isAdmin() && u.uid !== currentUser.uid
-        ? `<select onchange="changeRole('${u.uid}',this.value)" style="padding:5px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:inherit;background:var(--white);cursor:pointer;">
-            <option value="member" ${u.role==='member'?'selected':''}>Miembro</option>
-            <option value="admin" ${u.role==='admin'?'selected':''}>Admin</option>
-          </select>`
+        ? `<div style="display:flex;gap:6px;align-items:center;">
+            <select onchange="changeArea('${u.uid}',this.value)" style="padding:5px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:inherit;background:var(--white);cursor:pointer;">
+              <option value="">Sin área</option>
+              ${AREAS.map(a=>`<option value="${a}" ${u.area===a?'selected':''}>${a}</option>`).join('')}
+            </select>
+            <select onchange="changeRole('${u.uid}',this.value)" style="padding:5px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:inherit;background:var(--white);cursor:pointer;">
+              <option value="member" ${u.role==='member'?'selected':''}>Miembro</option>
+              <option value="admin" ${u.role==='admin'?'selected':''}>Admin</option>
+            </select>
+          </div>`
         : `<span class="badge ${u.role==='admin'?'badge-pink':'badge-gray'}">${u.role==='admin'?'Admin':'Miembro'}</span>`
       }
     </div>`).join('') || '<div class="empty-state"><p>Sin miembros aún.</p></div>';
+}
+
+async function changeArea(uid, newArea) {
+  if(!isAdmin()) { showToast('Solo admin puede cambiar área','error'); return; }
+  try {
+    await db.collection('users').doc(uid).update({area: newArea});
+    const u = allUsers.find(x=>x.uid===uid);
+    if(u) u.area = newArea;
+    showToast('Área actualizada','success');
+  } catch(e) { showToast('Error: '+e.message,'error'); }
 }
 
 async function changeRole(uid, newRole) {
@@ -2425,7 +2511,12 @@ function saveCampaign() {
         coreMessage:document.getElementById('fCampCore').value,
         budgetClient:_bc, budgetMargin:_bm,
         budgetOps: _bc > 0 ? _bc - (_bc * _bm / 100) : 0,
-        responsible:document.getElementById('fCampResponsible').value,
+        responsables:{
+          operaciones: document.getElementById('fCampRespOps').value,
+          cuentas: document.getElementById('fCampRespCuentas').value,
+          creativo: document.getElementById('fCampRespCreativo').value,
+          data: document.getElementById('fCampRespData').value,
+        },
         deadline:document.getElementById('fCampDeadline').value,
       };
     }
@@ -2440,7 +2531,12 @@ function saveCampaign() {
       coreMessage:document.getElementById('fCampCore').value,
       budgetClient:_bc2, budgetMargin:_bm2,
       budgetOps: _bc2 > 0 ? _bc2 - (_bc2 * _bm2 / 100) : 0,
-      responsible:document.getElementById('fCampResponsible').value,
+      responsables:{
+        operaciones: document.getElementById('fCampRespOps').value,
+        cuentas: document.getElementById('fCampRespCuentas').value,
+        creativo: document.getElementById('fCampRespCreativo').value,
+        data: document.getElementById('fCampRespData').value,
+      },
       deadline:document.getElementById('fCampDeadline').value,
       createdBy: currentUser.uid,
       assignedTo: [currentUser.uid],
@@ -2925,6 +3021,7 @@ let isSignupMode = false;
 function toggleAuthMode() {
   isSignupMode = !isSignupMode;
   document.getElementById('loginNameInput').style.display = isSignupMode ? 'block' : 'none';
+  document.getElementById('loginAreaInput').style.display = isSignupMode ? 'block' : 'none';
   document.getElementById('loginTitle').textContent = isSignupMode ? 'Crea tu cuenta' : 'Inicia sesión para continuar';
   document.getElementById('loginSubmitBtn').textContent = isSignupMode ? 'Crear cuenta' : 'Entrar';
   document.getElementById('loginToggle').innerHTML = isSignupMode
@@ -2941,11 +3038,15 @@ async function loginSubmit() {
   errEl.textContent='';
   if(!email || !pw) { errEl.textContent='Email y contraseña requeridos'; return; }
   if(!isAllowedEmail(email)) { errEl.textContent='Solo se permiten correos @thinkydigital.com'; return; }
+  const area = document.getElementById('loginAreaInput').value;
   if(isSignupMode && !name) { errEl.textContent='Ingresa tu nombre'; return; }
+  if(isSignupMode && !area) { errEl.textContent='Selecciona tu área'; return; }
   try {
     if(isSignupMode) {
       const cred = await auth.createUserWithEmailAndPassword(email, pw);
       await cred.user.updateProfile({displayName: name});
+      // store area temporarily so onAuthStateChanged can pick it up
+      window._pendingArea = area;
       // user profile created in onAuthStateChanged
     } else {
       await auth.signInWithEmailAndPassword(email, pw);
@@ -3024,9 +3125,11 @@ auth.onAuthStateChanged(async (user) => {
       name: user.displayName || user.email.split('@')[0],
       email: user.email,
       role: INITIAL_ADMINS.includes(user.email.toLowerCase()) ? 'admin' : 'member',
+      area: window._pendingArea || '',
       photoURL: user.photoURL || null,
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     };
+    window._pendingArea = null;
     await userDocRef.set(currentUserProfile);
   } else {
     currentUserProfile = {uid: user.uid, ...userSnap.data()};
