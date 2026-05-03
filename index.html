@@ -457,6 +457,28 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
 .toast.success { background:#15803d; }
 .toast.error { background:var(--red); }
 
+/* GOOGLE CALENDAR WIDGET */
+.cal-card { background:var(--white); border-radius:var(--radius); padding:20px 24px; box-shadow:var(--shadow); border:1px solid var(--border); margin-bottom:20px; }
+.cal-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; }
+.cal-summary-count { font-family:'Fraunces',serif; font-size:18px; font-weight:400; color:var(--text); margin-left:10px; }
+.cal-events { display:flex; flex-direction:column; gap:6px; }
+.cal-event { display:flex; align-items:center; gap:12px; padding:10px 14px; border-radius:10px; border:1px solid var(--border); cursor:pointer; transition:all .2s var(--ease); position:relative; }
+.cal-event:hover { border-color:var(--pink); background:var(--pink-pale); box-shadow:var(--shadow); z-index:10; }
+.cal-event.no-meet { cursor:default; }
+.cal-event.no-meet:hover { border-color:var(--sky); background:var(--sky-pale); box-shadow:none; }
+.cal-time { font-size:11px; font-weight:700; color:var(--pink-deep); min-width:90px; letter-spacing:.3px; }
+.cal-title { font-size:13px; font-weight:600; flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.cal-meet-badge { font-size:10px; font-weight:700; padding:2px 8px; border-radius:20px; background:#1a73e8; color:#fff; white-space:nowrap; flex-shrink:0; }
+.cal-tooltip-box { display:none; position:absolute; left:0; bottom:calc(100% + 8px); z-index:600; background:var(--text); color:#fff; border-radius:12px; padding:14px 16px; min-width:260px; max-width:400px; font-size:12px; line-height:1.6; box-shadow:var(--shadow-lg); pointer-events:none; }
+.cal-event:hover .cal-tooltip-box { display:block; }
+.cal-tooltip-title { font-weight:700; font-size:13px; margin-bottom:8px; color:#fff; }
+.cal-tooltip-row { color:rgba(255,255,255,.75); margin-top:3px; }
+.cal-tooltip-meet { color:#86efac; font-weight:600; margin-top:10px; }
+.cal-connect-empty { text-align:center; padding:24px; color:var(--text-muted); font-size:13px; }
+.cal-connect-empty p { margin-bottom:14px; line-height:1.5; }
+.cal-dot { width:8px; height:8px; border-radius:50%; background:var(--lavender); flex-shrink:0; }
+.cal-event.has-meet .cal-dot { background:#1a73e8; }
+
 /* INFLUENCER ADD ROW */
 .inf-add-row {
   display:grid; grid-template-columns:1fr 1fr 1fr 1fr auto; gap:8px; align-items:end; margin-bottom:8px;
@@ -628,6 +650,9 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
           <div class="stat-sub">Esta semana</div>
         </div>
       </div>
+
+      <!-- GOOGLE CALENDAR WIDGET -->
+      <div id="calendarWidget"></div>
 
       <div class="grid-main-side">
         <!-- TODAY TASKS -->
@@ -1677,6 +1702,7 @@ function renderDashboard() {
       <span class="doc-date">${formatDateShort(d.date)}</span>
     </div>`).join('') || '<div class="empty-state"><p>Sin documentos.</p></div>';
 
+  renderCalendarWidget();
   populateCampaignSelects();
 }
 
@@ -2811,13 +2837,18 @@ async function loginGoogle() {
   const errEl = document.getElementById('loginError');
   try {
     const provider = new firebase.auth.GoogleAuthProvider();
-    // Restrict to thinkydigital.com workspace at the picker level
     provider.setCustomParameters({hd:'thinkydigital.com'});
+    provider.addScope('https://www.googleapis.com/auth/calendar.readonly');
     const result = await auth.signInWithPopup(provider);
     if(!isAllowedEmail(result.user.email)) {
       await auth.signOut();
       errEl.textContent='Solo se permiten correos @thinkydigital.com';
       return;
+    }
+    // Store calendar token immediately so dashboard connects without extra step
+    if(result.credential && result.credential.accessToken) {
+      calendarAccessToken = result.credential.accessToken;
+      sessionStorage.setItem('gcalToken', calendarAccessToken);
     }
     // user profile is created/merged in onAuthStateChanged
   } catch(e) {
@@ -2921,6 +2952,9 @@ auth.onAuthStateChanged(async (user) => {
 
   populateCampaignSelects();
   renderDashboard();
+  // Load calendar if token already in session (returning user)
+  if(calendarAccessToken) loadCalendarEvents();
+  else renderCalendarWidget();
 });
 
 function isAdmin() { return currentUserProfile && currentUserProfile.role === 'admin'; }
@@ -2949,6 +2983,154 @@ async function toggleSubscribeCampaign(cid, e) {
   renderCampaignGrid();
   if(currentPage==='dashboard') renderDashboard();
   showToast(alreadySub ? 'Campaña removida de tu dashboard' : 'Campaña añadida a tu dashboard', 'success');
+}
+
+// ============================================================
+// GOOGLE CALENDAR
+// ============================================================
+let calendarEvents = [];
+let calendarAccessToken = sessionStorage.getItem('gcalToken') || null;
+let _calendarConnecting = false;
+
+function isGoogleUser() {
+  return currentUser && currentUser.providerData.some(p => p.providerId === 'google.com');
+}
+
+async function connectGoogleCalendar() {
+  if(_calendarConnecting) return;
+  _calendarConnecting = true;
+  const btn = document.querySelector('[onclick="connectGoogleCalendar()"]');
+  if(btn) { btn.disabled = true; btn.textContent = 'Conectando...'; }
+  try {
+    const provider = new firebase.auth.GoogleAuthProvider();
+    provider.addScope('https://www.googleapis.com/auth/calendar.readonly');
+    const result = await currentUser.reauthenticateWithPopup(provider);
+    calendarAccessToken = result.credential.accessToken;
+    sessionStorage.setItem('gcalToken', calendarAccessToken);
+    await loadCalendarEvents();
+  } catch(e) {
+    if(e.code !== 'auth/popup-closed-by-user') {
+      showToast('Error conectando calendario: ' + (traduceFirebaseError(e.code) || e.message), 'error');
+    }
+    renderCalendarWidget();
+  } finally {
+    _calendarConnecting = false;
+  }
+}
+
+async function loadCalendarEvents() {
+  if(!calendarAccessToken) { renderCalendarWidget(); return; }
+  const today = new Date();
+  const start = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0).toISOString();
+  const end   = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59).toISOString();
+  try {
+    const res = await fetch(
+      `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${encodeURIComponent(start)}&timeMax=${encodeURIComponent(end)}&singleEvents=true&orderBy=startTime&maxResults=25`,
+      { headers: { Authorization: `Bearer ${calendarAccessToken}` } }
+    );
+    if(res.status === 401) {
+      calendarAccessToken = null;
+      sessionStorage.removeItem('gcalToken');
+      renderCalendarWidget();
+      return;
+    }
+    const data = await res.json();
+    calendarEvents = (data.items || []).filter(e => e.status !== 'cancelled');
+    renderCalendarWidget();
+  } catch(e) {
+    console.error('Calendar fetch error', e);
+    renderCalendarWidget();
+  }
+}
+
+function renderCalendarWidget() {
+  const el = document.getElementById('calendarWidget');
+  if(!el) return;
+  if(!isGoogleUser()) { el.innerHTML = ''; return; }
+
+  if(!calendarAccessToken) {
+    el.innerHTML = `
+      <div class="cal-card">
+        <div class="cal-header">
+          <span class="card-title">📅 Llamadas de hoy</span>
+        </div>
+        <div class="cal-connect-empty">
+          <p>Conecta tu Google Calendar para ver las reuniones del día, descripciones y links de Meet directamente aquí.</p>
+          <button class="btn btn-primary" onclick="connectGoogleCalendar()">Conectar Google Calendar</button>
+        </div>
+      </div>`;
+    return;
+  }
+
+  const getMeetLink = (ev) => {
+    if(ev.hangoutLink) return ev.hangoutLink;
+    const ep = (ev.conferenceData?.entryPoints || []).find(p => p.entryPointType === 'video');
+    return ep?.uri || null;
+  };
+
+  const fmtTime = (dt) => {
+    if(!dt) return '';
+    if(dt.dateTime) return new Date(dt.dateTime).toLocaleTimeString('es-MX', {hour:'2-digit', minute:'2-digit'});
+    return 'Todo el día';
+  };
+
+  const fmtRange = (ev) => {
+    const s = fmtTime(ev.start), e = fmtTime(ev.end);
+    return (s && e && s !== 'Todo el día') ? `${s} – ${e}` : (s || 'Todo el día');
+  };
+
+  const total = calendarEvents.length;
+  const meetCount = calendarEvents.filter(e => getMeetLink(e)).length;
+  const summaryText = total === 0
+    ? 'Sin eventos hoy'
+    : `${total} evento${total !== 1 ? 's' : ''} hoy${meetCount > 0 ? ` · ${meetCount} con Google Meet` : ''}`;
+
+  const eventsHtml = total === 0
+    ? `<div class="cal-connect-empty" style="padding:12px 0"><p style="margin:0">¡Sin reuniones hoy! 🎉</p></div>`
+    : calendarEvents.map(ev => {
+        const meetLink = getMeetLink(ev);
+        const attendees = (ev.attendees || [])
+          .filter(a => !a.self)
+          .slice(0, 6)
+          .map(a => a.displayName || a.email)
+          .join(', ');
+        const organizer = ev.organizer?.displayName || ev.organizer?.email || '';
+        const rawDesc = ev.description || '';
+        const desc = rawDesc.replace(/<[^>]+>/g, '').replace(/&nbsp;/g,' ').trim().substring(0, 220);
+        const hasMeet = !!meetLink;
+
+        // Escape any quotes in meetLink for inline onclick
+        const safeLink = meetLink ? meetLink.replace(/'/g, "\\'") : '';
+
+        return `
+          <div class="cal-event ${hasMeet ? 'has-meet' : 'no-meet'}"
+               ${hasMeet ? `onclick="window.open('${safeLink}','_blank')"` : ''}>
+            <div class="cal-dot"></div>
+            <div class="cal-time">${fmtRange(ev)}</div>
+            <div class="cal-title">${ev.summary || '(Sin título)'}</div>
+            ${hasMeet ? '<span class="cal-meet-badge">Meet</span>' : ''}
+            <div class="cal-tooltip-box">
+              <div class="cal-tooltip-title">${ev.summary || 'Sin título'}</div>
+              <div class="cal-tooltip-row">🕐 ${fmtRange(ev)}</div>
+              ${organizer ? `<div class="cal-tooltip-row">👤 Organiza: ${organizer}</div>` : ''}
+              ${attendees ? `<div class="cal-tooltip-row">👥 ${attendees}</div>` : ''}
+              ${desc ? `<div class="cal-tooltip-row" style="margin-top:8px;border-top:1px solid rgba(255,255,255,.15);padding-top:8px;">${desc}</div>` : ''}
+              ${hasMeet ? `<div class="cal-tooltip-meet">→ Clic para abrir Google Meet</div>` : ''}
+            </div>
+          </div>`;
+      }).join('');
+
+  el.innerHTML = `
+    <div class="cal-card">
+      <div class="cal-header">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span class="card-title">📅 Llamadas de hoy</span>
+          <span class="cal-summary-count">${summaryText}</span>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="loadCalendarEvents()" title="Actualizar">↻</button>
+      </div>
+      <div class="cal-events">${eventsHtml}</div>
+    </div>`;
 }
 
 async function seedSampleData() {
