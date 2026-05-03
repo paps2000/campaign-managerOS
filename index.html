@@ -1062,11 +1062,26 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
       <label class="form-label">Core message</label>
       <input type="text" class="form-input" id="fCampCore" placeholder="Ej: Vive la pasión">
     </div>
-    <div class="form-row">
-      <div class="form-group" id="fCampBudgetGroup">
-        <label class="form-label">Presupuesto 🔒</label>
-        <input type="text" class="form-input" id="fCampBudget" placeholder="Ej: $250,000 MXN">
+    <div id="fCampBudgetGroup">
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Presupuesto cliente 🔒</label>
+          <input type="number" class="form-input" id="fCampBudgetClient" placeholder="Ej: 1000000" oninput="calcBudgetOps()" min="0">
+        </div>
+        <div class="form-group">
+          <label class="form-label">% de ganancia 🔒</label>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <input type="number" class="form-input" id="fCampMargin" placeholder="Ej: 35" min="0" max="100" oninput="calcBudgetOps()">
+            <span style="font-size:14px;color:var(--text-muted);flex-shrink:0;">%</span>
+          </div>
+        </div>
       </div>
+      <div class="form-group">
+        <label class="form-label">Total para operaciones 🔒</label>
+        <div id="fCampBudgetOpsResult" style="padding:10px 14px;background:var(--mint-pale);border-radius:10px;font-size:13px;font-weight:600;color:#3a7a5e;min-height:40px;display:flex;align-items:center;">—</div>
+      </div>
+    </div>
+    <div class="form-row">
       <div class="form-group">
         <label class="form-label">Responsable</label>
         <input type="text" class="form-input" id="fCampResponsible" placeholder="Ej: Génesis">
@@ -1777,9 +1792,29 @@ function openCampaignDetail(cid) {
   document.getElementById('detailCampaignSub').textContent = `${c.client} · ${c.season||''}`;
 
   // Info grid — budget only visible to admin
-  const budgetField = isAdmin()
-    ? `<div class="info-field"><div class="info-label">Presupuesto</div><div class="info-value">${c.budget||'—'}</div></div>`
-    : `<div class="info-field"><div class="info-label">Presupuesto</div><div class="info-value" style="color:var(--text-muted);font-style:italic;">🔒 Solo admin</div></div>`;
+  const fmtMXN = (n) => n > 0 ? `$${Number(n).toLocaleString('es-MX',{maximumFractionDigits:0})} MXN` : '—';
+  const budgetField = isAdmin() ? (() => {
+    const bc = c.budgetClient || 0;
+    const bm = c.budgetMargin || 0;
+    const ops = bc > 0 ? bc - (bc * bm / 100) : 0;
+    const ganancia = bc - ops;
+    // fallback for old single-budget campaigns
+    if(!bc && c.budget) return `<div class="info-field"><div class="info-label">Presupuesto</div><div class="info-value">${c.budget}</div></div>`;
+    return `
+      <div class="info-field">
+        <div class="info-label">Presupuesto cliente</div>
+        <div class="info-value">${fmtMXN(bc)}</div>
+      </div>
+      <div class="info-field">
+        <div class="info-label">% de ganancia</div>
+        <div class="info-value">${bm > 0 ? bm+'%' : '—'}</div>
+      </div>
+      <div class="info-field" style="background:var(--mint-pale);border-radius:10px;padding:10px 14px;">
+        <div class="info-label" style="color:#3a7a5e;">Presupuesto operaciones</div>
+        <div class="info-value" style="color:#3a7a5e;font-weight:700;">${fmtMXN(ops)}${ganancia>0?` <span style="font-size:11px;color:var(--text-muted);font-weight:400;">(ganancia ${fmtMXN(ganancia)})</span>`:''}</div>
+      </div>`;
+  })()
+  : `<div class="info-field"><div class="info-label">Presupuesto</div><div class="info-value" style="color:var(--text-muted);font-style:italic;">🔒 Solo admin</div></div>`;
 
   // Assignees list
   const assignedUids = Array.isArray(c.assignedTo) ? c.assignedTo : [];
@@ -2188,10 +2223,24 @@ function applyBudgetVisibility() {
   if(grp) grp.style.display = isAdmin() ? '' : 'none';
 }
 
+function calcBudgetOps() {
+  const client = parseFloat(document.getElementById('fCampBudgetClient').value) || 0;
+  const margin = parseFloat(document.getElementById('fCampMargin').value) || 0;
+  const el = document.getElementById('fCampBudgetOpsResult');
+  if(!el) return;
+  if(client <= 0) { el.textContent = '—'; return; }
+  const ganancia = client * (margin / 100);
+  const ops = client - ganancia;
+  el.textContent = margin > 0
+    ? `$${ops.toLocaleString('es-MX',{maximumFractionDigits:0})} MXN  (Cliente $${client.toLocaleString('es-MX',{maximumFractionDigits:0})} − ${margin}% = $${ganancia.toLocaleString('es-MX',{maximumFractionDigits:0})} ganancia)`
+    : `$${ops.toLocaleString('es-MX',{maximumFractionDigits:0})} MXN`;
+}
+
 function openNewCampaignModal() {
   editingCampaignId = null;
   document.getElementById('campaignModalTitle').textContent='Nueva campaña';
-  ['fCampName','fCampClient','fCampSeason','fCampObjective','fCampCore','fCampBudget','fCampResponsible','fCampDeadline'].forEach(id=>document.getElementById(id).value='');
+  ['fCampName','fCampClient','fCampSeason','fCampObjective','fCampCore','fCampBudgetClient','fCampMargin','fCampResponsible','fCampDeadline'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('fCampBudgetOpsResult').textContent='—';
   document.getElementById('fCampStatus').value='En proceso';
   applyBudgetVisibility();
   openModal('campaignModal');
@@ -2213,7 +2262,9 @@ function openEditCampaignModal() {
   document.getElementById('fCampStatus').value=c.status||'En proceso';
   document.getElementById('fCampObjective').value=c.objective||'';
   document.getElementById('fCampCore').value=c.coreMessage||'';
-  document.getElementById('fCampBudget').value=c.budget||'';
+  document.getElementById('fCampBudgetClient').value=c.budgetClient||'';
+  document.getElementById('fCampMargin').value=c.budgetMargin||'';
+  calcBudgetOps();
   document.getElementById('fCampResponsible').value=c.responsible||'';
   document.getElementById('fCampDeadline').value=c.deadline||'';
   applyBudgetVisibility();
@@ -2228,32 +2279,59 @@ function openAssignModal() {
   if(!isAdmin() && c.createdBy !== currentUser.uid) {
     showToast('Solo el creador o admin puede asignar','error'); return;
   }
-  const assigned = new Set(Array.isArray(c.assignedTo) ? c.assignedTo : []);
-  const list = document.getElementById('assignList');
-  list.innerHTML = allUsers.map(u => `
-    <label style="display:flex;align-items:center;gap:10px;padding:10px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;cursor:pointer;">
-      <input type="checkbox" data-uid="${u.uid}" ${assigned.has(u.uid)?'checked':''} ${u.uid===c.createdBy?'disabled':''} style="width:16px;height:16px;cursor:pointer;">
-      <div style="width:32px;height:32px;border-radius:50%;background:var(--lavender);color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;">${(u.name||u.email)[0].toUpperCase()}</div>
-      <div style="flex:1;">
-        <div style="font-size:13px;font-weight:600;">${u.name||'—'} ${u.uid===c.createdBy?'<span style="font-size:10px;color:var(--text-muted);">(creador)</span>':''}</div>
-        <div style="font-size:11px;color:var(--text-muted);">${u.email}</div>
-      </div>
-      <span class="badge ${u.role==='admin'?'badge-pink':'badge-gray'}">${u.role==='admin'?'Admin':'Miembro'}</span>
-    </label>`).join('') || '<div class="empty-state"><p>No hay usuarios registrados todavía.</p></div>';
+  _renderAssignModal(c);
   openModal('assignModal');
+}
+
+function _renderAssignModal(c) {
+  const assigned = new Set(Array.isArray(c.assignedTo) ? c.assignedTo : []);
+  const current = allUsers.filter(u => assigned.has(u.uid));
+  const available = allUsers.filter(u => !assigned.has(u.uid));
+  const avatar = (u) => `<div style="width:30px;height:30px;border-radius:50%;background:var(--lavender);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;">${(u.name||u.email)[0].toUpperCase()}</div>`;
+  const currentHtml = current.length === 0
+    ? '<p style="font-size:12px;color:var(--text-muted);padding:8px 0;">Sin participantes asignados.</p>'
+    : current.map(u => `
+      <div style="display:flex;align-items:center;gap:10px;padding:9px 12px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;background:var(--lavender-pale);">
+        ${avatar(u)}
+        <div style="flex:1;">
+          <div style="font-size:13px;font-weight:600;">${u.name||'—'} ${u.uid===c.createdBy?'<span style="font-size:10px;color:var(--text-muted);">(creador)</span>':''}</div>
+          <div style="font-size:11px;color:var(--text-muted);">${u.email}</div>
+        </div>
+        <span class="badge ${u.role==='admin'?'badge-pink':'badge-gray'}">${u.role==='admin'?'Admin':'Miembro'}</span>
+        ${u.uid !== c.createdBy ? `<button onclick="removeAssignee('${c.id}','${u.uid}');_renderAssignModal(_cache.campaigns.find(x=>x.id==='${c.id}'))" style="background:var(--red);border:none;cursor:pointer;color:#fff;font-size:11px;font-weight:700;padding:4px 10px;border-radius:6px;flex-shrink:0;">Eliminar</button>` : ''}
+      </div>`).join('');
+  const availableHtml = available.length === 0
+    ? '<p style="font-size:12px;color:var(--text-muted);padding:8px 0;">Todos los usuarios ya están asignados.</p>'
+    : available.map(u => `
+      <label style="display:flex;align-items:center;gap:10px;padding:9px 12px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;cursor:pointer;">
+        <input type="checkbox" data-uid="${u.uid}" style="width:16px;height:16px;cursor:pointer;">
+        ${avatar(u)}
+        <div style="flex:1;">
+          <div style="font-size:13px;font-weight:600;">${u.name||'—'}</div>
+          <div style="font-size:11px;color:var(--text-muted);">${u.email}</div>
+        </div>
+        <span class="badge ${u.role==='admin'?'badge-pink':'badge-gray'}">${u.role==='admin'?'Admin':'Miembro'}</span>
+      </label>`).join('');
+  document.getElementById('assignList').innerHTML = `
+    <p style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Participantes actuales</p>
+    ${currentHtml}
+    <p style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin:14px 0 8px;">Agregar participantes</p>
+    ${availableHtml}`;
 }
 
 function saveAssignees() {
   if(!currentCampaignId) return;
-  const checks = document.querySelectorAll('#assignList input[type="checkbox"]');
-  const newAssignees = Array.from(checks).filter(c=>c.checked).map(c=>c.dataset.uid);
   const campaigns = getData('campaigns');
   const idx = campaigns.findIndex(x=>x.id===currentCampaignId);
   if(idx===-1) return;
-  // Always include creator
-  const creator = campaigns[idx].createdBy;
-  if(creator && !newAssignees.includes(creator)) newAssignees.push(creator);
-  campaigns[idx] = {...campaigns[idx], assignedTo: newAssignees};
+  const c = campaigns[idx];
+  // Start with currently assigned (already persisted by removeAssignee calls)
+  const current = new Set(Array.isArray(c.assignedTo) ? c.assignedTo : []);
+  // Add newly checked users from the "agregar" section
+  document.querySelectorAll('#assignList input[type="checkbox"]:checked').forEach(cb => current.add(cb.dataset.uid));
+  // Always keep creator
+  if(c.createdBy) current.add(c.createdBy);
+  campaigns[idx] = {...c, assignedTo: [...current]};
   setData('campaigns', campaigns);
   closeModal('assignModal');
   showToast('Participantes actualizados','success');
@@ -2314,25 +2392,31 @@ function saveCampaign() {
   if(editingCampaignId) {
     const idx = campaigns.findIndex(x=>x.id===editingCampaignId);
     if(idx!==-1) {
+      const _bc = parseFloat(document.getElementById('fCampBudgetClient').value)||0;
+      const _bm = parseFloat(document.getElementById('fCampMargin').value)||0;
       campaigns[idx] = {...campaigns[idx],
         name, client:document.getElementById('fCampClient').value,
         season:document.getElementById('fCampSeason').value,
         status:document.getElementById('fCampStatus').value,
         objective:document.getElementById('fCampObjective').value,
         coreMessage:document.getElementById('fCampCore').value,
-        budget:document.getElementById('fCampBudget').value,
+        budgetClient:_bc, budgetMargin:_bm,
+        budgetOps: _bc > 0 ? _bc - (_bc * _bm / 100) : 0,
         responsible:document.getElementById('fCampResponsible').value,
         deadline:document.getElementById('fCampDeadline').value,
       };
     }
   } else {
+    const _bc2 = parseFloat(document.getElementById('fCampBudgetClient').value)||0;
+    const _bm2 = parseFloat(document.getElementById('fCampMargin').value)||0;
     campaigns.push({
       id:id(), name, client:document.getElementById('fCampClient').value,
       season:document.getElementById('fCampSeason').value,
       status:document.getElementById('fCampStatus').value,
       objective:document.getElementById('fCampObjective').value,
       coreMessage:document.getElementById('fCampCore').value,
-      budget:document.getElementById('fCampBudget').value,
+      budgetClient:_bc2, budgetMargin:_bm2,
+      budgetOps: _bc2 > 0 ? _bc2 - (_bc2 * _bm2 / 100) : 0,
       responsible:document.getElementById('fCampResponsible').value,
       deadline:document.getElementById('fCampDeadline').value,
       createdBy: currentUser.uid,
