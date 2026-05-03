@@ -1129,8 +1129,8 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
         <input type="date" class="form-input" id="fTaskDate">
       </div>
       <div class="form-group">
-        <label class="form-label">Responsable</label>
-        <input type="text" class="form-input" id="fTaskAssignee" placeholder="Ej: Génesis">
+        <label class="form-label">Asignar a</label>
+        <select class="form-input" id="fTaskAssignee"></select>
       </div>
     </div>
     <div class="modal-footer">
@@ -1610,8 +1610,10 @@ function renderDashboard() {
   const allTasks = [...globalTasks];
   campaigns.forEach(c => c.tasks.forEach(t => allTasks.push({...t, campaignName:c.name, campaignId:c.id})));
 
-  const todayTasks = allTasks.filter(t => !t.done && t.dueDate === today);
-  const urgentTasks = allTasks.filter(t => !t.done && t.priority==='high');
+  // Only show tasks assigned to current user (or legacy tasks with no UID)
+  const myTasks = allTasks.filter(t => !t.assigneeUid || t.assigneeUid === currentUser.uid);
+  const todayTasks = myTasks.filter(t => !t.done && t.dueDate === today);
+  const urgentTasks = myTasks.filter(t => !t.done && t.priority==='high');
   const activeCampaigns = campaigns.filter(c => !['Completado'].includes(c.status));
 
   // Upcoming pubs this week
@@ -1631,7 +1633,7 @@ function renderDashboard() {
   document.getElementById('statToday').textContent = todayTasks.length;
   document.getElementById('statUrgent').textContent = urgentTasks.length;
   document.getElementById('statPubs').textContent = upcomingPubs.length;
-  document.getElementById('pendientesBadge').textContent = allTasks.filter(t=>!t.done).length;
+  document.getElementById('pendientesBadge').textContent = myTasks.filter(t=>!t.done).length;
 
   // Today tasks
   const ttl = document.getElementById('todayTasksList');
@@ -1954,9 +1956,12 @@ function renderPendientes() {
   const allTasks = [...globalTasks.map(t=>({...t,source:'global'}))];
   campaigns.forEach(c=>c.tasks.forEach(t=>allTasks.push({...t,campaignId:c.id,campaignName:c.name,source:'campaign'})));
 
-  let filtered = allTasks;
-  if(currentFilter==='hoy') filtered = allTasks.filter(t=>t.dueDate===today);
-  else if(currentFilter==='semana') filtered = allTasks.filter(t=>t.dueDate>=today&&t.dueDate<=weekEndStr);
+  // Only tasks assigned to current user (or legacy tasks with no UID)
+  const myTasks = allTasks.filter(t => !t.assigneeUid || t.assigneeUid === currentUser.uid);
+
+  let filtered = myTasks;
+  if(currentFilter==='hoy') filtered = myTasks.filter(t=>t.dueDate===today);
+  else if(currentFilter==='semana') filtered = myTasks.filter(t=>t.dueDate>=today&&t.dueDate<=weekEndStr);
 
   filtered.sort((a,b)=>{
     const p={high:0,medium:1,low:2};
@@ -1964,9 +1969,25 @@ function renderPendientes() {
     return (p[a.priority]||1)-(p[b.priority]||1);
   });
 
+  const prioBadge = (p) => {
+    const map = {high:['#fee2e2','#991b1b','Alta'], medium:['#fef9c3','#854d0e','Media'], low:['#dcfce7','#15803d','Baja']};
+    const [bg,col,lbl] = map[p]||map.medium;
+    return `<span style="font-size:11px;padding:2px 8px;border-radius:10px;background:${bg};color:${col};flex-shrink:0;">${lbl}</span>`;
+  };
+  const assigneeChip = (t) => {
+    if(!t.assignee && !t.assigneeUid) return '';
+    const u = allUsers.find(x=>x.uid===t.assigneeUid);
+    const name = u ? (u.name||u.email.split('@')[0]) : (t.assignee||'');
+    const initials = name[0]?.toUpperCase()||'?';
+    return `<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;background:var(--lavender-pale);color:#6a5a9a;border-radius:20px;padding:2px 8px 2px 4px;">
+      <span style="width:16px;height:16px;border-radius:50%;background:var(--lavender);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;">${initials}</span>
+      ${name}</span>`;
+  };
+
   const el = document.getElementById('allTasksList');
   if(filtered.length===0) {
     el.innerHTML=`<div class="empty-state"><div class="empty-icon">${ICN_check}</div><p>¡Sin tareas para este período!</p></div>`;
+    document.getElementById('pendientesBadge').textContent = myTasks.filter(t=>!t.done).length;
     return;
   }
   el.innerHTML = filtered.map(t=>`
@@ -1975,15 +1996,17 @@ function renderPendientes() {
       <div class="priority-dot priority-${t.priority}"></div>
       <div class="task-info">
         <div class="task-title ${t.done?'done-text':''}">${t.title}</div>
-        <div class="task-meta">
-          ${t.campaignName?`<a onclick="openCampaignDetail('${t.campaignId}')" style="color:var(--pink);cursor:pointer;font-weight:600">${t.campaignName}</a> · `:''}
-          ${t.assignee||''} · ${formatDate(t.dueDate)||'Sin fecha'}
+        <div class="task-meta" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+          ${t.campaignName?`<a onclick="openCampaignDetail('${t.campaignId}')" style="color:var(--pink);cursor:pointer;font-weight:600">${t.campaignName}</a>`:''}
+          ${t.campaignName?'·':''}
+          ${assigneeChip(t)}
+          <span>${formatDate(t.dueDate)||'Sin fecha'}</span>
         </div>
       </div>
-      <span style="font-size:11px;padding:2px 8px;border-radius:10px;background:${t.priority==='high'?'#fee2e2':t.priority==='medium'?'#fef9c3':'#dcfce7'};color:${t.priority==='high'?'#991b1b':t.priority==='medium'?'#854d0e':'#15803d'}">${t.priority==='high'?'Alta':t.priority==='medium'?'Media':'Baja'}</span>
+      ${prioBadge(t.priority)}
       <button onclick="deleteTask('${t.id}','${t.campaignId||''}')" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:12px;padding:4px;"><span class="icn-close"></span></button>
     </div>`).join('');
-  document.getElementById('pendientesBadge').textContent = allTasks.filter(t=>!t.done).length;
+  document.getElementById('pendientesBadge').textContent = myTasks.filter(t=>!t.done).length;
 }
 
 function toggleTask(tid, cid) {
@@ -2433,12 +2456,21 @@ function saveCampaign() {
   populateCampaignSelects();
 }
 
+function populateTaskAssigneeSelect(defaultUid) {
+  const sel = document.getElementById('fTaskAssignee');
+  if(!sel) return;
+  sel.innerHTML = `<option value="">Sin asignar</option>` +
+    allUsers.map(u => `<option value="${u.uid}">${u.name || u.email.split('@')[0]}</option>`).join('');
+  sel.value = defaultUid || currentUser.uid;
+}
+
 function openAddTaskModal() {
   currentTaskContext = currentCampaignId || 'global';
   populateCampaignSelects();
+  populateTaskAssigneeSelect(currentUser.uid);
   document.getElementById('fTaskTitle').value='';
   document.getElementById('fTaskDate').value=new Date().toISOString().split('T')[0];
-  document.getElementById('fTaskAssignee').value=getSettings().name||'';
+  document.getElementById('fTaskPriority').value='medium';
   if(currentCampaignId) document.getElementById('fTaskCampaign').value=currentCampaignId;
   openModal('taskModal');
 }
@@ -2446,9 +2478,10 @@ function openAddTaskModal() {
 function openAddGlobalTaskModal() {
   currentTaskContext='global';
   populateCampaignSelects();
+  populateTaskAssigneeSelect(currentUser.uid);
   document.getElementById('fTaskTitle').value='';
   document.getElementById('fTaskDate').value=new Date().toISOString().split('T')[0];
-  document.getElementById('fTaskAssignee').value=getSettings().name||'';
+  document.getElementById('fTaskPriority').value='medium';
   openModal('taskModal');
 }
 
@@ -2456,11 +2489,16 @@ function saveTask() {
   const title = document.getElementById('fTaskTitle').value.trim();
   if(!title) { showToast('La tarea es requerida','error'); return; }
   const campId = document.getElementById('fTaskCampaign').value;
+  const sel = document.getElementById('fTaskAssignee');
+  const assigneeUid = sel.value || '';
+  const assigneeUser = allUsers.find(u => u.uid === assigneeUid);
   const task = {
     id:id(), title,
     dueDate:document.getElementById('fTaskDate').value,
     priority:document.getElementById('fTaskPriority').value,
-    assignee:document.getElementById('fTaskAssignee').value,
+    assigneeUid,
+    assignee: assigneeUser ? (assigneeUser.name || assigneeUser.email.split('@')[0]) : '',
+    createdBy: currentUser.uid,
     done:false
   };
   if(campId) {
