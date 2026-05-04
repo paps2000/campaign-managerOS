@@ -11,38 +11,39 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <style>
 :root {
-  /* Pastel palette */
-  --pink: #f4a3c4;          /* pastel pink primary */
-  --pink-deep: #e98bb3;     /* hover */
-  --pink-light: #fbd5e4;
-  --pink-pale: #fdeef4;
-  --lavender: #c5b8e8;
-  --lavender-pale: #ece6f7;
-  --mint: #b8e0d2;
-  --mint-pale: #e3f3ec;
-  --peach: #f7c8a9;
-  --peach-pale: #fce8d8;
-  --butter: #f5e3a3;
-  --butter-pale: #fbf3d4;
-  --sky: #b8d8e8;
-  --sky-pale: #e3f0f7;
+  /* THINKY brand palette */
+  --pink: #ff2d87;
+  --pink-deep: #e6126d;
+  --pink-light: #ffb3d3;
+  --pink-pale: #ffe6f0;
+  --lavender: #2c6dff;
+  --lavender-pale: #e2ecff;
+  --mint: #c6f24a;
+  --mint-pale: #f1fbcf;
+  --peach: #ff7eb0;
+  --peach-pale: #ffe6f0;
+  --butter: #c6f24a;
+  --butter-pale: #f1fbcf;
+  --sky: #2c6dff;
+  --sky-pale: #e2ecff;
 
-  --sidebar: #faf7fb;       /* off-white pastel sidebar */
-  --sidebar-hover: #f3edf5;
-  --sidebar-text: #5a4a6b;
-  --bg: #fdfcfd;
+  --sidebar: #0a0a0c;
+  --sidebar-hover: rgba(255,255,255,.07);
+  --sidebar-text: #b8b6c0;
+  --bg: #fbfafb;
   --white: #ffffff;
-  --text: #2e2640;
-  --text-muted: #8a829a;
-  --border: #f0eaf2;
-  --green: #86c9a8;
-  --yellow: #f0d68a;
-  --red: #ec9c9c;
-  --blue: #a8c8e8;
-  --purple: #c5b8e8;
-  --radius: 14px;
-  --shadow: 0 2px 14px rgba(184,150,200,0.08);
-  --shadow-lg: 0 12px 36px rgba(184,150,200,0.16);
+  --text: #0a0a0c;
+  --text-muted: #6f6c78;
+  --border: #ececef;
+  --green: #4ec38a;
+  --yellow: #f0c84a;
+  --red: #ff4d6d;
+  --blue: #2c6dff;
+  --purple: #7a3df0;
+  --radius: 22px;
+  --radius-sm: 14px;
+  --shadow: 0 2px 12px rgba(10,10,12,.05);
+  --shadow-lg: 0 18px 44px rgba(10,10,12,.10);
   --ease: cubic-bezier(.2,.8,.2,1);
 }
 * { margin:0; padding:0; box-sizing:border-box; }
@@ -59,6 +60,12 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
 .badge-icn svg { width:100%; height:100%; }
 .badge-lavender { background:var(--lavender-pale); color:#6a5a9a; }
 .badge-mint { background:var(--mint-pale); color:#3a7a5e; }
+.badge-area-Operaciones { background:var(--mint-pale); color:#3a6b28; }
+.badge-area-Cuentas { background:var(--pink-pale); color:var(--pink-deep); }
+.badge-area-Creativo { background:var(--lavender-pale); color:var(--blue); }
+.badge-area-Data { background:#f0ebff; color:#5a2bbf; }
+.login-area-select { display:none; width:100%; padding:12px 16px; border:1.5px solid var(--border); border-radius:10px; font-family:'Quicksand',sans-serif; font-size:14px; background:var(--white); color:var(--text); margin-top:0; cursor:pointer; }
+.login-area-select:focus { outline:none; border-color:var(--pink-deep); }
 
 /* ============ ANIMATIONS ============ */
 @keyframes fadeUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
@@ -94,68 +101,75 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
 
 /* SIDEBAR */
 .sidebar {
-  width:220px; min-width:220px; background:var(--sidebar); display:flex; flex-direction:column;
-  padding:0; overflow-y:auto; z-index:100; border-right:1px solid var(--border);
+  width:240px; min-width:240px; background:var(--sidebar); display:flex; flex-direction:column;
+  padding:14px; overflow-y:auto; z-index:100; gap:14px;
+}
+.sidebar-inner {
+  flex:1; background:#141418; border-radius:24px; padding:18px 12px; display:flex; flex-direction:column;
+  border:1px solid rgba(255,255,255,.04); overflow-y:auto;
 }
 .sidebar-logo {
-  padding:22px 20px 18px; border-bottom:1px solid var(--border);
+  padding:6px 10px 18px; display:flex; align-items:center; gap:10px;
 }
+.sidebar-logo .y-mark-sm { width:34px; height:34px; flex-shrink:0; }
+.sidebar-logo .y-mark-sm img { width:100%; height:100%; object-fit:contain; display:block; filter:brightness(0) invert(1); }
+.sidebar-logo .logo-text { display:flex; flex-direction:column; line-height:1; }
 .sidebar-logo .logo-main {
-  font-family:'Quicksand',sans-serif; font-size:17px; color:var(--text); font-weight:700; letter-spacing:-0.3px; line-height:1.15;
+  font-family:'Quicksand',sans-serif; font-size:17px; color:#fff; font-weight:700; letter-spacing:-0.4px;
 }
-.sidebar-logo .logo-main span {
-  background:linear-gradient(135deg,var(--pink-deep),var(--lavender)); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:700;
-}
+.sidebar-logo .logo-main .dot { color:var(--pink); }
 .sidebar-logo .logo-sub {
-  font-family:'Quicksand',sans-serif; font-size:11px; color:var(--text-muted); margin-top:3px; letter-spacing:1.5px; text-transform:uppercase; font-weight:500;
+  font-family:'Quicksand',sans-serif; font-size:9.5px; color:#7a7884; margin-top:4px; letter-spacing:1.6px; text-transform:uppercase; font-weight:600;
 }
 .sidebar-user {
-  padding:14px 20px; display:flex; align-items:center; gap:10px; border-bottom:1px solid var(--border);
+  padding:12px; margin:0 2px 6px; display:flex; align-items:center; gap:10px;
+  background:rgba(255,255,255,.04); border-radius:16px;
 }
 .sidebar-user .avatar {
-  width:32px; height:32px; border-radius:50%; background:linear-gradient(135deg,var(--pink),var(--lavender)); display:flex; align-items:center;
+  width:34px; height:34px; border-radius:12px; background:var(--pink); display:flex; align-items:center;
   justify-content:center; font-size:13px; font-weight:700; color:#fff; flex-shrink:0; transition:transform .3s var(--ease);
 }
-.sidebar-user:hover .avatar { transform:scale(1.08) rotate(-4deg); }
+.sidebar-user:hover .avatar { transform:scale(1.08) rotate(-3deg); }
 .sidebar-user .user-info { flex:1; min-width:0; }
-.sidebar-user .user-name { font-size:13px; font-weight:600; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.sidebar-user .user-role { font-size:11px; color:var(--text-muted); }
+.sidebar-user .user-name { font-size:13px; font-weight:600; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.sidebar-user .user-role { font-size:11px; color:#7a7884; }
 
 .nav-section { padding:10px 0; }
-.nav-label { font-size:10px; font-weight:600; color:var(--text-muted); letter-spacing:1.5px; text-transform:uppercase; padding:8px 20px 4px; }
+.nav-label { font-size:10px; font-weight:600; color:#7a7884; letter-spacing:1.5px; text-transform:uppercase; padding:8px 20px 4px; }
 .nav-item {
-  position:relative; display:flex; align-items:center; gap:10px; padding:10px 20px; cursor:pointer;
+  position:relative; display:flex; align-items:center; gap:10px; padding:10px 14px; cursor:pointer;
   color:var(--sidebar-text); font-size:13px; font-weight:500; transition:all .25s var(--ease);
-  text-decoration:none; margin:1px 8px; border-radius:10px;
+  text-decoration:none; margin:1px 0; border-radius:16px;
 }
-.nav-item:hover { background:var(--sidebar-hover); color:var(--text); transform:translateX(2px); }
-.nav-item.active { background:var(--pink-pale); color:var(--pink-deep); font-weight:600; }
-.nav-item.active::before { content:''; position:absolute; left:-8px; top:50%; transform:translateY(-50%); width:3px; height:18px; background:var(--pink-deep); border-radius:2px; }
+.nav-item:hover { background:var(--sidebar-hover); color:#fff; transform:translateX(2px); }
+.nav-item.active { background:var(--pink); color:#fff; font-weight:700; box-shadow:0 4px 14px rgba(255,45,135,.35); }
 .nav-item .nav-icon { width:18px; height:18px; display:inline-flex; align-items:center; justify-content:center; transition:transform .3s var(--ease); flex-shrink:0; }
 .nav-item .nav-icon svg { width:18px; height:18px; }
 .nav-item:hover .nav-icon { transform:scale(1.15) rotate(-3deg); }
 .nav-badge {
-  margin-left:auto; background:var(--pink-deep); color:#fff; font-size:10px; font-weight:700;
-  padding:2px 6px; border-radius:10px; min-width:18px; text-align:center; animation:pulseDot 2s infinite;
+  margin-left:auto; background:rgba(255,255,255,.2); color:#fff; font-size:10px; font-weight:700;
+  padding:2px 6px; border-radius:16px; min-width:18px; text-align:center; animation:pulseDot 2s infinite;
 }
+.nav-item.active .nav-badge { background:rgba(255,255,255,.25); }
 
 /* MAIN */
 .main { flex:1; display:flex; flex-direction:column; overflow:hidden; }
 .topbar {
-  background:var(--white); border-bottom:1px solid var(--border); padding:0 28px;
-  height:60px; display:flex; align-items:center; justify-content:space-between; flex-shrink:0;
+  background:var(--bg); padding:16px 28px 0;
+  display:flex; align-items:center; justify-content:space-between; flex-shrink:0;
 }
-.topbar-left h2 { font-family:'Fraunces',serif; font-size:22px; font-weight:400; color:var(--text); letter-spacing:-0.3px; line-height:1.1; }
-.topbar-left p { font-size:12px; color:var(--text-muted); margin-top:2px; }
-.topbar-right { display:flex; align-items:center; gap:12px; }
-.topbar-date { font-size:12px; color:var(--text-muted); background:var(--bg); padding:6px 12px; border-radius:8px; }
-.btn { display:inline-flex; align-items:center; gap:6px; padding:8px 16px; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; border:none; transition:all .15s; font-family:inherit; }
-.btn { transition:all .25s var(--ease); }
+.topbar-left h2 { font-family:'Quicksand',sans-serif; font-size:24px; font-weight:700; color:var(--text); letter-spacing:-0.5px; line-height:1.1; }
+.topbar-left p { font-size:13px; color:var(--text-muted); margin-top:3px; }
+.topbar-right { display:flex; align-items:center; gap:10px; }
+.topbar-date { font-size:12px; color:var(--text); background:#fff; padding:8px 14px; border-radius:14px; border:1px solid var(--border); font-weight:600; }
+.btn { display:inline-flex; align-items:center; gap:7px; padding:10px 18px; border-radius:14px; font-size:13px; font-weight:700; cursor:pointer; border:none; transition:all .25s var(--ease); font-family:inherit; letter-spacing:-0.2px; }
 .btn:active { transform:scale(.97); }
-.btn-primary { background:var(--pink-deep); color:#fff; box-shadow:0 4px 14px rgba(233,139,179,.35); }
-.btn-primary:hover { background:var(--pink-deep); transform:translateY(-2px); box-shadow:0 8px 22px rgba(233,139,179,.45); }
-.btn-ghost { background:transparent; color:var(--text-muted); border:1px solid var(--border); }
-.btn-ghost:hover { border-color:var(--pink-deep); color:var(--pink-deep); background:var(--pink-pale); }
+.btn-primary { background:var(--text); color:#fff; box-shadow:0 4px 14px rgba(10,10,12,.18); }
+.btn-primary:hover { background:#000; transform:translateY(-2px); box-shadow:0 10px 24px rgba(10,10,12,.25); }
+.btn-pink { background:var(--pink); color:#fff; box-shadow:0 4px 14px rgba(255,45,135,.35); }
+.btn-pink:hover { background:var(--pink-deep); transform:translateY(-2px); box-shadow:0 10px 24px rgba(255,45,135,.45); }
+.btn-ghost { background:#fff; color:var(--text); border:1px solid var(--border); }
+.btn-ghost:hover { border-color:var(--text); color:var(--text); transform:translateY(-1px); }
 .btn-sm { padding:6px 12px; font-size:12px; }
 
 .content { flex:1; overflow-y:auto; padding:24px 28px; }
@@ -165,18 +179,23 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
 .page.active { display:block; }
 
 /* STAT CARDS */
-.stat-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:24px; }
+.stat-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:24px; }
 .stat-card {
-  background:var(--white); border-radius:var(--radius); padding:20px; box-shadow:var(--shadow);
-  border:1px solid var(--border);
+  background:var(--white); border-radius:22px; padding:22px; box-shadow:var(--shadow);
+  border:1px solid var(--border); position:relative; overflow:hidden;
+  transition:all .3s var(--ease);
 }
-.stat-card .stat-label { font-size:11px; color:var(--text-muted); font-weight:500; margin-bottom:10px; text-transform:uppercase; letter-spacing:0.8px; }
-.stat-card { transition:all .3s var(--ease); }
+.stat-card .stat-label { font-size:11px; color:var(--text-muted); font-weight:700; margin-bottom:12px; text-transform:uppercase; letter-spacing:1px; }
 .stat-card:hover { transform:translateY(-3px); box-shadow:var(--shadow-lg); }
-.stat-card .stat-value { font-family:'Fraunces',serif; font-size:38px; font-weight:400; color:var(--text); line-height:1; letter-spacing:-1px; }
-.stat-card .stat-sub { font-size:11px; color:var(--text-muted); margin-top:6px; }
-.stat-card.urgent .stat-value { color:#d97a7a; }
-.stat-card.pending .stat-value { color:#c9a449; }
+.stat-card .stat-value { font-family:'Quicksand',sans-serif; font-size:42px; font-weight:700; color:var(--text); line-height:1; letter-spacing:-1.5px; }
+.stat-card .stat-sub { font-size:12px; color:var(--text-muted); margin-top:8px; font-weight:500; }
+.stat-card.featured { background:var(--pink); border-color:var(--pink); }
+.stat-card.featured .stat-label, .stat-card.featured .stat-value, .stat-card.featured .stat-sub { color:#fff; }
+.stat-card.featured::after { content:''; position:absolute; right:-10px; bottom:-20px; width:90px; height:90px; background:rgba(255,255,255,.12); border-radius:24px; transform:rotate(8deg); }
+.stat-card.urgent { background:var(--mint); border-color:var(--mint); }
+.stat-card.urgent .stat-label, .stat-card.urgent .stat-value, .stat-card.urgent .stat-sub { color:var(--text); }
+.stat-card.pending { background:var(--lavender-pale); border-color:transparent; }
+.stat-card.pending .stat-value { color:var(--blue); }
 
 /* GRID LAYOUTS */
 .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:20px; }
@@ -190,7 +209,7 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
 }
 .card-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; }
 .card-title { font-size:11px; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:1.2px; }
-.card-link { font-size:12px; color:var(--pink-deep); font-weight:600; cursor:pointer; text-decoration:none; transition:all .2s var(--ease); }
+.card-link { font-size:12px; color:var(--pink); font-weight:700; cursor:pointer; text-decoration:none; transition:all .2s var(--ease); }
 .card-link:hover { transform:translateX(3px); display:inline-block; }
 .card-link:hover { text-decoration:underline; }
 
@@ -204,16 +223,16 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
 
 /* STATUS BADGES */
 .badge {
-  display:inline-flex; align-items:center; padding:3px 10px; border-radius:20px;
+  display:inline-flex; align-items:center; padding:3px 10px; border-radius:26px;
   font-size:11px; font-weight:600; white-space:nowrap;
 }
-.badge-green { background:var(--mint-pale); color:#3a7a5e; }
-.badge-yellow { background:var(--butter-pale); color:#8a6f1d; }
-.badge-red { background:#fbe1e1; color:#a85959; }
-.badge-blue { background:var(--sky-pale); color:#3a6a8a; }
-.badge-purple { background:var(--lavender-pale); color:#6a5a9a; }
-.badge-orange { background:var(--peach-pale); color:#a06440; }
-.badge-pink { background:var(--pink-pale); color:var(--pink-deep); }
+.badge-green { background:var(--mint-pale); color:#3a6b28; }
+.badge-yellow { background:#fff8e1; color:#8a6000; }
+.badge-red { background:#ffe4e8; color:#c0173a; }
+.badge-blue { background:var(--sky-pale); color:var(--blue); }
+.badge-purple { background:#efe4ff; color:#5a2bbf; }
+.badge-orange { background:var(--pink-pale); color:var(--pink-deep); }
+.badge-pink { background:var(--pink); color:#fff; }
 .badge-gray { background:#f3f4f6; color:#374151; }
 
 /* TASK LIST */
@@ -225,8 +244,8 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
   width:18px; height:18px; border-radius:50%; border:2px solid var(--border); cursor:pointer;
   flex-shrink:0; display:flex; align-items:center; justify-content:center; transition:all .25s var(--ease);
 }
-.task-check:hover { border-color:var(--pink-deep); transform:scale(1.15); }
-.task-check.done { background:var(--pink-deep); border-color:var(--pink-deep); animation:pop .3s var(--ease); }
+.task-check:hover { border-color:var(--pink); transform:scale(1.15); }
+.task-check.done { background:var(--pink); border-color:var(--pink); animation:pop .3s var(--ease); }
 .task-check.done::after { content:''; width:7px; height:4px; border:solid #fff; border-width:0 0 2px 2px; transform:rotate(-45deg); margin-top:-2px; }
 .task-info { flex:1; min-width:0; }
 .task-title { font-size:13px; font-weight:500; }
@@ -272,7 +291,7 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
   display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid var(--border);
 }
 .doc-item:last-child { border-bottom:none; }
-.doc-icon { width:32px; height:32px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:14px; flex-shrink:0; transition:transform .3s var(--ease); }
+.doc-icon { width:32px; height:32px; border-radius:14px; display:flex; align-items:center; justify-content:center; font-size:14px; flex-shrink:0; transition:transform .3s var(--ease); }
 .doc-item:hover .doc-icon { transform:scale(1.12) rotate(-4deg); }
 .doc-pdf { background:var(--peach-pale); }
 .doc-sheets { background:var(--mint-pale); }
@@ -284,11 +303,11 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
 /* TEXT GENERATOR */
 .gen-form { display:flex; flex-direction:column; gap:10px; }
 .gen-select {
-  width:100%; padding:8px 12px; border:1px solid var(--border); border-radius:8px;
+  width:100%; padding:8px 12px; border:1px solid var(--border); border-radius:14px;
   font-family:inherit; font-size:13px; color:var(--text); background:var(--white); cursor:pointer;
 }
 .gen-select { transition:all .2s var(--ease); }
-.gen-select:focus { outline:none; border-color:var(--pink-deep); box-shadow:0 0 0 3px var(--pink-pale); }
+.gen-select:focus { outline:none; border-color:var(--pink); box-shadow:0 0 0 3px var(--pink-pale); }
 .gen-output {
   background:var(--bg); border-radius:8px; padding:12px; font-size:13px; line-height:1.6;
   min-height:80px; color:var(--text); white-space:pre-wrap; display:none;
@@ -304,7 +323,7 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
 .campaign-card { transition:all .35s var(--ease); }
 .campaign-card:hover { box-shadow:var(--shadow-lg); border-color:var(--pink); transform:translateY(-4px); }
 .campaign-card-header { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:12px; }
-.campaign-name { font-family:'Fraunces',serif; font-size:22px; font-weight:400; letter-spacing:-0.3px; line-height:1.1; }
+.campaign-name { font-family:'Quicksand',sans-serif; font-size:20px; font-weight:700; letter-spacing:-0.3px; line-height:1.1; }
 .campaign-client { font-size:12px; color:var(--text-muted); margin-top:2px; }
 .campaign-meta { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
 .campaign-progress { margin-top:14px; }
@@ -336,7 +355,7 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
   border-bottom:2px solid transparent; margin-bottom:-1px; transition:all .15s;
 }
 .detail-tab { transition:all .25s var(--ease); }
-.detail-tab.active { color:var(--pink-deep); border-bottom-color:var(--pink-deep); }
+.detail-tab.active { color:var(--pink); border-bottom-color:var(--pink); }
 .detail-tab:hover { color:var(--text); }
 
 .tab-content { display:none; padding-top:20px; }
@@ -358,10 +377,10 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
 .flow-num.done { background:var(--pink-deep); border-color:var(--pink-deep); color:#fff; animation:pop .4s var(--ease); }
 .flow-step-name { flex:1; font-size:13px; font-weight:500; }
 .flow-step-select {
-  padding:5px 10px; border:1px solid var(--border); border-radius:6px; font-size:12px;
+  padding:5px 10px; border:1px solid var(--border); border-radius:12px; font-size:12px;
   font-family:inherit; cursor:pointer; background:var(--white); color:var(--text);
 }
-.flow-step-select:focus { outline:none; border-color:var(--pink-deep); }
+.flow-step-select:focus { outline:none; border-color:var(--pink); box-shadow:0 0 0 3px var(--pink-pale); }
 
 /* INFO GRID */
 .info-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
@@ -388,8 +407,8 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
   background:var(--white); border:1px solid var(--border); color:var(--text-muted); transition:all .15s;
 }
 .filter-tab { transition:all .25s var(--ease); }
-.filter-tab.active { background:var(--pink-deep); color:#fff; border-color:var(--pink-deep); transform:scale(1.03); }
-.filter-tab:hover:not(.active) { border-color:var(--pink-deep); color:var(--pink-deep); background:var(--pink-pale); }
+.filter-tab.active { background:var(--text); color:#fff; border-color:var(--text); transform:scale(1.03); }
+.filter-tab:hover:not(.active) { border-color:var(--text); color:var(--text); background:var(--bg); }
 
 /* MODAL */
 .modal-overlay {
@@ -398,7 +417,7 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
 }
 .modal-overlay.open { display:flex; }
 .modal {
-  background:var(--white); border-radius:16px; padding:28px; width:520px; max-width:90vw;
+  background:var(--white); border-radius:24px; padding:28px; width:520px; max-width:90vw;
   max-height:85vh; overflow-y:auto; box-shadow:0 24px 80px rgba(0,0,0,0.2);
 }
 .modal-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; }
@@ -408,11 +427,11 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
 .form-group { margin-bottom:16px; }
 .form-label { font-size:12px; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:.5px; margin-bottom:6px; display:block; }
 .form-input {
-  width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:8px;
+  width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:14px;
   font-family:inherit; font-size:13px; color:var(--text); background:var(--white); transition:border .15s;
 }
 .form-input { transition:all .2s var(--ease); }
-.form-input:focus { outline:none; border-color:var(--pink-deep); box-shadow:0 0 0 3px var(--pink-pale); }
+.form-input:focus { outline:none; border-color:var(--pink); box-shadow:0 0 0 3px var(--pink-pale); }
 .form-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
 .modal-footer { display:flex; justify-content:flex-end; gap:10px; margin-top:20px; padding-top:16px; border-top:1px solid var(--border); }
 
@@ -429,7 +448,7 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
 /* SCROLLBAR */
 ::-webkit-scrollbar { width:6px; }
 ::-webkit-scrollbar-track { background:transparent; }
-::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
+::-webkit-scrollbar-thumb { background:var(--border); border-radius:8px; }
 
 /* PLACEHOLDER PAGES */
 .placeholder-page { text-align:center; padding:80px 24px; }
@@ -450,7 +469,7 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
 /* NOTIFICATION */
 .toast {
   position:fixed; bottom:24px; right:24px; background:var(--text); color:#fff; padding:12px 18px;
-  border-radius:10px; font-size:13px; font-weight:500; z-index:9999; transform:translateY(80px);
+  border-radius:16px; font-size:13px; font-weight:500; z-index:9999; transform:translateY(80px);
   transition:transform .3s; box-shadow:var(--shadow-lg);
 }
 .toast.show { transform:translateY(0); }
@@ -486,36 +505,59 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
 
 /* LOGIN SCREEN */
 .login-screen {
-  position:fixed; inset:0; background:linear-gradient(135deg, var(--pink-pale), var(--lavender-pale));
-  z-index:10000; display:flex; align-items:center; justify-content:center; padding:24px;
+  position:fixed; inset:0; background:var(--bg);
+  z-index:10000; display:flex; align-items:stretch;
 }
 .login-screen.hidden { display:none; }
+.login-hero {
+  flex:1; background:var(--sidebar); display:flex; flex-direction:column;
+  align-items:center; justify-content:center; padding:60px 48px; position:relative; overflow:hidden;
+}
+.login-hero::before {
+  content:''; position:absolute; inset:0;
+  background:radial-gradient(ellipse 80% 60% at 50% 120%, rgba(255,45,135,.25) 0%, transparent 60%);
+}
+.login-hero-ymark {
+  width:120px; height:120px; margin-bottom:32px; position:relative; z-index:1;
+  animation:float 3s ease-in-out infinite;
+}
+.login-hero-ymark img { width:100%; height:100%; object-fit:contain; }
+.login-hero-title {
+  font-family:'Quicksand',sans-serif; font-size:36px; font-weight:700; color:#fff;
+  letter-spacing:-1px; margin-bottom:10px; position:relative; z-index:1; text-align:center;
+}
+.login-hero-title span { color:var(--pink); }
+.login-hero-sub {
+  font-family:'Fraunces',serif; font-style:italic; font-size:16px; color:#7a7884;
+  position:relative; z-index:1; text-align:center;
+}
 .login-card {
-  background:#fff; border-radius:20px; padding:40px; width:420px; max-width:100%;
-  box-shadow:0 24px 80px rgba(0,0,0,0.12); text-align:center;
+  width:460px; flex-shrink:0; background:#fff; display:flex; flex-direction:column;
+  justify-content:center; padding:60px 48px; overflow-y:auto;
 }
 .login-logo {
-  font-family:'Fraunces',serif; font-size:28px; font-weight:500; margin-bottom:6px;
+  font-family:'Quicksand',sans-serif; font-size:22px; font-weight:700; margin-bottom:4px; color:var(--text);
 }
-.login-logo span { color:var(--pink-deep); }
-.login-tag { font-family:'Fraunces',serif; font-style:italic; font-size:14px; color:var(--pink-deep); margin-bottom:24px; }
+.login-logo span { color:var(--pink); }
+.login-tag { font-size:13px; color:var(--text-muted); margin-bottom:28px; }
 .login-title { font-size:14px; color:var(--text-muted); margin-bottom:20px; }
 .login-input {
-  width:100%; padding:12px 14px; border:1px solid var(--border); border-radius:10px;
-  font-family:inherit; font-size:14px; margin-bottom:10px; transition:border .15s;
+  width:100%; padding:12px 14px; border:1.5px solid var(--border); border-radius:14px;
+  font-family:inherit; font-size:14px; margin-bottom:10px; transition:all .2s var(--ease);
+  background:var(--bg);
 }
-.login-input:focus { outline:none; border-color:var(--pink-deep); }
+.login-input:focus { outline:none; border-color:var(--pink); box-shadow:0 0 0 3px var(--pink-pale); background:#fff; }
 .login-btn {
-  width:100%; padding:12px; border:none; border-radius:10px; font-weight:600; font-size:14px;
-  cursor:pointer; font-family:inherit; transition:all .15s; margin-top:6px;
+  width:100%; padding:13px; border:none; border-radius:14px; font-weight:700; font-size:14px;
+  cursor:pointer; font-family:inherit; transition:all .2s var(--ease); margin-top:6px;
 }
-.login-btn-primary { background:var(--pink-deep); color:#fff; }
-.login-btn-primary:hover { background:#d77aa3; }
+.login-btn-primary { background:var(--pink); color:#fff; box-shadow:0 4px 14px rgba(255,45,135,.35); }
+.login-btn-primary:hover { background:var(--pink-deep); transform:translateY(-2px); box-shadow:0 8px 24px rgba(255,45,135,.45); }
 .login-btn-google {
-  background:#fff; color:var(--text); border:1px solid var(--border);
+  background:#fff; color:var(--text); border:1.5px solid var(--border);
   display:flex; align-items:center; justify-content:center; gap:8px;
 }
-.login-btn-google:hover { border-color:var(--pink-deep); }
+.login-btn-google:hover { border-color:var(--pink); transform:translateY(-1px); }
 .login-divider {
   display:flex; align-items:center; gap:12px; margin:16px 0; color:var(--text-muted); font-size:11px;
 }
@@ -523,27 +565,165 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
 .login-toggle {
   font-size:13px; color:var(--text-muted); margin-top:16px;
 }
-.login-toggle a { color:var(--pink-deep); cursor:pointer; font-weight:600; }
+.login-toggle a { color:var(--pink); cursor:pointer; font-weight:700; }
 .login-error { color:var(--red); font-size:12px; margin-top:8px; min-height:16px; }
+@media (max-width:768px) {
+  .login-hero { display:none; }
+  .login-card { width:100%; padding:40px 28px; }
+}
 
 /* User chip in topbar */
 .user-chip { display:flex; align-items:center; gap:8px; padding:6px 12px; background:var(--bg); border-radius:20px; font-size:12px; }
 .user-chip .avatar { width:24px; height:24px; border-radius:50%; background:var(--pink-deep); color:#fff; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; }
 .logout-btn { background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:12px; padding:4px; }
 .logout-btn:hover { color:var(--red); }
+
+/* Task edit button */
+.task-edit-btn { background:none; border:none; cursor:pointer; color:var(--text-muted); font-size:12px; padding:4px; border-radius:6px; transition:all .2s var(--ease); display:inline-flex; align-items:center; justify-content:center; }
+.task-edit-btn:hover { background:var(--lavender-pale); color:#6a5a9a; }
+.task-edit-btn svg { width:13px; height:13px; }
+
+/* ============ MOBILE HAMBURGER ============ */
+.hamburger-btn {
+  display:none; background:none; border:none; cursor:pointer; padding:8px; border-radius:8px;
+  color:var(--text); transition:background .2s;
+}
+.hamburger-btn:hover { background:var(--bg); }
+.hamburger-btn svg { width:22px; height:22px; display:block; }
+.sidebar-overlay {
+  display:none; position:fixed; inset:0; background:rgba(0,0,0,0.4); z-index:199;
+}
+.sidebar-overlay.open { display:block; }
+
+/* ============ MOBILE BOTTOM NAV ============ */
+.mobile-nav {
+  display:none; position:fixed; bottom:0; left:0; right:0; height:60px; z-index:200;
+  background:var(--white); border-top:1px solid var(--border);
+  justify-content:space-around; align-items:center; padding:0 4px;
+}
+.mobile-nav-item {
+  display:flex; flex-direction:column; align-items:center; gap:3px; padding:6px 10px;
+  cursor:pointer; border-radius:10px; transition:all .2s var(--ease); color:var(--text-muted);
+  font-size:10px; font-weight:600; min-width:48px; border:none; background:none;
+}
+.mobile-nav-item.active { color:var(--pink-deep); background:var(--pink-pale); }
+.mobile-nav-item svg { width:20px; height:20px; }
+.mobile-nav-badge {
+  position:absolute; top:-2px; right:-2px; background:var(--pink-deep); color:#fff;
+  font-size:9px; font-weight:700; width:14px; height:14px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+}
+
+/* ============ RESPONSIVE BREAKPOINTS ============ */
+@media (max-width: 768px) {
+  body { overflow:auto; }
+
+  /* Sidebar: hidden by default, slides in as overlay */
+  .sidebar {
+    position:fixed; left:0; top:0; bottom:0; z-index:200;
+    transform:translateX(-100%); transition:transform .3s var(--ease);
+    box-shadow:var(--shadow-lg);
+  }
+  .sidebar.mobile-open { transform:translateX(0); }
+
+  /* Show hamburger, hide desktop topbar actions on small */
+  .hamburger-btn { display:flex; }
+  .topbar { padding:0 16px; }
+  .topbar-left h2 { font-size:17px; }
+  .topbar-left p { display:none; }
+  .topbar-date { display:none; }
+  #mainActionBtn { padding:7px 12px; font-size:12px; }
+
+  /* Content */
+  .content { padding:16px; padding-bottom:76px; }
+
+  /* Stat grid: 2 cols */
+  .stat-grid { grid-template-columns:1fr 1fr; gap:10px; margin-bottom:16px; }
+  .stat-card { padding:14px; }
+  .stat-card .stat-value { font-size:28px; }
+
+  /* All multi-col grids → single col */
+  .grid-main-side,
+  .grid-2,
+  .grid-3 { grid-template-columns:1fr; gap:12px; }
+
+  /* Metrics grid */
+  .metrics-grid { grid-template-columns:1fr 1fr; gap:10px; }
+  .charts-grid { grid-template-columns:1fr; }
+
+  /* Campaign grid: 1 col */
+  .campaign-grid { grid-template-columns:1fr; }
+
+  /* Tables: horizontal scroll */
+  .table-wrap { overflow-x:auto; -webkit-overflow-scrolling:touch; }
+  .table { min-width:500px; }
+
+  /* Modals: full-width */
+  .modal {
+    width:100vw !important; max-width:100vw; border-radius:20px 20px 0 0;
+    max-height:90vh; margin:auto 0 0;
+    position:fixed; bottom:0; left:0; right:0;
+  }
+  .modal-overlay { align-items:flex-end; padding:0; }
+  .modal-overlay.open { display:flex; }
+
+  /* Bottom nav visible */
+  .mobile-nav { display:flex; }
+
+  /* Info grid */
+  .info-grid { grid-template-columns:1fr; }
+
+  /* Calendar events */
+  .cal-tooltip-box { left:0; right:0; min-width:unset; font-size:11px; }
+
+  /* Campaign detail tabs scroll */
+  .detail-tabs { overflow-x:auto; -webkit-overflow-scrolling:touch; flex-wrap:nowrap; }
+  .detail-tab { white-space:nowrap; flex-shrink:0; }
+
+  /* Influencer add row */
+  .inf-add-row { grid-template-columns:1fr 1fr; }
+
+  /* Filter tabs scroll */
+  .filter-tabs { overflow-x:auto; -webkit-overflow-scrolling:touch; flex-wrap:nowrap; padding-bottom:4px; }
+  .filter-tab { white-space:nowrap; flex-shrink:0; }
+
+  /* Topbar action button label shorter */
+  .topbar-right { gap:6px; }
+}
+
+@media (max-width:420px) {
+  .stat-grid { grid-template-columns:1fr 1fr; }
+  .stat-card .stat-value { font-size:24px; }
+  .form-row { grid-template-columns:1fr; }
+  .metrics-grid { grid-template-columns:1fr; }
+}
 </style>
 </head>
 <body>
 
 <!-- LOGIN SCREEN -->
 <div class="login-screen" id="loginScreen">
+  <div class="login-hero">
+    <div class="login-hero-ymark">
+      <img src="assets/y-white-transparent.png" alt="Think Y.">
+    </div>
+    <div class="login-hero-title">Campaign <span>OS</span></div>
+    <div class="login-hero-sub">Tu centro de operaciones de campañas.</div>
+  </div>
   <div class="login-card">
-    <div class="login-logo">Campaign Manager <span>OS</span></div>
-    <div class="login-tag">Think Y.</div>
+    <div class="login-logo">Think <span>Y.</span></div>
+    <div class="login-tag">Bienvenido de nuevo</div>
     <div class="login-title" id="loginTitle">Inicia sesión para continuar</div>
 
     <div id="loginForm">
       <input type="text" class="login-input" id="loginNameInput" placeholder="Tu nombre" style="display:none;">
+      <select class="login-area-select" id="loginAreaInput">
+        <option value="">Selecciona tu área</option>
+        <option value="Operaciones">Operaciones</option>
+        <option value="Cuentas">Cuentas</option>
+        <option value="Creativo">Creativo</option>
+        <option value="Data">Data</option>
+      </select>
       <input type="email" class="login-input" id="loginEmail" placeholder="tu@email.com">
       <input type="password" class="login-input" id="loginPassword" placeholder="Contraseña">
       <button class="login-btn login-btn-primary" id="loginSubmitBtn" onclick="loginSubmit()">Entrar</button>
@@ -560,11 +740,18 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
   </div>
 </div>
 
+<!-- MOBILE SIDEBAR OVERLAY -->
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleMobileSidebar()"></div>
+
 <!-- SIDEBAR -->
-<nav class="sidebar">
+<nav class="sidebar" id="mainSidebar">
+  <div class="sidebar-inner">
   <div class="sidebar-logo">
-    <div class="logo-main">Campaign Manager <span>OS</span></div>
-    <div class="logo-sub">Think Y.</div>
+    <img src="assets/y-white-transparent.png" alt="Y" style="width:32px;height:32px;object-fit:contain;flex-shrink:0;">
+    <div>
+      <div class="logo-main">Campaign <span class="dot">OS</span></div>
+      <div class="logo-sub">Think Y.</div>
+    </div>
   </div>
   <div class="sidebar-user">
     <div class="avatar" id="userAvatarSidebar">G</div>
@@ -603,19 +790,50 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
       <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.5L18 9l-4.2 1.5L12 15l-1.8-4.5L6 9l4.2-1.5z"/><path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9z"/></svg></span> Generador
     </div>
   </div>
-  <div style="margin-top:auto; padding:12px 0; border-top:1px solid var(--border);">
+  <div style="margin-top:auto; padding:12px 0; border-top:1px solid rgba(255,255,255,.08);">
     <div class="nav-item" data-page="ajustes">
       <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 0 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></span> Ajustes
     </div>
   </div>
+  </div><!-- /.sidebar-inner -->
+</nav>
+
+<!-- MOBILE BOTTOM NAV -->
+<nav class="mobile-nav" id="mobileBottomNav">
+  <button class="mobile-nav-item active" data-page="dashboard" onclick="navigate('dashboard')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+    Dashboard
+  </button>
+  <button class="mobile-nav-item" data-page="campannas" onclick="navigate('campannas')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l18-7v16l-18-7z"/><path d="M7 13v5a2 2 0 0 0 4 0"/></svg>
+    Campañas
+  </button>
+  <button class="mobile-nav-item" data-page="pendientes" onclick="navigate('pendientes')" style="position:relative;">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9 12l2 2 4-4"/></svg>
+    Pendientes
+    <span class="mobile-nav-badge" id="mobileNavBadge" style="display:none;"></span>
+  </button>
+  <button class="mobile-nav-item" data-page="influencers" onclick="navigate('influencers')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="9" r="2.5"/><path d="M15 16c2-1 5-1 6 1"/></svg>
+    Influencers
+  </button>
+  <button class="mobile-nav-item" data-page="ajustes" onclick="navigate('ajustes')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1-.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 0 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+    Ajustes
+  </button>
 </nav>
 
 <!-- MAIN -->
 <div class="main">
   <div class="topbar">
-    <div class="topbar-left">
-      <h2 id="topbarTitle">Resumen</h2>
-      <p id="topbarSub">Lo que necesita tu atención hoy.</p>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <button class="hamburger-btn" onclick="toggleMobileSidebar()" aria-label="Menú">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+      <div class="topbar-left">
+        <h2 id="topbarTitle">Resumen</h2>
+        <p id="topbarSub">Lo que necesita tu atención hoy.</p>
+      </div>
     </div>
     <div class="topbar-right">
       <span class="topbar-date" id="topbarDate"></span>
@@ -681,6 +899,7 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
             <span class="card-title">Status de campañas</span>
             <a class="card-link" onclick="navigate('campannas')">Ver todas las campañas →</a>
           </div>
+          <div class="table-wrap">
           <table class="table">
             <thead>
               <tr>
@@ -689,6 +908,7 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
             </thead>
             <tbody id="dashCampaignTable"></tbody>
           </table>
+          </div>
         </div>
 
         <!-- UPCOMING PUBS -->
@@ -800,6 +1020,7 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
             <button class="btn btn-primary btn-sm" onclick="openAddInfluencerModal()">+ Agregar influencer</button>
           </div>
           <div class="card">
+            <div class="table-wrap">
             <table class="table">
               <thead><tr>
                 <th>Influencer</th><th>Formato</th><th>Fecha pub.</th><th>Plataforma</th>
@@ -807,6 +1028,7 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
               </tr></thead>
               <tbody id="campaignInfluencerTable"></tbody>
             </table>
+            </div>
           </div>
         </div>
 
@@ -879,6 +1101,7 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
       </div>
       <div class="card">
         <div class="card-header"><span class="card-title">Rendimiento de contenidos publicados</span></div>
+        <div class="table-wrap">
         <table class="table">
           <thead><tr>
             <th>Campaña</th><th>Influencer</th><th>Formato</th><th>Fecha</th><th>Plataforma</th>
@@ -886,6 +1109,7 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
           </tr></thead>
           <tbody id="metricsTable"></tbody>
         </table>
+        </div>
       </div>
     </div>
 
@@ -1062,14 +1286,43 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
       <label class="form-label">Core message</label>
       <input type="text" class="form-input" id="fCampCore" placeholder="Ej: Vive la pasión">
     </div>
-    <div class="form-row">
-      <div class="form-group" id="fCampBudgetGroup">
-        <label class="form-label">Presupuesto 🔒</label>
-        <input type="text" class="form-input" id="fCampBudget" placeholder="Ej: $250,000 MXN">
+    <div id="fCampBudgetGroup">
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Presupuesto cliente 🔒</label>
+          <input type="number" class="form-input" id="fCampBudgetClient" placeholder="Ej: 1000000" oninput="calcBudgetOps()" min="0">
+        </div>
+        <div class="form-group">
+          <label class="form-label">% de ganancia 🔒</label>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <input type="number" class="form-input" id="fCampMargin" placeholder="Ej: 35" min="0" max="100" oninput="calcBudgetOps()">
+            <span style="font-size:14px;color:var(--text-muted);flex-shrink:0;">%</span>
+          </div>
+        </div>
       </div>
       <div class="form-group">
-        <label class="form-label">Responsable</label>
-        <input type="text" class="form-input" id="fCampResponsible" placeholder="Ej: Génesis">
+        <label class="form-label">Total para operaciones 🔒</label>
+        <div id="fCampBudgetOpsResult" style="padding:10px 14px;background:var(--mint-pale);border-radius:10px;font-size:13px;font-weight:600;color:#3a7a5e;min-height:40px;display:flex;align-items:center;">—</div>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Responsable Operaciones</label>
+        <select class="form-input" id="fCampRespOps"></select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Responsable Cuentas</label>
+        <select class="form-input" id="fCampRespCuentas"></select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Responsable Creativo</label>
+        <select class="form-input" id="fCampRespCreativo"></select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Responsable Data</label>
+        <select class="form-input" id="fCampRespData"></select>
       </div>
     </div>
     <div class="form-group">
@@ -1114,8 +1367,8 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
         <input type="date" class="form-input" id="fTaskDate">
       </div>
       <div class="form-group">
-        <label class="form-label">Responsable</label>
-        <input type="text" class="form-input" id="fTaskAssignee" placeholder="Ej: Génesis">
+        <label class="form-label">Asignar a</label>
+        <select class="form-input" id="fTaskAssignee"></select>
       </div>
     </div>
     <div class="modal-footer">
@@ -1419,12 +1672,12 @@ function attachListeners() {
     rerenderCurrent();
   }, err => console.error('settings listener',err)));
 
-  // Users listener (for assignee selectors + team page)
-  unsubscribers.push(db.collection('users').onSnapshot(snap => {
+  // Members listener — workspace-scoped so Firestore rules allow all workspace users to read
+  unsubscribers.push(ws.collection('members').onSnapshot(snap => {
     allUsers = snap.docs.map(d => ({uid:d.id, ...d.data()}));
     if(currentPage==='ajustes') renderTeam();
     rerenderCurrent();
-  }, err => console.error('users listener',err)));
+  }, err => console.error('members listener',err)));
 }
 
 function visibleCampaigns() {
@@ -1533,12 +1786,32 @@ let currentPage = 'dashboard';
 let currentCampaignId = null;
 let currentTaskContext = null; // 'global' or campaignId
 let editingCampaignId = null;
+let editingTaskId = null;
+let editingTaskCampaignId = null;
+
+function setPendientesBadge(count) {
+  document.getElementById('pendientesBadge').textContent = count;
+  const mb = document.getElementById('mobileNavBadge');
+  if(mb) { mb.textContent = count; mb.style.display = count > 0 ? 'flex' : 'none'; }
+}
+
+function toggleMobileSidebar() {
+  const sidebar = document.getElementById('mainSidebar');
+  const overlay = document.getElementById('sidebarOverlay');
+  const open = sidebar.classList.toggle('mobile-open');
+  overlay.classList.toggle('open', open);
+}
 
 function navigate(page) {
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.querySelectorAll('.mobile-nav-item').forEach(n=>n.classList.remove('active'));
   document.getElementById('page-'+page).classList.add('active');
-  document.querySelector(`[data-page="${page}"]`)?.classList.add('active');
+  document.querySelector(`.nav-item[data-page="${page}"]`)?.classList.add('active');
+  document.querySelector(`.mobile-nav-item[data-page="${page}"]`)?.classList.add('active');
+  // close mobile sidebar on nav
+  document.getElementById('mainSidebar')?.classList.remove('mobile-open');
+  document.getElementById('sidebarOverlay')?.classList.remove('open');
   currentPage = page;
 
   const titles = {
@@ -1584,7 +1857,7 @@ function renderDashboard() {
     const hint = `<div class="dashboard-sub-hint">Aún no sigues ninguna campaña.<br><a onclick="navigate('campannas')">Ve a Campañas</a> y haz clic en <strong>+ Seguir</strong> para ver su info aquí.</div>`;
     ['todayTasksList','alertsList','recentDocsList','upcomingPubs'].forEach(id => { const el=document.getElementById(id); if(el) el.innerHTML=hint; });
     const dct=document.getElementById('dashCampaignTable'); if(dct) dct.innerHTML=`<tr><td colspan="5">${hint}</td></tr>`;
-    document.getElementById('pendientesBadge').textContent='0';
+    setPendientesBadge(0);
     return;
   }
 
@@ -1595,8 +1868,10 @@ function renderDashboard() {
   const allTasks = [...globalTasks];
   campaigns.forEach(c => c.tasks.forEach(t => allTasks.push({...t, campaignName:c.name, campaignId:c.id})));
 
-  const todayTasks = allTasks.filter(t => !t.done && t.dueDate === today);
-  const urgentTasks = allTasks.filter(t => !t.done && t.priority==='high');
+  // Only show tasks assigned to current user (or legacy tasks with no UID)
+  const myTasks = allTasks.filter(t => !t.assigneeUid || t.assigneeUid === currentUser.uid);
+  const todayTasks = myTasks.filter(t => !t.done && t.dueDate === today);
+  const urgentTasks = myTasks.filter(t => !t.done && t.priority==='high');
   const activeCampaigns = campaigns.filter(c => !['Completado'].includes(c.status));
 
   // Upcoming pubs this week
@@ -1616,7 +1891,7 @@ function renderDashboard() {
   document.getElementById('statToday').textContent = todayTasks.length;
   document.getElementById('statUrgent').textContent = urgentTasks.length;
   document.getElementById('statPubs').textContent = upcomingPubs.length;
-  document.getElementById('pendientesBadge').textContent = allTasks.filter(t=>!t.done).length;
+  setPendientesBadge(myTasks.filter(t=>!t.done).length);
 
   // Today tasks
   const ttl = document.getElementById('todayTasksList');
@@ -1631,6 +1906,7 @@ function renderDashboard() {
           <div class="task-title ${t.done?'done-text':''}">${t.title}</div>
           <div class="task-meta">${t.campaignName||'General'}</div>
         </div>
+        <button class="task-edit-btn" onclick="openEditTaskModal('${t.id}','${t.campaignId||''}')" title="Editar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></svg></button>
       </div>`).join('');
   }
 
@@ -1736,7 +2012,7 @@ function renderCampaignGrid() {
       <div class="campaign-meta">
         <span class="badge badge-lavender"><span class="badge-icn">${ICN_users}</span>${c.influencers.length} influencers</span>
         <span class="badge badge-mint"><span class="badge-icn">${ICN_calendar}</span>${c.season||'—'}</span>
-        ${c.responsible?`<span class="badge badge-pink">${c.responsible}</span>`:''}
+        ${(()=>{ const r=c.responsables||{}; return ['operaciones','cuentas','creativo','data'].map(k=>{ if(!r[k]) return ''; const u=allUsers.find(x=>x.uid===r[k]); return u?`<span class="badge badge-area-${u.area||k.charAt(0).toUpperCase()+k.slice(1)}">${u.name||u.email.split('@')[0]}</span>`:''; }).join(''); })()||''}
       </div>
       <div class="campaign-progress">
         <div class="progress-label"><span>Flujo</span><span>${pct}%</span></div>
@@ -1777,9 +2053,29 @@ function openCampaignDetail(cid) {
   document.getElementById('detailCampaignSub').textContent = `${c.client} · ${c.season||''}`;
 
   // Info grid — budget only visible to admin
-  const budgetField = isAdmin()
-    ? `<div class="info-field"><div class="info-label">Presupuesto</div><div class="info-value">${c.budget||'—'}</div></div>`
-    : `<div class="info-field"><div class="info-label">Presupuesto</div><div class="info-value" style="color:var(--text-muted);font-style:italic;">🔒 Solo admin</div></div>`;
+  const fmtMXN = (n) => n > 0 ? `$${Number(n).toLocaleString('es-MX',{maximumFractionDigits:0})} MXN` : '—';
+  const budgetField = isAdmin() ? (() => {
+    const bc = c.budgetClient || 0;
+    const bm = c.budgetMargin || 0;
+    const ops = bc > 0 ? bc - (bc * bm / 100) : 0;
+    const ganancia = bc - ops;
+    // fallback for old single-budget campaigns
+    if(!bc && c.budget) return `<div class="info-field"><div class="info-label">Presupuesto</div><div class="info-value">${c.budget}</div></div>`;
+    return `
+      <div class="info-field">
+        <div class="info-label">Presupuesto cliente</div>
+        <div class="info-value">${fmtMXN(bc)}</div>
+      </div>
+      <div class="info-field">
+        <div class="info-label">% de ganancia</div>
+        <div class="info-value">${bm > 0 ? bm+'%' : '—'}</div>
+      </div>
+      <div class="info-field" style="background:var(--mint-pale);border-radius:10px;padding:10px 14px;">
+        <div class="info-label" style="color:#3a7a5e;">Presupuesto operaciones</div>
+        <div class="info-value" style="color:#3a7a5e;font-weight:700;">${fmtMXN(ops)}${ganancia>0?` <span style="font-size:11px;color:var(--text-muted);font-weight:400;">(ganancia ${fmtMXN(ganancia)})</span>`:''}</div>
+      </div>`;
+  })()
+  : `<div class="info-field"><div class="info-label">Presupuesto</div><div class="info-value" style="color:var(--text-muted);font-style:italic;">🔒 Solo admin</div></div>`;
 
   // Assignees list
   const assignedUids = Array.isArray(c.assignedTo) ? c.assignedTo : [];
@@ -1799,7 +2095,16 @@ function openCampaignDetail(cid) {
     <div class="info-field"><div class="info-label">Objetivo</div><div class="info-value">${c.objective||'—'}</div></div>
     <div class="info-field"><div class="info-label">Core Message</div><div class="info-value">${c.coreMessage||'—'}</div></div>
     ${budgetField}
-    <div class="info-field"><div class="info-label">Responsable</div><div class="info-value">${c.responsible||'—'}</div></div>
+    ${(()=>{
+      const r = c.responsables || {};
+      const areaLabel = {operaciones:'Operaciones', cuentas:'Cuentas', creativo:'Creativo', data:'Data'};
+      const areaColor = {operaciones:'badge-area-Operaciones', cuentas:'badge-area-Cuentas', creativo:'badge-area-Creativo', data:'badge-area-Data'};
+      return Object.entries(areaLabel).map(([key, label]) => {
+        const uid = r[key];
+        const content = uid ? userChip(uid) : `<span style="color:var(--text-muted);font-size:13px;">Sin asignar</span>`;
+        return `<div class="info-field"><div class="info-label"><span class="badge ${areaColor[key]}" style="font-size:10px;">${label}</span></div><div class="info-value">${content}</div></div>`;
+      }).join('');
+    })()}
     <div class="info-field"><div class="info-label">Fecha límite</div><div class="info-value">${formatDate(c.deadline)||'—'}</div></div>
     <div class="info-field"><div class="info-label">Status</div><div class="info-value">${statusBadge(c.status)}</div></div>
     <div class="info-field" style="grid-column:1/-1;">
@@ -1860,6 +2165,7 @@ function renderCampaignTasks(c) {
         <div class="task-title ${t.done?'done-text':''}">${t.title}</div>
         <div class="task-meta">${t.assignee||''} · ${formatDate(t.dueDate)||''}</div>
       </div>
+      <button class="task-edit-btn" onclick="openEditTaskModal('${t.id}','${c.id}')" title="Editar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></svg></button>
       <button onclick="deleteTask('${t.id}','${c.id}')" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:12px;padding:4px;"><span class="icn-close"></span></button>
     </div>`).join('');
 }
@@ -1919,9 +2225,12 @@ function renderPendientes() {
   const allTasks = [...globalTasks.map(t=>({...t,source:'global'}))];
   campaigns.forEach(c=>c.tasks.forEach(t=>allTasks.push({...t,campaignId:c.id,campaignName:c.name,source:'campaign'})));
 
-  let filtered = allTasks;
-  if(currentFilter==='hoy') filtered = allTasks.filter(t=>t.dueDate===today);
-  else if(currentFilter==='semana') filtered = allTasks.filter(t=>t.dueDate>=today&&t.dueDate<=weekEndStr);
+  // Only tasks assigned to current user (or legacy tasks with no UID)
+  const myTasks = allTasks.filter(t => !t.assigneeUid || t.assigneeUid === currentUser.uid);
+
+  let filtered = myTasks;
+  if(currentFilter==='hoy') filtered = myTasks.filter(t=>t.dueDate===today);
+  else if(currentFilter==='semana') filtered = myTasks.filter(t=>t.dueDate>=today&&t.dueDate<=weekEndStr);
 
   filtered.sort((a,b)=>{
     const p={high:0,medium:1,low:2};
@@ -1929,9 +2238,25 @@ function renderPendientes() {
     return (p[a.priority]||1)-(p[b.priority]||1);
   });
 
+  const prioBadge = (p) => {
+    const map = {high:['#fee2e2','#991b1b','Alta'], medium:['#fef9c3','#854d0e','Media'], low:['#dcfce7','#15803d','Baja']};
+    const [bg,col,lbl] = map[p]||map.medium;
+    return `<span style="font-size:11px;padding:2px 8px;border-radius:10px;background:${bg};color:${col};flex-shrink:0;">${lbl}</span>`;
+  };
+  const assigneeChip = (t) => {
+    if(!t.assignee && !t.assigneeUid) return '';
+    const u = allUsers.find(x=>x.uid===t.assigneeUid);
+    const name = u ? (u.name||u.email.split('@')[0]) : (t.assignee||'');
+    const initials = name[0]?.toUpperCase()||'?';
+    return `<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;background:var(--lavender-pale);color:#6a5a9a;border-radius:20px;padding:2px 8px 2px 4px;">
+      <span style="width:16px;height:16px;border-radius:50%;background:var(--lavender);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;">${initials}</span>
+      ${name}</span>`;
+  };
+
   const el = document.getElementById('allTasksList');
   if(filtered.length===0) {
     el.innerHTML=`<div class="empty-state"><div class="empty-icon">${ICN_check}</div><p>¡Sin tareas para este período!</p></div>`;
+    setPendientesBadge(myTasks.filter(t=>!t.done).length);
     return;
   }
   el.innerHTML = filtered.map(t=>`
@@ -1940,15 +2265,18 @@ function renderPendientes() {
       <div class="priority-dot priority-${t.priority}"></div>
       <div class="task-info">
         <div class="task-title ${t.done?'done-text':''}">${t.title}</div>
-        <div class="task-meta">
-          ${t.campaignName?`<a onclick="openCampaignDetail('${t.campaignId}')" style="color:var(--pink);cursor:pointer;font-weight:600">${t.campaignName}</a> · `:''}
-          ${t.assignee||''} · ${formatDate(t.dueDate)||'Sin fecha'}
+        <div class="task-meta" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+          ${t.campaignName?`<a onclick="openCampaignDetail('${t.campaignId}')" style="color:var(--pink);cursor:pointer;font-weight:600">${t.campaignName}</a>`:''}
+          ${t.campaignName?'·':''}
+          ${assigneeChip(t)}
+          <span>${formatDate(t.dueDate)||'Sin fecha'}</span>
         </div>
       </div>
-      <span style="font-size:11px;padding:2px 8px;border-radius:10px;background:${t.priority==='high'?'#fee2e2':t.priority==='medium'?'#fef9c3':'#dcfce7'};color:${t.priority==='high'?'#991b1b':t.priority==='medium'?'#854d0e':'#15803d'}">${t.priority==='high'?'Alta':t.priority==='medium'?'Media':'Baja'}</span>
+      ${prioBadge(t.priority)}
+      <button class="task-edit-btn" onclick="openEditTaskModal('${t.id}','${t.campaignId||''}')" title="Editar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></svg></button>
       <button onclick="deleteTask('${t.id}','${t.campaignId||''}')" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:12px;padding:4px;"><span class="icn-close"></span></button>
     </div>`).join('');
-  document.getElementById('pendientesBadge').textContent = allTasks.filter(t=>!t.done).length;
+  setPendientesBadge(myTasks.filter(t=>!t.done).length);
 }
 
 function toggleTask(tid, cid) {
@@ -2130,7 +2458,7 @@ async function generateText(scope) {
 
   const campaigns = getData('campaigns');
   const c = campaigns.find(x=>x.id===campId);
-  const campInfo = c ? `Campaña: ${c.name}, Cliente: ${c.client}, Objetivo: ${c.objective||'—'}, Core message: ${c.coreMessage||'—'}, Responsable: ${c.responsible||'—'}` : 'Sin campaña específica';
+  const campInfo = c ? `Campaña: ${c.name}, Cliente: ${c.client}, Objetivo: ${c.objective||'—'}, Core message: ${c.coreMessage||'—'}` : 'Sin campaña específica';
 
   const prompts = {
     'Follow up cliente': `Escribe un email corto y profesional de follow up para el cliente de esta campaña de influencer marketing. Tono: amable, ejecutivo, en español. ${campInfo}. Contexto adicional: ${ctx||'ninguno'}. Firma con el nombre del responsable.`,
@@ -2188,11 +2516,66 @@ function applyBudgetVisibility() {
   if(grp) grp.style.display = isAdmin() ? '' : 'none';
 }
 
+function calcBudgetOps() {
+  const client = parseFloat(document.getElementById('fCampBudgetClient').value) || 0;
+  const margin = parseFloat(document.getElementById('fCampMargin').value) || 0;
+  const el = document.getElementById('fCampBudgetOpsResult');
+  if(!el) return;
+  if(client <= 0) { el.textContent = '—'; return; }
+  const ganancia = client * (margin / 100);
+  const ops = client - ganancia;
+  el.textContent = margin > 0
+    ? `$${ops.toLocaleString('es-MX',{maximumFractionDigits:0})} MXN  (Cliente $${client.toLocaleString('es-MX',{maximumFractionDigits:0})} − ${margin}% = $${ganancia.toLocaleString('es-MX',{maximumFractionDigits:0})} ganancia)`
+    : `$${ops.toLocaleString('es-MX',{maximumFractionDigits:0})} MXN`;
+}
+
+const AREAS = ['Operaciones','Cuentas','Creativo','Data'];
+const AREA_IDS = {Operaciones:'fCampRespOps', Cuentas:'fCampRespCuentas', Creativo:'fCampRespCreativo', Data:'fCampRespData'};
+
+function populateCampResponsibles(responsables) {
+  responsables = responsables || {};
+  AREAS.forEach(area => {
+    const sel = document.getElementById(AREA_IDS[area]);
+    if(!sel) return;
+    // Show ALL users; sort preferred area to top, label with area for context
+    const preferred = allUsers.filter(u => u.area === area);
+    const others = allUsers.filter(u => u.area !== area);
+    const renderOpt = u => {
+      const label = u.area ? `${u.name || u.email.split('@')[0]} (${u.area})` : (u.name || u.email.split('@')[0]);
+      return `<option value="${u.uid}">${label}</option>`;
+    };
+    sel.innerHTML = `<option value="">Sin asignar</option>` +
+      preferred.map(renderOpt).join('') +
+      (preferred.length && others.length ? `<option disabled>──────────</option>` : '') +
+      others.map(renderOpt).join('');
+    sel.value = responsables[area.toLowerCase()] || '';
+  });
+}
+
+function areaBadge(area) {
+  if(!area) return '';
+  return `<span class="badge badge-area-${area}" style="font-size:10px;">${area}</span>`;
+}
+
+function userChip(uid, fallbackName) {
+  const u = allUsers.find(x => x.uid === uid);
+  if(!u && !fallbackName) return '';
+  const name = u ? (u.name || u.email.split('@')[0]) : fallbackName;
+  const initial = name[0]?.toUpperCase() || '?';
+  const area = u?.area || '';
+  return `<span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;background:var(--white);border:1px solid var(--border);border-radius:20px;padding:3px 10px 3px 4px;">
+    <span style="width:20px;height:20px;border-radius:50%;background:var(--pink-deep);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;">${initial}</span>
+    ${name}${area?` <span class="badge badge-area-${area}" style="font-size:9px;padding:1px 5px;">${area}</span>`:''}
+  </span>`;
+}
+
 function openNewCampaignModal() {
   editingCampaignId = null;
   document.getElementById('campaignModalTitle').textContent='Nueva campaña';
-  ['fCampName','fCampClient','fCampSeason','fCampObjective','fCampCore','fCampBudget','fCampResponsible','fCampDeadline'].forEach(id=>document.getElementById(id).value='');
+  ['fCampName','fCampClient','fCampSeason','fCampObjective','fCampCore','fCampBudgetClient','fCampMargin','fCampDeadline'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  document.getElementById('fCampBudgetOpsResult').textContent='—';
   document.getElementById('fCampStatus').value='En proceso';
+  populateCampResponsibles({});
   applyBudgetVisibility();
   openModal('campaignModal');
 }
@@ -2213,8 +2596,10 @@ function openEditCampaignModal() {
   document.getElementById('fCampStatus').value=c.status||'En proceso';
   document.getElementById('fCampObjective').value=c.objective||'';
   document.getElementById('fCampCore').value=c.coreMessage||'';
-  document.getElementById('fCampBudget').value=c.budget||'';
-  document.getElementById('fCampResponsible').value=c.responsible||'';
+  document.getElementById('fCampBudgetClient').value=c.budgetClient||'';
+  document.getElementById('fCampMargin').value=c.budgetMargin||'';
+  calcBudgetOps();
+  populateCampResponsibles(c.responsables||{});
   document.getElementById('fCampDeadline').value=c.deadline||'';
   applyBudgetVisibility();
   openModal('campaignModal');
@@ -2228,32 +2613,59 @@ function openAssignModal() {
   if(!isAdmin() && c.createdBy !== currentUser.uid) {
     showToast('Solo el creador o admin puede asignar','error'); return;
   }
-  const assigned = new Set(Array.isArray(c.assignedTo) ? c.assignedTo : []);
-  const list = document.getElementById('assignList');
-  list.innerHTML = allUsers.map(u => `
-    <label style="display:flex;align-items:center;gap:10px;padding:10px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;cursor:pointer;">
-      <input type="checkbox" data-uid="${u.uid}" ${assigned.has(u.uid)?'checked':''} ${u.uid===c.createdBy?'disabled':''} style="width:16px;height:16px;cursor:pointer;">
-      <div style="width:32px;height:32px;border-radius:50%;background:var(--lavender);color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;">${(u.name||u.email)[0].toUpperCase()}</div>
-      <div style="flex:1;">
-        <div style="font-size:13px;font-weight:600;">${u.name||'—'} ${u.uid===c.createdBy?'<span style="font-size:10px;color:var(--text-muted);">(creador)</span>':''}</div>
-        <div style="font-size:11px;color:var(--text-muted);">${u.email}</div>
-      </div>
-      <span class="badge ${u.role==='admin'?'badge-pink':'badge-gray'}">${u.role==='admin'?'Admin':'Miembro'}</span>
-    </label>`).join('') || '<div class="empty-state"><p>No hay usuarios registrados todavía.</p></div>';
+  _renderAssignModal(c);
   openModal('assignModal');
+}
+
+function _renderAssignModal(c) {
+  const assigned = new Set(Array.isArray(c.assignedTo) ? c.assignedTo : []);
+  const current = allUsers.filter(u => assigned.has(u.uid));
+  const available = allUsers.filter(u => !assigned.has(u.uid));
+  const avatar = (u) => `<div style="width:30px;height:30px;border-radius:50%;background:var(--lavender);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;">${(u.name||u.email)[0].toUpperCase()}</div>`;
+  const currentHtml = current.length === 0
+    ? '<p style="font-size:12px;color:var(--text-muted);padding:8px 0;">Sin participantes asignados.</p>'
+    : current.map(u => `
+      <div style="display:flex;align-items:center;gap:10px;padding:9px 12px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;background:var(--lavender-pale);">
+        ${avatar(u)}
+        <div style="flex:1;">
+          <div style="font-size:13px;font-weight:600;">${u.name||'—'} ${u.uid===c.createdBy?'<span style="font-size:10px;color:var(--text-muted);">(creador)</span>':''}</div>
+          <div style="font-size:11px;color:var(--text-muted);">${u.email}</div>
+        </div>
+        <span class="badge ${u.role==='admin'?'badge-pink':'badge-gray'}">${u.role==='admin'?'Admin':'Miembro'}</span>
+        ${u.uid !== c.createdBy ? `<button onclick="removeAssignee('${c.id}','${u.uid}');_renderAssignModal(_cache.campaigns.find(x=>x.id==='${c.id}'))" style="background:var(--red);border:none;cursor:pointer;color:#fff;font-size:11px;font-weight:700;padding:4px 10px;border-radius:6px;flex-shrink:0;">Eliminar</button>` : ''}
+      </div>`).join('');
+  const availableHtml = available.length === 0
+    ? '<p style="font-size:12px;color:var(--text-muted);padding:8px 0;">Todos los usuarios ya están asignados.</p>'
+    : available.map(u => `
+      <label style="display:flex;align-items:center;gap:10px;padding:9px 12px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;cursor:pointer;">
+        <input type="checkbox" data-uid="${u.uid}" style="width:16px;height:16px;cursor:pointer;">
+        ${avatar(u)}
+        <div style="flex:1;">
+          <div style="font-size:13px;font-weight:600;">${u.name||'—'}</div>
+          <div style="font-size:11px;color:var(--text-muted);">${u.email}</div>
+        </div>
+        <span class="badge ${u.role==='admin'?'badge-pink':'badge-gray'}">${u.role==='admin'?'Admin':'Miembro'}</span>
+      </label>`).join('');
+  document.getElementById('assignList').innerHTML = `
+    <p style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Participantes actuales</p>
+    ${currentHtml}
+    <p style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin:14px 0 8px;">Agregar participantes</p>
+    ${availableHtml}`;
 }
 
 function saveAssignees() {
   if(!currentCampaignId) return;
-  const checks = document.querySelectorAll('#assignList input[type="checkbox"]');
-  const newAssignees = Array.from(checks).filter(c=>c.checked).map(c=>c.dataset.uid);
   const campaigns = getData('campaigns');
   const idx = campaigns.findIndex(x=>x.id===currentCampaignId);
   if(idx===-1) return;
-  // Always include creator
-  const creator = campaigns[idx].createdBy;
-  if(creator && !newAssignees.includes(creator)) newAssignees.push(creator);
-  campaigns[idx] = {...campaigns[idx], assignedTo: newAssignees};
+  const c = campaigns[idx];
+  // Start with currently assigned (already persisted by removeAssignee calls)
+  const current = new Set(Array.isArray(c.assignedTo) ? c.assignedTo : []);
+  // Add newly checked users from the "agregar" section
+  document.querySelectorAll('#assignList input[type="checkbox"]:checked').forEach(cb => current.add(cb.dataset.uid));
+  // Always keep creator
+  if(c.createdBy) current.add(c.createdBy);
+  campaigns[idx] = {...c, assignedTo: [...current]};
   setData('campaigns', campaigns);
   closeModal('assignModal');
   showToast('Participantes actualizados','success');
@@ -2285,23 +2697,49 @@ function renderTeam() {
       <div style="width:36px;height:36px;border-radius:50%;background:var(--pink-deep);color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;">${(u.name||u.email)[0].toUpperCase()}</div>
       <div style="flex:1;">
         <div style="font-size:14px;font-weight:600;">${u.name||'—'} ${u.uid===currentUser.uid?'<span style="font-size:11px;color:var(--text-muted);">(tú)</span>':''}</div>
-        <div style="font-size:12px;color:var(--text-muted);">${u.email}</div>
+        <div style="font-size:12px;color:var(--text-muted);display:flex;align-items:center;gap:6px;margin-top:2px;">${u.email}${u.area?`<span class="badge badge-area-${u.area}" style="font-size:10px;">${u.area}</span>`:''}</div>
       </div>
       ${isAdmin() && u.uid !== currentUser.uid
-        ? `<select onchange="changeRole('${u.uid}',this.value)" style="padding:5px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:inherit;background:var(--white);cursor:pointer;">
-            <option value="member" ${u.role==='member'?'selected':''}>Miembro</option>
-            <option value="admin" ${u.role==='admin'?'selected':''}>Admin</option>
-          </select>`
+        ? `<div style="display:flex;gap:6px;align-items:center;">
+            <select onchange="changeArea('${u.uid}',this.value)" style="padding:5px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:inherit;background:var(--white);cursor:pointer;">
+              <option value="">Sin área</option>
+              ${AREAS.map(a=>`<option value="${a}" ${u.area===a?'selected':''}>${a}</option>`).join('')}
+            </select>
+            <select onchange="changeRole('${u.uid}',this.value)" style="padding:5px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:inherit;background:var(--white);cursor:pointer;">
+              <option value="member" ${u.role==='member'?'selected':''}>Miembro</option>
+              <option value="admin" ${u.role==='admin'?'selected':''}>Admin</option>
+            </select>
+          </div>`
         : `<span class="badge ${u.role==='admin'?'badge-pink':'badge-gray'}">${u.role==='admin'?'Admin':'Miembro'}</span>`
       }
     </div>`).join('') || '<div class="empty-state"><p>Sin miembros aún.</p></div>';
 }
 
+async function changeArea(uid, newArea) {
+  if(!isAdmin()) { showToast('Solo admin puede cambiar área','error'); return; }
+  try {
+    const ws = db.collection('workspaces').doc(WORKSPACE);
+    await Promise.all([
+      db.collection('users').doc(uid).update({area: newArea}),
+      ws.collection('members').doc(uid).set({area: newArea}, {merge:true})
+    ]);
+    const u = allUsers.find(x=>x.uid===uid);
+    if(u) u.area = newArea;
+    showToast('Área actualizada','success');
+    renderTeam();
+  } catch(e) { showToast('Error: '+e.message,'error'); }
+}
+
 async function changeRole(uid, newRole) {
   if(!isAdmin()) { showToast('Solo admin puede cambiar roles','error'); return; }
   try {
-    await db.collection('users').doc(uid).update({role: newRole});
+    const ws = db.collection('workspaces').doc(WORKSPACE);
+    await Promise.all([
+      db.collection('users').doc(uid).update({role: newRole}),
+      ws.collection('members').doc(uid).set({role: newRole}, {merge:true})
+    ]);
     showToast('Rol actualizado','success');
+    renderTeam();
   } catch(e) {
     showToast('Error: '+e.message,'error');
   }
@@ -2314,26 +2752,42 @@ function saveCampaign() {
   if(editingCampaignId) {
     const idx = campaigns.findIndex(x=>x.id===editingCampaignId);
     if(idx!==-1) {
+      const _bc = parseFloat(document.getElementById('fCampBudgetClient').value)||0;
+      const _bm = parseFloat(document.getElementById('fCampMargin').value)||0;
       campaigns[idx] = {...campaigns[idx],
         name, client:document.getElementById('fCampClient').value,
         season:document.getElementById('fCampSeason').value,
         status:document.getElementById('fCampStatus').value,
         objective:document.getElementById('fCampObjective').value,
         coreMessage:document.getElementById('fCampCore').value,
-        budget:document.getElementById('fCampBudget').value,
-        responsible:document.getElementById('fCampResponsible').value,
+        budgetClient:_bc, budgetMargin:_bm,
+        budgetOps: _bc > 0 ? _bc - (_bc * _bm / 100) : 0,
+        responsables:{
+          operaciones: document.getElementById('fCampRespOps').value,
+          cuentas: document.getElementById('fCampRespCuentas').value,
+          creativo: document.getElementById('fCampRespCreativo').value,
+          data: document.getElementById('fCampRespData').value,
+        },
         deadline:document.getElementById('fCampDeadline').value,
       };
     }
   } else {
+    const _bc2 = parseFloat(document.getElementById('fCampBudgetClient').value)||0;
+    const _bm2 = parseFloat(document.getElementById('fCampMargin').value)||0;
     campaigns.push({
       id:id(), name, client:document.getElementById('fCampClient').value,
       season:document.getElementById('fCampSeason').value,
       status:document.getElementById('fCampStatus').value,
       objective:document.getElementById('fCampObjective').value,
       coreMessage:document.getElementById('fCampCore').value,
-      budget:document.getElementById('fCampBudget').value,
-      responsible:document.getElementById('fCampResponsible').value,
+      budgetClient:_bc2, budgetMargin:_bm2,
+      budgetOps: _bc2 > 0 ? _bc2 - (_bc2 * _bm2 / 100) : 0,
+      responsables:{
+        operaciones: document.getElementById('fCampRespOps').value,
+        cuentas: document.getElementById('fCampRespCuentas').value,
+        creativo: document.getElementById('fCampRespCreativo').value,
+        data: document.getElementById('fCampRespData').value,
+      },
       deadline:document.getElementById('fCampDeadline').value,
       createdBy: currentUser.uid,
       assignedTo: [currentUser.uid],
@@ -2349,22 +2803,59 @@ function saveCampaign() {
   populateCampaignSelects();
 }
 
+function populateTaskAssigneeSelect(defaultUid) {
+  const sel = document.getElementById('fTaskAssignee');
+  if(!sel) return;
+  sel.innerHTML = `<option value="">Sin asignar</option>` +
+    allUsers.map(u => `<option value="${u.uid}">${u.name || u.email.split('@')[0]}</option>`).join('');
+  sel.value = defaultUid || currentUser.uid;
+}
+
 function openAddTaskModal() {
+  editingTaskId = null; editingTaskCampaignId = null;
   currentTaskContext = currentCampaignId || 'global';
   populateCampaignSelects();
+  populateTaskAssigneeSelect(currentUser.uid);
   document.getElementById('fTaskTitle').value='';
   document.getElementById('fTaskDate').value=new Date().toISOString().split('T')[0];
-  document.getElementById('fTaskAssignee').value=getSettings().name||'';
+  document.getElementById('fTaskPriority').value='medium';
   if(currentCampaignId) document.getElementById('fTaskCampaign').value=currentCampaignId;
+  document.querySelector('#taskModal .modal-title').textContent='Nueva tarea';
   openModal('taskModal');
 }
 
 function openAddGlobalTaskModal() {
+  editingTaskId = null; editingTaskCampaignId = null;
   currentTaskContext='global';
   populateCampaignSelects();
+  populateTaskAssigneeSelect(currentUser.uid);
   document.getElementById('fTaskTitle').value='';
   document.getElementById('fTaskDate').value=new Date().toISOString().split('T')[0];
-  document.getElementById('fTaskAssignee').value=getSettings().name||'';
+  document.getElementById('fTaskPriority').value='medium';
+  document.querySelector('#taskModal .modal-title').textContent='Nueva tarea';
+  openModal('taskModal');
+}
+
+function openEditTaskModal(tid, cid) {
+  // find task
+  let task = null;
+  if(cid) {
+    const c = _cache.campaigns.find(x=>x.id===cid);
+    if(c) task = c.tasks.find(x=>x.id===tid);
+  } else {
+    task = (_cache.globalTasks||[]).find(x=>x.id===tid);
+  }
+  if(!task) { showToast('Tarea no encontrada','error'); return; }
+  editingTaskId = tid;
+  editingTaskCampaignId = cid || null;
+  populateCampaignSelects();
+  populateTaskAssigneeSelect(task.assigneeUid || currentUser.uid);
+  document.getElementById('fTaskTitle').value = task.title || '';
+  document.getElementById('fTaskDate').value = task.dueDate || '';
+  document.getElementById('fTaskPriority').value = task.priority || 'medium';
+  if(cid) document.getElementById('fTaskCampaign').value = cid;
+  if(task.assigneeUid) document.getElementById('fTaskAssignee').value = task.assigneeUid;
+  document.querySelector('#taskModal .modal-title').textContent='Editar tarea';
   openModal('taskModal');
 }
 
@@ -2372,24 +2863,53 @@ function saveTask() {
   const title = document.getElementById('fTaskTitle').value.trim();
   if(!title) { showToast('La tarea es requerida','error'); return; }
   const campId = document.getElementById('fTaskCampaign').value;
-  const task = {
-    id:id(), title,
-    dueDate:document.getElementById('fTaskDate').value,
-    priority:document.getElementById('fTaskPriority').value,
-    assignee:document.getElementById('fTaskAssignee').value,
-    done:false
-  };
-  if(campId) {
-    const campaigns=getData('campaigns');
-    const c=campaigns.find(x=>x.id===campId);
-    if(c) { c.tasks.push(task); setData('campaigns',campaigns); }
+  const sel = document.getElementById('fTaskAssignee');
+  const assigneeUid = sel.value || '';
+  const assigneeUser = allUsers.find(u => u.uid === assigneeUid);
+  const assigneeName = assigneeUser ? (assigneeUser.name || assigneeUser.email.split('@')[0]) : '';
+  const dueDate = document.getElementById('fTaskDate').value;
+  const priority = document.getElementById('fTaskPriority').value;
+
+  if(editingTaskId) {
+    // UPDATE existing task
+    const cid = editingTaskCampaignId;
+    if(cid) {
+      const campaigns = getData('campaigns');
+      const c = campaigns.find(x=>x.id===cid);
+      if(c) {
+        const t = c.tasks.find(x=>x.id===editingTaskId);
+        if(t) { t.title=title; t.dueDate=dueDate; t.priority=priority; t.assigneeUid=assigneeUid; t.assignee=assigneeName; }
+        setData('campaigns', campaigns);
+      }
+    } else {
+      const tasks = getData('globalTasks');
+      const t = tasks.find(x=>x.id===editingTaskId);
+      if(t) { t.title=title; t.dueDate=dueDate; t.priority=priority; t.assigneeUid=assigneeUid; t.assignee=assigneeName; }
+      setData('globalTasks', tasks);
+    }
+    closeModal('taskModal');
+    showToast('Tarea actualizada','success');
   } else {
-    const tasks=getData('globalTasks');
-    tasks.push({...task,campaignName:'General',campaignId:''});
-    setData('globalTasks',tasks);
+    // CREATE new task
+    const task = {
+      id:id(), title, dueDate, priority, assigneeUid,
+      assignee: assigneeName,
+      createdBy: currentUser.uid,
+      done:false
+    };
+    if(campId) {
+      const campaigns=getData('campaigns');
+      const c=campaigns.find(x=>x.id===campId);
+      if(c) { c.tasks.push(task); setData('campaigns',campaigns); }
+    } else {
+      const tasks=getData('globalTasks');
+      tasks.push({...task,campaignName:'General',campaignId:''});
+      setData('globalTasks',tasks);
+    }
+    closeModal('taskModal');
+    showToast('Tarea agregada','success');
   }
-  closeModal('taskModal');
-  showToast('Tarea agregada','success');
+  editingTaskId = null; editingTaskCampaignId = null;
   if(currentPage==='pendientes') renderPendientes();
   if(currentPage==='dashboard') renderDashboard();
   if(currentPage==='campannas'&&currentCampaignId) {
@@ -2803,6 +3323,7 @@ let isSignupMode = false;
 function toggleAuthMode() {
   isSignupMode = !isSignupMode;
   document.getElementById('loginNameInput').style.display = isSignupMode ? 'block' : 'none';
+  document.getElementById('loginAreaInput').style.display = isSignupMode ? 'block' : 'none';
   document.getElementById('loginTitle').textContent = isSignupMode ? 'Crea tu cuenta' : 'Inicia sesión para continuar';
   document.getElementById('loginSubmitBtn').textContent = isSignupMode ? 'Crear cuenta' : 'Entrar';
   document.getElementById('loginToggle').innerHTML = isSignupMode
@@ -2819,11 +3340,15 @@ async function loginSubmit() {
   errEl.textContent='';
   if(!email || !pw) { errEl.textContent='Email y contraseña requeridos'; return; }
   if(!isAllowedEmail(email)) { errEl.textContent='Solo se permiten correos @thinkydigital.com'; return; }
+  const area = document.getElementById('loginAreaInput').value;
   if(isSignupMode && !name) { errEl.textContent='Ingresa tu nombre'; return; }
+  if(isSignupMode && !area) { errEl.textContent='Selecciona tu área'; return; }
   try {
     if(isSignupMode) {
       const cred = await auth.createUserWithEmailAndPassword(email, pw);
       await cred.user.updateProfile({displayName: name});
+      // store area temporarily so onAuthStateChanged can pick it up
+      window._pendingArea = area;
       // user profile created in onAuthStateChanged
     } else {
       await auth.signInWithEmailAndPassword(email, pw);
@@ -2894,6 +3419,7 @@ auth.onAuthStateChanged(async (user) => {
   document.getElementById('loginScreen').classList.add('hidden');
 
   // Get/create user profile with role
+  const ws = db.collection('workspaces').doc(WORKSPACE);
   const userDocRef = db.collection('users').doc(user.uid);
   const userSnap = await userDocRef.get();
   if(!userSnap.exists) {
@@ -2902,9 +3428,11 @@ auth.onAuthStateChanged(async (user) => {
       name: user.displayName || user.email.split('@')[0],
       email: user.email,
       role: INITIAL_ADMINS.includes(user.email.toLowerCase()) ? 'admin' : 'member',
+      area: window._pendingArea || '',
       photoURL: user.photoURL || null,
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     };
+    window._pendingArea = null;
     await userDocRef.set(currentUserProfile);
   } else {
     currentUserProfile = {uid: user.uid, ...userSnap.data()};
@@ -2914,19 +3442,31 @@ auth.onAuthStateChanged(async (user) => {
       currentUserProfile.role = 'admin';
     }
   }
+  // Mirror display profile into workspace/members so all workspace users can read it
+  const memberRef = ws.collection('members').doc(user.uid);
+  const memberProfile = {
+    uid: currentUserProfile.uid,
+    name: currentUserProfile.name,
+    email: currentUserProfile.email,
+    role: currentUserProfile.role,
+    area: currentUserProfile.area || '',
+    photoURL: currentUserProfile.photoURL || null
+  };
+  await memberRef.set(memberProfile, {merge:true});
 
-  // Initial fetch
-  const ws = db.collection('workspaces').doc(WORKSPACE);
-  const [campaignsSnap, tasksSnap, settingsDoc, usersSnap] = await Promise.all([
+  // Initial fetch (members from workspace — readable by all workspace members)
+  const [campaignsSnap, tasksSnap, settingsDoc, membersSnap] = await Promise.all([
     ws.collection('campaigns').get(),
     ws.collection('globalTasks').get(),
     ws.collection('config').doc('settings').get(),
-    db.collection('users').get()
+    ws.collection('members').get()
   ]);
   _cache.campaigns = campaignsSnap.docs.map(d=>d.data());
   _cache.globalTasks = tasksSnap.docs.map(d=>d.data());
   _cache.settings = settingsDoc.exists ? settingsDoc.data() : {};
-  allUsers = usersSnap.docs.map(d => ({uid:d.id, ...d.data()}));
+  allUsers = membersSnap.docs.map(d => ({uid:d.id, ...d.data()}));
+  // Ensure current user is always in allUsers even if fetch missed them
+  if(!allUsers.find(u=>u.uid===user.uid)) allUsers.push(memberProfile);
 
   // Seed sample data ONLY if workspace empty AND first time globally
   const seeded = await ws.collection('config').doc('seeded').get();
