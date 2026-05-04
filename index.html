@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Campaign OS · Think Y.</title>
+<link rel="icon" href="assets/y-pink-transparent.png" type="image/png">
 <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
@@ -903,7 +904,7 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
           <table class="table">
             <thead>
               <tr>
-                <th>Campaña</th><th>Cliente</th><th>Status</th><th>Próximo paso</th><th>Fecha límite</th>
+                <th>Campaña</th><th>Cliente</th><th>Status</th><th>Próximo paso</th><th>Duración</th>
               </tr>
             </thead>
             <tbody id="dashCampaignTable"></tbody>
@@ -1076,39 +1077,47 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
 
     <!-- MÉTRICAS -->
     <div class="page" id="page-metricas">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
-        <h3 style="font-family:'Fraunces',serif;font-size:28px;font-weight:400;letter-spacing:-0.4px;">Métricas en tiempo real</h3>
-        <div style="display:flex;gap:10px;align-items:center;">
-          <input type="text" id="sheetsUrlInput" class="form-input" style="width:360px;font-size:12px;" placeholder="Pega URL pública de Google Sheets...">
-          <button class="btn btn-primary" onclick="loadMetrics()">Cargar datos</button>
+      <!-- Campaign picker view -->
+      <div id="metricsCampList">
+        <h3 style="font-family:'Fraunces',serif;font-size:28px;font-weight:400;letter-spacing:-0.4px;margin-bottom:6px;">Métricas</h3>
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:24px;">Selecciona una campaña para ver sus métricas vinculadas a Google Sheets.</p>
+        <div class="campaign-grid" id="metricsCampGrid"></div>
+      </div>
+      <!-- Per-campaign metrics view -->
+      <div id="metricsCampDetail" style="display:none;">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
+          <button onclick="closeMetricsCampDetail()" class="btn btn-ghost btn-sm" style="display:flex;align-items:center;gap:6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg> Volver
+          </button>
+          <h3 id="metricsCampName" style="font-family:'Fraunces',serif;font-size:24px;font-weight:400;letter-spacing:-0.3px;flex:1;"></h3>
         </div>
-      </div>
-      <div class="metrics-grid" id="metricsCards">
-        <div class="metric-card"><div class="metric-label">Alcance total</div><div class="metric-value" id="mReach">—</div><div class="metric-change" id="mReachChg"></div></div>
-        <div class="metric-card"><div class="metric-label">Impresiones</div><div class="metric-value" id="mImpressions">—</div><div class="metric-change" id="mImpChg"></div></div>
-        <div class="metric-card"><div class="metric-label">Interacciones</div><div class="metric-value" id="mInteractions">—</div><div class="metric-change" id="mIntChg"></div></div>
-        <div class="metric-card"><div class="metric-label">Engagement Rate</div><div class="metric-value" id="mER">—</div><div class="metric-change" id="mERChg"></div></div>
-      </div>
-      <div class="charts-grid">
+        <div class="card" style="margin-bottom:20px;">
+          <div style="font-size:13px;font-weight:600;margin-bottom:10px;">Vincular Google Sheets de métricas</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">Publica el sheet como CSV: <strong>Archivo → Publicar en la web → Hoja → CSV</strong>. Copia la URL generada.</div>
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+            <input type="text" id="sheetsUrlInput" class="form-input" style="flex:1;min-width:260px;font-size:12px;" placeholder="https://docs.google.com/spreadsheets/d/.../pub?output=csv">
+            <button class="btn btn-primary" onclick="loadMetrics()">Cargar datos</button>
+            <button class="btn btn-ghost btn-sm" onclick="openCampSheetInfo()" title="Cómo obtener la URL">?</button>
+          </div>
+        </div>
+        <div class="metrics-grid" id="metricsCards">
+          <div class="metric-card"><div class="metric-label">Alcance total</div><div class="metric-value" id="mReach">—</div></div>
+          <div class="metric-card"><div class="metric-label">Impresiones</div><div class="metric-value" id="mImpressions">—</div></div>
+          <div class="metric-card"><div class="metric-label">Interacciones</div><div class="metric-value" id="mInteractions">—</div></div>
+          <div class="metric-card"><div class="metric-label">Engagement Rate</div><div class="metric-value" id="mER">—</div></div>
+        </div>
+        <div class="charts-grid">
+          <div class="card"><div class="card-header"><span class="card-title">Alcance e Interacciones</span></div><canvas id="lineChart" height="120"></canvas></div>
+          <div class="card"><div class="card-header"><span class="card-title">Distribución de interacciones</span></div><canvas id="donutChart" height="180"></canvas></div>
+        </div>
         <div class="card">
-          <div class="card-header"><span class="card-title">Alcance e Interacciones</span></div>
-          <canvas id="lineChart" height="120"></canvas>
-        </div>
-        <div class="card">
-          <div class="card-header"><span class="card-title">Interacciones por tipo</span></div>
-          <canvas id="donutChart" height="180"></canvas>
-        </div>
-      </div>
-      <div class="card">
-        <div class="card-header"><span class="card-title">Rendimiento de contenidos publicados</span></div>
-        <div class="table-wrap">
-        <table class="table">
-          <thead><tr>
-            <th>Campaña</th><th>Influencer</th><th>Formato</th><th>Fecha</th><th>Plataforma</th>
-            <th>Alcance</th><th>Impresiones</th><th>Interacciones</th><th>ER</th>
-          </tr></thead>
-          <tbody id="metricsTable"></tbody>
-        </table>
+          <div class="card-header"><span class="card-title">Rendimiento por publicación</span></div>
+          <div class="table-wrap">
+            <table class="table">
+              <thead><tr><th>Influencer</th><th>Formato</th><th>Fecha</th><th>Plataforma</th><th>Alcance</th><th>Impresiones</th><th>Interacciones</th><th>ER</th></tr></thead>
+              <tbody id="metricsTable"></tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>
@@ -1187,12 +1196,29 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
       <div class="card" id="docPageList"></div>
     </div>
 
-    <!-- CALENDARIO PLACEHOLDER -->
+    <!-- CALENDARIO -->
     <div class="page" id="page-calendario">
-      <div class="placeholder-page">
-        <div class="ph-icon" data-ic="calendario"></div>
-        <h2>Calendario</h2>
-        <p>Próximamente: vista calendario con todas las publicaciones, deadlines y entregas programadas.</p>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
+        <h3 style="font-family:'Fraunces',serif;font-size:28px;font-weight:400;letter-spacing:-0.4px;" id="calMonthTitle"></h3>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <button class="btn btn-ghost btn-sm" onclick="calNav(-1)">← Anterior</button>
+          <button class="btn btn-ghost btn-sm" onclick="calNav(0)">Hoy</button>
+          <button class="btn btn-ghost btn-sm" onclick="calNav(1)">Siguiente →</button>
+        </div>
+      </div>
+      <!-- Legend -->
+      <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:16px;font-size:11px;font-weight:600;">
+        <span style="display:flex;align-items:center;gap:5px;"><span style="width:10px;height:10px;border-radius:3px;background:var(--pink);display:inline-block;"></span>Publicación</span>
+        <span style="display:flex;align-items:center;gap:5px;"><span style="width:10px;height:10px;border-radius:3px;background:var(--lavender);display:inline-block;"></span>Tarea</span>
+        <span style="display:flex;align-items:center;gap:5px;"><span style="width:10px;height:10px;border-radius:3px;background:var(--mint);display:inline-block;"></span>Inicio campaña</span>
+        <span style="display:flex;align-items:center;gap:5px;"><span style="width:10px;height:10px;border-radius:3px;background:var(--yellow);display:inline-block;"></span>Cierre campaña</span>
+      </div>
+      <div class="card" style="padding:0;overflow:hidden;">
+        <!-- Day headers -->
+        <div style="display:grid;grid-template-columns:repeat(7,1fr);background:var(--bg);border-bottom:1px solid var(--border);">
+          ${['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'].map(d=>`<div style="padding:10px 0;text-align:center;font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:.5px;">${d}</div>`).join('')}
+        </div>
+        <div id="calGrid" style="display:grid;grid-template-columns:repeat(7,1fr);"></div>
       </div>
     </div>
 
@@ -1325,9 +1351,15 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
         <select class="form-input" id="fCampRespData"></select>
       </div>
     </div>
-    <div class="form-group">
-      <label class="form-label">Fecha límite</label>
-      <input type="date" class="form-input" id="fCampDeadline">
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Fecha de inicio</label>
+        <input type="date" class="form-input" id="fCampStartDate">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Fecha de cierre</label>
+        <input type="date" class="form-input" id="fCampEndDate">
+      </div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('campaignModal')">Cancelar</button>
@@ -1371,10 +1403,29 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
         <select class="form-input" id="fTaskAssignee"></select>
       </div>
     </div>
+    <div class="form-group">
+      <label class="form-label">Link de documento (opcional)</label>
+      <input type="url" class="form-input" id="fTaskDocLink" placeholder="https://docs.google.com/...">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Notas</label>
+      <textarea class="form-input" id="fTaskNotes" rows="3" placeholder="Información adicional sobre la tarea..." style="resize:vertical;"></textarea>
+    </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('taskModal')">Cancelar</button>
       <button class="btn btn-primary" onclick="saveTask()">Guardar tarea</button>
     </div>
+  </div>
+</div>
+
+<!-- MODAL: PROFILE -->
+<div class="modal-overlay" id="profileModal">
+  <div class="modal" style="width:580px;max-height:80vh;">
+    <div class="modal-header">
+      <div class="modal-title">Perfil</div>
+      <button class="modal-close" onclick="closeModal('profileModal')"><span class="icn-close"></span></button>
+    </div>
+    <div id="profileModalContent" style="overflow-y:auto;max-height:60vh;"></div>
   </div>
 </div>
 
@@ -1565,7 +1616,11 @@ let unsubscribers = [];
 // DATA MANAGEMENT (cache layer + Firestore sync)
 // ============================================================
 const FLOW_STEPS = ['Propuesta','Perfiles','Presupuesto','Brief','SKUs','Producción','Revisión cliente','Publicación','Métricas','Reporte','Cierre'];
-const STATUS_OPTIONS = ['Pendiente','En proceso','Completado','Aprobado','Enviado','Pendiente aprobación'];
+const STATUS_OPTIONS_FLOW = ['Pendiente','En proceso','Completado','Aprobado','Enviado','Pendiente aprobación','No aplica'];
+const PUESTOS = ['CEO / Director','Gerente de Cuentas','Ejecutivo de Cuentas','Gerente Creativo','Diseñador / Creativo','Analista de Data','Operaciones','Otro'];
+// Puestos with access to cost/budget data
+const COST_ACCESS_PUESTOS = new Set(['CEO / Director','Gerente de Cuentas','Gerente Creativo']);
+const STATUS_OPTIONS = STATUS_OPTIONS_FLOW;
 
 // In-memory cache backed by Firestore. Reads = sync (cache). Writes = sync cache + async Firestore.
 const _cache = { campaigns:[], globalTasks:[], settings:{}, _initialized:false };
@@ -1838,6 +1893,7 @@ function navigate(page) {
   if(page==='campannas') { showCampaignList(); renderCampaignGrid(); }
   if(page==='pendientes') renderPendientes();
   if(page==='metricas') renderMetrics();
+  if(page==='calendario') renderCalendar();
   if(page==='generador') populateCampaignSelects();
   if(page==='documentos') renderDocumentosPage();
   if(page==='ajustes') loadSettingsUI();
@@ -1847,9 +1903,14 @@ function navigate(page) {
 // DASHBOARD
 // ============================================================
 function renderDashboard() {
+  // Show campaigns where user is assigned, created, or subscribed (but not ones they can merely see via admin)
   const campaigns = isAdmin()
     ? visibleCampaigns()
-    : visibleCampaigns().filter(c => isSubscribed(c.id));
+    : visibleCampaigns().filter(c =>
+        isSubscribed(c.id) ||
+        c.createdBy === currentUser.uid ||
+        (Array.isArray(c.assignedTo) && c.assignedTo.includes(currentUser.uid))
+      );
 
   // Non-admin with no subscriptions: show hint instead of empty dashboard
   if(!isAdmin() && campaigns.length === 0 && _cache.campaigns.length > 0) {
@@ -1945,7 +2006,7 @@ function renderDashboard() {
       <td>${c.client}</td>
       <td>${statusBadge(c.status)}</td>
       <td style="color:var(--text-muted);font-size:12px">${nextStep}</td>
-      <td style="font-size:12px">${formatDate(c.deadline)||'—'}</td>
+      <td style="font-size:12px">${c.startDate?formatDateShort(c.startDate):'—'}${c.endDate?' → '+formatDateShort(c.endDate):''}</td>
     </tr>`;
   }).join('');
 
@@ -2054,7 +2115,7 @@ function openCampaignDetail(cid) {
 
   // Info grid — budget only visible to admin
   const fmtMXN = (n) => n > 0 ? `$${Number(n).toLocaleString('es-MX',{maximumFractionDigits:0})} MXN` : '—';
-  const budgetField = isAdmin() ? (() => {
+  const budgetField = canSeeCosts() ? (() => {
     const bc = c.budgetClient || 0;
     const bm = c.budgetMargin || 0;
     const ops = bc > 0 ? bc - (bc * bm / 100) : 0;
@@ -2075,7 +2136,7 @@ function openCampaignDetail(cid) {
         <div class="info-value" style="color:#3a7a5e;font-weight:700;">${fmtMXN(ops)}${ganancia>0?` <span style="font-size:11px;color:var(--text-muted);font-weight:400;">(ganancia ${fmtMXN(ganancia)})</span>`:''}</div>
       </div>`;
   })()
-  : `<div class="info-field"><div class="info-label">Presupuesto</div><div class="info-value" style="color:var(--text-muted);font-style:italic;">🔒 Solo admin</div></div>`;
+  : `<div class="info-field"><div class="info-label">Presupuesto</div><div class="info-value" style="color:var(--text-muted);font-style:italic;">🔒 Restringido</div></div>`;
 
   // Assignees list
   const assignedUids = Array.isArray(c.assignedTo) ? c.assignedTo : [];
@@ -2105,7 +2166,7 @@ function openCampaignDetail(cid) {
         return `<div class="info-field"><div class="info-label"><span class="badge ${areaColor[key]}" style="font-size:10px;">${label}</span></div><div class="info-value">${content}</div></div>`;
       }).join('');
     })()}
-    <div class="info-field"><div class="info-label">Fecha límite</div><div class="info-value">${formatDate(c.deadline)||'—'}</div></div>
+    <div class="info-field"><div class="info-label">Duración</div><div class="info-value">${c.startDate?formatDate(c.startDate):'—'}${c.endDate?' → '+formatDate(c.endDate):''}</div></div>
     <div class="info-field"><div class="info-label">Status</div><div class="info-value">${statusBadge(c.status)}</div></div>
     <div class="info-field" style="grid-column:1/-1;">
       <div class="info-label" style="display:flex;justify-content:space-between;align-items:center;">
@@ -2326,50 +2387,122 @@ function deleteDoc(docId) {
 // METRICS
 // ============================================================
 let lineChartInst = null, donutChartInst = null;
+let currentMetricsCampaignId = null;
 
 function renderMetrics() {
-  const settings = getSettings();
-  if(settings.sheetsUrl) document.getElementById('sheetsUrlInput').value = settings.sheetsUrl;
-  // Show cached metrics if available
-  const cached = getData('cachedMetrics', null);
-  if(cached) displayMetrics(cached);
+  document.getElementById('metricsCampList').style.display = '';
+  document.getElementById('metricsCampDetail').style.display = 'none';
+  currentMetricsCampaignId = null;
+  const grid = document.getElementById('metricsCampGrid');
+  const camps = visibleCampaigns();
+  if(!camps.length) { grid.innerHTML='<div class="empty-state"><p>Sin campañas aún.</p></div>'; return; }
+  grid.innerHTML = camps.map(c=>`
+    <div class="campaign-card" onclick="openMetricsCampaign('${c.id}')">
+      <div class="campaign-card-header">
+        <div>
+          <div class="campaign-name">${c.name}</div>
+          <div class="campaign-client">${c.client||''}</div>
+        </div>
+        <span class="badge ${statusBadgeClass(c.status)}">${c.status}</span>
+      </div>
+      <div style="margin-top:12px;display:flex;align-items:center;gap:8px;">
+        ${c.sheetsUrl
+          ? `<span style="font-size:11px;font-weight:700;padding:3px 8px;border-radius:20px;background:var(--mint-pale);color:#3a7a5e;">📊 Sheets vinculado</span>`
+          : `<span style="font-size:11px;color:var(--text-muted);">Sin Sheets vinculado</span>`}
+      </div>
+    </div>`).join('');
+}
+
+function openMetricsCampaign(cid) {
+  const c = _cache.campaigns.find(x=>x.id===cid);
+  if(!c) return;
+  currentMetricsCampaignId = cid;
+  document.getElementById('metricsCampList').style.display = 'none';
+  document.getElementById('metricsCampDetail').style.display = '';
+  document.getElementById('metricsCampName').textContent = c.name + (c.client ? ' · ' + c.client : '');
+  const input = document.getElementById('sheetsUrlInput');
+  if(input) input.value = c.sheetsUrl || '';
+  const cached = c.cachedMetrics;
+  if(cached && cached.length) displayMetrics(cached);
   else initEmptyCharts();
+}
+
+function closeMetricsCampDetail() {
+  document.getElementById('metricsCampList').style.display = '';
+  document.getElementById('metricsCampDetail').style.display = 'none';
+  currentMetricsCampaignId = null;
 }
 
 function initEmptyCharts() {
   if(lineChartInst) { lineChartInst.destroy(); lineChartInst=null; }
   if(donutChartInst) { donutChartInst.destroy(); donutChartInst=null; }
-  const lc = document.getElementById('lineChart').getContext('2d');
-  lineChartInst = new Chart(lc,{type:'line',data:{labels:[],datasets:[]},options:{responsive:true}});
-  const dc = document.getElementById('donutChart').getContext('2d');
-  donutChartInst = new Chart(dc,{type:'doughnut',data:{labels:['Likes','Comentarios','Shares','Guardados'],datasets:[{data:[45,25,15,15],backgroundColor:['#f4a3c4','#c5b8e8','#f7c8a9','#b8e0d2'],borderWidth:0}]},options:{responsive:true,plugins:{legend:{position:'right'}}}});
+  const lc = document.getElementById('lineChart'); if(!lc) return;
+  lineChartInst = new Chart(lc.getContext('2d'),{type:'line',data:{labels:[],datasets:[]},options:{responsive:true}});
+  const dc = document.getElementById('donutChart'); if(!dc) return;
+  donutChartInst = new Chart(dc.getContext('2d'),{type:'doughnut',data:{labels:['Likes','Comentarios','Shares','Guardados'],datasets:[{data:[45,25,15,15],backgroundColor:['#ff2d87','#2c6dff','#c6f24a','#ffb3d3'],borderWidth:0}]},options:{responsive:true,plugins:{legend:{position:'right'}},cutout:'65%'}});
+}
+
+function normalizeCsvUrl(raw) {
+  if(!raw) return null;
+  // Already a CSV pub URL
+  if(raw.includes('output=csv')) return raw;
+  // Standard edit URL → convert to pub CSV
+  const m = raw.match(/\/spreadsheets\/d\/([^/]+)/);
+  if(!m) return null;
+  const id = m[1];
+  // Extract gid if present
+  const gidM = raw.match(/[#&?]gid=(\d+)/);
+  const gid = gidM ? '&gid='+gidM[1] : '';
+  return `https://docs.google.com/spreadsheets/d/${id}/export?format=csv${gid}`;
 }
 
 async function loadMetrics() {
-  const url = document.getElementById('sheetsUrlInput').value.trim();
-  if(!url) { showToast('Ingresa la URL del Google Sheet','error'); return; }
-  saveSettingsData({sheetsUrl:url});
+  const raw = document.getElementById('sheetsUrlInput').value.trim();
+  if(!raw) { showToast('Ingresa la URL del Google Sheet','error'); return; }
+  const csvUrl = normalizeCsvUrl(raw);
+  if(!csvUrl) { showToast('URL de Google Sheets inválida. Copia la URL completa del documento.','error'); return; }
   showToast('Cargando datos...');
   try {
-    const csvUrl = url.includes('output=csv') ? url : url.replace('/edit','/pub')+'?output=csv';
     const res = await fetch(csvUrl);
-    if(!res.ok) throw new Error('No se pudo acceder al Sheet');
+    if(!res.ok) throw new Error(`HTTP ${res.status}`);
     const text = await res.text();
+    if(text.trim().startsWith('<!')) throw new Error('El sheet no es público o no está en formato CSV');
     const rows = parseCSV(text);
-    setData('cachedMetrics', rows);
+    if(!rows.length) throw new Error('No se encontraron filas en el sheet');
+    // Save sheetsUrl + cachedMetrics to campaign
+    if(currentMetricsCampaignId) {
+      const campaigns = getData('campaigns');
+      const idx = campaigns.findIndex(x=>x.id===currentMetricsCampaignId);
+      if(idx!==-1) { campaigns[idx].sheetsUrl = raw; campaigns[idx].cachedMetrics = rows; setData('campaigns', campaigns); }
+    }
     displayMetrics(rows);
-    showToast('Datos cargados correctamente','success');
+    showToast('Datos cargados','success');
   } catch(e) {
-    showToast('Error: '+e.message+'. Verifica que el Sheet esté publicado como CSV.','error');
+    const hint = e.message.includes('HTTP')||e.message.includes('público')
+      ? 'Asegúrate de que el sheet sea público: Compartir → Cualquier persona con el enlace puede ver.'
+      : e.message;
+    showToast('Error: '+hint,'error');
     initEmptyCharts();
   }
 }
 
 function parseCSV(text) {
-  const lines = text.trim().split('\n');
-  const headers = lines[0].split(',').map(h=>h.trim().replace(/"/g,''));
-  return lines.slice(1).map(line=>{
-    const vals = line.split(',').map(v=>v.trim().replace(/"/g,''));
+  const lines = text.trim().split(/\r?\n/);
+  if(lines.length < 2) return [];
+  // RFC 4180-aware split: handle quoted fields with commas
+  function splitLine(line) {
+    const result=[]; let cur='', inQ=false;
+    for(let i=0;i<line.length;i++){
+      const ch=line[i];
+      if(ch==='"') { inQ=!inQ; }
+      else if(ch===','&&!inQ) { result.push(cur.trim()); cur=''; }
+      else cur+=ch;
+    }
+    result.push(cur.trim()); return result;
+  }
+  const headers = splitLine(lines[0]);
+  return lines.slice(1).filter(l=>l.trim()).map(line=>{
+    const vals = splitLine(line);
     const obj={};
     headers.forEach((h,i)=>obj[h]=vals[i]||'');
     return obj;
@@ -2377,55 +2510,44 @@ function parseCSV(text) {
 }
 
 function displayMetrics(rows) {
-  // Totals
   let totalReach=0, totalImpressions=0, totalInteractions=0;
   rows.forEach(r=>{
-    totalReach += parseInt(r.Alcance||r.alcance||r.reach||0)||0;
-    totalImpressions += parseInt(r.Impresiones||r.impresiones||r.impressions||0)||0;
-    totalInteractions += parseInt(r.Interacciones||r.interacciones||r.interactions||0)||0;
+    totalReach += parseInt(r.Alcance||r.alcance||r.reach||r.Reach||0)||0;
+    totalImpressions += parseInt(r.Impresiones||r.impresiones||r.impressions||r.Impressions||0)||0;
+    totalInteractions += parseInt(r.Interacciones||r.interacciones||r.interactions||r.Interactions||0)||0;
   });
   const er = totalReach>0 ? ((totalInteractions/totalReach)*100).toFixed(2)+'%' : '—';
-
   document.getElementById('mReach').textContent = formatNum(totalReach);
   document.getElementById('mImpressions').textContent = formatNum(totalImpressions);
   document.getElementById('mInteractions').textContent = formatNum(totalInteractions);
   document.getElementById('mER').textContent = er;
 
-  // Table
   const tb = document.getElementById('metricsTable');
   tb.innerHTML = rows.map(r=>`<tr>
-    <td>${r.Campaña||r.campaña||r.campaign||'—'}</td>
     <td>${r.Influencer||r.influencer||'—'}</td>
     <td>${r.Formato||r.formato||r.format||'—'}</td>
     <td>${r.Fecha||r.fecha||r.date||'—'}</td>
     <td>${r.Plataforma||r.plataforma||r.platform||'—'}</td>
-    <td>${formatNum(r.Alcance||r.alcance||0)}</td>
-    <td>${formatNum(r.Impresiones||r.impresiones||0)}</td>
-    <td>${formatNum(r.Interacciones||r.interacciones||0)}</td>
-    <td>${r['Engagement Rate']||r.ER||r.er||'—'}</td>
+    <td>${formatNum(r.Alcance||r.alcance||r.reach||0)}</td>
+    <td>${formatNum(r.Impresiones||r.impresiones||r.impressions||0)}</td>
+    <td>${formatNum(r.Interacciones||r.interacciones||r.interactions||0)}</td>
+    <td>${r['Engagement Rate']||r['engagement_rate']||r.ER||r.er||'—'}</td>
   </tr>`).join('');
 
-  // Charts
   if(lineChartInst) lineChartInst.destroy();
   if(donutChartInst) donutChartInst.destroy();
-
   const labels = rows.map(r=>r.Fecha||r.fecha||r.date||'').filter(Boolean);
-  const reaches = rows.map(r=>parseInt(r.Alcance||r.alcance||0)||0);
-  const inters = rows.map(r=>parseInt(r.Interacciones||r.interacciones||0)||0);
-
-  const lc = document.getElementById('lineChart').getContext('2d');
-  lineChartInst = new Chart(lc,{type:'line',data:{
-    labels,
-    datasets:[
-      {label:'Alcance',data:reaches,borderColor:'#e98bb3',backgroundColor:'rgba(244,163,196,0.15)',tension:.4,fill:true,pointBackgroundColor:'#e98bb3'},
-      {label:'Interacciones',data:inters,borderColor:'#c5b8e8',backgroundColor:'rgba(197,184,232,0.15)',tension:.4,fill:true,pointBackgroundColor:'#c5b8e8'}
-    ]
-  },options:{responsive:true,plugins:{legend:{position:'top'}},scales:{y:{beginAtZero:true}}}});
-
-  const dc = document.getElementById('donutChart').getContext('2d');
-  donutChartInst = new Chart(dc,{type:'doughnut',data:{
+  const reaches = rows.map(r=>parseInt(r.Alcance||r.alcance||r.reach||0)||0);
+  const inters = rows.map(r=>parseInt(r.Interacciones||r.interacciones||r.interactions||0)||0);
+  const lc = document.getElementById('lineChart'); if(!lc) return;
+  lineChartInst = new Chart(lc.getContext('2d'),{type:'line',data:{labels,datasets:[
+    {label:'Alcance',data:reaches,borderColor:'#ff2d87',backgroundColor:'rgba(255,45,135,0.1)',tension:.4,fill:true,pointBackgroundColor:'#ff2d87'},
+    {label:'Interacciones',data:inters,borderColor:'#2c6dff',backgroundColor:'rgba(44,109,255,0.08)',tension:.4,fill:true,pointBackgroundColor:'#2c6dff'}
+  ]},options:{responsive:true,plugins:{legend:{position:'top'}},scales:{y:{beginAtZero:true}}}});
+  const dc = document.getElementById('donutChart'); if(!dc) return;
+  donutChartInst = new Chart(dc.getContext('2d'),{type:'doughnut',data:{
     labels:['Likes','Comentarios','Shares','Guardados'],
-    datasets:[{data:[45,25,15,15],backgroundColor:['#f4a3c4','#c5b8e8','#f7c8a9','#b8e0d2'],borderWidth:0,hoverOffset:6}]
+    datasets:[{data:[45,25,15,15],backgroundColor:['#ff2d87','#2c6dff','#c6f24a','#ffb3d3'],borderWidth:0,hoverOffset:6}]
   },options:{responsive:true,plugins:{legend:{position:'right',labels:{font:{size:12}}}},cutout:'65%'}});
 }
 
@@ -2513,7 +2635,7 @@ function closeModal(id) { document.getElementById(id).classList.remove('open'); 
 
 function applyBudgetVisibility() {
   const grp = document.getElementById('fCampBudgetGroup');
-  if(grp) grp.style.display = isAdmin() ? '' : 'none';
+  if(grp) grp.style.display = canSeeCosts() ? '' : 'none';
 }
 
 function calcBudgetOps() {
@@ -2572,7 +2694,7 @@ function userChip(uid, fallbackName) {
 function openNewCampaignModal() {
   editingCampaignId = null;
   document.getElementById('campaignModalTitle').textContent='Nueva campaña';
-  ['fCampName','fCampClient','fCampSeason','fCampObjective','fCampCore','fCampBudgetClient','fCampMargin','fCampDeadline'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  ['fCampName','fCampClient','fCampSeason','fCampObjective','fCampCore','fCampBudgetClient','fCampMargin','fCampStartDate','fCampEndDate'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
   document.getElementById('fCampBudgetOpsResult').textContent='—';
   document.getElementById('fCampStatus').value='En proceso';
   populateCampResponsibles({});
@@ -2600,7 +2722,8 @@ function openEditCampaignModal() {
   document.getElementById('fCampMargin').value=c.budgetMargin||'';
   calcBudgetOps();
   populateCampResponsibles(c.responsables||{});
-  document.getElementById('fCampDeadline').value=c.deadline||'';
+  document.getElementById('fCampStartDate').value=c.startDate||'';
+  document.getElementById('fCampEndDate').value=c.endDate||'';
   applyBudgetVisibility();
   openModal('campaignModal');
 }
@@ -2692,27 +2815,37 @@ function removeAssignee(cid, uid) {
 function renderTeam() {
   const list = document.getElementById('teamList');
   if(!list) return;
-  list.innerHTML = allUsers.map(u => `
-    <div style="display:flex;align-items:center;gap:12px;padding:12px;border:1px solid var(--border);border-radius:10px;margin-bottom:8px;">
-      <div style="width:36px;height:36px;border-radius:50%;background:var(--pink-deep);color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;">${(u.name||u.email)[0].toUpperCase()}</div>
-      <div style="flex:1;">
-        <div style="font-size:14px;font-weight:600;">${u.name||'—'} ${u.uid===currentUser.uid?'<span style="font-size:11px;color:var(--text-muted);">(tú)</span>':''}</div>
-        <div style="font-size:12px;color:var(--text-muted);display:flex;align-items:center;gap:6px;margin-top:2px;">${u.email}${u.area?`<span class="badge badge-area-${u.area}" style="font-size:10px;">${u.area}</span>`:''}</div>
+  list.innerHTML = allUsers.map(u => {
+    const activeTasks = [
+      ..._cache.campaigns.flatMap(c=>(c.tasks||[]).filter(t=>!t.done&&t.assigneeUid===u.uid)),
+      ..._cache.globalTasks.filter(t=>!t.done&&t.assigneeUid===u.uid)
+    ];
+    return `
+    <div onclick="openProfileModal('${u.uid}')" style="display:flex;align-items:center;gap:12px;padding:14px;border:1px solid var(--border);border-radius:14px;margin-bottom:8px;cursor:pointer;transition:all .2s var(--ease);"
+      onmouseover="this.style.borderColor='var(--pink)';this.style.background='var(--pink-pale)'" onmouseout="this.style.borderColor='var(--border)';this.style.background=''">
+      <div style="width:40px;height:40px;border-radius:12px;background:var(--pink);color:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;flex-shrink:0;">${(u.name||u.email)[0].toUpperCase()}</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:14px;font-weight:700;display:flex;align-items:center;gap:6px;">${u.name||'—'} ${u.uid===currentUser.uid?'<span style="font-size:10px;color:var(--text-muted);font-weight:400;">(tú)</span>':''}</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:2px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">${u.email}${u.area?`<span class="badge badge-area-${u.area}">${u.area}</span>`:''}${u.puesto?`<span style="font-size:10px;color:var(--text-muted);">${u.puesto}</span>`:''}</div>
       </div>
-      ${isAdmin() && u.uid !== currentUser.uid
-        ? `<div style="display:flex;gap:6px;align-items:center;">
-            <select onchange="changeArea('${u.uid}',this.value)" style="padding:5px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:inherit;background:var(--white);cursor:pointer;">
-              <option value="">Sin área</option>
-              ${AREAS.map(a=>`<option value="${a}" ${u.area===a?'selected':''}>${a}</option>`).join('')}
-            </select>
-            <select onchange="changeRole('${u.uid}',this.value)" style="padding:5px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:inherit;background:var(--white);cursor:pointer;">
-              <option value="member" ${u.role==='member'?'selected':''}>Miembro</option>
-              <option value="admin" ${u.role==='admin'?'selected':''}>Admin</option>
-            </select>
-          </div>`
-        : `<span class="badge ${u.role==='admin'?'badge-pink':'badge-gray'}">${u.role==='admin'?'Admin':'Miembro'}</span>`
-      }
-    </div>`).join('') || '<div class="empty-state"><p>Sin miembros aún.</p></div>';
+      <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;" onclick="event.stopPropagation()">
+        ${activeTasks.length>0?`<span style="font-size:11px;font-weight:700;padding:3px 8px;border-radius:20px;background:var(--pink-pale);color:var(--pink-deep);">${activeTasks.length} tarea${activeTasks.length!==1?'s':''}</span>`:''}
+        ${isAdmin() && u.uid !== currentUser.uid ? `
+          <select onchange="changeArea('${u.uid}',this.value)" style="padding:5px 10px;border:1px solid var(--border);border-radius:10px;font-size:11px;font-family:inherit;background:var(--white);cursor:pointer;">
+            <option value="">Sin área</option>
+            ${AREAS.map(a=>`<option value="${a}" ${u.area===a?'selected':''}>${a}</option>`).join('')}
+          </select>
+          <select onchange="changePuesto('${u.uid}',this.value)" style="padding:5px 10px;border:1px solid var(--border);border-radius:10px;font-size:11px;font-family:inherit;background:var(--white);cursor:pointer;">
+            <option value="">Sin puesto</option>
+            ${PUESTOS.map(p=>`<option value="${p}" ${u.puesto===p?'selected':''}>${p}</option>`).join('')}
+          </select>
+          <select onchange="changeRole('${u.uid}',this.value)" style="padding:5px 10px;border:1px solid var(--border);border-radius:10px;font-size:11px;font-family:inherit;background:var(--white);cursor:pointer;">
+            <option value="member" ${u.role==='member'?'selected':''}>Miembro</option>
+            <option value="admin" ${u.role==='admin'?'selected':''}>Admin</option>
+          </select>` : `<span class="badge ${u.role==='admin'?'':'badge-gray'}" style="${u.role==='admin'?'background:var(--pink-pale);color:var(--pink-deep);':''}">${u.role==='admin'?'Admin':u.puesto||'Miembro'}</span>`}
+      </div>
+    </div>`;
+  }).join('') || '<div class="empty-state"><p>Sin miembros aún.</p></div>';
 }
 
 async function changeArea(uid, newArea) {
@@ -2738,11 +2871,24 @@ async function changeRole(uid, newRole) {
       db.collection('users').doc(uid).update({role: newRole}),
       ws.collection('members').doc(uid).set({role: newRole}, {merge:true})
     ]);
+    const u = allUsers.find(x=>x.uid===uid); if(u) u.role = newRole;
     showToast('Rol actualizado','success');
     renderTeam();
-  } catch(e) {
-    showToast('Error: '+e.message,'error');
-  }
+  } catch(e) { showToast('Error: '+e.message,'error'); }
+}
+
+async function changePuesto(uid, newPuesto) {
+  if(!isAdmin()) { showToast('Solo admin puede cambiar puestos','error'); return; }
+  try {
+    const ws = db.collection('workspaces').doc(WORKSPACE);
+    await Promise.all([
+      db.collection('users').doc(uid).update({puesto: newPuesto}),
+      ws.collection('members').doc(uid).set({puesto: newPuesto}, {merge:true})
+    ]);
+    const u = allUsers.find(x=>x.uid===uid); if(u) u.puesto = newPuesto;
+    showToast('Puesto actualizado','success');
+    renderTeam();
+  } catch(e) { showToast('Error: '+e.message,'error'); }
 }
 
 function saveCampaign() {
@@ -2768,7 +2914,8 @@ function saveCampaign() {
           creativo: document.getElementById('fCampRespCreativo').value,
           data: document.getElementById('fCampRespData').value,
         },
-        deadline:document.getElementById('fCampDeadline').value,
+        startDate:document.getElementById('fCampStartDate').value,
+        endDate:document.getElementById('fCampEndDate').value,
       };
     }
   } else {
@@ -2819,6 +2966,8 @@ function openAddTaskModal() {
   document.getElementById('fTaskTitle').value='';
   document.getElementById('fTaskDate').value=new Date().toISOString().split('T')[0];
   document.getElementById('fTaskPriority').value='medium';
+  document.getElementById('fTaskDocLink').value='';
+  document.getElementById('fTaskNotes').value='';
   if(currentCampaignId) document.getElementById('fTaskCampaign').value=currentCampaignId;
   document.querySelector('#taskModal .modal-title').textContent='Nueva tarea';
   openModal('taskModal');
@@ -2832,27 +2981,24 @@ function openAddGlobalTaskModal() {
   document.getElementById('fTaskTitle').value='';
   document.getElementById('fTaskDate').value=new Date().toISOString().split('T')[0];
   document.getElementById('fTaskPriority').value='medium';
+  document.getElementById('fTaskDocLink').value='';
+  document.getElementById('fTaskNotes').value='';
   document.querySelector('#taskModal .modal-title').textContent='Nueva tarea';
   openModal('taskModal');
 }
 
 function openEditTaskModal(tid, cid) {
-  // find task
   let task = null;
-  if(cid) {
-    const c = _cache.campaigns.find(x=>x.id===cid);
-    if(c) task = c.tasks.find(x=>x.id===tid);
-  } else {
-    task = (_cache.globalTasks||[]).find(x=>x.id===tid);
-  }
+  if(cid) { const c = _cache.campaigns.find(x=>x.id===cid); if(c) task = c.tasks.find(x=>x.id===tid); }
+  else { task = (_cache.globalTasks||[]).find(x=>x.id===tid); }
   if(!task) { showToast('Tarea no encontrada','error'); return; }
-  editingTaskId = tid;
-  editingTaskCampaignId = cid || null;
-  populateCampaignSelects();
-  populateTaskAssigneeSelect(task.assigneeUid || currentUser.uid);
+  editingTaskId = tid; editingTaskCampaignId = cid || null;
+  populateCampaignSelects(); populateTaskAssigneeSelect(task.assigneeUid || currentUser.uid);
   document.getElementById('fTaskTitle').value = task.title || '';
   document.getElementById('fTaskDate').value = task.dueDate || '';
   document.getElementById('fTaskPriority').value = task.priority || 'medium';
+  document.getElementById('fTaskDocLink').value = task.docLink || '';
+  document.getElementById('fTaskNotes').value = task.notes || '';
   if(cid) document.getElementById('fTaskCampaign').value = cid;
   if(task.assigneeUid) document.getElementById('fTaskAssignee').value = task.assigneeUid;
   document.querySelector('#taskModal .modal-title').textContent='Editar tarea';
@@ -2869,31 +3015,31 @@ function saveTask() {
   const assigneeName = assigneeUser ? (assigneeUser.name || assigneeUser.email.split('@')[0]) : '';
   const dueDate = document.getElementById('fTaskDate').value;
   const priority = document.getElementById('fTaskPriority').value;
+  const docLink = document.getElementById('fTaskDocLink').value.trim();
+  const notes = document.getElementById('fTaskNotes').value.trim();
 
   if(editingTaskId) {
-    // UPDATE existing task
     const cid = editingTaskCampaignId;
     if(cid) {
       const campaigns = getData('campaigns');
       const c = campaigns.find(x=>x.id===cid);
       if(c) {
         const t = c.tasks.find(x=>x.id===editingTaskId);
-        if(t) { t.title=title; t.dueDate=dueDate; t.priority=priority; t.assigneeUid=assigneeUid; t.assignee=assigneeName; }
+        if(t) { t.title=title; t.dueDate=dueDate; t.priority=priority; t.assigneeUid=assigneeUid; t.assignee=assigneeName; t.docLink=docLink; t.notes=notes; }
         setData('campaigns', campaigns);
       }
     } else {
       const tasks = getData('globalTasks');
       const t = tasks.find(x=>x.id===editingTaskId);
-      if(t) { t.title=title; t.dueDate=dueDate; t.priority=priority; t.assigneeUid=assigneeUid; t.assignee=assigneeName; }
+      if(t) { t.title=title; t.dueDate=dueDate; t.priority=priority; t.assigneeUid=assigneeUid; t.assignee=assigneeName; t.docLink=docLink; t.notes=notes; }
       setData('globalTasks', tasks);
     }
     closeModal('taskModal');
     showToast('Tarea actualizada','success');
   } else {
-    // CREATE new task
     const task = {
       id:id(), title, dueDate, priority, assigneeUid,
-      assignee: assigneeName,
+      assignee: assigneeName, docLink, notes,
       createdBy: currentUser.uid,
       done:false
     };
@@ -3484,7 +3630,7 @@ auth.onAuthStateChanged(async (user) => {
   document.getElementById('userAvatarSidebar').textContent = displayName[0].toUpperCase();
   // Add role badge in sidebar
   const roleBadge = document.getElementById('userRoleSidebar');
-  if(roleBadge) roleBadge.textContent = currentUserProfile.role === 'admin' ? 'Admin' : 'Miembro';
+  if(roleBadge) roleBadge.textContent = currentUserProfile.puesto || (currentUserProfile.role === 'admin' ? 'Admin' : 'Miembro');
 
   // Date
   const now = new Date();
@@ -3498,6 +3644,10 @@ auth.onAuthStateChanged(async (user) => {
 });
 
 function isAdmin() { return currentUserProfile && currentUserProfile.role === 'admin'; }
+function canSeeCosts() {
+  if(isAdmin()) return true;
+  return currentUserProfile && COST_ACCESS_PUESTOS.has(currentUserProfile.puesto);
+}
 function isSubscribed(cid) {
   if(isAdmin()) return true;
   return (currentUserProfile.subscribedCampaigns || []).includes(cid);
@@ -3759,6 +3909,128 @@ async function seedSampleData() {
 })();
 
 // init() now triggered by auth.onAuthStateChanged above
+
+// ============================================================
+// CALENDAR PAGE
+// ============================================================
+let calYear = new Date().getFullYear();
+let calMonth = new Date().getMonth(); // 0-based
+
+function calNav(dir) {
+  if(dir === 0) { calYear = new Date().getFullYear(); calMonth = new Date().getMonth(); }
+  else { calMonth += dir; if(calMonth > 11) { calMonth=0; calYear++; } else if(calMonth < 0) { calMonth=11; calYear--; } }
+  renderCalendar();
+}
+
+function renderCalendar() {
+  const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  document.getElementById('calMonthTitle').textContent = MONTHS[calMonth] + ' ' + calYear;
+  const grid = document.getElementById('calGrid');
+  if(!grid) return;
+
+  // Build event map: date string → [{type,label,color,campName}]
+  const events = {};
+  const add = (date, ev) => { if(!date) return; if(!events[date]) events[date]=[]; events[date].push(ev); };
+
+  visibleCampaigns().forEach(c => {
+    // Campaign start/end
+    if(c.startDate) add(c.startDate, {type:'start', label:'▶ '+c.name, color:'var(--mint)', text:'#3a6b28'});
+    if(c.endDate)   add(c.endDate,   {type:'end',   label:'■ '+c.name, color:'var(--yellow)', text:'#7a5a00'});
+    // Publications
+    (c.influencers||[]).forEach(inf => {
+      if(inf.publishDate) add(inf.publishDate, {type:'pub', label:inf.name||inf.handle, color:'var(--pink)', text:'#fff'});
+    });
+    // Campaign tasks
+    (c.tasks||[]).filter(t=>!t.done&&t.dueDate).forEach(t => {
+      add(t.dueDate, {type:'task', label:t.title, color:'var(--lavender)', text:'#fff'});
+    });
+  });
+  // Global tasks
+  (_cache.globalTasks||[]).filter(t=>!t.done&&t.dueDate).forEach(t => {
+    add(t.dueDate, {type:'task', label:t.title, color:'var(--lavender)', text:'#fff'});
+  });
+
+  // Grid cells: Monday-first
+  const firstDay = new Date(calYear, calMonth, 1);
+  const lastDay  = new Date(calYear, calMonth+1, 0);
+  // dow: Mon=0 … Sun=6
+  const startDow = (firstDay.getDay()+6) % 7;
+  const todayStr = new Date().toISOString().split('T')[0];
+  const pad = n => String(n).padStart(2,'0');
+  const dateStr = d => `${calYear}-${pad(calMonth+1)}-${pad(d)}`;
+
+  let html = '';
+  const totalCells = startDow + lastDay.getDate();
+  const rows = Math.ceil(totalCells/7);
+
+  for(let i=0; i < rows*7; i++) {
+    const day = i - startDow + 1;
+    const inMonth = day >= 1 && day <= lastDay.getDate();
+    const ds = inMonth ? dateStr(day) : '';
+    const isToday = ds === todayStr;
+    const evs = (ds && events[ds]) || [];
+    const weekend = (i%7 === 5 || i%7 === 6);
+    html += `<div style="min-height:90px;border-right:1px solid var(--border);border-bottom:1px solid var(--border);padding:6px 5px;${!inMonth?'background:var(--bg);':''}">`
+      + (inMonth ? `<div style="font-size:12px;font-weight:700;margin-bottom:4px;${isToday?`width:22px;height:22px;background:var(--pink);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;`:`color:${weekend?'var(--text-muted)':'var(--text)'};`}">${day}</div>` : '')
+      + evs.slice(0,3).map(ev=>`<div style="font-size:10px;font-weight:600;padding:2px 5px;border-radius:4px;background:${ev.color};color:${ev.text};margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${ev.label}">${ev.label}</div>`).join('')
+      + (evs.length > 3 ? `<div style="font-size:10px;color:var(--text-muted);padding:1px 4px;">+${evs.length-3} más</div>` : '')
+      + `</div>`;
+  }
+  grid.innerHTML = html;
+}
+
+// ============================================================
+// PROFILE MODAL
+// ============================================================
+function openProfileModal(uid) {
+  const u = allUsers.find(x => x.uid === uid);
+  if(!u) return;
+  const allTasks = [
+    ..._cache.campaigns.flatMap(c => (c.tasks||[]).filter(t => t.assigneeUid === uid).map(t => ({...t, campaignName: c.name, campaignId: c.id}))),
+    ..._cache.globalTasks.filter(t => t.assigneeUid === uid).map(t => ({...t, campaignName: t.campaignName||'General'}))
+  ];
+  const active = allTasks.filter(t => !t.done);
+  const done = allTasks.filter(t => t.done).slice(0, 5);
+
+  const taskRow = (t, isDone) => `
+    <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);">
+      <div style="width:10px;height:10px;border-radius:50%;margin-top:4px;flex-shrink:0;background:${t.priority==='high'?'var(--red)':t.priority==='medium'?'var(--yellow)':'var(--border)'}"></div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:13px;font-weight:600;${isDone?'text-decoration:line-through;color:var(--text-muted);':''}">${t.title}</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:2px;display:flex;gap:8px;flex-wrap:wrap;">
+          <span>${t.campaignName}</span>
+          ${t.dueDate?`<span>${formatDate(t.dueDate)}</span>`:''}
+          ${t.docLink?`<a href="${t.docLink}" target="_blank" style="color:var(--pink);text-decoration:none;font-weight:600;">📄 Ver doc</a>`:''}
+        </div>
+        ${t.notes?`<div style="font-size:11px;color:var(--text-muted);margin-top:4px;background:var(--bg);border-radius:8px;padding:6px 8px;">${t.notes}</div>`:''}
+      </div>
+    </div>`;
+
+  document.getElementById('profileModalContent').innerHTML = `
+    <div style="display:flex;align-items:center;gap:16px;margin-bottom:24px;padding-bottom:20px;border-bottom:1px solid var(--border);">
+      <div style="width:56px;height:56px;border-radius:16px;background:var(--pink);color:#fff;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;flex-shrink:0;">${(u.name||u.email)[0].toUpperCase()}</div>
+      <div>
+        <div style="font-size:20px;font-weight:700;">${u.name||'—'}</div>
+        <div style="font-size:13px;color:var(--text-muted);margin-top:2px;">${u.email}</div>
+        <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;">
+          ${u.puesto?`<span class="badge" style="background:var(--lavender-pale);color:var(--blue);">${u.puesto}</span>`:''}
+          ${u.area?`<span class="badge badge-area-${u.area}">${u.area}</span>`:''}
+          ${u.role==='admin'?`<span class="badge" style="background:var(--pink-pale);color:var(--pink-deep);">Admin</span>`:''}
+        </div>
+      </div>
+      <div style="margin-left:auto;text-align:right;">
+        <div style="font-size:32px;font-weight:700;color:var(--pink);">${active.length}</div>
+        <div style="font-size:11px;color:var(--text-muted);">tareas activas</div>
+      </div>
+    </div>
+    <div style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">Tareas activas</div>
+    ${active.length ? active.map(t=>taskRow(t,false)).join('') : '<div style="color:var(--text-muted);font-size:13px;padding:12px 0;">Sin tareas activas 🎉</div>'}
+    ${done.length ? `
+      <div style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin:20px 0 10px;">Completadas recientes</div>
+      ${done.map(t=>taskRow(t,true)).join('')}
+    ` : ''}`;
+  openModal('profileModal');
+}
 </script>
 </body>
 </html>
