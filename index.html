@@ -1620,12 +1620,12 @@ function attachListeners() {
     rerenderCurrent();
   }, err => console.error('settings listener',err)));
 
-  // Users listener (for assignee selectors + team page)
-  unsubscribers.push(db.collection('users').onSnapshot(snap => {
+  // Members listener — workspace-scoped so Firestore rules allow all workspace users to read
+  unsubscribers.push(ws.collection('members').onSnapshot(snap => {
     allUsers = snap.docs.map(d => ({uid:d.id, ...d.data()}));
     if(currentPage==='ajustes') renderTeam();
     rerenderCurrent();
-  }, err => console.error('users listener',err)));
+  }, err => console.error('members listener',err)));
 }
 
 function visibleCampaigns() {
@@ -2485,10 +2485,17 @@ function populateCampResponsibles(responsables) {
   AREAS.forEach(area => {
     const sel = document.getElementById(AREA_IDS[area]);
     if(!sel) return;
-    // Show users of this area, plus users with no area set (backward compat)
-    const opts = allUsers.filter(u => !u.area || u.area === area);
+    // Show ALL users; sort preferred area to top, label with area for context
+    const preferred = allUsers.filter(u => u.area === area);
+    const others = allUsers.filter(u => u.area !== area);
+    const renderOpt = u => {
+      const label = u.area ? `${u.name || u.email.split('@')[0]} (${u.area})` : (u.name || u.email.split('@')[0]);
+      return `<option value="${u.uid}">${label}</option>`;
+    };
     sel.innerHTML = `<option value="">Sin asignar</option>` +
-      opts.map(u => `<option value="${u.uid}">${u.name || u.email.split('@')[0]}</option>`).join('');
+      preferred.map(renderOpt).join('') +
+      (preferred.length && others.length ? `<option disabled>──────────</option>` : '') +
+      others.map(renderOpt).join('');
     sel.value = responsables[area.toLowerCase()] || '';
   });
 }
@@ -2659,18 +2666,28 @@ function renderTeam() {
 async function changeArea(uid, newArea) {
   if(!isAdmin()) { showToast('Solo admin puede cambiar área','error'); return; }
   try {
-    await db.collection('users').doc(uid).update({area: newArea});
+    const ws = db.collection('workspaces').doc(WORKSPACE);
+    await Promise.all([
+      db.collection('users').doc(uid).update({area: newArea}),
+      ws.collection('members').doc(uid).set({area: newArea}, {merge:true})
+    ]);
     const u = allUsers.find(x=>x.uid===uid);
     if(u) u.area = newArea;
     showToast('Área actualizada','success');
+    renderTeam();
   } catch(e) { showToast('Error: '+e.message,'error'); }
 }
 
 async function changeRole(uid, newRole) {
   if(!isAdmin()) { showToast('Solo admin puede cambiar roles','error'); return; }
   try {
-    await db.collection('users').doc(uid).update({role: newRole});
+    const ws = db.collection('workspaces').doc(WORKSPACE);
+    await Promise.all([
+      db.collection('users').doc(uid).update({role: newRole}),
+      ws.collection('members').doc(uid).set({role: newRole}, {merge:true})
+    ]);
     showToast('Rol actualizado','success');
+    renderTeam();
   } catch(e) {
     showToast('Error: '+e.message,'error');
   }
@@ -3350,6 +3367,7 @@ auth.onAuthStateChanged(async (user) => {
   document.getElementById('loginScreen').classList.add('hidden');
 
   // Get/create user profile with role
+  const ws = db.collection('workspaces').doc(WORKSPACE);
   const userDocRef = db.collection('users').doc(user.uid);
   const userSnap = await userDocRef.get();
   if(!userSnap.exists) {
@@ -3372,19 +3390,31 @@ auth.onAuthStateChanged(async (user) => {
       currentUserProfile.role = 'admin';
     }
   }
+  // Mirror display profile into workspace/members so all workspace users can read it
+  const memberRef = ws.collection('members').doc(user.uid);
+  const memberProfile = {
+    uid: currentUserProfile.uid,
+    name: currentUserProfile.name,
+    email: currentUserProfile.email,
+    role: currentUserProfile.role,
+    area: currentUserProfile.area || '',
+    photoURL: currentUserProfile.photoURL || null
+  };
+  await memberRef.set(memberProfile, {merge:true});
 
-  // Initial fetch
-  const ws = db.collection('workspaces').doc(WORKSPACE);
-  const [campaignsSnap, tasksSnap, settingsDoc, usersSnap] = await Promise.all([
+  // Initial fetch (members from workspace — readable by all workspace members)
+  const [campaignsSnap, tasksSnap, settingsDoc, membersSnap] = await Promise.all([
     ws.collection('campaigns').get(),
     ws.collection('globalTasks').get(),
     ws.collection('config').doc('settings').get(),
-    db.collection('users').get()
+    ws.collection('members').get()
   ]);
   _cache.campaigns = campaignsSnap.docs.map(d=>d.data());
   _cache.globalTasks = tasksSnap.docs.map(d=>d.data());
   _cache.settings = settingsDoc.exists ? settingsDoc.data() : {};
-  allUsers = usersSnap.docs.map(d => ({uid:d.id, ...d.data()}));
+  allUsers = membersSnap.docs.map(d => ({uid:d.id, ...d.data()}));
+  // Ensure current user is always in allUsers even if fetch missed them
+  if(!allUsers.find(u=>u.uid===user.uid)) allUsers.push(memberProfile);
 
   // Seed sample data ONLY if workspace empty AND first time globally
   const seeded = await ws.collection('config').doc('seeded').get();
