@@ -698,6 +698,43 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
   .form-row { grid-template-columns:1fr; }
   .metrics-grid { grid-template-columns:1fr; }
 }
+/* Area multi-picker */
+.area-multi-picker {
+  min-height:42px; border:1.5px solid var(--border); border-radius:10px;
+  padding:6px 10px; display:flex; flex-wrap:wrap; gap:6px; align-items:center;
+  background:var(--white); cursor:text; position:relative; transition:border-color .2s;
+}
+.area-multi-picker:focus-within { border-color:var(--pink); box-shadow:0 0 0 3px var(--pink-pale); }
+.area-chip {
+  display:inline-flex; align-items:center; gap:5px; background:var(--lavender-pale);
+  border:1px solid var(--lavender); border-radius:20px; padding:2px 8px 2px 6px; font-size:12px; font-weight:600;
+}
+.area-chip .chip-x {
+  width:14px; height:14px; border-radius:50%; background:var(--lavender); color:#fff;
+  display:inline-flex; align-items:center; justify-content:center; font-size:10px; font-weight:700;
+  cursor:pointer; line-height:1; border:none; padding:0; flex-shrink:0;
+}
+.area-chip .chip-x:hover { background:var(--pink-deep); }
+.area-add-btn {
+  width:24px; height:24px; border-radius:50%; background:var(--pink); color:#fff; border:none;
+  font-size:16px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center;
+  justify-content:center; flex-shrink:0; line-height:1; transition:background .15s;
+}
+.area-add-btn:hover { background:var(--pink-deep); }
+.area-dropdown {
+  position:absolute; top:calc(100% + 4px); left:0; right:0; z-index:9999;
+  background:var(--white); border:1.5px solid var(--border); border-radius:10px;
+  box-shadow:0 8px 24px rgba(0,0,0,.12); max-height:220px; overflow-y:auto;
+}
+.area-dropdown-item {
+  display:flex; align-items:center; gap:10px; padding:8px 12px; cursor:pointer; font-size:13px;
+}
+.area-dropdown-item:hover { background:var(--pink-pale); }
+.area-dropdown-item .ddi-avatar {
+  width:26px; height:26px; border-radius:50%; background:var(--lavender); color:#fff;
+  display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; flex-shrink:0;
+}
+.area-dropdown-empty { padding:10px 14px; font-size:12px; color:var(--text-muted); }
 </style>
 </head>
 <body>
@@ -1362,21 +1399,21 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
     <div class="form-row">
       <div class="form-group">
         <label class="form-label">Responsable Operaciones</label>
-        <select class="form-input" id="fCampRespOps"></select>
+        <div class="area-multi-picker" id="fAreaOps" data-area="operaciones"></div>
       </div>
       <div class="form-group">
         <label class="form-label">Responsable Cuentas</label>
-        <select class="form-input" id="fCampRespCuentas"></select>
+        <div class="area-multi-picker" id="fAreaCuentas" data-area="cuentas"></div>
       </div>
     </div>
     <div class="form-row">
       <div class="form-group">
         <label class="form-label">Responsable Creativo</label>
-        <select class="form-input" id="fCampRespCreativo"></select>
+        <div class="area-multi-picker" id="fAreaCreativo" data-area="creativo"></div>
       </div>
       <div class="form-group">
         <label class="form-label">Responsable Data</label>
-        <select class="form-input" id="fCampRespData"></select>
+        <div class="area-multi-picker" id="fAreaData" data-area="data"></div>
       </div>
     </div>
     <div class="form-row">
@@ -1990,19 +2027,29 @@ function renderDashboard() {
 
   // Today tasks
   const ttl = document.getElementById('todayTasksList');
+  const taskItemHtml = (t, showDate) => `
+    <div class="task-item">
+      <div class="task-check ${t.done?'done':''}" onclick="toggleTask('${t.id}','${t.campaignId||''}')"></div>
+      <div class="priority-dot priority-${t.priority}"></div>
+      <div class="task-info">
+        <div class="task-title ${t.done?'done-text':''}">${t.title}</div>
+        <div class="task-meta">${t.campaignName||'General'}${showDate && t.dueDate ? ' · ' + formatDate(t.dueDate) : ''}</div>
+      </div>
+      <button class="task-edit-btn" onclick="openEditTaskModal('${t.id}','${t.campaignId||''}')" title="Editar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></svg></button>
+    </div>`;
   if(todayTasks.length===0) {
-    ttl.innerHTML = `<div class="empty-state"><div class="empty-icon">${ICN_check}</div><p>¡Todo al día! No tienes tareas para hoy.</p></div>`;
+    const upcoming = myTasks
+      .filter(t => !t.done && t.dueDate && t.dueDate > today)
+      .sort((a,b) => a.dueDate.localeCompare(b.dueDate))
+      .slice(0, 6);
+    if(upcoming.length === 0) {
+      ttl.innerHTML = `<div class="empty-state"><div class="empty-icon">${ICN_check}</div><p>¡Todo al día! No tienes tareas pendientes.</p></div>`;
+    } else {
+      ttl.innerHTML = `<div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;padding:0 2px;">Próximos pendientes</div>` +
+        upcoming.map(t => taskItemHtml(t, true)).join('');
+    }
   } else {
-    ttl.innerHTML = todayTasks.slice(0,6).map(t=>`
-      <div class="task-item">
-        <div class="task-check ${t.done?'done':''}" onclick="toggleTask('${t.id}','${t.campaignId||''}')"></div>
-        <div class="priority-dot priority-${t.priority}"></div>
-        <div class="task-info">
-          <div class="task-title ${t.done?'done-text':''}">${t.title}</div>
-          <div class="task-meta">${t.campaignName||'General'}</div>
-        </div>
-        <button class="task-edit-btn" onclick="openEditTaskModal('${t.id}','${t.campaignId||''}')" title="Editar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></svg></button>
-      </div>`).join('');
+    ttl.innerHTML = todayTasks.slice(0,6).map(t => taskItemHtml(t, false)).join('');
   }
 
   // Alerts
@@ -2107,7 +2154,7 @@ function renderCampaignGrid() {
       <div class="campaign-meta">
         <span class="badge badge-lavender"><span class="badge-icn">${ICN_users}</span>${c.influencers.length} influencers</span>
         <span class="badge badge-mint"><span class="badge-icn">${ICN_calendar}</span>${c.season||'—'}</span>
-        ${(()=>{ const r=c.responsables||{}; return ['operaciones','cuentas','creativo','data'].map(k=>{ if(!r[k]) return ''; const u=allUsers.find(x=>x.uid===r[k]); return u?`<span class="badge badge-area-${u.area||k.charAt(0).toUpperCase()+k.slice(1)}">${u.name||u.email.split('@')[0]}</span>`:''; }).join(''); })()||''}
+        ${(()=>{ const r=c.responsables||{}; return ['operaciones','cuentas','creativo','data'].map(k=>{ const uids=getAreaUids(r,k); return uids.map(uid=>{ const u=allUsers.find(x=>x.uid===uid); return u?`<span class="badge badge-area-${u.area||k.charAt(0).toUpperCase()+k.slice(1)}">${u.name||u.email.split('@')[0]}</span>`:''; }).join(''); }).join(''); })()||''}
       </div>
       <div class="campaign-progress">
         <div class="progress-label"><span>Flujo</span><span>${pct}%</span></div>
@@ -2195,9 +2242,9 @@ function openCampaignDetail(cid) {
       const areaLabel = {operaciones:'Operaciones', cuentas:'Cuentas', creativo:'Creativo', data:'Data'};
       const areaColor = {operaciones:'badge-area-Operaciones', cuentas:'badge-area-Cuentas', creativo:'badge-area-Creativo', data:'badge-area-Data'};
       return Object.entries(areaLabel).map(([key, label]) => {
-        const uid = r[key];
-        const content = uid ? userChip(uid) : `<span style="color:var(--text-muted);font-size:13px;">Sin asignar</span>`;
-        return `<div class="info-field"><div class="info-label"><span class="badge ${areaColor[key]}" style="font-size:10px;">${label}</span></div><div class="info-value">${content}</div></div>`;
+        const uids = getAreaUids(r, key);
+        const content = uids.length ? uids.map(uid => userChip(uid)).join(' ') : `<span style="color:var(--text-muted);font-size:13px;">Sin asignar</span>`;
+        return `<div class="info-field"><div class="info-label"><span class="badge ${areaColor[key]}" style="font-size:10px;">${label}</span></div><div class="info-value" style="display:flex;flex-wrap:wrap;gap:4px;">${content}</div></div>`;
       }).join('');
     })()}
     <div class="info-field"><div class="info-label">Duración</div><div class="info-value">${c.startDate?formatDate(c.startDate):'—'}${c.endDate?' → '+formatDate(c.endDate):''}</div></div>
@@ -2707,26 +2754,77 @@ function calcBudgetOps() {
 }
 
 const AREAS = ['Operaciones','Cuentas','Creativo','Data'];
-const AREA_IDS = {Operaciones:'fCampRespOps', Cuentas:'fCampRespCuentas', Creativo:'fCampRespCreativo', Data:'fCampRespData'};
+const AREA_IDS = {Operaciones:'fAreaOps', Cuentas:'fAreaCuentas', Creativo:'fAreaCreativo', Data:'fAreaData'};
+const AREA_KEYS = {Operaciones:'operaciones', Cuentas:'cuentas', Creativo:'creativo', Data:'data'};
+
+// In-memory state for multi-picker during modal editing
+let _areaSelections = {operaciones:[], cuentas:[], creativo:[], data:[]};
+
+function getAreaUids(responsables, key) {
+  const v = (responsables||{})[key];
+  if(!v) return [];
+  return Array.isArray(v) ? v.filter(Boolean) : (v ? [v] : []);
+}
 
 function populateCampResponsibles(responsables) {
   responsables = responsables || {};
   AREAS.forEach(area => {
-    const sel = document.getElementById(AREA_IDS[area]);
-    if(!sel) return;
-    // Show ALL users; sort preferred area to top, label with area for context
-    const preferred = allUsers.filter(u => u.area === area);
-    const others = allUsers.filter(u => u.area !== area);
-    const renderOpt = u => {
-      const label = u.area ? `${u.name || u.email.split('@')[0]} (${u.area})` : (u.name || u.email.split('@')[0]);
-      return `<option value="${u.uid}">${label}</option>`;
-    };
-    sel.innerHTML = `<option value="">Sin asignar</option>` +
-      preferred.map(renderOpt).join('') +
-      (preferred.length && others.length ? `<option disabled>──────────</option>` : '') +
-      others.map(renderOpt).join('');
-    sel.value = responsables[area.toLowerCase()] || '';
+    const key = AREA_KEYS[area];
+    _areaSelections[key] = getAreaUids(responsables, key);
+    renderAreaPicker(key);
   });
+}
+
+function renderAreaPicker(areaKey) {
+  const areaLabel = {operaciones:'Operaciones', cuentas:'Cuentas', creativo:'Creativo', data:'Data'};
+  const divId = {operaciones:'fAreaOps', cuentas:'fAreaCuentas', creativo:'fAreaCreativo', data:'fAreaData'}[areaKey];
+  const el = document.getElementById(divId);
+  if(!el) return;
+  const selected = _areaSelections[areaKey] || [];
+  const chips = selected.map(uid => {
+    const u = allUsers.find(x => x.uid === uid);
+    const name = u ? (u.name || u.email.split('@')[0]) : uid;
+    return `<span class="area-chip"><span>${name}</span><button class="chip-x" onclick="removeFromArea('${areaKey}','${uid}');event.stopPropagation();" type="button">×</button></span>`;
+  }).join('');
+  const addBtn = `<button class="area-add-btn" type="button" onclick="toggleAreaDropdown('${areaKey}');event.stopPropagation();">+</button>`;
+  // Build dropdown of unselected users
+  const selectedSet = new Set(selected);
+  const available = allUsers.filter(u => !selectedSet.has(u.uid));
+  const dropdownItems = available.length === 0
+    ? `<div class="area-dropdown-empty">Todos los usuarios asignados.</div>`
+    : available.map(u => {
+        const name = u.name || u.email.split('@')[0];
+        const initial = name[0]?.toUpperCase() || '?';
+        return `<div class="area-dropdown-item" onclick="addToArea('${areaKey}','${u.uid}');event.stopPropagation();">
+          <span class="ddi-avatar">${initial}</span>
+          <span style="flex:1">${name}</span>
+          ${u.area ? `<span class="badge badge-area-${u.area}" style="font-size:9px;">${u.area}</span>` : ''}
+        </div>`;
+      }).join('');
+  el.innerHTML = chips + addBtn + `<div class="area-dropdown" id="areaDD_${areaKey}" style="display:none;">${dropdownItems}</div>`;
+}
+
+function addToArea(areaKey, uid) {
+  if(!_areaSelections[areaKey]) _areaSelections[areaKey] = [];
+  if(!_areaSelections[areaKey].includes(uid)) _areaSelections[areaKey].push(uid);
+  renderAreaPicker(areaKey);
+}
+
+function removeFromArea(areaKey, uid) {
+  _areaSelections[areaKey] = (_areaSelections[areaKey]||[]).filter(x => x !== uid);
+  renderAreaPicker(areaKey);
+}
+
+function toggleAreaDropdown(areaKey) {
+  const dd = document.getElementById('areaDD_' + areaKey);
+  if(!dd) return;
+  const isOpen = dd.style.display !== 'none';
+  // Close all dropdowns first
+  ['operaciones','cuentas','creativo','data'].forEach(k => {
+    const d = document.getElementById('areaDD_' + k);
+    if(d) d.style.display = 'none';
+  });
+  if(!isOpen) dd.style.display = '';
 }
 
 function areaBadge(area) {
@@ -2964,10 +3062,10 @@ function saveCampaign() {
         budgetClient:_bc, budgetMargin:_bm,
         budgetOps: _bc > 0 ? _bc - (_bc * _bm / 100) : 0,
         responsables:{
-          operaciones: document.getElementById('fCampRespOps').value,
-          cuentas: document.getElementById('fCampRespCuentas').value,
-          creativo: document.getElementById('fCampRespCreativo').value,
-          data: document.getElementById('fCampRespData').value,
+          operaciones: _areaSelections.operaciones,
+          cuentas: _areaSelections.cuentas,
+          creativo: _areaSelections.creativo,
+          data: _areaSelections.data,
         },
         startDate:document.getElementById('fCampStartDate').value,
         endDate:document.getElementById('fCampEndDate').value,
@@ -2985,12 +3083,13 @@ function saveCampaign() {
       budgetClient:_bc2, budgetMargin:_bm2,
       budgetOps: _bc2 > 0 ? _bc2 - (_bc2 * _bm2 / 100) : 0,
       responsables:{
-        operaciones: document.getElementById('fCampRespOps').value,
-        cuentas: document.getElementById('fCampRespCuentas').value,
-        creativo: document.getElementById('fCampRespCreativo').value,
-        data: document.getElementById('fCampRespData').value,
+        operaciones: _areaSelections.operaciones,
+        cuentas: _areaSelections.cuentas,
+        creativo: _areaSelections.creativo,
+        data: _areaSelections.data,
       },
-      deadline:document.getElementById('fCampDeadline').value,
+      startDate:document.getElementById('fCampStartDate').value,
+      endDate:document.getElementById('fCampEndDate').value,
       createdBy: currentUser.uid,
       assignedTo: [currentUser.uid],
       flowSteps:FLOW_STEPS.map(s=>({step:s,status:'Pendiente'})),
@@ -3964,6 +4063,14 @@ async function seedSampleData() {
 })();
 
 // init() now triggered by auth.onAuthStateChanged above
+
+// Close area dropdowns when clicking outside
+document.addEventListener('click', () => {
+  ['operaciones','cuentas','creativo','data'].forEach(k => {
+    const d = document.getElementById('areaDD_' + k);
+    if(d) d.style.display = 'none';
+  });
+});
 
 // ============================================================
 // CALENDAR PAGE
