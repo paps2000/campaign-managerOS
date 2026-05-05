@@ -1297,16 +1297,6 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
         <button class="btn btn-primary" onclick="saveApiKey()">Guardar API Key</button>
       </div>
 
-      <div class="settings-section">
-        <div class="settings-title">Google Sheets — Métricas</div>
-        <div class="settings-desc">Pega la URL pública de tu Google Sheet con métricas. El sheet debe estar publicado como CSV (Archivo → Publicar en la web → CSV). Columnas esperadas: Campaña, Influencer, Formato, Fecha, Plataforma, Alcance, Impresiones, Interacciones, ER.</div>
-        <div class="form-group">
-          <label class="form-label">URL del Google Sheet</label>
-          <input type="text" class="form-input" id="settingsSheetsUrl" placeholder="https://docs.google.com/spreadsheets/d/.../pub?output=csv">
-        </div>
-        <button class="btn btn-primary" onclick="saveSheetsUrl()">Guardar URL</button>
-      </div>
-
       <div class="settings-section" style="border:1px solid #fee2e2;background:#fff5f5;">
         <div class="settings-title" style="color:var(--red);">Zona de peligro</div>
         <div class="settings-desc">Borrar todas las campañas y tareas globales del workspace. Solo admin. No se puede deshacer.</div>
@@ -1828,6 +1818,9 @@ function rerenderCurrent() {
     }
   }
   else if(currentPage==='pendientes') renderPendientes();
+  else if(currentPage==='metricas') renderMetrics();
+  else if(currentPage==='calendario') renderCalendar();
+  else if(currentPage==='influencers') renderInfluencers();
   populateCampaignSelects();
 }
 
