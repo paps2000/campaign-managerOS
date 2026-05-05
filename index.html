@@ -698,6 +698,20 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
   .form-row { grid-template-columns:1fr; }
   .metrics-grid { grid-template-columns:1fr; }
 }
+/* Profile edit */
+.profile-gradient-swatch {
+  width:36px;height:36px;border-radius:10px;cursor:pointer;border:3px solid transparent;
+  transition:transform .15s,border-color .15s;flex-shrink:0;
+}
+.profile-gradient-swatch.selected,.profile-gradient-swatch:hover { border-color:var(--text); transform:scale(1.1); }
+.profile-emoji-btn {
+  font-size:22px;width:40px;height:40px;border:2px solid var(--border);border-radius:10px;
+  background:var(--white);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;
+  transition:border-color .15s,transform .15s;
+}
+.profile-emoji-btn:hover,.profile-emoji-btn.selected { border-color:var(--pink);transform:scale(1.1); }
+.sidebar-user { cursor:pointer; }
+.sidebar-user:hover .user-name { color:var(--pink); }
 /* Area multi-picker */
 .area-multi-picker {
   min-height:42px; border:1.5px solid var(--border); border-radius:10px;
@@ -791,11 +805,11 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
       <div class="logo-sub">Think Y.</div>
     </div>
   </div>
-  <div class="sidebar-user">
+  <div class="sidebar-user" onclick="openEditProfileModal()" title="Editar mi perfil">
     <div class="avatar" id="userAvatarSidebar">G</div>
     <div class="user-info">
       <div class="user-name" id="userNameSidebar">Génesis</div>
-      <div class="user-role">Think Y.</div>
+      <div class="user-role" id="userRoleSidebar">Think Y.</div>
     </div>
   </div>
   <div class="nav-section">
@@ -906,9 +920,6 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
           <div class="stat-sub">Esta semana</div>
         </div>
       </div>
-
-      <!-- GOOGLE CALENDAR WIDGET -->
-      <div id="calendarWidget"></div>
 
       <div class="grid-main-side">
         <!-- TODAY TASKS -->
@@ -1062,7 +1073,7 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
             <table class="table">
               <thead><tr>
                 <th>Influencer</th><th>Formato</th><th>Fecha pub.</th><th>Plataforma</th>
-                <th>Status</th><th>Alcance</th><th>Interacciones</th><th>ER</th>
+                <th>Status</th><th>Cerrados</th><th>Boosteados</th><th>Alcance</th><th>Interacciones</th><th>ER</th>
               </tr></thead>
               <tbody id="campaignInfluencerTable"></tbody>
             </table>
@@ -1283,7 +1294,7 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
         <div style="display:grid;grid-template-columns:repeat(7,1fr);background:var(--bg);border-bottom:1px solid var(--border);">
           ${['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'].map(d=>`<div style="padding:10px 0;text-align:center;font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:.5px;">${d}</div>`).join('')}
         </div>
-        <div id="calGrid" style="display:grid;grid-template-columns:repeat(7,1fr);"></div>
+        <div id="calGrid" style="display:grid;grid-template-columns:repeat(7,1fr);border-left:1px solid var(--border);border-top:1px solid var(--border);"></div>
       </div>
     </div>
 
@@ -1306,13 +1317,30 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
       </div>
 
       <div class="settings-section">
-        <div class="settings-title">Claude API — Generador de textos</div>
-        <div class="settings-desc">Ingresa tu API Key de Anthropic para activar el generador de textos con IA. Tu key se guarda localmente en este navegador.</div>
-        <div class="form-group">
-          <label class="form-label">API Key</label>
-          <input type="password" class="form-input" id="settingsApiKey" placeholder="sk-ant-...">
+        <div class="settings-title">Generador de textos — IA</div>
+        <div class="settings-desc">Elige tu proveedor de IA. Las API keys se guardan localmente en este navegador.</div>
+        <div class="form-group" style="margin-bottom:12px;">
+          <label class="form-label">Proveedor</label>
+          <div style="display:flex;gap:10px;margin-top:4px;">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:600;">
+              <input type="radio" name="aiProvider" id="aiProviderAnthropic" value="anthropic" style="accent-color:var(--pink);"> Anthropic (Claude)
+            </label>
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:600;">
+              <input type="radio" name="aiProvider" id="aiProviderOpenAI" value="openai" style="accent-color:var(--pink);"> OpenAI (ChatGPT)
+            </label>
+          </div>
         </div>
-        <button class="btn btn-primary" onclick="saveApiKey()">Guardar API Key</button>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">API Key Anthropic</label>
+            <input type="password" class="form-input" id="settingsApiKey" placeholder="sk-ant-...">
+          </div>
+          <div class="form-group">
+            <label class="form-label">API Key OpenAI</label>
+            <input type="password" class="form-input" id="settingsOpenAiKey" placeholder="sk-...">
+          </div>
+        </div>
+        <button class="btn btn-primary" onclick="saveApiKeys()">Guardar</button>
       </div>
 
       <div class="settings-section">
@@ -1494,6 +1522,81 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
   </div>
 </div>
 
+<!-- MODAL: MI PERFIL -->
+<div class="modal-overlay" id="editProfileModal">
+  <div class="modal" style="width:520px;">
+    <div class="modal-header">
+      <div class="modal-title">Mi perfil</div>
+      <button class="modal-close" onclick="closeModal('editProfileModal')"><span class="icn-close"></span></button>
+    </div>
+    <!-- Preview -->
+    <div style="display:flex;align-items:center;gap:16px;padding:16px 0 20px;border-bottom:1px solid var(--border);margin-bottom:20px;">
+      <div id="profilePreviewAvatar" style="width:60px;height:60px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:700;color:#fff;flex-shrink:0;transition:all .3s;"></div>
+      <div>
+        <div id="profilePreviewName" style="font-size:18px;font-weight:700;"></div>
+        <div id="profilePreviewSub" style="font-size:12px;color:var(--text-muted);margin-top:2px;"></div>
+      </div>
+    </div>
+    <!-- Emoji -->
+    <div class="form-group">
+      <label class="form-label">Emoji (en lugar de inicial)</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;" id="emojiQuickPick">
+        <button class="profile-emoji-btn" onclick="pickEmoji('')" id="epNoEmoji" title="Usar inicial">A</button>
+        <button class="profile-emoji-btn" onclick="pickEmoji('🦁')">🦁</button>
+        <button class="profile-emoji-btn" onclick="pickEmoji('🐯')">🐯</button>
+        <button class="profile-emoji-btn" onclick="pickEmoji('🐺')">🐺</button>
+        <button class="profile-emoji-btn" onclick="pickEmoji('🦊')">🦊</button>
+        <button class="profile-emoji-btn" onclick="pickEmoji('🐉')">🐉</button>
+        <button class="profile-emoji-btn" onclick="pickEmoji('🌙')">🌙</button>
+        <button class="profile-emoji-btn" onclick="pickEmoji('⚡')">⚡</button>
+        <button class="profile-emoji-btn" onclick="pickEmoji('🔥')">🔥</button>
+        <button class="profile-emoji-btn" onclick="pickEmoji('🌸')">🌸</button>
+        <button class="profile-emoji-btn" onclick="pickEmoji('🎯')">🎯</button>
+        <button class="profile-emoji-btn" onclick="pickEmoji('💎')">💎</button>
+        <button class="profile-emoji-btn" onclick="pickEmoji('🚀')">🚀</button>
+      </div>
+      <input type="text" class="form-input" id="profileEmojiInput" placeholder="O escribe cualquier emoji…" maxlength="4" oninput="pickEmoji(this.value)" style="font-size:20px;letter-spacing:4px;">
+    </div>
+    <!-- Gradient -->
+    <div class="form-group">
+      <label class="form-label">Color del perfil</label>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:6px;" id="gradientSwatches">
+        <div class="profile-gradient-swatch" style="background:linear-gradient(135deg,#ff2d87,#2c6dff);" onclick="pickGradient('linear-gradient(135deg,#ff2d87,#2c6dff)')" title="Pink · Azul"></div>
+        <div class="profile-gradient-swatch" style="background:linear-gradient(135deg,#c6f24a,#2c6dff);" onclick="pickGradient('linear-gradient(135deg,#c6f24a,#2c6dff)')" title="Mint · Azul"></div>
+        <div class="profile-gradient-swatch" style="background:linear-gradient(135deg,#ff2d87,#fbbf24);" onclick="pickGradient('linear-gradient(135deg,#ff2d87,#fbbf24)')" title="Pink · Amarillo"></div>
+        <div class="profile-gradient-swatch" style="background:linear-gradient(135deg,#2c6dff,#c6f24a);" onclick="pickGradient('linear-gradient(135deg,#2c6dff,#c6f24a)')" title="Azul · Mint"></div>
+        <div class="profile-gradient-swatch" style="background:linear-gradient(135deg,#ff2d87,#ff8c42);" onclick="pickGradient('linear-gradient(135deg,#ff2d87,#ff8c42)')" title="Pink · Naranja"></div>
+        <div class="profile-gradient-swatch" style="background:linear-gradient(135deg,#1a1a2e,#2c6dff);" onclick="pickGradient('linear-gradient(135deg,#1a1a2e,#2c6dff)')" title="Dark · Azul"></div>
+        <div class="profile-gradient-swatch" style="background:linear-gradient(135deg,#fbbf24,#f97316);" onclick="pickGradient('linear-gradient(135deg,#fbbf24,#f97316)')" title="Dorado"></div>
+        <div class="profile-gradient-swatch" style="background:linear-gradient(135deg,#c6f24a,#16a34a);" onclick="pickGradient('linear-gradient(135deg,#c6f24a,#16a34a)')" title="Verde"></div>
+        <div class="profile-gradient-swatch" style="background:linear-gradient(135deg,#a855f7,#2c6dff);" onclick="pickGradient('linear-gradient(135deg,#a855f7,#2c6dff)')" title="Morado · Azul"></div>
+        <div class="profile-gradient-swatch" style="background:linear-gradient(135deg,#ff2d87,#a855f7);" onclick="pickGradient('linear-gradient(135deg,#ff2d87,#a855f7)')" title="Pink · Morado"></div>
+      </div>
+    </div>
+    <!-- Area + Puesto -->
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Área</label>
+        <select class="form-input" id="profileAreaInput">
+          <option value="">— Sin área —</option>
+          <option>Cuentas</option>
+          <option>Operaciones</option>
+          <option>Creativo</option>
+          <option>Data</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Puesto</label>
+        <select class="form-input" id="profilePuestoInput"></select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('editProfileModal')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveMyProfile()">Guardar perfil</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL: AGREGAR INFLUENCER A CAMPAÑA -->
 <div class="modal-overlay" id="influencerModal">
   <div class="modal" style="width:600px;">
@@ -1545,6 +1648,16 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
           <option>Aprobado</option>
           <option>Publicado</option>
         </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Contenidos cerrados</label>
+        <input type="number" class="form-input" id="fInfContenidos" placeholder="0" min="0">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Contenidos boosteados</label>
+        <input type="number" class="form-input" id="fInfBoosted" placeholder="0" min="0">
       </div>
     </div>
     <div class="modal-footer">
@@ -1719,19 +1832,23 @@ function setData(key, val) {
 }
 
 function getSettings() {
-  // Merge shared (cached from Firestore) with local-only (claudeApiKey stays per-device)
   const local = {};
   try {
     const ck = localStorage.getItem('claudeApiKey');
     if(ck) local.claudeApiKey = ck;
+    const ok = localStorage.getItem('openaiApiKey');
+    if(ok) local.openaiApiKey = ok;
+    const ap = localStorage.getItem('aiProvider');
+    if(ap) local.aiProvider = ap;
   } catch{}
   return {..._cache.settings, ...local};
 }
 
 function saveSettingsData(s) {
-  // Split: claudeApiKey local, rest shared
-  const {claudeApiKey, ...rest} = s;
+  const {claudeApiKey, openaiApiKey, aiProvider, ...rest} = s;
   if(claudeApiKey !== undefined) localStorage.setItem('claudeApiKey', claudeApiKey);
+  if(openaiApiKey !== undefined) localStorage.setItem('openaiApiKey', openaiApiKey);
+  if(aiProvider !== undefined) localStorage.setItem('aiProvider', aiProvider);
   if(Object.keys(rest).length > 0) {
     _cache.settings = {..._cache.settings, ...rest};
     persistSettings(_cache.settings);
@@ -2279,7 +2396,7 @@ function renderCampaignInfluencers(c) {
   };
   const pfIcon = {Instagram:ICN_insta,TikTok:ICN_tiktok,YouTube:ICN_youtube,'Twitter/X':ICN_twitter};
   document.getElementById('campaignInfluencerTable').innerHTML = c.influencers.length===0
-    ? `<tr><td colspan="8"><div class="empty-state"><p>Sin influencers. Agrega el primero.</p></div></td></tr>`
+    ? `<tr><td colspan="10"><div class="empty-state"><p>Sin influencers. Agrega el primero.</p></div></td></tr>`
     : c.influencers.map(inf=>`
     <tr>
       <td><div style="display:flex;align-items:center;gap:8px"><div class="inf-avatar" style="width:28px;height:28px;font-size:11px">${inf.name[0]}</div><div><div style="font-weight:600;font-size:13px">${inf.name}</div><div style="font-size:11px;color:var(--text-muted)">${inf.handle}</div></div></div></td>
@@ -2287,6 +2404,8 @@ function renderCampaignInfluencers(c) {
       <td>${formatDateShort(inf.publishDate)||'—'}</td>
       <td><span style="display:inline-flex;align-items:center;gap:6px"><span style="width:14px;height:14px;display:inline-flex;color:var(--text-muted)">${pfIcon[inf.platform]||''}</span>${inf.platform}</span></td>
       <td>${infStatusBadge(inf.status)}</td>
+      <td><span style="font-weight:600;color:var(--blue);">${inf.contenidos||0}</span></td>
+      <td><span style="font-weight:600;color:var(--pink-deep);">${inf.boosted||0}</span></td>
       <td>${inf.reach?inf.reach.toLocaleString():'—'}</td>
       <td>${inf.interactions?inf.interactions.toLocaleString():'—'}</td>
       <td>${inf.er||'—'}</td>
@@ -2666,15 +2785,19 @@ function populateCampaignSelects() {
 }
 
 async function generateText(scope) {
-  const apiKey = getSettings().claudeApiKey;
-  if(!apiKey) { showToast('Agrega tu Claude API Key en Ajustes','error'); return; }
+  const s = getSettings();
+  const provider = s.aiProvider || 'anthropic';
+  const apiKey = provider === 'openai' ? s.openaiApiKey : s.claudeApiKey;
+  if(!apiKey) {
+    showToast(`Agrega tu ${provider==='openai'?'OpenAI':'Claude'} API Key en Ajustes`, 'error'); return;
+  }
 
   const typeEl = document.getElementById(scope==='dash'?'dashGenType':'fullGenType');
   const campEl = document.getElementById(scope==='dash'?'dashGenCampaign':'fullGenCampaign');
-  const ctxEl = document.getElementById('fullGenContext');
-  const outEl = document.getElementById(scope==='dash'?'dashGenOutput':'fullGenOutput');
-  const actEl = document.getElementById(scope==='dash'?'dashGenActions':'fullGenActions');
-  const btnEl = document.getElementById(scope==='dash'?'dashGenBtn':'fullGenBtn');
+  const ctxEl  = document.getElementById('fullGenContext');
+  const outEl  = document.getElementById(scope==='dash'?'dashGenOutput':'fullGenOutput');
+  const actEl  = document.getElementById(scope==='dash'?'dashGenActions':'fullGenActions');
+  const btnEl  = document.getElementById(scope==='dash'?'dashGenBtn':'fullGenBtn');
 
   const type = typeEl.value;
   const campId = campEl.value;
@@ -2685,12 +2808,14 @@ async function generateText(scope) {
   const campInfo = c ? `Campaña: ${c.name}, Cliente: ${c.client}, Objetivo: ${c.objective||'—'}, Core message: ${c.coreMessage||'—'}` : 'Sin campaña específica';
 
   const prompts = {
-    'Follow up cliente': `Escribe un email corto y profesional de follow up para el cliente de esta campaña de influencer marketing. Tono: amable, ejecutivo, en español. ${campInfo}. Contexto adicional: ${ctx||'ninguno'}. Firma con el nombre del responsable.`,
-    'Follow up influencer': `Escribe un mensaje corto de follow up para un influencer de esta campaña. Tono: cercano, profesional, en español. ${campInfo}. Contexto: ${ctx||'seguimiento general de entregables'}.`,
-    'Brief': `Escribe un brief creativo conciso para esta campaña de influencer marketing. Incluye: objetivo, mensaje clave, tono, formato sugerido, referencias de estilo. ${campInfo}. Contexto: ${ctx||'ninguno'}.`,
-    'Minuta de reunión': `Escribe una plantilla de minuta de reunión para esta campaña. Incluye: asistentes (dejar en blanco), puntos discutidos, acuerdos, próximos pasos con fechas. ${campInfo}. Contexto: ${ctx||'reunión de seguimiento'}.`,
-    'Email de propuesta': `Escribe un email de propuesta para presentar esta campaña al cliente. Tono ejecutivo, persuasivo, en español. Incluye saludo, contexto de la campaña, propuesta de valor, próximos pasos. ${campInfo}.`,
+    'Follow up cliente':   `Escribe un email corto y profesional de follow up para el cliente de esta campaña de influencer marketing. Tono: amable, ejecutivo, en español. ${campInfo}. Contexto adicional: ${ctx||'ninguno'}. Firma con el nombre del responsable.`,
+    'Follow up influencer':`Escribe un mensaje corto de follow up para un influencer de esta campaña. Tono: cercano, profesional, en español. ${campInfo}. Contexto: ${ctx||'seguimiento general de entregables'}.`,
+    'Brief':               `Escribe un brief creativo conciso para esta campaña de influencer marketing. Incluye: objetivo, mensaje clave, tono, formato sugerido, referencias de estilo. ${campInfo}. Contexto: ${ctx||'ninguno'}.`,
+    'Minuta de reunión':   `Escribe una plantilla de minuta de reunión para esta campaña. Incluye: asistentes (dejar en blanco), puntos discutidos, acuerdos, próximos pasos con fechas. ${campInfo}. Contexto: ${ctx||'reunión de seguimiento'}.`,
+    'Email de propuesta':  `Escribe un email de propuesta para presentar esta campaña al cliente. Tono ejecutivo, persuasivo, en español. Incluye saludo, contexto de la campaña, propuesta de valor, próximos pasos. ${campInfo}.`,
   };
+
+  const prompt = prompts[type] || prompts['Follow up cliente'];
 
   btnEl.innerHTML = '<span class="loader"></span> Generando...';
   btnEl.disabled = true;
@@ -2698,23 +2823,32 @@ async function generateText(scope) {
   outEl.textContent='Generando...';
 
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method:'POST',
-      headers:{
-        'Content-Type':'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version':'2023-06-01',
-        'anthropic-dangerous-direct-browser-access':'true'
-      },
-      body: JSON.stringify({
-        model:'claude-haiku-4-5-20251001',
-        max_tokens:600,
-        messages:[{role:'user',content:prompts[type]||prompts['Follow up cliente']}]
-      })
-    });
-    const data = await res.json();
-    if(data.error) throw new Error(data.error.message);
-    outEl.textContent = data.content[0].text;
+    let resultText = '';
+    if(provider === 'openai') {
+      const res = await fetch('https://api.openai.com/v1/chat/completions', {
+        method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':'Bearer '+apiKey},
+        body: JSON.stringify({model:'gpt-4o-mini',max_tokens:600,messages:[{role:'user',content:prompt}]})
+      });
+      const data = await res.json();
+      if(data.error) throw new Error(data.error.message);
+      resultText = data.choices[0].message.content;
+    } else {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method:'POST',
+        headers:{
+          'Content-Type':'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version':'2023-06-01',
+          'anthropic-dangerous-direct-browser-access':'true'
+        },
+        body: JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:600,messages:[{role:'user',content:prompt}]})
+      });
+      const data = await res.json();
+      if(data.error) throw new Error(data.error.message);
+      resultText = data.content[0].text;
+    }
+    outEl.textContent = resultText;
     actEl.style.display='flex';
   } catch(e) {
     outEl.textContent = 'Error: '+e.message;
@@ -3239,6 +3373,8 @@ function saveInfluencer() {
     format:document.getElementById('fInfFormat').value,
     publishDate:document.getElementById('fInfDate').value,
     status:document.getElementById('fInfStatus').value,
+    contenidos: parseInt(document.getElementById('fInfContenidos').value)||0,
+    boosted: parseInt(document.getElementById('fInfBoosted').value)||0,
     reach:0,impressions:0,interactions:0,er:'—'
   });
   setData('campaigns',campaigns);
@@ -3506,14 +3642,24 @@ function deleteDocFromPage(cid, docId) {
 function loadSettingsUI() {
   const s=getSettings();
   document.getElementById('settingsApiKey').value=s.claudeApiKey||'';
+  document.getElementById('settingsOpenAiKey').value=s.openaiApiKey||'';
   document.getElementById('settingsSheetsUrl').value=s.sheetsUrl||'';
+  const provider = s.aiProvider||'anthropic';
+  const radio = document.getElementById(provider==='openai'?'aiProviderOpenAI':'aiProviderAnthropic');
+  if(radio) radio.checked=true;
   renderTeam();
 }
 
-function saveApiKey() {
-  saveSettingsData({claudeApiKey:document.getElementById('settingsApiKey').value});
-  showToast('API Key guardada','success');
+function saveApiKeys() {
+  const provider = document.querySelector('input[name="aiProvider"]:checked')?.value||'anthropic';
+  saveSettingsData({
+    claudeApiKey: document.getElementById('settingsApiKey').value,
+    openaiApiKey: document.getElementById('settingsOpenAiKey').value,
+    aiProvider: provider,
+  });
+  showToast('Configuración guardada','success');
 }
+function saveApiKey() { saveApiKeys(); }
 
 function saveSheetsUrl() {
   saveSettingsData({sheetsUrl:document.getElementById('settingsSheetsUrl').value});
@@ -3781,8 +3927,7 @@ auth.onAuthStateChanged(async (user) => {
   // Update UI with user info
   const displayName = currentUserProfile.name || user.email.split('@')[0];
   document.getElementById('userNameSidebar').textContent = displayName;
-  document.getElementById('userAvatarSidebar').textContent = displayName[0].toUpperCase();
-  // Add role badge in sidebar
+  updateSidebarAvatar();
   const roleBadge = document.getElementById('userRoleSidebar');
   if(roleBadge) roleBadge.textContent = currentUserProfile.puesto || (currentUserProfile.role === 'admin' ? 'Admin' : 'Miembro');
 
@@ -3888,9 +4033,7 @@ async function loadCalendarEvents() {
 }
 
 function renderCalendarWidget() {
-  const el = document.getElementById('calendarWidget');
-  if(!el) return;
-  if(!isGoogleUser()) { el.innerHTML = ''; return; }
+  return; // Google Calendar widget removed
 
   if(!calendarAccessToken) {
     el.innerHTML = `
@@ -4132,8 +4275,9 @@ function renderCalendar() {
     const isToday = ds === todayStr;
     const evs = (ds && events[ds]) || [];
     const weekend = (i%7 === 5 || i%7 === 6);
-    html += `<div style="min-height:90px;border-right:1px solid var(--border);border-bottom:1px solid var(--border);padding:6px 5px;${!inMonth?'background:var(--bg);':''}">`
-      + (inMonth ? `<div style="font-size:12px;font-weight:700;margin-bottom:4px;${isToday?`width:22px;height:22px;background:var(--pink);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;`:`color:${weekend?'var(--text-muted)':'var(--text)'};`}">${day}</div>` : '')
+    const cellBg = !inMonth ? 'background:var(--bg);' : (isToday ? 'background:var(--pink-pale);' : '');
+    html += `<div style="min-height:90px;border-right:1px solid var(--border);border-bottom:1px solid var(--border);padding:6px 5px;box-sizing:border-box;${cellBg}">`
+      + (inMonth ? `<div style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;margin-bottom:4px;font-size:12px;font-weight:700;${isToday?'background:var(--pink);color:#fff;':'color:'+(weekend?'var(--text-muted)':'var(--text)')+';"}'}">${day}</div>` : '')
       + evs.slice(0,3).map(ev=>`<div style="font-size:10px;font-weight:600;padding:2px 5px;border-radius:4px;background:${ev.color};color:${ev.text};margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${ev.label}">${ev.label}</div>`).join('')
       + (evs.length > 3 ? `<div style="font-size:10px;color:var(--text-muted);padding:1px 4px;">+${evs.length-3} más</div>` : '')
       + `</div>`;
@@ -4168,9 +4312,11 @@ function openProfileModal(uid) {
       </div>
     </div>`;
 
+  const avatarBg = u.profileGradient || 'var(--pink)';
+  const avatarContent = u.profileEmoji || (u.name||u.email)[0].toUpperCase();
   document.getElementById('profileModalContent').innerHTML = `
     <div style="display:flex;align-items:center;gap:16px;margin-bottom:24px;padding-bottom:20px;border-bottom:1px solid var(--border);">
-      <div style="width:56px;height:56px;border-radius:16px;background:var(--pink);color:#fff;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;flex-shrink:0;">${(u.name||u.email)[0].toUpperCase()}</div>
+      <div style="width:56px;height:56px;border-radius:16px;background:${avatarBg};color:#fff;display:flex;align-items:center;justify-content:center;font-size:${u.profileEmoji?'28px':'22px'};font-weight:700;flex-shrink:0;">${avatarContent}</div>
       <div>
         <div style="font-size:20px;font-weight:700;">${u.name||'—'}</div>
         <div style="font-size:13px;color:var(--text-muted);margin-top:2px;">${u.email}</div>
@@ -4192,6 +4338,111 @@ function openProfileModal(uid) {
       ${done.map(t=>taskRow(t,true)).join('')}
     ` : ''}`;
   openModal('profileModal');
+}
+
+// ============================================================
+// MY PROFILE EDIT
+// ============================================================
+let _editProfileEmoji = '';
+let _editProfileGradient = 'linear-gradient(135deg,#ff2d87,#2c6dff)';
+
+function applyAvatarEl(el, profile) {
+  if(!el) return;
+  const bg = profile.profileGradient || 'var(--pink)';
+  const content = profile.profileEmoji || (profile.name||profile.email||'?')[0].toUpperCase();
+  el.style.background = bg;
+  el.style.fontSize = profile.profileEmoji ? '28px' : '';
+  el.textContent = content;
+}
+
+function updateSidebarAvatar() {
+  const el = document.getElementById('userAvatarSidebar');
+  if(el && currentUserProfile) applyAvatarEl(el, currentUserProfile);
+}
+
+function openEditProfileModal() {
+  if(!currentUser || !currentUserProfile) return;
+  _editProfileEmoji = currentUserProfile.profileEmoji || '';
+  _editProfileGradient = currentUserProfile.profileGradient || 'linear-gradient(135deg,#ff2d87,#2c6dff)';
+
+  // Populate puesto select
+  const ps = document.getElementById('profilePuestoInput');
+  if(ps) {
+    ps.innerHTML = `<option value="">— Sin puesto —</option>` + PUESTOS.map(p=>`<option value="${p}">${p}</option>`).join('');
+    ps.value = currentUserProfile.puesto || '';
+  }
+  const as = document.getElementById('profileAreaInput');
+  if(as) as.value = currentUserProfile.area || '';
+
+  document.getElementById('profileEmojiInput').value = _editProfileEmoji;
+  _syncProfilePreview();
+  openModal('editProfileModal');
+}
+
+function pickEmoji(e) {
+  _editProfileEmoji = e;
+  document.getElementById('profileEmojiInput').value = e;
+  document.querySelectorAll('.profile-emoji-btn').forEach(b => b.classList.remove('selected'));
+  if(!e) document.getElementById('epNoEmoji')?.classList.add('selected');
+  _syncProfilePreview();
+}
+
+function pickGradient(g) {
+  _editProfileGradient = g;
+  document.querySelectorAll('.profile-gradient-swatch').forEach(s => {
+    s.classList.toggle('selected', s.getAttribute('onclick').includes(g.replace(/'/g,'')));
+  });
+  _syncProfilePreview();
+}
+
+function _syncProfilePreview() {
+  const avatar = document.getElementById('profilePreviewAvatar');
+  const nameEl = document.getElementById('profilePreviewName');
+  const subEl  = document.getElementById('profilePreviewSub');
+  if(!avatar || !currentUserProfile) return;
+  const content = _editProfileEmoji || (currentUserProfile.name||currentUserProfile.email||'?')[0].toUpperCase();
+  avatar.style.background = _editProfileGradient;
+  avatar.style.fontSize = _editProfileEmoji ? '28px' : '22px';
+  avatar.textContent = content;
+  const area = document.getElementById('profileAreaInput')?.value || currentUserProfile.area || '';
+  const puesto = document.getElementById('profilePuestoInput')?.value || currentUserProfile.puesto || '';
+  if(nameEl) nameEl.textContent = currentUserProfile.name || currentUserProfile.email;
+  if(subEl)  subEl.textContent  = [puesto, area].filter(Boolean).join(' · ') || 'Think Y.';
+  // Highlight selected swatch
+  document.querySelectorAll('.profile-gradient-swatch').forEach(s => {
+    const onclick = s.getAttribute('onclick') || '';
+    s.classList.toggle('selected', onclick.includes(_editProfileGradient.replace(/\s/g,'')));
+  });
+  // Highlight selected emoji btn
+  document.querySelectorAll('.profile-emoji-btn').forEach(b => {
+    b.classList.toggle('selected', b.textContent === (_editProfileEmoji||'A') && (b.id==='epNoEmoji' ? !_editProfileEmoji : !!_editProfileEmoji));
+  });
+}
+
+async function saveMyProfile() {
+  if(!currentUser) return;
+  const area   = document.getElementById('profileAreaInput').value;
+  const puesto = document.getElementById('profilePuestoInput').value;
+  const emoji  = document.getElementById('profileEmojiInput').value.trim();
+  _editProfileEmoji   = emoji;
+  const updates = {
+    area, puesto,
+    profileEmoji: emoji,
+    profileGradient: _editProfileGradient,
+  };
+  // Update Firestore member profile
+  try {
+    const ws = db.collection('workspaces').doc('default');
+    await ws.collection('members').doc(currentUser.uid).set(updates, {merge:true});
+    Object.assign(currentUserProfile, updates);
+    updateSidebarAvatar();
+    const roleBadge = document.getElementById('userRoleSidebar');
+    if(roleBadge) roleBadge.textContent = puesto || (currentUserProfile.role==='admin'?'Admin':'Miembro');
+    showToast('Perfil actualizado','success');
+    closeModal('editProfileModal');
+  } catch(e) {
+    showToast('Error guardando perfil: '+e.message,'error');
+  }
 }
 </script>
 </body>
