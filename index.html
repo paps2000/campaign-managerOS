@@ -1202,7 +1202,7 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
             <div class="card-header"><span class="card-title">Rendimiento por publicación</span></div>
             <div class="table-wrap">
               <table class="table">
-                <thead><tr><th>Influencer</th><th>Formato</th><th>Fecha</th><th>Plataforma</th><th>Vistas</th><th>Alcance</th><th>Impresiones</th><th>Engagement</th><th>ER</th></tr></thead>
+                <thead><tr><th>Influencer</th><th>Formato</th><th>Fecha</th><th>Plataforma</th><th>Vistas</th><th>Alcance</th><th>Likes</th><th>Engagement</th><th>ER</th></tr></thead>
                 <tbody id="metricsTable"></tbody>
               </table>
             </div>
@@ -2788,8 +2788,9 @@ function openMetricsCampaign(cid) {
     if(lbl) lbl.textContent = '📊 ' + c.metricsSheetUrl.replace(/^https?:\/\/(docs\.google\.com\/)?/,'').substring(0,60) + '…';
     const inp = document.getElementById('sheetsUrlInputChange');
     if(inp) inp.value = c.metricsSheetUrl;
-    if(c.cachedMetrics && c.cachedMetrics.length) displayMetrics(c.cachedMetrics, c);
-    else initEmptyCharts();
+    // Always auto-fetch fresh data (don't rely on cached metrics)
+    initEmptyCharts();
+    _autoFetchMetrics(c.metricsSheetUrl, c);
   } else {
     // No-link state
     document.getElementById('metricsNoLink').style.display = '';
@@ -2817,6 +2818,21 @@ function initEmptyCharts() {
   lineChartInst = new Chart(lc.getContext('2d'),{type:'line',data:{labels:[],datasets:[]},options:{responsive:true}});
   const dc = document.getElementById('donutChart'); if(!dc) return;
   donutChartInst = new Chart(dc.getContext('2d'),{type:'doughnut',data:{labels:['Likes','Comentarios','Shares','Guardados'],datasets:[{data:[45,25,15,15],backgroundColor:['#ff2d87','#2c6dff','#c6f24a','#ffb3d3'],borderWidth:0}]},options:{responsive:true,plugins:{legend:{position:'right'}},cutout:'65%'}});
+}
+
+async function _autoFetchMetrics(url, campaign) {
+  const csvUrl = normalizeCsvUrl(url);
+  if(!csvUrl) return;
+  try {
+    const res = await fetch(csvUrl);
+    if(!res.ok) throw new Error(`HTTP ${res.status}`);
+    const text = await res.text();
+    if(text.trim().startsWith('<!')) throw new Error('sheet not public');
+    const rows = parseCSV(text);
+    if(rows.length) displayMetrics(rows, campaign);
+  } catch(e) {
+    console.warn('Auto-fetch metrics failed:', e.message);
+  }
 }
 
 function normalizeCsvUrl(raw) {
@@ -2903,26 +2919,46 @@ function parseCSV(text) {
 }
 
 function displayMetrics(rows, campaign) {
-  const gi = (r, ...keys) => parseInt(keys.reduce((v,k)=>v||r[k],''))||0;
-  let totalViews=0, totalReach=0, totalImpressions=0, totalEngagement=0;
+  // Case-insensitive, underscore/space-normalized key lookup
+  const gi = (r, ...keys) => {
+    for(const k of keys) {
+      const kn = k.toLowerCase().replace(/_/g,' ');
+      for(const rk of Object.keys(r)) {
+        if(rk.toLowerCase().replace(/_/g,' ') === kn) {
+          const v = parseInt((r[rk]||'').toString().replace(/[,$\s]/g,''));
+          if(v) return v;
+        }
+      }
+    }
+    return 0;
+  };
+  // Case-insensitive string field lookup
+  const gs = (r, ...keys) => {
+    for(const k of keys) {
+      const kn = k.toLowerCase().replace(/_/g,' ');
+      for(const rk of Object.keys(r)) {
+        if(rk.toLowerCase().replace(/_/g,' ') === kn && r[rk]) return r[rk];
+      }
+    }
+    return '—';
+  };
+
+  let totalViews=0, totalReach=0, totalEngagement=0;
   let totalLikes=0, totalComments=0, totalShares=0, totalSaves=0;
   rows.forEach(r=>{
-    totalViews       += gi(r,'Vistas','vistas','Views','views','Reproducciones','reproducciones','Plays','plays');
-    totalReach       += gi(r,'Alcance','alcance','Reach','reach');
-    totalImpressions += gi(r,'Impresiones','impresiones','Impressions','impressions');
-    totalLikes       += gi(r,'Likes','likes','Me gusta','me_gusta');
-    totalComments    += gi(r,'Comentarios','comentarios','Comments','comments');
-    totalShares      += gi(r,'Shares','shares','Compartidos','compartidos');
-    totalSaves       += gi(r,'Guardados','guardados','Saves','saves','Saved','saved');
-    // fallback: use Interacciones as engagement total if no breakdown
-    totalEngagement  += gi(r,'Interacciones','interacciones','Interactions','interactions','Engagement','engagement');
+    totalViews    += gi(r,'Views','Vistas','organic views','Total Views','Impresiones','Impressions','Reproducciones','Plays','Visualizaciones','Video Views');
+    totalReach    += gi(r,'Reach','Alcance');
+    totalLikes    += gi(r,'Likes','Me gusta','organic likes');
+    totalComments += gi(r,'Comments','Comentarios','organic comments');
+    totalShares   += gi(r,'Shares','Compartidos','organic shares','Retweets','Reposts');
+    totalSaves    += gi(r,'Saves','Guardados','Saved','organic saves');
+    totalEngagement += gi(r,'Engagement','Interacciones','Interactions','Total Engagement','Engagements');
   });
-  // If individual breakdown columns exist, prefer their sum
+  // Individual breakdown overrides aggregate column if available
   const breakdownSum = totalLikes + totalComments + totalShares + totalSaves;
   if(breakdownSum > 0) totalEngagement = breakdownSum;
 
-  const er  = totalReach>0       ? ((totalEngagement/totalReach)*100).toFixed(2)+'%'      : '—';
-  const vr  = totalImpressions>0 ? ((totalViews/totalImpressions)*100).toFixed(2)+'%'     : '—';
+  const er  = totalReach>0   ? ((totalEngagement/totalReach)*100).toFixed(2)+'%' : '—';
   const budget = campaign ? (campaign.budgetClient||campaign.budget||0) : 0;
   const fmtMXN = n => n>0 ? '$'+Number(n).toFixed(2) : '—';
   const cpv = (budget>0 && totalViews>0)      ? fmtMXN(budget/totalViews)      : '—';
@@ -2931,26 +2967,29 @@ function displayMetrics(rows, campaign) {
   document.getElementById('mViews').textContent      = formatNum(totalViews);
   document.getElementById('mEngagement').textContent = formatNum(totalEngagement);
   document.getElementById('mER').textContent         = er;
-  document.getElementById('mVR').textContent         = vr;
+  document.getElementById('mVR').textContent         = '—';
   document.getElementById('mCPV').textContent        = cpv;
   document.getElementById('mCPE').textContent        = cpe;
 
-  const rowViews = r => gi(r,'Vistas','vistas','Views','views','Reproducciones','reproducciones','Plays','plays');
+  const rowViews = r => gi(r,'Views','Vistas','organic views','Total Views','Impresiones','Impressions','Reproducciones','Plays','Visualizaciones','Video Views');
   const rowEng   = r => {
-    const bd = gi(r,'Likes','likes')+gi(r,'Comentarios','comentarios','Comments','comments')+gi(r,'Shares','shares')+gi(r,'Guardados','guardados','Saves','saves');
-    return bd>0 ? bd : gi(r,'Interacciones','interacciones','Interactions','interactions','Engagement','engagement');
+    const bd = gi(r,'Likes','Me gusta','organic likes')
+             + gi(r,'Comments','Comentarios','organic comments')
+             + gi(r,'Shares','Compartidos','organic shares')
+             + gi(r,'Saves','Guardados','Saved','organic saves');
+    return bd>0 ? bd : gi(r,'Engagement','Interacciones','Interactions','Total Engagement','Engagements');
   };
   const tb = document.getElementById('metricsTable');
   tb.innerHTML = rows.map(r=>`<tr>
-    <td>${r.Influencer||r.influencer||'—'}</td>
-    <td>${r.Formato||r.formato||r.format||'—'}</td>
-    <td>${r.Fecha||r.fecha||r.date||'—'}</td>
-    <td>${r.Plataforma||r.plataforma||r.platform||'—'}</td>
+    <td>${gs(r,'Influencer','Creator','Creador','Cuenta')}</td>
+    <td>${gs(r,'Formato','Format','Tipo','Type','Content Type')}</td>
+    <td>${gs(r,'Fecha','Date')}</td>
+    <td>${gs(r,'Plataforma','Platform','Red Social','Network','Canal')}</td>
     <td>${formatNum(rowViews(r))}</td>
-    <td>${formatNum(gi(r,'Alcance','alcance','Reach','reach'))}</td>
-    <td>${formatNum(gi(r,'Impresiones','impresiones','Impressions','impressions'))}</td>
+    <td>${formatNum(gi(r,'Reach','Alcance'))}</td>
+    <td>${formatNum(gi(r,'Likes','Me gusta','organic likes'))}</td>
     <td>${formatNum(rowEng(r))}</td>
-    <td>${r['Engagement Rate']||r['engagement_rate']||r.ER||r.er||'—'}</td>
+    <td>${gs(r,'Engagement Rate','ER','Tasa de Engagement','Tasa Engagement')}</td>
   </tr>`).join('');
 
   if(lineChartInst) lineChartInst.destroy();
@@ -4103,8 +4142,9 @@ auth.onAuthStateChanged(async (user) => {
     role: currentUserProfile.role,
     area: currentUserProfile.area || '',
     photoURL: currentUserProfile.photoURL || null,
-    profileEmoji: currentUserProfile.profileEmoji || '',
-    profileGradient: currentUserProfile.profileGradient || ''
+    // Only write emoji/gradient if they exist — never overwrite with empty string
+    ...(currentUserProfile.profileEmoji    ? { profileEmoji:    currentUserProfile.profileEmoji    } : {}),
+    ...(currentUserProfile.profileGradient ? { profileGradient: currentUserProfile.profileGradient } : {}),
   };
   await memberRef.set(memberProfile, {merge:true});
 
