@@ -593,6 +593,10 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
 .task-edit-btn { background:none; border:none; cursor:pointer; color:var(--text-muted); font-size:12px; padding:4px; border-radius:6px; transition:all .2s var(--ease); display:inline-flex; align-items:center; justify-content:center; }
 .task-edit-btn:hover { background:var(--lavender-pale); color:#6a5a9a; }
 .task-edit-btn svg { width:13px; height:13px; }
+/* Metrics sheet tab pills */
+.metrics-tab-pill { padding:5px 14px;border-radius:20px;border:1.5px solid var(--border);background:var(--white);font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;color:var(--text-muted); }
+.metrics-tab-pill:hover { border-color:var(--pink);color:var(--pink); }
+.metrics-tab-pill.active { background:var(--pink);border-color:var(--pink);color:#fff; }
 /* Task area groups */
 .task-area-group { border:1px solid var(--border); border-radius:14px; margin-bottom:10px; overflow:hidden; }
 .task-area-group summary { list-style:none; display:flex; align-items:center; gap:10px; padding:12px 16px; cursor:pointer; user-select:none; background:var(--bg); transition:background .15s; }
@@ -1197,6 +1201,8 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
               <button class="btn btn-ghost btn-sm" onclick="document.getElementById('changeSheetsRow').style.display='none'">Cancelar</button>
             </div>
           </div>
+          <!-- Sheet tab selector (populated dynamically) -->
+          <div id="metricsTabSelector" style="display:none;margin-bottom:16px;"></div>
           <div class="metrics-grid" id="metricsCards">
             <div class="metric-card"><div class="metric-label">Vistas</div><div class="metric-value" id="mViews">—</div></div>
             <div class="metric-card"><div class="metric-label">Engagement</div><div class="metric-value" id="mEngagement">—</div></div>
@@ -2877,14 +2883,99 @@ function initEmptyCharts() {
   donutChartInst = new Chart(dc.getContext('2d'),{type:'doughnut',data:{labels:['Likes','Comentarios','Shares','Guardados'],datasets:[{data:[45,25,15,15],backgroundColor:['#ff2d87','#2c6dff','#c6f24a','#ffb3d3'],borderWidth:0}]},options:{responsive:true,plugins:{legend:{position:'right'}},cutout:'65%'}});
 }
 
+// ---- Multi-tab metrics ----
+let _metricsSheetTabs  = [];   // [{title, gid}]
+let _selectedMetricsTab = 'all'; // 'all' | gid string
+let _metricsCurrentCampaign = null;
+
+function _extractSheetId(url) {
+  const m = url.match(/\/spreadsheets\/d\/([^/]+)/);
+  return m ? m[1] : null;
+}
+
+async function _fetchSheetTabs(sheetId) {
+  const url = `https://spreadsheets.google.com/feeds/worksheets/${sheetId}/public/full?alt=json`;
+  const res = await fetch(url);
+  if(!res.ok) throw new Error(`tabs HTTP ${res.status}`);
+  const data = await res.json();
+  return (data.feed.entry || []).map(e => ({
+    title: e.title.$t,
+    gid:   e['gs$sheetId'].$t,
+  }));
+}
+
+async function _fetchTabRows(sheetId, gid) {
+  const url = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gid}`;
+  const res = await fetch(url);
+  if(!res.ok) throw new Error(`tab ${gid} HTTP ${res.status}`);
+  const text = await res.text();
+  if(text.trim().startsWith('<!')) throw new Error('not public');
+  return parseCSV(text);
+}
+
+function _renderMetricsTabs() {
+  const sel = document.getElementById('metricsTabSelector');
+  if(!sel || !_metricsSheetTabs.length) { if(sel) sel.style.display='none'; return; }
+  sel.style.display = 'flex';
+  sel.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;';
+  sel.innerHTML = [
+    `<button class="metrics-tab-pill ${_selectedMetricsTab==='all'?'active':''}" onclick="selectMetricsTab('all')">Todas las pestañas</button>`,
+    ..._metricsSheetTabs.map(t =>
+      `<button class="metrics-tab-pill ${_selectedMetricsTab===t.gid?'active':''}" onclick="selectMetricsTab('${t.gid}')">${t.title}</button>`)
+  ].join('');
+}
+
+async function selectMetricsTab(gid) {
+  _selectedMetricsTab = gid;
+  _renderMetricsTabs();
+  if(!_metricsCurrentCampaign) return;
+  initEmptyCharts();
+  const sheetId = _extractSheetId(_metricsCurrentCampaign.metricsSheetUrl);
+  if(!sheetId) return;
+  try {
+    let rows;
+    if(gid === 'all') {
+      const all = await Promise.all(_metricsSheetTabs.map(t => _fetchTabRows(sheetId, t.gid)));
+      rows = all.flat();
+    } else {
+      rows = await _fetchTabRows(sheetId, gid);
+    }
+    if(rows.length) displayMetrics(rows, _metricsCurrentCampaign);
+  } catch(e) { console.warn('selectMetricsTab error:', e.message); }
+}
+
 async function _autoFetchMetrics(url, campaign) {
+  _metricsCurrentCampaign = campaign;
+  _selectedMetricsTab = 'all';
+  const sheetId = _extractSheetId(url);
+  // Reset tab selector while loading
+  const sel = document.getElementById('metricsTabSelector');
+  if(sel) sel.style.display = 'none';
+
+  // Try to discover tabs (requires sheet published to web)
+  if(sheetId) {
+    try {
+      _metricsSheetTabs = await _fetchSheetTabs(sheetId);
+      _renderMetricsTabs();
+      // Fetch all tabs and merge
+      const all = await Promise.all(_metricsSheetTabs.map(t => _fetchTabRows(sheetId, t.gid)));
+      const rows = all.flat();
+      if(rows.length) { displayMetrics(rows, campaign); return; }
+    } catch(e) {
+      console.warn('Multi-tab fetch failed, falling back to single:', e.message);
+      _metricsSheetTabs = [];
+      if(sel) sel.style.display = 'none';
+    }
+  }
+
+  // Fallback: single CSV fetch
   const csvUrl = normalizeCsvUrl(url);
   if(!csvUrl) return;
   try {
     const res = await fetch(csvUrl);
     if(!res.ok) throw new Error(`HTTP ${res.status}`);
     const text = await res.text();
-    if(text.trim().startsWith('<!')) throw new Error('sheet not public');
+    if(text.trim().startsWith('<!')) throw new Error('not public');
     const rows = parseCSV(text);
     if(rows.length) displayMetrics(rows, campaign);
   } catch(e) {
