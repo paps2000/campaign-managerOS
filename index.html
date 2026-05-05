@@ -2442,7 +2442,7 @@ function openCampaignDetail(cid) {
     ? '<span style="color:var(--text-muted);font-size:13px;">Sin asignados</span>'
     : assignedUsers.map(u => `
         <span class="badge" style="background:var(--lavender-pale);color:var(--lavender);display:inline-flex;align-items:center;gap:6px;">
-          <span style="width:18px;height:18px;border-radius:50%;background:var(--lavender);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;">${(u.name||u.email)[0].toUpperCase()}</span>
+          ${memberAvatarHtml(u, 18)}
           ${u.name||u.email}
           ${(isAdmin() || c.createdBy===currentUser.uid) ? `<button onclick="removeAssignee('${c.id}','${u.uid}')" style="background:none;border:none;cursor:pointer;color:var(--lavender);font-size:11px;padding:0 0 0 4px;">✕</button>` : ''}
         </span>`).join(' ');
@@ -2667,9 +2667,8 @@ function renderPendientes() {
     if(!t.assignee && !t.assigneeUid) return '';
     const u = allUsers.find(x=>x.uid===t.assigneeUid);
     const name = u ? (u.name||u.email.split('@')[0]) : (t.assignee||'');
-    const initials = name[0]?.toUpperCase()||'?';
     return `<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;background:var(--lavender-pale);color:#6a5a9a;border-radius:20px;padding:2px 8px 2px 4px;">
-      <span style="width:16px;height:16px;border-radius:50%;background:var(--lavender);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;">${initials}</span>
+      ${memberAvatarHtml(u||{name,profileEmoji:'',profileGradient:''}, 16)}
       ${name}</span>`;
   };
 
@@ -3132,7 +3131,7 @@ function renderAreaPicker(areaKey) {
         const name = u.name || u.email.split('@')[0];
         const initial = name[0]?.toUpperCase() || '?';
         return `<div class="area-dropdown-item" onclick="addToArea('${areaKey}','${u.uid}');event.stopPropagation();">
-          <span class="ddi-avatar">${initial}</span>
+          ${memberAvatarHtml(u, 26)}
           <span style="flex:1">${name}</span>
           ${u.area ? `<span class="badge badge-area-${u.area}" style="font-size:9px;">${u.area}</span>` : ''}
         </div>`;
@@ -3312,7 +3311,7 @@ function renderTeam() {
     return `
     <div onclick="openProfileModal('${u.uid}')" style="display:flex;align-items:center;gap:12px;padding:14px;border:1px solid var(--border);border-radius:14px;margin-bottom:8px;cursor:pointer;transition:all .2s var(--ease);"
       onmouseover="this.style.borderColor='var(--pink)';this.style.background='var(--pink-pale)'" onmouseout="this.style.borderColor='var(--border)';this.style.background=''">
-      <div style="width:40px;height:40px;border-radius:12px;background:var(--pink);color:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;flex-shrink:0;">${(u.name||u.email)[0].toUpperCase()}</div>
+      ${memberAvatarHtml(u, 40, '12px')}
       <div style="flex:1;min-width:0;">
         <div style="font-size:14px;font-weight:700;display:flex;align-items:center;gap:6px;">${u.name||'—'} ${u.uid===currentUser.uid?'<span style="font-size:10px;color:var(--text-muted);font-weight:400;">(tú)</span>':''}</div>
         <div style="font-size:11px;color:var(--text-muted);margin-top:2px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">${u.email}${u.area?`<span class="badge badge-area-${u.area}">${u.area}</span>`:''}${u.puesto?`<span style="font-size:10px;color:var(--text-muted);">${u.puesto}</span>`:''}</div>
@@ -4736,6 +4735,14 @@ function openProfileModal(uid) {
 // ============================================================
 let _editProfileEmoji = '';
 let _editProfileGradient = 'linear-gradient(135deg,#ff2d87,#2c6dff)';
+
+function memberAvatarHtml(u, size=20, radius='50%') {
+  if(!u) return '';
+  const bg = u.profileGradient || 'var(--lavender)';
+  const content = u.profileEmoji || (u.name||u.email||'?')[0].toUpperCase();
+  const fontSize = u.profileEmoji ? `${Math.round(size*0.6)}px` : `${Math.round(size*0.5)}px`;
+  return `<span style="width:${size}px;height:${size}px;border-radius:${radius};background:${bg};color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:${fontSize};font-weight:700;flex-shrink:0;">${content}</span>`;
+}
 
 function applyAvatarEl(el, profile) {
   if(!el) return;
