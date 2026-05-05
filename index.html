@@ -390,7 +390,7 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
 .info-value { font-size:14px; font-weight:500; color:var(--text); }
 
 /* METRICS */
-.metrics-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:24px; }
+.metrics-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-bottom:24px; }
 .metric-card {
   background:var(--white); border-radius:var(--radius); padding:20px; box-shadow:var(--shadow); border:1px solid var(--border);
 }
@@ -1055,6 +1055,7 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
         <!-- TAB: RESUMEN -->
         <div class="tab-content active card" id="tab-resumen">
           <div class="info-grid" id="campaignInfoGrid"></div>
+          <div id="campaignMetricsSection" style="margin-top:20px;padding-top:20px;border-top:1px solid var(--border);"></div>
         </div>
 
         <!-- TAB: INFLUENCERS -->
@@ -1176,10 +1177,12 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
             </div>
           </div>
           <div class="metrics-grid" id="metricsCards">
-            <div class="metric-card"><div class="metric-label">Alcance total</div><div class="metric-value" id="mReach">—</div></div>
-            <div class="metric-card"><div class="metric-label">Impresiones</div><div class="metric-value" id="mImpressions">—</div></div>
-            <div class="metric-card"><div class="metric-label">Interacciones</div><div class="metric-value" id="mInteractions">—</div></div>
+            <div class="metric-card"><div class="metric-label">Vistas</div><div class="metric-value" id="mViews">—</div></div>
+            <div class="metric-card"><div class="metric-label">Engagement</div><div class="metric-value" id="mEngagement">—</div></div>
             <div class="metric-card"><div class="metric-label">Engagement Rate</div><div class="metric-value" id="mER">—</div></div>
+            <div class="metric-card"><div class="metric-label">View Rate</div><div class="metric-value" id="mVR">—</div></div>
+            <div class="metric-card"><div class="metric-label" style="display:flex;align-items:center;gap:4px;">CPV <span style="font-size:10px;color:var(--text-muted);font-weight:400;">(costo/vista)</span></div><div class="metric-value" id="mCPV">—</div></div>
+            <div class="metric-card"><div class="metric-label" style="display:flex;align-items:center;gap:4px;">CPE <span style="font-size:10px;color:var(--text-muted);font-weight:400;">(costo/engagement)</span></div><div class="metric-value" id="mCPE">—</div></div>
           </div>
           <div class="charts-grid">
             <div class="card"><div class="card-header"><span class="card-title">Alcance e Interacciones</span></div><canvas id="lineChart" height="120"></canvas></div>
@@ -1189,7 +1192,7 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
             <div class="card-header"><span class="card-title">Rendimiento por publicación</span></div>
             <div class="table-wrap">
               <table class="table">
-                <thead><tr><th>Influencer</th><th>Formato</th><th>Fecha</th><th>Plataforma</th><th>Alcance</th><th>Impresiones</th><th>Interacciones</th><th>ER</th></tr></thead>
+                <thead><tr><th>Influencer</th><th>Formato</th><th>Fecha</th><th>Plataforma</th><th>Vistas</th><th>Alcance</th><th>Impresiones</th><th>Engagement</th><th>ER</th></tr></thead>
                 <tbody id="metricsTable"></tbody>
               </table>
             </div>
@@ -2379,12 +2382,72 @@ function openCampaignDetail(cid) {
   renderCampaignTasks(c);
   renderCampaignDocs(c);
   renderCampaignFlow(c);
+  renderCampaignMetricsSection(c);
 
   // Reset tabs
   document.querySelectorAll('.detail-tab').forEach(t=>t.classList.remove('active'));
   document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
   document.querySelector('[data-tab="resumen"]').classList.add('active');
   document.getElementById('tab-resumen').classList.add('active');
+}
+
+function renderCampaignMetricsSection(c) {
+  const el = document.getElementById('campaignMetricsSection');
+  if(!el) return;
+  if(c.metricsSheetUrl) {
+    el.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3a6b28" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+          <span style="font-size:13px;font-weight:600;color:#3a6b28;">Métricas vinculadas</span>
+          <span style="font-size:11px;color:var(--text-muted);max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.metricsSheetUrl.replace(/^https?:\/\/(docs\.google\.com\/)?/,'').substring(0,50)}…</span>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn btn-ghost btn-sm" onclick="showCampaignMetricsInput('${c.id}')">Cambiar sheet</button>
+          <button class="btn btn-pink btn-sm" onclick="navigateToMetrics('${c.id}')">Ver métricas →</button>
+        </div>
+      </div>
+      <div id="campaignMetricsInputRow" style="display:none;margin-top:12px;">
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+          <input type="text" id="campaignMetricsSheetInput" class="form-input" style="flex:1;min-width:260px;font-size:13px;" placeholder="Nueva URL de Google Sheets de métricas..." value="${c.metricsSheetUrl}">
+          <button class="btn btn-primary btn-sm" onclick="saveCampaignMetricsSheet('${c.id}')">Guardar</button>
+          <button class="btn btn-ghost btn-sm" onclick="document.getElementById('campaignMetricsInputRow').style.display='none'">Cancelar</button>
+        </div>
+      </div>`;
+  } else {
+    el.innerHTML = `
+      <div style="font-size:13px;font-weight:600;color:var(--text-muted);margin-bottom:10px;">📊 Métricas</div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+        <input type="text" id="campaignMetricsSheetInput" class="form-input" style="flex:1;min-width:260px;font-size:13px;" placeholder="Link de Google Sheets con las métricas...">
+        <button class="btn btn-pink btn-sm" onclick="saveCampaignMetricsSheet('${c.id}')">Vincular métricas</button>
+      </div>
+      <p style="font-size:11px;color:var(--text-muted);margin-top:8px;">Pega la URL del Google Sheets. El sheet debe ser público o accesible con el enlace.</p>`;
+  }
+}
+
+function showCampaignMetricsInput(cid) {
+  const row = document.getElementById('campaignMetricsInputRow');
+  if(row) { row.style.display=''; document.getElementById('campaignMetricsSheetInput').focus(); }
+}
+
+function saveCampaignMetricsSheet(cid) {
+  const inp = document.getElementById('campaignMetricsSheetInput');
+  if(!inp) return;
+  const url = inp.value.trim();
+  if(!url) { showToast('Ingresa la URL del Google Sheets','error'); return; }
+  const campaigns = getData('campaigns');
+  const idx = campaigns.findIndex(x=>x.id===cid);
+  if(idx===-1) return;
+  campaigns[idx].metricsSheetUrl = url;
+  setData('campaigns', campaigns);
+  _cache.campaigns = campaigns;
+  showToast('Sheet de métricas vinculado','success');
+  renderCampaignMetricsSection(campaigns[idx]);
+}
+
+function navigateToMetrics(cid) {
+  navigate('metricas');
+  setTimeout(()=>openMetricsCampaign(cid), 80);
 }
 
 function renderCampaignInfluencers(c) {
@@ -2594,8 +2657,8 @@ function renderMetrics() {
   document.getElementById('metricsCampDetail').style.display = 'none';
   currentMetricsCampaignId = null;
   const grid = document.getElementById('metricsCampGrid');
-  const camps = visibleCampaigns();
-  if(!camps.length) { grid.innerHTML='<div class="empty-state"><p>Sin campañas aún.</p></div>'; return; }
+  const camps = visibleCampaigns().filter(c => c.status !== 'Completado');
+  if(!camps.length) { grid.innerHTML='<div class="empty-state"><p>Sin campañas activas.</p></div>'; return; }
   grid.innerHTML = camps.map(c=>`
     <div class="campaign-card" onclick="openMetricsCampaign('${c.id}')">
       <div class="campaign-card-header">
@@ -2606,9 +2669,9 @@ function renderMetrics() {
         <span class="badge ${statusBadgeClass(c.status)}">${c.status}</span>
       </div>
       <div style="margin-top:12px;display:flex;align-items:center;gap:8px;">
-        ${c.sheetsUrl
+        ${c.metricsSheetUrl
           ? `<span style="font-size:11px;font-weight:700;padding:3px 8px;border-radius:20px;background:var(--mint-pale);color:#3a7a5e;">📊 Sheets vinculado</span>`
-          : `<span style="font-size:11px;color:var(--text-muted);">Sin Sheets vinculado</span>`}
+          : `<span style="font-size:11px;color:var(--text-muted);">Vincular métricas →</span>`}
       </div>
     </div>`).join('');
 }
@@ -2621,16 +2684,16 @@ function openMetricsCampaign(cid) {
   document.getElementById('metricsCampDetail').style.display = '';
   document.getElementById('metricsCampName').textContent = c.name + (c.client ? ' · ' + c.client : '');
 
-  if(c.sheetsUrl) {
+  if(c.metricsSheetUrl) {
     // Linked state
     document.getElementById('metricsNoLink').style.display = 'none';
     document.getElementById('metricsLinked').style.display = '';
     document.getElementById('changeSheetsRow').style.display = 'none';
     const lbl = document.getElementById('sheetsUrlLabel');
-    if(lbl) lbl.textContent = '📊 ' + c.sheetsUrl.replace(/^https?:\/\/(docs\.google\.com\/)?/,'').substring(0,60) + '…';
+    if(lbl) lbl.textContent = '📊 ' + c.metricsSheetUrl.replace(/^https?:\/\/(docs\.google\.com\/)?/,'').substring(0,60) + '…';
     const inp = document.getElementById('sheetsUrlInputChange');
-    if(inp) inp.value = c.sheetsUrl;
-    if(c.cachedMetrics && c.cachedMetrics.length) displayMetrics(c.cachedMetrics);
+    if(inp) inp.value = c.metricsSheetUrl;
+    if(c.cachedMetrics && c.cachedMetrics.length) displayMetrics(c.cachedMetrics, c);
     else initEmptyCharts();
   } else {
     // No-link state
@@ -2690,13 +2753,27 @@ async function loadMetrics() {
     if(text.trim().startsWith('<!')) throw new Error('El sheet no es público o no está en formato CSV');
     const rows = parseCSV(text);
     if(!rows.length) throw new Error('No se encontraron filas en el sheet');
-    // Save sheetsUrl + cachedMetrics to campaign
+    let campaign = null;
     if(currentMetricsCampaignId) {
       const campaigns = getData('campaigns');
       const idx = campaigns.findIndex(x=>x.id===currentMetricsCampaignId);
-      if(idx!==-1) { campaigns[idx].sheetsUrl = raw; campaigns[idx].cachedMetrics = rows; setData('campaigns', campaigns); }
+      if(idx!==-1) {
+        campaigns[idx].metricsSheetUrl = raw;
+        campaigns[idx].cachedMetrics = rows;
+        setData('campaigns', campaigns);
+        campaign = campaigns[idx];
+        _cache.campaigns = campaigns;
+      }
+      // Switch to linked state UI
+      document.getElementById('metricsNoLink').style.display = 'none';
+      document.getElementById('metricsLinked').style.display = '';
+      document.getElementById('changeSheetsRow').style.display = 'none';
+      const lbl = document.getElementById('sheetsUrlLabel');
+      if(lbl) lbl.textContent = '📊 ' + raw.replace(/^https?:\/\/(docs\.google\.com\/)?/,'').substring(0,60) + '…';
+      const inp = document.getElementById('sheetsUrlInputChange');
+      if(inp) inp.value = raw;
     }
-    displayMetrics(rows);
+    displayMetrics(rows, campaign);
     showToast('Datos cargados','success');
   } catch(e) {
     const hint = e.message.includes('HTTP')||e.message.includes('público')
@@ -2730,45 +2807,74 @@ function parseCSV(text) {
   });
 }
 
-function displayMetrics(rows) {
-  let totalReach=0, totalImpressions=0, totalInteractions=0;
+function displayMetrics(rows, campaign) {
+  const gi = (r, ...keys) => parseInt(keys.reduce((v,k)=>v||r[k],''))||0;
+  let totalViews=0, totalReach=0, totalImpressions=0, totalEngagement=0;
+  let totalLikes=0, totalComments=0, totalShares=0, totalSaves=0;
   rows.forEach(r=>{
-    totalReach += parseInt(r.Alcance||r.alcance||r.reach||r.Reach||0)||0;
-    totalImpressions += parseInt(r.Impresiones||r.impresiones||r.impressions||r.Impressions||0)||0;
-    totalInteractions += parseInt(r.Interacciones||r.interacciones||r.interactions||r.Interactions||0)||0;
+    totalViews       += gi(r,'Vistas','vistas','Views','views','Reproducciones','reproducciones','Plays','plays');
+    totalReach       += gi(r,'Alcance','alcance','Reach','reach');
+    totalImpressions += gi(r,'Impresiones','impresiones','Impressions','impressions');
+    totalLikes       += gi(r,'Likes','likes','Me gusta','me_gusta');
+    totalComments    += gi(r,'Comentarios','comentarios','Comments','comments');
+    totalShares      += gi(r,'Shares','shares','Compartidos','compartidos');
+    totalSaves       += gi(r,'Guardados','guardados','Saves','saves','Saved','saved');
+    // fallback: use Interacciones as engagement total if no breakdown
+    totalEngagement  += gi(r,'Interacciones','interacciones','Interactions','interactions','Engagement','engagement');
   });
-  const er = totalReach>0 ? ((totalInteractions/totalReach)*100).toFixed(2)+'%' : '—';
-  document.getElementById('mReach').textContent = formatNum(totalReach);
-  document.getElementById('mImpressions').textContent = formatNum(totalImpressions);
-  document.getElementById('mInteractions').textContent = formatNum(totalInteractions);
-  document.getElementById('mER').textContent = er;
+  // If individual breakdown columns exist, prefer their sum
+  const breakdownSum = totalLikes + totalComments + totalShares + totalSaves;
+  if(breakdownSum > 0) totalEngagement = breakdownSum;
 
+  const er  = totalReach>0       ? ((totalEngagement/totalReach)*100).toFixed(2)+'%'      : '—';
+  const vr  = totalImpressions>0 ? ((totalViews/totalImpressions)*100).toFixed(2)+'%'     : '—';
+  const budget = campaign ? (campaign.budgetClient||campaign.budget||0) : 0;
+  const fmtMXN = n => n>0 ? '$'+Number(n).toFixed(2) : '—';
+  const cpv = (budget>0 && totalViews>0)      ? fmtMXN(budget/totalViews)      : '—';
+  const cpe = (budget>0 && totalEngagement>0) ? fmtMXN(budget/totalEngagement) : '—';
+
+  document.getElementById('mViews').textContent      = formatNum(totalViews);
+  document.getElementById('mEngagement').textContent = formatNum(totalEngagement);
+  document.getElementById('mER').textContent         = er;
+  document.getElementById('mVR').textContent         = vr;
+  document.getElementById('mCPV').textContent        = cpv;
+  document.getElementById('mCPE').textContent        = cpe;
+
+  const rowViews = r => gi(r,'Vistas','vistas','Views','views','Reproducciones','reproducciones','Plays','plays');
+  const rowEng   = r => {
+    const bd = gi(r,'Likes','likes')+gi(r,'Comentarios','comentarios','Comments','comments')+gi(r,'Shares','shares')+gi(r,'Guardados','guardados','Saves','saves');
+    return bd>0 ? bd : gi(r,'Interacciones','interacciones','Interactions','interactions','Engagement','engagement');
+  };
   const tb = document.getElementById('metricsTable');
   tb.innerHTML = rows.map(r=>`<tr>
     <td>${r.Influencer||r.influencer||'—'}</td>
     <td>${r.Formato||r.formato||r.format||'—'}</td>
     <td>${r.Fecha||r.fecha||r.date||'—'}</td>
     <td>${r.Plataforma||r.plataforma||r.platform||'—'}</td>
-    <td>${formatNum(r.Alcance||r.alcance||r.reach||0)}</td>
-    <td>${formatNum(r.Impresiones||r.impresiones||r.impressions||0)}</td>
-    <td>${formatNum(r.Interacciones||r.interacciones||r.interactions||0)}</td>
+    <td>${formatNum(rowViews(r))}</td>
+    <td>${formatNum(gi(r,'Alcance','alcance','Reach','reach'))}</td>
+    <td>${formatNum(gi(r,'Impresiones','impresiones','Impressions','impressions'))}</td>
+    <td>${formatNum(rowEng(r))}</td>
     <td>${r['Engagement Rate']||r['engagement_rate']||r.ER||r.er||'—'}</td>
   </tr>`).join('');
 
   if(lineChartInst) lineChartInst.destroy();
   if(donutChartInst) donutChartInst.destroy();
   const labels = rows.map(r=>r.Fecha||r.fecha||r.date||'').filter(Boolean);
-  const reaches = rows.map(r=>parseInt(r.Alcance||r.alcance||r.reach||0)||0);
-  const inters = rows.map(r=>parseInt(r.Interacciones||r.interacciones||r.interactions||0)||0);
+  const viewsData = rows.map(r=>rowViews(r));
+  const engData   = rows.map(r=>rowEng(r));
   const lc = document.getElementById('lineChart'); if(!lc) return;
   lineChartInst = new Chart(lc.getContext('2d'),{type:'line',data:{labels,datasets:[
-    {label:'Alcance',data:reaches,borderColor:'#ff2d87',backgroundColor:'rgba(255,45,135,0.1)',tension:.4,fill:true,pointBackgroundColor:'#ff2d87'},
-    {label:'Interacciones',data:inters,borderColor:'#2c6dff',backgroundColor:'rgba(44,109,255,0.08)',tension:.4,fill:true,pointBackgroundColor:'#2c6dff'}
+    {label:'Vistas',data:viewsData,borderColor:'#ff2d87',backgroundColor:'rgba(255,45,135,0.1)',tension:.4,fill:true,pointBackgroundColor:'#ff2d87'},
+    {label:'Engagement',data:engData,borderColor:'#2c6dff',backgroundColor:'rgba(44,109,255,0.08)',tension:.4,fill:true,pointBackgroundColor:'#2c6dff'}
   ]},options:{responsive:true,plugins:{legend:{position:'top'}},scales:{y:{beginAtZero:true}}}});
   const dc = document.getElementById('donutChart'); if(!dc) return;
+  const donutData = breakdownSum>0
+    ? [totalLikes,totalComments,totalShares,totalSaves]
+    : [45,25,15,15];
   donutChartInst = new Chart(dc.getContext('2d'),{type:'doughnut',data:{
     labels:['Likes','Comentarios','Shares','Guardados'],
-    datasets:[{data:[45,25,15,15],backgroundColor:['#ff2d87','#2c6dff','#c6f24a','#ffb3d3'],borderWidth:0,hoverOffset:6}]
+    datasets:[{data:donutData,backgroundColor:['#ff2d87','#2c6dff','#c6f24a','#ffb3d3'],borderWidth:0,hoverOffset:6}]
   },options:{responsive:true,plugins:{legend:{position:'right',labels:{font:{size:12}}}},cutout:'65%'}});
 }
 
