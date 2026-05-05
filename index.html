@@ -273,6 +273,16 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
 .inf-name { font-size:13px; font-weight:600; }
 .inf-handle { font-size:11px; color:var(--text-muted); }
 .inf-campaign { font-size:12px; color:var(--text-muted); }
+/* Star rating */
+.star-rating { display:inline-flex; gap:2px; }
+.star-rating .star { font-size:20px; cursor:pointer; color:#ddd; transition:color .15s; user-select:none; }
+.star-rating .star.lit { color:#f5a623; }
+.star-rating .star:hover, .star-rating .star:hover ~ .star { color:#ddd; }
+.star-rating:hover .star { color:#f5a623; }
+.star-rating .star:hover ~ .star { color:#ddd !important; }
+.star-sm { font-size:13px; }
+.rating-card { padding:14px 0; border-bottom:1px solid var(--border); }
+.rating-card:last-child { border-bottom:none; }
 .inf-format { font-size:12px; color:var(--text); }
 .inf-date { font-size:12px; color:var(--text-muted); white-space:nowrap; }
 
@@ -1236,11 +1246,11 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
 
     <!-- INFLUENCERS PLACEHOLDER -->
     <div class="page" id="page-influencers">
-      <div class="placeholder-page">
-        <div class="ph-icon" data-ic="influencers"></div>
-        <h2>Base de Influencers</h2>
-        <p>Próximamente: directorio completo de influencers con historial de campañas, métricas y contactos.</p>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
+        <h3 style="font-family:'Fraunces',serif;font-size:28px;font-weight:400;letter-spacing:-0.4px;">Base de Influencers</h3>
+        <input type="search" id="infSearch" class="form-input" style="max-width:220px;font-size:13px;" placeholder="Buscar influencer..." oninput="renderInfluencers()">
       </div>
+      <div class="campaign-grid" id="infGrid"></div>
     </div>
 
     <!-- DOCUMENTOS -->
@@ -1295,7 +1305,13 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
       <div class="card" style="padding:0;overflow:hidden;">
         <!-- Day headers -->
         <div style="display:grid;grid-template-columns:repeat(7,1fr);background:var(--bg);border-bottom:1px solid var(--border);">
-          ${['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'].map(d=>`<div style="padding:10px 0;text-align:center;font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:.5px;">${d}</div>`).join('')}
+          <div style="padding:10px 0;text-align:center;font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:.5px;">Lun</div>
+          <div style="padding:10px 0;text-align:center;font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:.5px;">Mar</div>
+          <div style="padding:10px 0;text-align:center;font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:.5px;">Mié</div>
+          <div style="padding:10px 0;text-align:center;font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:.5px;">Jue</div>
+          <div style="padding:10px 0;text-align:center;font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:.5px;">Vie</div>
+          <div style="padding:10px 0;text-align:center;font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:.5px;">Sáb</div>
+          <div style="padding:10px 0;text-align:center;font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:.5px;">Dom</div>
         </div>
         <div id="calGrid" style="display:grid;grid-template-columns:repeat(7,1fr);border-left:1px solid var(--border);border-top:1px solid var(--border);"></div>
       </div>
@@ -1346,21 +1362,6 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
         <button class="btn btn-primary" onclick="saveApiKeys()">Guardar</button>
       </div>
 
-      <div class="settings-section">
-        <div class="settings-title">Google Sheets — Métricas</div>
-        <div class="settings-desc">Pega la URL pública de tu Google Sheet con métricas. El sheet debe estar publicado como CSV (Archivo → Publicar en la web → CSV). Columnas esperadas: Campaña, Influencer, Formato, Fecha, Plataforma, Alcance, Impresiones, Interacciones, ER.</div>
-        <div class="form-group">
-          <label class="form-label">URL del Google Sheet</label>
-          <input type="text" class="form-input" id="settingsSheetsUrl" placeholder="https://docs.google.com/spreadsheets/d/.../pub?output=csv">
-        </div>
-        <button class="btn btn-primary" onclick="saveSheetsUrl()">Guardar URL</button>
-      </div>
-
-      <div class="settings-section" style="border:1px solid #fee2e2;background:#fff5f5;">
-        <div class="settings-title" style="color:var(--red);">Zona de peligro</div>
-        <div class="settings-desc">Borrar todas las campañas y tareas globales del workspace. Solo admin. No se puede deshacer.</div>
-        <button class="btn" style="background:var(--red);color:#fff;" onclick="nukeAllCampaigns()"><span class="icn-trash"></span> Borrar todas las campañas</button>
-      </div>
     </div>
 
   </div><!-- end content -->
@@ -1730,6 +1731,91 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
   </div>
 </div>
 
+<!-- MODAL: EDITAR PERFIL -->
+<div class="modal-overlay" id="editProfileModal">
+  <div class="modal" style="width:520px;">
+    <div class="modal-header">
+      <div class="modal-title">Mi perfil</div>
+      <button class="modal-close" onclick="closeModal('editProfileModal')">✕</button>
+    </div>
+    <div style="display:flex;align-items:center;gap:16px;padding:16px 0 20px;border-bottom:1px solid var(--border);margin-bottom:20px;">
+      <div id="profilePreviewAvatar" style="width:60px;height:60px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:700;color:#fff;flex-shrink:0;transition:all .3s;"></div>
+      <div>
+        <div id="profilePreviewName" style="font-size:18px;font-weight:700;"></div>
+        <div id="profilePreviewSub" style="font-size:12px;color:var(--text-muted);margin-top:2px;"></div>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Emoji (en lugar de inicial)</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;" id="emojiQuickPick">
+        <button class="profile-emoji-btn" onclick="pickEmoji('')" id="epNoEmoji" title="Usar inicial">A</button>
+        <button class="profile-emoji-btn" onclick="pickEmoji('🦁')">🦁</button>
+        <button class="profile-emoji-btn" onclick="pickEmoji('🐯')">🐯</button>
+        <button class="profile-emoji-btn" onclick="pickEmoji('🐺')">🐺</button>
+        <button class="profile-emoji-btn" onclick="pickEmoji('🦊')">🦊</button>
+        <button class="profile-emoji-btn" onclick="pickEmoji('🐉')">🐉</button>
+        <button class="profile-emoji-btn" onclick="pickEmoji('🌙')">🌙</button>
+        <button class="profile-emoji-btn" onclick="pickEmoji('⚡')">⚡</button>
+        <button class="profile-emoji-btn" onclick="pickEmoji('🔥')">🔥</button>
+        <button class="profile-emoji-btn" onclick="pickEmoji('🌸')">🌸</button>
+        <button class="profile-emoji-btn" onclick="pickEmoji('🎯')">🎯</button>
+        <button class="profile-emoji-btn" onclick="pickEmoji('💎')">💎</button>
+        <button class="profile-emoji-btn" onclick="pickEmoji('🚀')">🚀</button>
+      </div>
+      <input type="text" class="form-input" id="profileEmojiInput" placeholder="O escribe cualquier emoji…" maxlength="4" oninput="pickEmoji(this.value)" style="font-size:20px;letter-spacing:4px;">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Color del perfil</label>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:6px;" id="gradientSwatches">
+        <div class="profile-gradient-swatch" style="background:linear-gradient(135deg,#ff2d87,#2c6dff);" onclick="pickGradient('linear-gradient(135deg,#ff2d87,#2c6dff)')"></div>
+        <div class="profile-gradient-swatch" style="background:linear-gradient(135deg,#c6f24a,#2c6dff);" onclick="pickGradient('linear-gradient(135deg,#c6f24a,#2c6dff)')"></div>
+        <div class="profile-gradient-swatch" style="background:linear-gradient(135deg,#ff2d87,#fbbf24);" onclick="pickGradient('linear-gradient(135deg,#ff2d87,#fbbf24)')"></div>
+        <div class="profile-gradient-swatch" style="background:linear-gradient(135deg,#2c6dff,#c6f24a);" onclick="pickGradient('linear-gradient(135deg,#2c6dff,#c6f24a)')"></div>
+        <div class="profile-gradient-swatch" style="background:linear-gradient(135deg,#ff2d87,#ff8c42);" onclick="pickGradient('linear-gradient(135deg,#ff2d87,#ff8c42)')"></div>
+        <div class="profile-gradient-swatch" style="background:linear-gradient(135deg,#1a1a2e,#2c6dff);" onclick="pickGradient('linear-gradient(135deg,#1a1a2e,#2c6dff)')"></div>
+        <div class="profile-gradient-swatch" style="background:linear-gradient(135deg,#fbbf24,#f97316);" onclick="pickGradient('linear-gradient(135deg,#fbbf24,#f97316)')"></div>
+        <div class="profile-gradient-swatch" style="background:linear-gradient(135deg,#c6f24a,#16a34a);" onclick="pickGradient('linear-gradient(135deg,#c6f24a,#16a34a)')"></div>
+        <div class="profile-gradient-swatch" style="background:linear-gradient(135deg,#a855f7,#2c6dff);" onclick="pickGradient('linear-gradient(135deg,#a855f7,#2c6dff)')"></div>
+        <div class="profile-gradient-swatch" style="background:linear-gradient(135deg,#ff2d87,#a855f7);" onclick="pickGradient('linear-gradient(135deg,#ff2d87,#a855f7)')"></div>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Área</label>
+        <select class="form-input" id="profileAreaInput">
+          <option value="">— Sin área —</option>
+          <option>Cuentas</option>
+          <option>Operaciones</option>
+          <option>Creativo</option>
+          <option>Data</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Puesto</label>
+        <select class="form-input" id="profilePuestoInput"></select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('editProfileModal')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveMyProfile()">Guardar perfil</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: INFLUENCER DETAIL -->
+<div class="modal-overlay" id="infDetailModal">
+  <div class="modal" style="max-width:580px;max-height:85vh;overflow-y:auto;">
+    <div class="modal-header" style="position:sticky;top:0;background:#fff;z-index:1;border-bottom:1px solid var(--border);padding-bottom:16px;">
+      <div>
+        <div class="modal-title" id="infDetailName"></div>
+        <div style="font-size:12px;color:var(--text-muted);margin-top:2px;" id="infDetailHandle"></div>
+      </div>
+      <button class="modal-close" onclick="closeModal('infDetailModal')">✕</button>
+    </div>
+    <div id="infDetailContent" style="padding-top:16px;"></div>
+  </div>
+</div>
+
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
 
@@ -1810,7 +1896,7 @@ const COST_ACCESS_PUESTOS = new Set(['Account Director','Head Account','Account 
 const STATUS_OPTIONS = STATUS_OPTIONS_FLOW;
 
 // In-memory cache backed by Firestore. Reads = sync (cache). Writes = sync cache + async Firestore.
-const _cache = { campaigns:[], globalTasks:[], settings:{}, _initialized:false };
+const _cache = { campaigns:[], globalTasks:[], settings:{}, influencerRatings:[], _initialized:false };
 
 function getData(key, def) {
   if(key in _cache) return _cache[key];
@@ -1924,6 +2010,12 @@ function attachListeners() {
     if(currentPage==='ajustes') renderTeam();
     rerenderCurrent();
   }, err => console.error('members listener',err)));
+
+  // Influencer ratings listener
+  unsubscribers.push(ws.collection('influencerRatings').onSnapshot(snap => {
+    _cache.influencerRatings = snap.docs.map(d => d.data());
+    if(currentPage==='influencers') renderInfluencers();
+  }, err => console.error('influencerRatings listener',err)));
 }
 
 function visibleCampaigns() {
@@ -1946,6 +2038,9 @@ function rerenderCurrent() {
     }
   }
   else if(currentPage==='pendientes') renderPendientes();
+  else if(currentPage==='metricas') renderMetrics();
+  else if(currentPage==='calendario') renderCalendar();
+  else if(currentPage==='influencers') renderInfluencers();
   populateCampaignSelects();
 }
 
@@ -2088,6 +2183,7 @@ function navigate(page) {
   if(page==='generador') populateCampaignSelects();
   if(page==='documentos') renderDocumentosPage();
   if(page==='ajustes') loadSettingsUI();
+  if(page==='influencers') renderInfluencers();
 }
 
 // ============================================================
@@ -3828,6 +3924,11 @@ function formatNum(n) {
   return num.toLocaleString();
 }
 
+function statusBadgeClass(s) {
+  const map = {'En proceso':'badge-blue','Ajustes':'badge-yellow','Pendiente cliente':'badge-orange','En reporte':'badge-red','En producción':'badge-purple','Completado':'badge-green'};
+  return map[s] || 'badge-gray';
+}
+
 function showToast(msg, type='') {
   const t=document.getElementById('toast');
   t.textContent=msg; t.className='toast '+(type||'');
@@ -4002,7 +4103,9 @@ auth.onAuthStateChanged(async (user) => {
     email: currentUserProfile.email,
     role: currentUserProfile.role,
     area: currentUserProfile.area || '',
-    photoURL: currentUserProfile.photoURL || null
+    photoURL: currentUserProfile.photoURL || null,
+    profileEmoji: currentUserProfile.profileEmoji || '',
+    profileGradient: currentUserProfile.profileGradient || ''
   };
   await memberRef.set(memberProfile, {merge:true});
 
@@ -4322,6 +4425,188 @@ document.addEventListener('click', () => {
 });
 
 // ============================================================
+// INFLUENCER DIRECTORY
+// ============================================================
+
+function infKey(inf) {
+  return (inf.handle || inf.name || 'unknown').toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9\-@_]/g, '');
+}
+
+function getAllInfluencers() {
+  const map = {};
+  _cache.campaigns.forEach(c => {
+    (c.influencers || []).forEach(inf => {
+      const k = infKey(inf);
+      if (!map[k]) map[k] = { key: k, name: inf.name, handle: inf.handle || '', platform: inf.platform || '', campaigns: [] };
+      if (!map[k].campaigns.find(x => x.id === c.id)) {
+        map[k].campaigns.push({ id: c.id, name: c.name, client: c.client || '', status: c.status || '' });
+      }
+    });
+  });
+  return Object.values(map).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function infRatingsFor(key) {
+  return (_cache.influencerRatings || []).filter(r => r.influencerKey === key);
+}
+
+function avgStars(ratings) {
+  if (!ratings.length) return 0;
+  return ratings.reduce((s, r) => s + r.stars, 0) / ratings.length;
+}
+
+function starsHtml(avg, size) {
+  const cls = size === 'sm' ? ' star-sm' : '';
+  return [1,2,3,4,5].map(i => `<span class="star${cls}" style="color:${i <= Math.round(avg) ? '#f5a623' : '#ddd'};">★</span>`).join('');
+}
+
+function renderInfluencers() {
+  const grid = document.getElementById('infGrid');
+  if (!grid) return;
+  const q = (document.getElementById('infSearch')?.value || '').toLowerCase();
+  let infs = getAllInfluencers();
+  if (q) infs = infs.filter(inf => inf.name.toLowerCase().includes(q) || inf.handle.toLowerCase().includes(q));
+  if (!infs.length) {
+    grid.innerHTML = '<div class="empty-state"><p>' + (q ? 'Sin resultados.' : 'Agrega influencers a tus campañas para verlos aquí.') + '</p></div>';
+    return;
+  }
+  grid.innerHTML = infs.map(inf => {
+    const ratings = infRatingsFor(inf.key);
+    const avg = avgStars(ratings);
+    const campList = inf.campaigns.map(c => `<span style="font-size:11px;padding:2px 7px;border-radius:12px;background:var(--bg);color:var(--text-muted);border:1px solid var(--border);">${c.name}</span>`).join(' ');
+    return `<div class="campaign-card" onclick="openInfluencerDetail('${inf.key}')" style="cursor:pointer;">
+      <div class="campaign-card-header">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div class="inf-avatar" style="width:40px;height:40px;font-size:15px;flex-shrink:0;">${(inf.name||'?')[0].toUpperCase()}</div>
+          <div>
+            <div class="campaign-name">${inf.name}</div>
+            <div class="campaign-client">${inf.handle ? '@'+inf.handle : ''} ${inf.platform ? '· '+inf.platform : ''}</div>
+          </div>
+        </div>
+      </div>
+      <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:4px;">${campList || '<span style="font-size:11px;color:var(--text-muted);">Sin campañas</span>'}</div>
+      <div style="margin-top:10px;display:flex;align-items:center;gap:6px;">
+        <span>${starsHtml(avg, 'sm')}</span>
+        ${ratings.length ? `<span style="font-size:11px;color:var(--text-muted);">${avg.toFixed(1)} (${ratings.length})</span>` : `<span style="font-size:11px;color:var(--text-muted);">Sin calificaciones</span>`}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+let _infDetailKey = null;
+let _infDetailStars = 0;
+
+function openInfluencerDetail(key) {
+  _infDetailKey = key;
+  _infDetailStars = 0;
+  const infs = getAllInfluencers();
+  const inf = infs.find(x => x.key === key);
+  if (!inf) return;
+  document.getElementById('infDetailName').textContent = inf.name;
+  document.getElementById('infDetailHandle').textContent = (inf.handle ? '@'+inf.handle : '') + (inf.platform ? ' · '+inf.platform : '');
+  renderInfluencerDetailContent(inf);
+  openModal('infDetailModal');
+}
+
+function renderInfluencerDetailContent(inf) {
+  const ratings = infRatingsFor(inf.key);
+  const avg = avgStars(ratings);
+  const myRating = currentUser ? ratings.find(r => r.userId === currentUser.uid) : null;
+
+  const campRows = inf.campaigns.map(c => `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);">
+      <div>
+        <div style="font-size:13px;font-weight:600;">${c.name}</div>
+        <div style="font-size:11px;color:var(--text-muted);">${c.client}</div>
+      </div>
+      <span class="badge ${statusBadgeClass(c.status)}">${c.status}</span>
+    </div>`).join('');
+
+  const ratingCards = ratings.length ? ratings.map(r => `
+    <div class="rating-card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div style="width:28px;height:28px;border-radius:50%;background:var(--pink);color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;">${(r.userName||'?')[0].toUpperCase()}</div>
+          <span style="font-size:13px;font-weight:600;">${r.userName||'Usuario'}</span>
+          ${r.campaignName ? `<span style="font-size:11px;color:var(--text-muted);">${r.campaignName}</span>` : ''}
+        </div>
+        <span style="font-size:12px;">${starsHtml(r.stars,'sm')}</span>
+      </div>
+      ${r.comment ? `<div style="font-size:12px;color:var(--text-muted);padding:6px 10px;background:var(--bg);border-radius:8px;margin-top:4px;">${r.comment}</div>` : ''}
+      <div style="font-size:10px;color:var(--text-muted);margin-top:4px;">${r.date ? new Date(r.date).toLocaleDateString('es-MX') : ''}</div>
+    </div>`).join('')
+  : '<p style="font-size:13px;color:var(--text-muted);">Sin calificaciones aún.</p>';
+
+  const starSelector = [1,2,3,4,5].map(i =>
+    `<span class="star" id="infStar${i}" onclick="selectStar(${i})" style="font-size:28px;cursor:pointer;color:${myRating && i<=myRating.stars ? '#f5a623' : '#ddd'};">★</span>`
+  ).join('');
+
+  document.getElementById('infDetailContent').innerHTML = `
+    <!-- Avg rating -->
+    ${ratings.length ? `
+    <div style="display:flex;align-items:center;gap:12px;padding:16px;background:var(--bg);border-radius:14px;margin-bottom:20px;">
+      <div style="font-family:'Fraunces',serif;font-size:40px;font-weight:400;line-height:1;color:var(--text);">${avg.toFixed(1)}</div>
+      <div>
+        <div>${starsHtml(avg,'')}</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">${ratings.length} calificación${ratings.length!==1?'es':''}</div>
+      </div>
+    </div>` : ''}
+
+    <!-- Campaigns -->
+    <div style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;">Campañas</div>
+    <div style="margin-bottom:20px;">${campRows || '<p style="font-size:13px;color:var(--text-muted);">Sin campañas registradas.</p>'}</div>
+
+    <!-- Ratings list -->
+    <div style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;">Calificaciones</div>
+    <div style="margin-bottom:24px;">${ratingCards}</div>
+
+    <!-- Leave rating -->
+    <div style="background:var(--pink-pale);border-radius:14px;padding:18px;">
+      <div style="font-size:13px;font-weight:700;margin-bottom:10px;">${myRating ? 'Tu calificación' : 'Dejar calificación'}</div>
+      <div style="margin-bottom:12px;">${starSelector}</div>
+      <textarea id="infRatingComment" class="form-input" rows="2" style="font-size:13px;margin-bottom:10px;" placeholder="Comentario (opcional)...">${myRating ? myRating.comment||'' : ''}</textarea>
+      <button class="btn btn-pink btn-sm" onclick="submitInfluencerRating('${inf.key}')">${myRating ? 'Actualizar calificación' : 'Guardar calificación'}</button>
+    </div>`;
+}
+
+function selectStar(n) {
+  _infDetailStars = n;
+  for(let i=1;i<=5;i++) {
+    const el = document.getElementById('infStar'+i);
+    if(el) el.style.color = i<=n ? '#f5a623' : '#ddd';
+  }
+}
+
+async function submitInfluencerRating(key) {
+  if (!_infDetailStars) { showToast('Selecciona una calificación de 1 a 5 estrellas','error'); return; }
+  if (!currentUser) { showToast('Debes iniciar sesión','error'); return; }
+  const comment = (document.getElementById('infRatingComment')?.value||'').trim();
+  const infs = getAllInfluencers();
+  const inf = infs.find(x=>x.key===key);
+  const campaignName = inf?.campaigns?.[0]?.name || '';
+  const rating = {
+    influencerKey: key,
+    userId: currentUser.uid,
+    userName: currentUserProfile?.name || currentUser.email?.split('@')[0] || 'Usuario',
+    stars: _infDetailStars,
+    comment,
+    campaignName,
+    date: new Date().toISOString()
+  };
+  try {
+    const docId = key + '_' + currentUser.uid;
+    await db.collection('workspaces').doc(WORKSPACE).collection('influencerRatings').doc(docId).set(rating);
+    showToast('Calificación guardada','success');
+    // Refresh detail
+    _infDetailStars = 0;
+    const updatedInf = getAllInfluencers().find(x=>x.key===key);
+    if(updatedInf) renderInfluencerDetailContent(updatedInf);
+  } catch(e) {
+    showToast('Error al guardar: '+e.message,'error');
+  }
+}
+
+// ============================================================
 // CALENDAR PAGE
 // ============================================================
 let calYear = new Date().getFullYear();
@@ -4530,16 +4815,18 @@ async function saveMyProfile() {
   const area   = document.getElementById('profileAreaInput').value;
   const puesto = document.getElementById('profilePuestoInput').value;
   const emoji  = document.getElementById('profileEmojiInput').value.trim();
-  _editProfileEmoji   = emoji;
+  _editProfileEmoji = emoji;
   const updates = {
     area, puesto,
     profileEmoji: emoji,
     profileGradient: _editProfileGradient,
   };
-  // Update Firestore member profile
   try {
-    const ws = db.collection('workspaces').doc('default');
-    await ws.collection('members').doc(currentUser.uid).set(updates, {merge:true});
+    const ws = db.collection('workspaces').doc(WORKSPACE);
+    await Promise.all([
+      ws.collection('members').doc(currentUser.uid).set(updates, {merge:true}),
+      db.collection('users').doc(currentUser.uid).set(updates, {merge:true})
+    ]);
     Object.assign(currentUserProfile, updates);
     updateSidebarAvatar();
     const roleBadge = document.getElementById('userRoleSidebar');
