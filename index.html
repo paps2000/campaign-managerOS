@@ -708,6 +708,13 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
   .form-row { grid-template-columns:1fr; }
   .metrics-grid { grid-template-columns:1fr; }
 }
+/* Profile edit */
+.sidebar-user { cursor:pointer; }
+.sidebar-user:hover .user-name { color:var(--pink); }
+.profile-emoji-btn { width:36px;height:36px;border-radius:10px;border:2px solid var(--border);background:var(--bg);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s; }
+.profile-emoji-btn:hover,.profile-emoji-btn.selected { border-color:var(--pink);transform:scale(1.1); }
+.profile-gradient-swatch { width:32px;height:32px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:all .15s;flex-shrink:0; }
+.profile-gradient-swatch:hover,.profile-gradient-swatch.selected { border-color:var(--text);transform:scale(1.1); }
 </style>
 </head>
 <body>
@@ -764,7 +771,7 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
       <div class="logo-sub">Think Y.</div>
     </div>
   </div>
-  <div class="sidebar-user">
+  <div class="sidebar-user" onclick="openEditProfileModal()" title="Editar mi perfil">
     <div class="avatar" id="userAvatarSidebar">G</div>
     <div class="user-info">
       <div class="user-name" id="userNameSidebar">Génesis</div>
@@ -1297,11 +1304,6 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
         <button class="btn btn-primary" onclick="saveApiKey()">Guardar API Key</button>
       </div>
 
-      <div class="settings-section" style="border:1px solid #fee2e2;background:#fff5f5;">
-        <div class="settings-title" style="color:var(--red);">Zona de peligro</div>
-        <div class="settings-desc">Borrar todas las campañas y tareas globales del workspace. Solo admin. No se puede deshacer.</div>
-        <button class="btn" style="background:var(--red);color:#fff;" onclick="nukeAllCampaigns()"><span class="icn-trash"></span> Borrar todas las campañas</button>
-      </div>
     </div>
 
   </div><!-- end content -->
@@ -1582,6 +1584,77 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('assignModal')">Cancelar</button>
       <button class="btn btn-primary" onclick="saveAssignees()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: EDITAR PERFIL -->
+<div class="modal-overlay" id="editProfileModal">
+  <div class="modal" style="width:520px;">
+    <div class="modal-header">
+      <div class="modal-title">Mi perfil</div>
+      <button class="modal-close" onclick="closeModal('editProfileModal')">✕</button>
+    </div>
+    <div style="display:flex;align-items:center;gap:16px;padding:16px 0 20px;border-bottom:1px solid var(--border);margin-bottom:20px;">
+      <div id="profilePreviewAvatar" style="width:60px;height:60px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:700;color:#fff;flex-shrink:0;transition:all .3s;"></div>
+      <div>
+        <div id="profilePreviewName" style="font-size:18px;font-weight:700;"></div>
+        <div id="profilePreviewSub" style="font-size:12px;color:var(--text-muted);margin-top:2px;"></div>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Emoji (en lugar de inicial)</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;" id="emojiQuickPick">
+        <button class="profile-emoji-btn" onclick="pickEmoji('')" id="epNoEmoji" title="Usar inicial">A</button>
+        <button class="profile-emoji-btn" onclick="pickEmoji('🦁')">🦁</button>
+        <button class="profile-emoji-btn" onclick="pickEmoji('🐯')">🐯</button>
+        <button class="profile-emoji-btn" onclick="pickEmoji('🐺')">🐺</button>
+        <button class="profile-emoji-btn" onclick="pickEmoji('🦊')">🦊</button>
+        <button class="profile-emoji-btn" onclick="pickEmoji('🐉')">🐉</button>
+        <button class="profile-emoji-btn" onclick="pickEmoji('🌙')">🌙</button>
+        <button class="profile-emoji-btn" onclick="pickEmoji('⚡')">⚡</button>
+        <button class="profile-emoji-btn" onclick="pickEmoji('🔥')">🔥</button>
+        <button class="profile-emoji-btn" onclick="pickEmoji('🌸')">🌸</button>
+        <button class="profile-emoji-btn" onclick="pickEmoji('🎯')">🎯</button>
+        <button class="profile-emoji-btn" onclick="pickEmoji('💎')">💎</button>
+        <button class="profile-emoji-btn" onclick="pickEmoji('🚀')">🚀</button>
+      </div>
+      <input type="text" class="form-input" id="profileEmojiInput" placeholder="O escribe cualquier emoji…" maxlength="4" oninput="pickEmoji(this.value)" style="font-size:20px;letter-spacing:4px;">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Color del perfil</label>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:6px;" id="gradientSwatches">
+        <div class="profile-gradient-swatch" style="background:linear-gradient(135deg,#ff2d87,#2c6dff);" onclick="pickGradient('linear-gradient(135deg,#ff2d87,#2c6dff)')"></div>
+        <div class="profile-gradient-swatch" style="background:linear-gradient(135deg,#c6f24a,#2c6dff);" onclick="pickGradient('linear-gradient(135deg,#c6f24a,#2c6dff)')"></div>
+        <div class="profile-gradient-swatch" style="background:linear-gradient(135deg,#ff2d87,#fbbf24);" onclick="pickGradient('linear-gradient(135deg,#ff2d87,#fbbf24)')"></div>
+        <div class="profile-gradient-swatch" style="background:linear-gradient(135deg,#2c6dff,#c6f24a);" onclick="pickGradient('linear-gradient(135deg,#2c6dff,#c6f24a)')"></div>
+        <div class="profile-gradient-swatch" style="background:linear-gradient(135deg,#ff2d87,#ff8c42);" onclick="pickGradient('linear-gradient(135deg,#ff2d87,#ff8c42)')"></div>
+        <div class="profile-gradient-swatch" style="background:linear-gradient(135deg,#1a1a2e,#2c6dff);" onclick="pickGradient('linear-gradient(135deg,#1a1a2e,#2c6dff)')"></div>
+        <div class="profile-gradient-swatch" style="background:linear-gradient(135deg,#fbbf24,#f97316);" onclick="pickGradient('linear-gradient(135deg,#fbbf24,#f97316)')"></div>
+        <div class="profile-gradient-swatch" style="background:linear-gradient(135deg,#c6f24a,#16a34a);" onclick="pickGradient('linear-gradient(135deg,#c6f24a,#16a34a)')"></div>
+        <div class="profile-gradient-swatch" style="background:linear-gradient(135deg,#a855f7,#2c6dff);" onclick="pickGradient('linear-gradient(135deg,#a855f7,#2c6dff)')"></div>
+        <div class="profile-gradient-swatch" style="background:linear-gradient(135deg,#ff2d87,#a855f7);" onclick="pickGradient('linear-gradient(135deg,#ff2d87,#a855f7)')"></div>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Área</label>
+        <select class="form-input" id="profileAreaInput">
+          <option value="">— Sin área —</option>
+          <option>Cuentas</option>
+          <option>Operaciones</option>
+          <option>Creativo</option>
+          <option>Data</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Puesto</label>
+        <select class="form-input" id="profilePuestoInput"></select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('editProfileModal')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveMyProfile()">Guardar perfil</button>
     </div>
   </div>
 </div>
@@ -3792,7 +3865,9 @@ auth.onAuthStateChanged(async (user) => {
     email: currentUserProfile.email,
     role: currentUserProfile.role,
     area: currentUserProfile.area || '',
-    photoURL: currentUserProfile.photoURL || null
+    photoURL: currentUserProfile.photoURL || null,
+    profileEmoji: currentUserProfile.profileEmoji || '',
+    profileGradient: currentUserProfile.profileGradient || ''
   };
   await memberRef.set(memberProfile, {merge:true});
 
@@ -3823,7 +3898,7 @@ auth.onAuthStateChanged(async (user) => {
   // Update UI with user info
   const displayName = currentUserProfile.name || user.email.split('@')[0];
   document.getElementById('userNameSidebar').textContent = displayName;
-  document.getElementById('userAvatarSidebar').textContent = displayName[0].toUpperCase();
+  updateSidebarAvatar();
   // Add role badge in sidebar
   const roleBadge = document.getElementById('userRoleSidebar');
   if(roleBadge) roleBadge.textContent = currentUserProfile.puesto || (currentUserProfile.role === 'admin' ? 'Admin' : 'Miembro');
@@ -4408,6 +4483,103 @@ function openProfileModal(uid) {
       ${done.map(t=>taskRow(t,true)).join('')}
     ` : ''}`;
   openModal('profileModal');
+}
+
+// ============================================================
+// PROFILE EDIT
+// ============================================================
+let _editProfileEmoji = '';
+let _editProfileGradient = 'linear-gradient(135deg,#ff2d87,#2c6dff)';
+
+function applyAvatarEl(el, profile) {
+  const bg = profile.profileGradient || 'var(--pink)';
+  const content = profile.profileEmoji || (profile.name||profile.email||'?')[0].toUpperCase();
+  el.style.background = bg;
+  el.textContent = content;
+  el.style.fontSize = profile.profileEmoji ? '28px' : '';
+}
+
+function updateSidebarAvatar() {
+  const el = document.getElementById('userAvatarSidebar');
+  if(el && currentUserProfile) applyAvatarEl(el, currentUserProfile);
+}
+
+function openEditProfileModal() {
+  if(!currentUser || !currentUserProfile) return;
+  _editProfileEmoji = currentUserProfile.profileEmoji || '';
+  _editProfileGradient = currentUserProfile.profileGradient || 'linear-gradient(135deg,#ff2d87,#2c6dff)';
+  const ps = document.getElementById('profilePuestoInput');
+  if(ps) {
+    ps.innerHTML = `<option value="">— Sin puesto —</option>` + PUESTOS.map(p=>`<option value="${p}">${p}</option>`).join('');
+    ps.value = currentUserProfile.puesto || '';
+  }
+  const as = document.getElementById('profileAreaInput');
+  if(as) as.value = currentUserProfile.area || '';
+  document.getElementById('profileEmojiInput').value = _editProfileEmoji;
+  _syncProfilePreview();
+  openModal('editProfileModal');
+}
+
+function pickEmoji(e) {
+  _editProfileEmoji = e;
+  document.getElementById('profileEmojiInput').value = e;
+  document.querySelectorAll('.profile-emoji-btn').forEach(b => b.classList.remove('selected'));
+  if(!e) document.getElementById('epNoEmoji')?.classList.add('selected');
+  _syncProfilePreview();
+}
+
+function pickGradient(g) {
+  _editProfileGradient = g;
+  document.querySelectorAll('.profile-gradient-swatch').forEach(s => {
+    s.classList.toggle('selected', s.getAttribute('onclick').includes(g.replace(/'/g,'')));
+  });
+  _syncProfilePreview();
+}
+
+function _syncProfilePreview() {
+  const avatar = document.getElementById('profilePreviewAvatar');
+  const nameEl = document.getElementById('profilePreviewName');
+  const subEl  = document.getElementById('profilePreviewSub');
+  if(!avatar || !currentUserProfile) return;
+  const content = _editProfileEmoji || (currentUserProfile.name||currentUserProfile.email||'?')[0].toUpperCase();
+  avatar.style.background = _editProfileGradient;
+  avatar.style.fontSize = _editProfileEmoji ? '28px' : '22px';
+  avatar.textContent = content;
+  const area = document.getElementById('profileAreaInput')?.value || currentUserProfile.area || '';
+  const puesto = document.getElementById('profilePuestoInput')?.value || currentUserProfile.puesto || '';
+  if(nameEl) nameEl.textContent = currentUserProfile.name || currentUserProfile.email;
+  if(subEl)  subEl.textContent  = [puesto, area].filter(Boolean).join(' · ') || 'Think Y.';
+  document.querySelectorAll('.profile-gradient-swatch').forEach(s => {
+    const oc = s.getAttribute('onclick') || '';
+    s.classList.toggle('selected', oc.includes(_editProfileGradient.replace(/\s/g,'')));
+  });
+  document.querySelectorAll('.profile-emoji-btn').forEach(b => {
+    b.classList.toggle('selected', b.textContent === (_editProfileEmoji||'A') && (b.id==='epNoEmoji' ? !_editProfileEmoji : !!_editProfileEmoji));
+  });
+}
+
+async function saveMyProfile() {
+  if(!currentUser) return;
+  const area   = document.getElementById('profileAreaInput').value;
+  const puesto = document.getElementById('profilePuestoInput').value;
+  const emoji  = document.getElementById('profileEmojiInput').value.trim();
+  _editProfileEmoji = emoji;
+  const updates = { area, puesto, profileEmoji: emoji, profileGradient: _editProfileGradient };
+  try {
+    const ws = db.collection('workspaces').doc(WORKSPACE);
+    await Promise.all([
+      ws.collection('members').doc(currentUser.uid).set(updates, {merge:true}),
+      db.collection('users').doc(currentUser.uid).set(updates, {merge:true})
+    ]);
+    Object.assign(currentUserProfile, updates);
+    updateSidebarAvatar();
+    const roleBadge = document.getElementById('userRoleSidebar');
+    if(roleBadge) roleBadge.textContent = puesto || (currentUserProfile.role==='admin'?'Admin':'Miembro');
+    showToast('Perfil actualizado','success');
+    closeModal('editProfileModal');
+  } catch(e) {
+    showToast('Error guardando perfil: '+e.message,'error');
+  }
 }
 </script>
 </body>
