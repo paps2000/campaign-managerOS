@@ -197,6 +197,8 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
 .stat-card.urgent .stat-label, .stat-card.urgent .stat-value, .stat-card.urgent .stat-sub { color:var(--text); }
 .stat-card.pending { background:var(--lavender-pale); border-color:transparent; }
 .stat-card.pending .stat-value { color:var(--blue); }
+.stat-card.pubs { background:var(--blue-pale, #eff6ff); border-color:transparent; }
+.stat-card.pubs .stat-value { color:var(--blue); }
 
 /* GRID LAYOUTS */
 .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:20px; }
@@ -209,7 +211,7 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
   border:1px solid var(--border);
 }
 .card-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; }
-.card-title { font-size:11px; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:1.2px; }
+.card-title { font-size:11px; font-weight:700; color:var(--text); text-transform:uppercase; letter-spacing:1.2px; }
 .card-link { font-size:12px; color:var(--pink); font-weight:700; cursor:pointer; text-decoration:none; transition:all .2s var(--ease); }
 .card-link:hover { transform:translateX(3px); display:inline-block; }
 .card-link:hover { text-decoration:underline; }
@@ -273,6 +275,16 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
 .inf-name { font-size:13px; font-weight:600; }
 .inf-handle { font-size:11px; color:var(--text-muted); }
 .inf-campaign { font-size:12px; color:var(--text-muted); }
+/* Star rating */
+.star-rating { display:inline-flex; gap:2px; }
+.star-rating .star { font-size:20px; cursor:pointer; color:#ddd; transition:color .15s; user-select:none; }
+.star-rating .star.lit { color:#f5a623; }
+.star-rating .star:hover, .star-rating .star:hover ~ .star { color:#ddd; }
+.star-rating:hover .star { color:#f5a623; }
+.star-rating .star:hover ~ .star { color:#ddd !important; }
+.star-sm { font-size:13px; }
+.rating-card { padding:14px 0; border-bottom:1px solid var(--border); }
+.rating-card:last-child { border-bottom:none; }
 .inf-format { font-size:12px; color:var(--text); }
 .inf-date { font-size:12px; color:var(--text-muted); white-space:nowrap; }
 
@@ -348,7 +360,7 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
 }
 .detail-back { display:flex; align-items:center; gap:6px; font-size:13px; color:var(--text-muted); cursor:pointer; margin-bottom:16px; }
 .detail-back:hover { color:var(--pink); }
-.detail-title { font-family:'Fraunces',serif; font-size:32px; font-weight:400; display:flex; align-items:center; gap:12px; letter-spacing:-0.5px; }
+.detail-title { font-size:32px; font-weight:700; display:flex; align-items:center; gap:12px; letter-spacing:-0.5px; }
 .detail-subtitle { font-size:14px; color:var(--text-muted); margin-top:4px; }
 .detail-tabs { display:flex; gap:0; border-bottom:1px solid var(--border); margin:16px 0 0; }
 .detail-tab {
@@ -390,12 +402,12 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
 .info-value { font-size:14px; font-weight:500; color:var(--text); }
 
 /* METRICS */
-.metrics-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:24px; }
+.metrics-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-bottom:24px; }
 .metric-card {
   background:var(--white); border-radius:var(--radius); padding:20px; box-shadow:var(--shadow); border:1px solid var(--border);
 }
 .metric-label { font-size:12px; color:var(--text-muted); margin-bottom:6px; }
-.metric-value { font-family:'Fraunces',serif; font-size:36px; font-weight:400; color:var(--text); letter-spacing:-0.8px; line-height:1; }
+.metric-value { font-size:36px; font-weight:700; color:var(--text); letter-spacing:-0.8px; line-height:1; }
 .metric-change { font-size:11px; margin-top:4px; }
 .metric-up { color:var(--green); }
 .metric-down { color:var(--red); }
@@ -422,7 +434,7 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
   max-height:85vh; overflow-y:auto; box-shadow:0 24px 80px rgba(0,0,0,0.2);
 }
 .modal-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; }
-.modal-title { font-family:'Fraunces',serif; font-size:24px; font-weight:400; letter-spacing:-0.3px; }
+.modal-title { font-size:24px; font-weight:700; letter-spacing:-0.3px; }
 .modal-close { background:none; border:none; font-size:20px; cursor:pointer; color:var(--text-muted); padding:4px; }
 .modal-close:hover { color:var(--text); }
 .form-group { margin-bottom:16px; }
@@ -437,13 +449,13 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
 .modal-footer { display:flex; justify-content:flex-end; gap:10px; margin-top:20px; padding-top:16px; border-top:1px solid var(--border); }
 
 /* EMPTY STATE */
-.empty-state { text-align:center; padding:48px 24px; color:var(--text-muted); }
-.empty-state .empty-icon { font-size:40px; margin-bottom:12px; }
+.empty-state { text-align:center; padding:32px 24px; color:var(--text-muted); }
+.empty-state .empty-icon { font-size:20px; margin-bottom:6px; }
 .empty-state p { font-size:14px; }
 
 /* AJUSTES */
 .settings-section { background:var(--white); border-radius:var(--radius); padding:24px; margin-bottom:16px; border:1px solid var(--border); }
-.settings-title { font-family:'Fraunces',serif; font-size:20px; font-weight:400; margin-bottom:4px; letter-spacing:-0.2px; }
+.settings-title { font-size:20px; font-weight:700; margin-bottom:4px; letter-spacing:-0.2px; }
 .settings-desc { font-size:13px; color:var(--text-muted); margin-bottom:16px; }
 
 /* SCROLLBAR */
@@ -460,7 +472,7 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
   box-shadow: 0 1px 0 rgba(255,255,255,.6) inset, 0 1px 3px rgba(168,135,180,.15);
 }
 .placeholder-page .ph-icon svg { width:22px; height:22px; }
-.placeholder-page h2 { font-family:'Fraunces',serif; font-size:24px; font-weight:400; margin-bottom:6px; letter-spacing:-0.3px; }
+.placeholder-page h2 { font-size:24px; font-weight:700; margin-bottom:6px; letter-spacing:-0.3px; }
 .placeholder-page p { font-size:13px; color:var(--text-muted); max-width:340px; margin:0 auto; line-height:1.55; }
 
 /* LOADER */
@@ -480,7 +492,7 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
 /* GOOGLE CALENDAR WIDGET */
 .cal-card { background:var(--white); border-radius:var(--radius); padding:20px 24px; box-shadow:var(--shadow); border:1px solid var(--border); margin-bottom:20px; }
 .cal-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; }
-.cal-summary-count { font-family:'Fraunces',serif; font-size:18px; font-weight:400; color:var(--text); margin-left:10px; }
+.cal-summary-count { font-size:18px; font-weight:700; color:var(--text); margin-left:10px; }
 .cal-events { display:flex; flex-direction:column; gap:6px; }
 .cal-event { display:flex; align-items:center; gap:12px; padding:10px 14px; border-radius:10px; border:1px solid var(--border); cursor:pointer; transition:all .2s var(--ease); position:relative; }
 .cal-event:hover { border-color:var(--pink); background:var(--pink-pale); box-shadow:var(--shadow); z-index:10; }
@@ -529,7 +541,7 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
 }
 .login-hero-title span { color:var(--pink); }
 .login-hero-sub {
-  font-family:'Fraunces',serif; font-style:italic; font-size:16px; color:#7a7884;
+  font-style:italic; font-size:16px; color:#7a7884;
   position:relative; z-index:1; text-align:center;
 }
 .login-card {
@@ -583,6 +595,21 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
 .task-edit-btn { background:none; border:none; cursor:pointer; color:var(--text-muted); font-size:12px; padding:4px; border-radius:6px; transition:all .2s var(--ease); display:inline-flex; align-items:center; justify-content:center; }
 .task-edit-btn:hover { background:var(--lavender-pale); color:#6a5a9a; }
 .task-edit-btn svg { width:13px; height:13px; }
+/* Metrics sheet tab pills */
+.metrics-tab-pill { padding:5px 14px;border-radius:20px;border:1.5px solid var(--border);background:var(--white);font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;color:var(--text-muted); }
+.metrics-tab-pill:hover { border-color:var(--pink);color:var(--pink); }
+.metrics-tab-pill.active { background:var(--pink);border-color:var(--pink);color:#fff; }
+/* Task area groups */
+.task-area-group { border:1px solid var(--border); border-radius:14px; margin-bottom:10px; overflow:hidden; }
+.task-area-group summary { list-style:none; display:flex; align-items:center; gap:10px; padding:12px 16px; cursor:pointer; user-select:none; background:var(--bg); transition:background .15s; }
+.task-area-group summary::-webkit-details-marker { display:none; }
+.task-area-group summary:hover { background:var(--pink-pale); }
+.task-area-chevron { margin-left:auto; font-size:11px; color:var(--text-muted); transition:transform .2s; }
+.task-area-group[open] .task-area-chevron { transform:rotate(90deg); }
+.task-area-name { font-size:13px; font-weight:700; }
+.task-area-count { font-size:11px; color:var(--text-muted); background:var(--bg); border:1px solid var(--border); border-radius:20px; padding:1px 8px; }
+.task-area-body { padding:0 4px 4px; }
+.task-area-body .task-item:last-child { border-bottom:none; }
 
 /* ============ MOBILE HAMBURGER ============ */
 .hamburger-btn {
@@ -914,7 +941,7 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
           <div class="stat-value" id="statUrgent">0</div>
           <div class="stat-sub">Alta prioridad</div>
         </div>
-        <div class="stat-card">
+        <div class="stat-card pubs">
           <div class="stat-label">Publicaciones próximas</div>
           <div class="stat-value" id="statPubs">0</div>
           <div class="stat-sub">Esta semana</div>
@@ -1019,7 +1046,7 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
       <!-- LIST VIEW -->
       <div id="campaignList">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
-          <h3 style="font-family:'Fraunces',serif;font-size:28px;font-weight:400;letter-spacing:-0.4px;">Todas las campañas</h3>
+          <h3 style="font-size:28px;font-weight:700;letter-spacing:-0.4px;">Todas las campañas</h3>
           <button class="btn btn-primary" onclick="openNewCampaignModal()">+ Nueva campaña</button>
         </div>
         <div class="campaign-grid" id="campaignGrid"></div>
@@ -1049,12 +1076,14 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
             <div class="detail-tab" data-tab="pendientes">Pendientes</div>
             <div class="detail-tab" data-tab="documentos">Documentos</div>
             <div class="detail-tab" data-tab="flujo">Flujo</div>
+            <div class="detail-tab" data-tab="tracker">Tracker</div>
           </div>
         </div>
 
         <!-- TAB: RESUMEN -->
         <div class="tab-content active card" id="tab-resumen">
           <div class="info-grid" id="campaignInfoGrid"></div>
+          <div id="campaignMetricsSection" style="margin-top:20px;padding-top:20px;border-top:1px solid var(--border);"></div>
         </div>
 
         <!-- TAB: INFLUENCERS -->
@@ -1099,6 +1128,18 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
           <div class="card" id="campaignDocsList"></div>
         </div>
 
+        <!-- TAB: TRACKER -->
+        <div class="tab-content" id="tab-tracker">
+          <div class="sheets-sync-bar" style="margin-bottom:16px;">
+            <span style="font-size:12px;font-weight:600;color:#3a7a5e;white-space:nowrap;">📊 Master Tracker</span>
+            <input type="text" id="trackerSheetsUrl" class="form-input" placeholder="URL del Google Sheets master tracker..." oninput="saveTrackerUrl()">
+            <button class="btn btn-ghost btn-sm" onclick="syncTracker()">Sincronizar</button>
+          </div>
+          <div id="trackerTableWrap">
+            <div class="empty-state"><p>Vincula el master tracker para ver las publicaciones</p></div>
+          </div>
+        </div>
+
         <!-- TAB: FLUJO -->
         <div class="tab-content" id="tab-flujo">
           <div class="card" style="margin-bottom:16px;">
@@ -1112,7 +1153,7 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
     <!-- PENDIENTES -->
     <div class="page" id="page-pendientes">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
-        <h3 style="font-family:'Fraunces',serif;font-size:28px;font-weight:400;letter-spacing:-0.4px;">Pendientes</h3>
+        <h3 style="font-size:28px;font-weight:700;letter-spacing:-0.4px;">Pendientes</h3>
         <button class="btn btn-primary" onclick="openAddGlobalTaskModal()">+ Nueva tarea</button>
       </div>
       <div class="filter-tabs">
@@ -1120,7 +1161,8 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
         <div class="filter-tab" data-filter="semana">Esta semana</div>
         <div class="filter-tab" data-filter="todos">Todos</div>
       </div>
-      <div class="card" id="allTasksList"></div>
+      <div id="pendientesPersonFilter" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;"></div>
+      <div id="allTasksList"></div>
     </div>
 
     <!-- MÉTRICAS -->
@@ -1136,7 +1178,7 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
           <button onclick="closeMetricsCampDetail()" class="btn btn-ghost btn-sm" style="display:flex;align-items:center;gap:6px;">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg> Volver
           </button>
-          <h3 id="metricsCampName" style="font-family:'Fraunces',serif;font-size:24px;font-weight:400;letter-spacing:-0.3px;flex:1;"></h3>
+          <h3 id="metricsCampName" style="font-size:24px;font-weight:700;letter-spacing:-0.3px;flex:1;"></h3>
         </div>
 
         <!-- No-metrics-linked state -->
@@ -1145,7 +1187,7 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
             <div style="width:56px;height:56px;border-radius:16px;background:var(--pink-pale);display:flex;align-items:center;justify-content:center;margin:0 auto 18px;">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--pink)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
             </div>
-            <div style="font-family:'Fraunces',serif;font-size:22px;font-weight:400;margin-bottom:8px;">Sin métricas vinculadas</div>
+            <div style="font-size:22px;font-weight:700;margin-bottom:8px;">Sin métricas vinculadas</div>
             <p style="font-size:13px;color:var(--text-muted);max-width:380px;margin:0 auto 24px;line-height:1.6;">
               Vincula un Google Sheets con las métricas de esta campaña. El sheet debe ser público o accesible con el enlace.
             </p>
@@ -1175,11 +1217,20 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
               <button class="btn btn-ghost btn-sm" onclick="document.getElementById('changeSheetsRow').style.display='none'">Cancelar</button>
             </div>
           </div>
+          <!-- Multi-tab notice -->
+          <div style="display:flex;align-items:center;gap:6px;padding:8px 12px;background:#fffbeb;border:1px solid #fde68a;border-radius:10px;margin-bottom:14px;font-size:11px;color:#92400e;">
+            <span>💡</span>
+            <span>Para ver todas las pestañas del documento, publícalo en la web: <strong>Archivo → Publicar en la web → Hoja → CSV</strong>. Si solo está compartido con link, se carga únicamente la primera pestaña.</span>
+          </div>
+          <!-- Sheet tab selector (populated dynamically) -->
+          <div id="metricsTabSelector" style="display:none;margin-bottom:16px;"></div>
           <div class="metrics-grid" id="metricsCards">
-            <div class="metric-card"><div class="metric-label">Alcance total</div><div class="metric-value" id="mReach">—</div></div>
-            <div class="metric-card"><div class="metric-label">Impresiones</div><div class="metric-value" id="mImpressions">—</div></div>
-            <div class="metric-card"><div class="metric-label">Interacciones</div><div class="metric-value" id="mInteractions">—</div></div>
+            <div class="metric-card"><div class="metric-label">Vistas</div><div class="metric-value" id="mViews">—</div></div>
+            <div class="metric-card"><div class="metric-label">Engagement</div><div class="metric-value" id="mEngagement">—</div></div>
             <div class="metric-card"><div class="metric-label">Engagement Rate</div><div class="metric-value" id="mER">—</div></div>
+            <div class="metric-card"><div class="metric-label">View Rate</div><div class="metric-value" id="mVR">—</div></div>
+            <div class="metric-card"><div class="metric-label" style="display:flex;align-items:center;gap:4px;">CPV <span style="font-size:10px;color:var(--text-muted);font-weight:400;">(costo/vista)</span></div><div class="metric-value" id="mCPV">—</div></div>
+            <div class="metric-card"><div class="metric-label" style="display:flex;align-items:center;gap:4px;">CPE <span style="font-size:10px;color:var(--text-muted);font-weight:400;">(costo/engagement)</span></div><div class="metric-value" id="mCPE">—</div></div>
           </div>
           <div class="charts-grid">
             <div class="card"><div class="card-header"><span class="card-title">Alcance e Interacciones</span></div><canvas id="lineChart" height="120"></canvas></div>
@@ -1189,7 +1240,7 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
             <div class="card-header"><span class="card-title">Rendimiento por publicación</span></div>
             <div class="table-wrap">
               <table class="table">
-                <thead><tr><th>Influencer</th><th>Formato</th><th>Fecha</th><th>Plataforma</th><th>Alcance</th><th>Impresiones</th><th>Interacciones</th><th>ER</th></tr></thead>
+                <thead><tr><th>Influencer</th><th>Formato</th><th>Fecha</th><th>Plataforma</th><th>Vistas</th><th>Alcance</th><th>Likes</th><th>Engagement</th><th>ER</th></tr></thead>
                 <tbody id="metricsTable"></tbody>
               </table>
             </div>
@@ -1201,7 +1252,7 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
     <!-- GENERADOR FULL PAGE -->
     <div class="page" id="page-generador">
       <div style="max-width:700px;">
-        <h3 style="font-family:'Fraunces',serif;font-size:28px;font-weight:400;letter-spacing:-0.4px;margin-bottom:20px;">Generador de textos</h3>
+        <h3 style="font-size:28px;font-weight:700;letter-spacing:-0.4px;margin-bottom:20px;">Generador de textos</h3>
         <div class="card">
           <div class="form-group">
             <label class="form-label">¿Qué quieres generar?</label>
@@ -1233,17 +1284,17 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
 
     <!-- INFLUENCERS PLACEHOLDER -->
     <div class="page" id="page-influencers">
-      <div class="placeholder-page">
-        <div class="ph-icon" data-ic="influencers"></div>
-        <h2>Base de Influencers</h2>
-        <p>Próximamente: directorio completo de influencers con historial de campañas, métricas y contactos.</p>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
+        <h3 style="font-size:28px;font-weight:700;letter-spacing:-0.4px;">Base de Influencers</h3>
+        <input type="search" id="infSearch" class="form-input" style="max-width:220px;font-size:13px;" placeholder="Buscar influencer..." oninput="renderInfluencers()">
       </div>
+      <div class="campaign-grid" id="infGrid"></div>
     </div>
 
     <!-- DOCUMENTOS -->
     <div class="page" id="page-documentos">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:12px;">
-        <h3 style="font-family:'Fraunces',serif;font-size:28px;font-weight:400;letter-spacing:-0.4px;">Documentos</h3>
+        <h3 style="font-size:28px;font-weight:700;letter-spacing:-0.4px;">Documentos</h3>
         <button class="btn btn-primary" onclick="openAddDocModalGlobal()">+ Agregar documento</button>
       </div>
 
@@ -1275,7 +1326,7 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
     <!-- CALENDARIO -->
     <div class="page" id="page-calendario">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
-        <h3 style="font-family:'Fraunces',serif;font-size:28px;font-weight:400;letter-spacing:-0.4px;" id="calMonthTitle"></h3>
+        <h3 style="font-size:28px;font-weight:700;letter-spacing:-0.4px;" id="calMonthTitle"></h3>
         <div style="display:flex;gap:8px;align-items:center;">
           <button class="btn btn-ghost btn-sm" onclick="calNav(-1)">← Anterior</button>
           <button class="btn btn-ghost btn-sm" onclick="calNav(0)">Hoy</button>
@@ -1292,7 +1343,13 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
       <div class="card" style="padding:0;overflow:hidden;">
         <!-- Day headers -->
         <div style="display:grid;grid-template-columns:repeat(7,1fr);background:var(--bg);border-bottom:1px solid var(--border);">
-          ${['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'].map(d=>`<div style="padding:10px 0;text-align:center;font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:.5px;">${d}</div>`).join('')}
+          <div style="padding:10px 0;text-align:center;font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:.5px;">Lun</div>
+          <div style="padding:10px 0;text-align:center;font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:.5px;">Mar</div>
+          <div style="padding:10px 0;text-align:center;font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:.5px;">Mié</div>
+          <div style="padding:10px 0;text-align:center;font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:.5px;">Jue</div>
+          <div style="padding:10px 0;text-align:center;font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:.5px;">Vie</div>
+          <div style="padding:10px 0;text-align:center;font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:.5px;">Sáb</div>
+          <div style="padding:10px 0;text-align:center;font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:.5px;">Dom</div>
         </div>
         <div id="calGrid" style="display:grid;grid-template-columns:repeat(7,1fr);border-left:1px solid var(--border);border-top:1px solid var(--border);"></div>
       </div>
@@ -1309,7 +1366,7 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
 
     <!-- AJUSTES -->
     <div class="page" id="page-ajustes">
-      <h3 style="font-family:'Fraunces',serif;font-size:28px;font-weight:400;letter-spacing:-0.4px;margin-bottom:20px;">Ajustes</h3>
+      <h3 style="font-size:28px;font-weight:700;letter-spacing:-0.4px;margin-bottom:20px;">Ajustes</h3>
       <div class="settings-section" id="teamSection">
         <div class="settings-title">Equipo</div>
         <div class="settings-desc">Miembros de Think Y. Los administradores pueden asignar roles y ver datos sensibles (presupuestos).</div>
@@ -1343,21 +1400,6 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
         <button class="btn btn-primary" onclick="saveApiKeys()">Guardar</button>
       </div>
 
-      <div class="settings-section">
-        <div class="settings-title">Google Sheets — Métricas</div>
-        <div class="settings-desc">Pega la URL pública de tu Google Sheet con métricas. El sheet debe estar publicado como CSV (Archivo → Publicar en la web → CSV). Columnas esperadas: Campaña, Influencer, Formato, Fecha, Plataforma, Alcance, Impresiones, Interacciones, ER.</div>
-        <div class="form-group">
-          <label class="form-label">URL del Google Sheet</label>
-          <input type="text" class="form-input" id="settingsSheetsUrl" placeholder="https://docs.google.com/spreadsheets/d/.../pub?output=csv">
-        </div>
-        <button class="btn btn-primary" onclick="saveSheetsUrl()">Guardar URL</button>
-      </div>
-
-      <div class="settings-section" style="border:1px solid #fee2e2;background:#fff5f5;">
-        <div class="settings-title" style="color:var(--red);">Zona de peligro</div>
-        <div class="settings-desc">Borrar todas las campañas y tareas globales del workspace. Solo admin. No se puede deshacer.</div>
-        <button class="btn" style="background:var(--red);color:#fff;" onclick="nukeAllCampaigns()"><span class="icn-trash"></span> Borrar todas las campañas</button>
-      </div>
     </div>
 
   </div><!-- end content -->
@@ -1503,6 +1545,24 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
     <div class="form-group">
       <label class="form-label">Notas</label>
       <textarea class="form-input" id="fTaskNotes" rows="3" placeholder="Información adicional sobre la tarea..." style="resize:vertical;"></textarea>
+    </div>
+    <div class="form-row" style="align-items:center;">
+      <div class="form-group" style="display:flex;align-items:center;gap:10px;flex-direction:row;">
+        <input type="checkbox" id="fTaskRecurring" onchange="document.getElementById('fTaskRecurringDayGroup').style.display=this.checked?'':'none'">
+        <label class="form-label" style="margin:0;cursor:pointer;" for="fTaskRecurring">🔄 Repetir semanalmente</label>
+      </div>
+      <div class="form-group" id="fTaskRecurringDayGroup" style="display:none;">
+        <label class="form-label">Día de la semana</label>
+        <select class="form-input" id="fTaskRecurringDay">
+          <option value="1">Lunes</option>
+          <option value="2">Martes</option>
+          <option value="3">Miércoles</option>
+          <option value="4">Jueves</option>
+          <option value="5">Viernes</option>
+          <option value="6">Sábado</option>
+          <option value="0">Domingo</option>
+        </select>
+      </div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('taskModal')">Cancelar</button>
@@ -1727,6 +1787,91 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
   </div>
 </div>
 
+<!-- MODAL: EDITAR PERFIL -->
+<div class="modal-overlay" id="editProfileModal">
+  <div class="modal" style="width:520px;">
+    <div class="modal-header">
+      <div class="modal-title">Mi perfil</div>
+      <button class="modal-close" onclick="closeModal('editProfileModal')">✕</button>
+    </div>
+    <div style="display:flex;align-items:center;gap:16px;padding:16px 0 20px;border-bottom:1px solid var(--border);margin-bottom:20px;">
+      <div id="profilePreviewAvatar" style="width:60px;height:60px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:700;color:#fff;flex-shrink:0;transition:all .3s;"></div>
+      <div>
+        <div id="profilePreviewName" style="font-size:18px;font-weight:700;"></div>
+        <div id="profilePreviewSub" style="font-size:12px;color:var(--text-muted);margin-top:2px;"></div>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Emoji (en lugar de inicial)</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;" id="emojiQuickPick">
+        <button class="profile-emoji-btn" onclick="pickEmoji('')" id="epNoEmoji" title="Usar inicial">A</button>
+        <button class="profile-emoji-btn" onclick="pickEmoji('🦁')">🦁</button>
+        <button class="profile-emoji-btn" onclick="pickEmoji('🐯')">🐯</button>
+        <button class="profile-emoji-btn" onclick="pickEmoji('🐺')">🐺</button>
+        <button class="profile-emoji-btn" onclick="pickEmoji('🦊')">🦊</button>
+        <button class="profile-emoji-btn" onclick="pickEmoji('🐉')">🐉</button>
+        <button class="profile-emoji-btn" onclick="pickEmoji('🌙')">🌙</button>
+        <button class="profile-emoji-btn" onclick="pickEmoji('⚡')">⚡</button>
+        <button class="profile-emoji-btn" onclick="pickEmoji('🔥')">🔥</button>
+        <button class="profile-emoji-btn" onclick="pickEmoji('🌸')">🌸</button>
+        <button class="profile-emoji-btn" onclick="pickEmoji('🎯')">🎯</button>
+        <button class="profile-emoji-btn" onclick="pickEmoji('💎')">💎</button>
+        <button class="profile-emoji-btn" onclick="pickEmoji('🚀')">🚀</button>
+      </div>
+      <input type="text" class="form-input" id="profileEmojiInput" placeholder="O escribe cualquier emoji…" maxlength="4" oninput="pickEmoji(this.value)" style="font-size:20px;letter-spacing:4px;">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Color del perfil</label>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:6px;" id="gradientSwatches">
+        <div class="profile-gradient-swatch" style="background:linear-gradient(135deg,#ff2d87,#2c6dff);" onclick="pickGradient('linear-gradient(135deg,#ff2d87,#2c6dff)')"></div>
+        <div class="profile-gradient-swatch" style="background:linear-gradient(135deg,#c6f24a,#2c6dff);" onclick="pickGradient('linear-gradient(135deg,#c6f24a,#2c6dff)')"></div>
+        <div class="profile-gradient-swatch" style="background:linear-gradient(135deg,#ff2d87,#fbbf24);" onclick="pickGradient('linear-gradient(135deg,#ff2d87,#fbbf24)')"></div>
+        <div class="profile-gradient-swatch" style="background:linear-gradient(135deg,#2c6dff,#c6f24a);" onclick="pickGradient('linear-gradient(135deg,#2c6dff,#c6f24a)')"></div>
+        <div class="profile-gradient-swatch" style="background:linear-gradient(135deg,#ff2d87,#ff8c42);" onclick="pickGradient('linear-gradient(135deg,#ff2d87,#ff8c42)')"></div>
+        <div class="profile-gradient-swatch" style="background:linear-gradient(135deg,#1a1a2e,#2c6dff);" onclick="pickGradient('linear-gradient(135deg,#1a1a2e,#2c6dff)')"></div>
+        <div class="profile-gradient-swatch" style="background:linear-gradient(135deg,#fbbf24,#f97316);" onclick="pickGradient('linear-gradient(135deg,#fbbf24,#f97316)')"></div>
+        <div class="profile-gradient-swatch" style="background:linear-gradient(135deg,#c6f24a,#16a34a);" onclick="pickGradient('linear-gradient(135deg,#c6f24a,#16a34a)')"></div>
+        <div class="profile-gradient-swatch" style="background:linear-gradient(135deg,#a855f7,#2c6dff);" onclick="pickGradient('linear-gradient(135deg,#a855f7,#2c6dff)')"></div>
+        <div class="profile-gradient-swatch" style="background:linear-gradient(135deg,#ff2d87,#a855f7);" onclick="pickGradient('linear-gradient(135deg,#ff2d87,#a855f7)')"></div>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Área</label>
+        <select class="form-input" id="profileAreaInput">
+          <option value="">— Sin área —</option>
+          <option>Cuentas</option>
+          <option>Operaciones</option>
+          <option>Creativo</option>
+          <option>Data</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Puesto</label>
+        <select class="form-input" id="profilePuestoInput"></select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('editProfileModal')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveMyProfile()">Guardar perfil</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: INFLUENCER DETAIL -->
+<div class="modal-overlay" id="infDetailModal">
+  <div class="modal" style="max-width:580px;max-height:85vh;overflow-y:auto;">
+    <div class="modal-header" style="position:sticky;top:0;background:#fff;z-index:1;border-bottom:1px solid var(--border);padding-bottom:16px;">
+      <div>
+        <div class="modal-title" id="infDetailName"></div>
+        <div style="font-size:12px;color:var(--text-muted);margin-top:2px;" id="infDetailHandle"></div>
+      </div>
+      <button class="modal-close" onclick="closeModal('infDetailModal')">✕</button>
+    </div>
+    <div id="infDetailContent" style="padding-top:16px;"></div>
+  </div>
+</div>
+
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
 
@@ -1807,7 +1952,7 @@ const COST_ACCESS_PUESTOS = new Set(['Account Director','Head Account','Account 
 const STATUS_OPTIONS = STATUS_OPTIONS_FLOW;
 
 // In-memory cache backed by Firestore. Reads = sync (cache). Writes = sync cache + async Firestore.
-const _cache = { campaigns:[], globalTasks:[], settings:{}, _initialized:false };
+const _cache = { campaigns:[], globalTasks:[], settings:{}, influencerRatings:[], _initialized:false };
 
 function getData(key, def) {
   if(key in _cache) return _cache[key];
@@ -1921,6 +2066,12 @@ function attachListeners() {
     if(currentPage==='ajustes') renderTeam();
     rerenderCurrent();
   }, err => console.error('members listener',err)));
+
+  // Influencer ratings listener
+  unsubscribers.push(ws.collection('influencerRatings').onSnapshot(snap => {
+    _cache.influencerRatings = snap.docs.map(d => d.data());
+    if(currentPage==='influencers') renderInfluencers();
+  }, err => console.error('influencerRatings listener',err)));
 }
 
 function visibleCampaigns() {
@@ -1937,12 +2088,16 @@ function rerenderCurrent() {
         renderCampaignTasks(c);
         renderCampaignDocs(c);
         renderCampaignFlow(c);
+        renderCampaignTracker(c);
       }
     } else {
       renderCampaignGrid();
     }
   }
   else if(currentPage==='pendientes') renderPendientes();
+  else if(currentPage==='metricas') renderMetrics();
+  else if(currentPage==='calendario') renderCalendar();
+  else if(currentPage==='influencers') renderInfluencers();
   populateCampaignSelects();
 }
 
@@ -2074,8 +2229,11 @@ function navigate(page) {
   document.getElementById('topbarTitle').textContent = t[0];
   document.getElementById('topbarSub').textContent = t[1];
   const btn = document.getElementById('mainActionBtn');
-  if(t[2]) { btn.style.display='inline-flex'; btn.textContent=t[2]; }
-  else { btn.style.display='none'; }
+  if(t[2]) {
+    btn.style.display='inline-flex';
+    btn.textContent=t[2];
+    btn.onclick = (page === 'pendientes') ? openAddGlobalTaskModal : openNewCampaignModal;
+  } else { btn.style.display='none'; }
 
   if(page==='dashboard') renderDashboard();
   if(page==='campannas') { showCampaignList(); renderCampaignGrid(); }
@@ -2085,6 +2243,7 @@ function navigate(page) {
   if(page==='generador') populateCampaignSelects();
   if(page==='documentos') renderDocumentosPage();
   if(page==='ajustes') loadSettingsUI();
+  if(page==='influencers') renderInfluencers();
 }
 
 // ============================================================
@@ -2125,11 +2284,27 @@ function renderDashboard() {
 
   // Upcoming pubs this week
   const weekEnd = new Date(); weekEnd.setDate(weekEnd.getDate()+7);
+  const weekEndStr = weekEnd.toISOString().split('T')[0];
   const upcomingPubs = [];
   campaigns.forEach(c => {
     c.influencers.forEach(inf => {
       if(inf.publishDate && inf.publishDate >= today && new Date(inf.publishDate) <= weekEnd) {
         upcomingPubs.push({...inf, campaignName:c.name, client:c.client});
+      }
+    });
+    // Also pull from tracker rows
+    const gst = (r,...keys)=>{for(const k of keys){const kn=k.toLowerCase().replace(/_/g,' ');for(const rk of Object.keys(r)){if(rk.toLowerCase().replace(/_/g,' ')===kn&&r[rk])return r[rk];}}return '';};
+    (c.trackerRows||[]).forEach(row=>{
+      const pubDate = gst(row,'Fecha de publicación','Fecha publicación','Fecha pub','Fecha','publish date','date','fecha');
+      if(pubDate && pubDate >= today && pubDate <= weekEndStr) {
+        upcomingPubs.push({
+          name: gst(row,'Influencer','Nombre','Perfil','Creator','name'),
+          format: gst(row,'Tipo de contenido','Tipo','formato','format','type'),
+          publishDate: pubDate,
+          campaignName: c.name,
+          client: c.client,
+          platform: gst(row,'Plataforma','Platform','Red social')
+        });
       }
     });
   });
@@ -2343,7 +2518,7 @@ function openCampaignDetail(cid) {
     ? '<span style="color:var(--text-muted);font-size:13px;">Sin asignados</span>'
     : assignedUsers.map(u => `
         <span class="badge" style="background:var(--lavender-pale);color:var(--lavender);display:inline-flex;align-items:center;gap:6px;">
-          <span style="width:18px;height:18px;border-radius:50%;background:var(--lavender);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;">${(u.name||u.email)[0].toUpperCase()}</span>
+          ${memberAvatarHtml(u, 18)}
           ${u.name||u.email}
           ${(isAdmin() || c.createdBy===currentUser.uid) ? `<button onclick="removeAssignee('${c.id}','${u.uid}')" style="background:none;border:none;cursor:pointer;color:var(--lavender);font-size:11px;padding:0 0 0 4px;">✕</button>` : ''}
         </span>`).join(' ');
@@ -2379,12 +2554,73 @@ function openCampaignDetail(cid) {
   renderCampaignTasks(c);
   renderCampaignDocs(c);
   renderCampaignFlow(c);
+  renderCampaignTracker(c);
+  renderCampaignMetricsSection(c);
 
   // Reset tabs
   document.querySelectorAll('.detail-tab').forEach(t=>t.classList.remove('active'));
   document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
   document.querySelector('[data-tab="resumen"]').classList.add('active');
   document.getElementById('tab-resumen').classList.add('active');
+}
+
+function renderCampaignMetricsSection(c) {
+  const el = document.getElementById('campaignMetricsSection');
+  if(!el) return;
+  if(c.metricsSheetUrl) {
+    el.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3a6b28" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+          <span style="font-size:13px;font-weight:600;color:#3a6b28;">Métricas vinculadas</span>
+          <span style="font-size:11px;color:var(--text-muted);max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.metricsSheetUrl.replace(/^https?:\/\/(docs\.google\.com\/)?/,'').substring(0,50)}…</span>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn btn-ghost btn-sm" onclick="showCampaignMetricsInput('${c.id}')">Cambiar sheet</button>
+          <button class="btn btn-pink btn-sm" onclick="navigateToMetrics('${c.id}')">Ver métricas →</button>
+        </div>
+      </div>
+      <div id="campaignMetricsInputRow" style="display:none;margin-top:12px;">
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+          <input type="text" id="campaignMetricsSheetInput" class="form-input" style="flex:1;min-width:260px;font-size:13px;" placeholder="Nueva URL de Google Sheets de métricas..." value="${c.metricsSheetUrl}">
+          <button class="btn btn-primary btn-sm" onclick="saveCampaignMetricsSheet('${c.id}')">Guardar</button>
+          <button class="btn btn-ghost btn-sm" onclick="document.getElementById('campaignMetricsInputRow').style.display='none'">Cancelar</button>
+        </div>
+      </div>`;
+  } else {
+    el.innerHTML = `
+      <div style="font-size:13px;font-weight:600;color:var(--text-muted);margin-bottom:10px;">📊 Métricas</div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+        <input type="text" id="campaignMetricsSheetInput" class="form-input" style="flex:1;min-width:260px;font-size:13px;" placeholder="Link de Google Sheets con las métricas...">
+        <button class="btn btn-pink btn-sm" onclick="saveCampaignMetricsSheet('${c.id}')">Vincular métricas</button>
+      </div>
+      <p style="font-size:11px;color:var(--text-muted);margin-top:8px;">Pega la URL del Google Sheets. El sheet debe ser público o accesible con el enlace.</p>`;
+  }
+}
+
+function showCampaignMetricsInput(cid) {
+  const row = document.getElementById('campaignMetricsInputRow');
+  if(row) { row.style.display=''; document.getElementById('campaignMetricsSheetInput').focus(); }
+}
+
+function saveCampaignMetricsSheet(cid) {
+  const inp = document.getElementById('campaignMetricsSheetInput');
+  if(!inp) return;
+  const url = inp.value.trim();
+  if(!url) { showToast('Ingresa la URL del Google Sheets','error'); return; }
+  const campaigns = getData('campaigns');
+  const idx = campaigns.findIndex(x=>x.id===cid);
+  if(idx===-1) return;
+  campaigns[idx].metricsSheetUrl = url;
+  setData('campaigns', campaigns);
+  _cache.campaigns = campaigns;
+  showToast('Sheet de métricas vinculado','success');
+  renderCampaignMetricsSection(campaigns[idx]);
+}
+
+function navigateToMetrics(cid) {
+  navigate('metricas');
+  setTimeout(()=>openMetricsCampaign(cid), 80);
 }
 
 function renderCampaignInfluencers(c) {
@@ -2412,23 +2648,164 @@ function renderCampaignInfluencers(c) {
     </tr>`).join('');
 }
 
+function _taskItemHtml(t, cid) {
+  const u = allUsers.find(x=>x.uid===t.assigneeUid);
+  const assigneeName = u ? (u.name||u.email.split('@')[0]) : (t.assignee||'');
+  const assigneeHtml = assigneeName
+    ? `<span style="display:inline-flex;align-items:center;gap:3px;">${memberAvatarHtml(u||{name:assigneeName},14)} ${assigneeName}</span>`
+    : '';
+  return `
+  <div class="task-item">
+    <div class="task-check ${t.done?'done':''}" onclick="toggleTask('${t.id}','${cid}')"></div>
+    <div class="priority-dot priority-${t.priority}"></div>
+    <div class="task-info">
+      <div class="task-title ${t.done?'done-text':''}">${t.title}</div>
+      <div class="task-meta" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">${assigneeHtml}${t.dueDate?`<span>${formatDate(t.dueDate)}</span>`:''}</div>
+    </div>
+    <button class="task-edit-btn" onclick="openEditTaskModal('${t.id}','${cid}')" title="Editar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></svg></button>
+    <button onclick="deleteTask('${t.id}','${cid}')" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:12px;padding:4px;"><span class="icn-close"></span></button>
+  </div>`;
+}
+
 function renderCampaignTasks(c) {
   const el = document.getElementById('campaignTasksList');
-  if(c.tasks.length===0) {
+  if(!c.tasks || c.tasks.length===0) {
     el.innerHTML=`<div class="empty-state"><div class="empty-icon">${ICN_check}</div><p>Sin tareas. ¡Todo al día!</p></div>`;
     return;
   }
-  el.innerHTML = c.tasks.map(t=>`
-    <div class="task-item">
-      <div class="task-check ${t.done?'done':''}" onclick="toggleTask('${t.id}','${c.id}')"></div>
-      <div class="priority-dot priority-${t.priority}"></div>
-      <div class="task-info">
-        <div class="task-title ${t.done?'done-text':''}">${t.title}</div>
-        <div class="task-meta">${t.assignee||''} · ${formatDate(t.dueDate)||''}</div>
-      </div>
-      <button class="task-edit-btn" onclick="openEditTaskModal('${t.id}','${c.id}')" title="Editar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></svg></button>
-      <button onclick="deleteTask('${t.id}','${c.id}')" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:12px;padding:4px;"><span class="icn-close"></span></button>
-    </div>`).join('');
+  const AREA_ORDER = ['Cuentas','Operaciones','Creativo','Data'];
+  const AREA_COLOR = {Cuentas:'var(--blue)',Operaciones:'var(--pink)',Creativo:'var(--lavender)',Data:'#3a7a5e'};
+
+  // Group tasks by assignee's area
+  const groups = {};
+  c.tasks.forEach(t => {
+    const u = allUsers.find(x=>x.uid===t.assigneeUid);
+    const area = u?.area || 'Sin área';
+    if(!groups[area]) groups[area] = [];
+    groups[area].push(t);
+  });
+
+  const areas = [...AREA_ORDER.filter(a=>groups[a]), ...Object.keys(groups).filter(a=>!AREA_ORDER.includes(a))];
+
+  // If only one area group, render flat (no grouping chrome needed)
+  if(areas.length <= 1) {
+    el.innerHTML = c.tasks.map(t=>_taskItemHtml(t,c.id)).join('');
+    return;
+  }
+
+  el.innerHTML = areas.map(area => {
+    const tasks = groups[area];
+    const pending = tasks.filter(t=>!t.done).length;
+    const isMine = tasks.some(t=>t.assigneeUid===currentUser?.uid);
+    const color = AREA_COLOR[area]||'var(--text-muted)';
+    return `
+    <details class="task-area-group" ${isMine?'open':''}>
+      <summary>
+        <span class="task-area-name" style="color:${color};">${area}</span>
+        <span class="task-area-count">${pending} pendiente${pending!==1?'s':''} · ${tasks.length} total</span>
+        <span class="task-area-chevron">▶</span>
+      </summary>
+      <div class="task-area-body">${tasks.map(t=>_taskItemHtml(t,c.id)).join('')}</div>
+    </details>`;
+  }).join('');
+}
+
+function renderCampaignTracker(c) {
+  const urlInp = document.getElementById('trackerSheetsUrl');
+  if(urlInp) urlInp.value = c.trackerSheetUrl || '';
+  const wrap = document.getElementById('trackerTableWrap');
+  if(!wrap) return;
+  if(c.trackerRows && c.trackerRows.length) {
+    _renderTrackerTable(c.trackerRows);
+  } else if(c.trackerSheetUrl) {
+    wrap.innerHTML = `<div class="empty-state"><p>Cargando datos del tracker...</p></div>`;
+    _autoFetchTracker(c.trackerSheetUrl, c);
+  } else {
+    wrap.innerHTML = `<div class="empty-state"><p>Vincula el master tracker para ver las publicaciones</p></div>`;
+  }
+}
+
+function _renderTrackerTable(rows) {
+  const wrap = document.getElementById('trackerTableWrap');
+  if(!wrap || !rows.length) return;
+  const gst = (r, ...keys) => {
+    for(const k of keys) {
+      const kn = k.toLowerCase().replace(/_/g,' ');
+      for(const rk of Object.keys(r)) {
+        if(rk.toLowerCase().replace(/_/g,' ')===kn && r[rk]) return r[rk];
+      }
+    }
+    return '—';
+  };
+  wrap.innerHTML = `
+    <div class="table-wrap">
+      <table class="table">
+        <thead><tr>
+          <th>Influencer</th><th>Plataforma</th><th>Tipo de contenido</th>
+          <th>Fecha de publicación</th><th>Estatus guión</th><th>Estatus contenido</th>
+        </tr></thead>
+        <tbody>${rows.map(r=>`<tr>
+          <td>${gst(r,'Influencer','Nombre','Perfil','Creator','name','perfil')}</td>
+          <td>${gst(r,'Plataforma','Platform','Red social','canal','network')}</td>
+          <td>${gst(r,'Tipo de contenido','Tipo','Content type','formato','format','type')}</td>
+          <td>${gst(r,'Fecha de publicación','Fecha publicación','Fecha pub','Fecha','publish date','date','fecha')}</td>
+          <td>${gst(r,'Estatus guión','Status guión','Guión','script status','guion')}</td>
+          <td>${gst(r,'Estatus contenido','Status contenido','Contenido','content status','status','estatus')}</td>
+        </tr>`).join('')}</tbody>
+      </table>
+    </div>`;
+}
+
+async function _autoFetchTracker(url, campaign) {
+  const csvUrl = normalizeCsvUrl(url);
+  if(!csvUrl) return;
+  try {
+    const res = await fetch(csvUrl);
+    if(!res.ok) throw new Error(`HTTP ${res.status}`);
+    const text = await res.text();
+    if(text.trim().startsWith('<!')) throw new Error('not public');
+    const rows = parseCSV(text);
+    campaign.trackerRows = rows;
+    const sid = _extractSheetId(url);
+    if(sid) {
+      try {
+        const tabs = await _fetchSheetTabs(sid);
+        if(tabs.length > 1) {
+          const all = await Promise.all(tabs.map(t=>_fetchTabRows(sid,t.gid)));
+          campaign.trackerRows = all.flat();
+        }
+      } catch(e) { /* single tab fallback already done */ }
+    }
+    _renderTrackerTable(campaign.trackerRows);
+    const campaigns = getData('campaigns');
+    const idx = campaigns.findIndex(x=>x.id===campaign.id);
+    if(idx!==-1) { campaigns[idx].trackerSheetUrl = url; setData('campaigns',campaigns); }
+    showToast('Tracker sincronizado','success');
+  } catch(e) {
+    const wrap = document.getElementById('trackerTableWrap');
+    if(wrap) wrap.innerHTML=`<div class="empty-state"><p>Error cargando tracker: ${e.message}</p></div>`;
+  }
+}
+
+function saveTrackerUrl() {
+  const url = document.getElementById('trackerSheetsUrl')?.value?.trim();
+  if(!currentCampaignId || !url) return;
+  const campaigns = getData('campaigns');
+  const c = campaigns.find(x=>x.id===currentCampaignId);
+  if(c) { c.trackerSheetUrl = url; setData('campaigns',campaigns); }
+}
+
+function syncTracker() {
+  const url = document.getElementById('trackerSheetsUrl')?.value?.trim();
+  if(!url) { showToast('Pega el URL del master tracker primero','error'); return; }
+  const campaigns = getData('campaigns');
+  const c = campaigns.find(x=>x.id===currentCampaignId);
+  if(!c) return;
+  c.trackerSheetUrl = url;
+  setData('campaigns',campaigns);
+  const wrap = document.getElementById('trackerTableWrap');
+  if(wrap) wrap.innerHTML = `<div class="empty-state"><p>Cargando...</p></div>`;
+  _autoFetchTracker(url, c);
 }
 
 function renderCampaignDocs(c) {
@@ -2475,6 +2852,7 @@ function updateFlowStep(cid, idx, status) {
 // PENDIENTES
 // ============================================================
 let currentFilter = 'hoy';
+let filterByUser = '';
 
 function renderPendientes() {
   const campaigns = visibleCampaigns();
@@ -2483,19 +2861,51 @@ function renderPendientes() {
   const weekEnd = new Date(); weekEnd.setDate(weekEnd.getDate()+7);
   const weekEndStr = weekEnd.toISOString().split('T')[0];
 
+  // Person filter UI
+  const pf = document.getElementById('pendientesPersonFilter');
+  if(pf) {
+    const allAssignees = [...new Map(allUsers.map(u=>[u.uid,u])).values()];
+    pf.innerHTML = [
+      `<button class="metrics-tab-pill ${!filterByUser?'active':''}" onclick="setPendientesUser('')">Todos</button>`,
+      ...allAssignees.map(u=>`<button class="metrics-tab-pill ${filterByUser===u.uid?'active':''}" onclick="setPendientesUser('${u.uid}')">${memberAvatarHtml(u,16)} ${u.name||u.email.split('@')[0]}</button>`)
+    ].join('');
+  }
+
   const allTasks = [...globalTasks.map(t=>({...t,source:'global'}))];
   campaigns.forEach(c=>c.tasks.forEach(t=>allTasks.push({...t,campaignId:c.id,campaignName:c.name,source:'campaign'})));
 
-  // Only tasks assigned to current user (or legacy tasks with no UID)
-  const myTasks = allTasks.filter(t => !t.assigneeUid || t.assigneeUid === currentUser.uid);
+  // Recurring task expansion
+  const expanded = [];
+  allTasks.forEach(t => {
+    if(t.recurring && t.recurringDay !== undefined) {
+      // Generate virtual instance for current week
+      const dayOfWeek = new Date(today).getDay();
+      const diff = ((t.recurringDay - dayOfWeek) + 7) % 7;
+      const occDate = new Date(today); occDate.setDate(occDate.getDate() + (diff === 0 ? 0 : diff));
+      const occStr = occDate.toISOString().split('T')[0];
+      const alreadyDoneThisOccurrence = t.lastDoneDate === occStr;
+      expanded.push({...t, dueDate: occStr, done: alreadyDoneThisOccurrence, _isRecurring: true});
+    } else {
+      expanded.push(t);
+    }
+  });
+
+  // Filter by assigned user
+  let myTasks = filterByUser
+    ? expanded.filter(t => t.assigneeUid === filterByUser)
+    : expanded.filter(t => !t.assigneeUid || t.assigneeUid === currentUser.uid);
 
   let filtered = myTasks;
-  if(currentFilter==='hoy') filtered = myTasks.filter(t=>t.dueDate===today);
+  if(currentFilter==='hoy') filtered = myTasks.filter(t=>t.dueDate===today||t._isRecurring&&t.dueDate===today);
   else if(currentFilter==='semana') filtered = myTasks.filter(t=>t.dueDate>=today&&t.dueDate<=weekEndStr);
 
-  filtered.sort((a,b)=>{
+  // Split into pending and done
+  const pending = filtered.filter(t=>!t.done).sort((a,b)=>{
     const p={high:0,medium:1,low:2};
-    if(a.done!==b.done) return a.done?1:-1;
+    return (p[a.priority]||1)-(p[b.priority]||1);
+  });
+  const done = filtered.filter(t=>t.done).sort((a,b)=>{
+    const p={high:0,medium:1,low:2};
     return (p[a.priority]||1)-(p[b.priority]||1);
   });
 
@@ -2508,24 +2918,17 @@ function renderPendientes() {
     if(!t.assignee && !t.assigneeUid) return '';
     const u = allUsers.find(x=>x.uid===t.assigneeUid);
     const name = u ? (u.name||u.email.split('@')[0]) : (t.assignee||'');
-    const initials = name[0]?.toUpperCase()||'?';
     return `<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;background:var(--lavender-pale);color:#6a5a9a;border-radius:20px;padding:2px 8px 2px 4px;">
-      <span style="width:16px;height:16px;border-radius:50%;background:var(--lavender);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;">${initials}</span>
+      ${memberAvatarHtml(u||{name,profileEmoji:'',profileGradient:''}, 16)}
       ${name}</span>`;
   };
 
-  const el = document.getElementById('allTasksList');
-  if(filtered.length===0) {
-    el.innerHTML=`<div class="empty-state"><div class="empty-icon">${ICN_check}</div><p>¡Sin tareas para este período!</p></div>`;
-    setPendientesBadge(myTasks.filter(t=>!t.done).length);
-    return;
-  }
-  el.innerHTML = filtered.map(t=>`
+  const taskRow = (t) => `
     <div class="task-item">
       <div class="task-check ${t.done?'done':''}" onclick="toggleTask('${t.id}','${t.campaignId||''}')"></div>
       <div class="priority-dot priority-${t.priority}"></div>
       <div class="task-info">
-        <div class="task-title ${t.done?'done-text':''}">${t.title}</div>
+        <div class="task-title ${t.done?'done-text':''}">${t.title}${t._isRecurring?` <span style="font-size:10px;color:var(--text-muted);">🔄 Semanal</span>`:''}${t.done&&t._isRecurring?` <span style="font-size:10px;color:var(--text-muted);">· listo esta semana</span>`:''}</div>
         <div class="task-meta" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
           ${t.campaignName?`<a onclick="openCampaignDetail('${t.campaignId}')" style="color:var(--pink);cursor:pointer;font-weight:600">${t.campaignName}</a>`:''}
           ${t.campaignName?'·':''}
@@ -2536,18 +2939,63 @@ function renderPendientes() {
       ${prioBadge(t.priority)}
       <button class="task-edit-btn" onclick="openEditTaskModal('${t.id}','${t.campaignId||''}')" title="Editar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></svg></button>
       <button onclick="deleteTask('${t.id}','${t.campaignId||''}')" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:12px;padding:4px;"><span class="icn-close"></span></button>
-    </div>`).join('');
-  setPendientesBadge(myTasks.filter(t=>!t.done).length);
+    </div>`;
+
+  const el = document.getElementById('allTasksList');
+  if(!el) return;
+
+  let html = '';
+  if(pending.length === 0 && done.length === 0) {
+    html = `<div class="empty-state"><p>No tienes pendientes por ahora</p></div>`;
+  } else {
+    if(pending.length) {
+      html += `<div class="card" style="margin-bottom:12px;">
+        <div class="card-header"><span class="card-title" style="color:var(--text);">Por resolver (${pending.length})</span></div>
+        ${pending.map(t=>taskRow(t)).join('')}
+      </div>`;
+    }
+    if(done.length) {
+      html += `<details style="margin-top:4px;">
+        <summary style="list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--bg);border-radius:12px;border:1px solid var(--border);font-size:13px;font-weight:600;color:var(--text-muted);user-select:none;">
+          <span style="font-size:11px;margin-right:2px;">▶</span> Resueltos (${done.length})
+        </summary>
+        <div class="card" style="margin-top:6px;">${done.map(t=>taskRow(t)).join('')}</div>
+      </details>`;
+    }
+  }
+  el.innerHTML = html;
+  setPendientesBadge(pending.length);
+}
+
+function setPendientesUser(uid) {
+  filterByUser = uid;
+  renderPendientes();
 }
 
 function toggleTask(tid, cid) {
   if(cid) {
     const campaigns = getData('campaigns');
     const c = campaigns.find(x=>x.id===cid);
-    if(c) { const t=c.tasks.find(x=>x.id===tid); if(t) t.done=!t.done; setData('campaigns',campaigns); }
+    if(c) {
+      const t=c.tasks.find(x=>x.id===tid);
+      if(t) {
+        if(t.recurring) {
+          const today=new Date().toISOString().split('T')[0];
+          t.lastDoneDate = t.lastDoneDate===today ? '' : today;
+        } else { t.done=!t.done; }
+      }
+      setData('campaigns',campaigns);
+    }
   } else {
     const tasks = getData('globalTasks');
-    const t = tasks.find(x=>x.id===tid); if(t) t.done=!t.done; setData('globalTasks',tasks);
+    const t = tasks.find(x=>x.id===tid);
+    if(t) {
+      if(t.recurring) {
+        const today=new Date().toISOString().split('T')[0];
+        t.lastDoneDate = t.lastDoneDate===today ? '' : today;
+      } else { t.done=!t.done; }
+    }
+    setData('globalTasks',tasks);
   }
   if(currentPage==='dashboard') renderDashboard();
   else if(currentPage==='pendientes') renderPendientes();
@@ -2594,8 +3042,8 @@ function renderMetrics() {
   document.getElementById('metricsCampDetail').style.display = 'none';
   currentMetricsCampaignId = null;
   const grid = document.getElementById('metricsCampGrid');
-  const camps = visibleCampaigns();
-  if(!camps.length) { grid.innerHTML='<div class="empty-state"><p>Sin campañas aún.</p></div>'; return; }
+  const camps = visibleCampaigns().filter(c => c.status !== 'Completado');
+  if(!camps.length) { grid.innerHTML='<div class="empty-state"><p>Sin campañas activas.</p></div>'; return; }
   grid.innerHTML = camps.map(c=>`
     <div class="campaign-card" onclick="openMetricsCampaign('${c.id}')">
       <div class="campaign-card-header">
@@ -2606,9 +3054,9 @@ function renderMetrics() {
         <span class="badge ${statusBadgeClass(c.status)}">${c.status}</span>
       </div>
       <div style="margin-top:12px;display:flex;align-items:center;gap:8px;">
-        ${c.sheetsUrl
+        ${c.metricsSheetUrl
           ? `<span style="font-size:11px;font-weight:700;padding:3px 8px;border-radius:20px;background:var(--mint-pale);color:#3a7a5e;">📊 Sheets vinculado</span>`
-          : `<span style="font-size:11px;color:var(--text-muted);">Sin Sheets vinculado</span>`}
+          : `<span style="font-size:11px;color:var(--text-muted);">Vincular métricas →</span>`}
       </div>
     </div>`).join('');
 }
@@ -2621,22 +3069,18 @@ function openMetricsCampaign(cid) {
   document.getElementById('metricsCampDetail').style.display = '';
   document.getElementById('metricsCampName').textContent = c.name + (c.client ? ' · ' + c.client : '');
 
-  if(c.sheetsUrl) {
+  if(c.metricsSheetUrl) {
     // Linked state
     document.getElementById('metricsNoLink').style.display = 'none';
     document.getElementById('metricsLinked').style.display = '';
     document.getElementById('changeSheetsRow').style.display = 'none';
     const lbl = document.getElementById('sheetsUrlLabel');
-    if(lbl) lbl.textContent = '📊 ' + c.sheetsUrl.replace(/^https?:\/\/(docs\.google\.com\/)?/,'').substring(0,60) + '…';
+    if(lbl) lbl.textContent = '📊 ' + c.metricsSheetUrl.replace(/^https?:\/\/(docs\.google\.com\/)?/,'').substring(0,60) + '…';
     const inp = document.getElementById('sheetsUrlInputChange');
-    if(inp) inp.value = c.sheetsUrl;
-    if(c.cachedMetrics && c.cachedMetrics.length) {
-      // Check if cache is stale (all rows normalize to 0 — wrong column names from old parse)
-      const sample = c.cachedMetrics.slice(0,3).map(normalizeMetricRow);
-      const anyData = sample.some(r => r.reach>0 || r.impressions>0 || r.interactions>0 || r.influencer);
-      if(anyData) displayMetrics(c.cachedMetrics);
-      else { initEmptyCharts(); loadMetrics(); } // stale cache → auto-reload
-    } else initEmptyCharts();
+    if(inp) inp.value = c.metricsSheetUrl;
+    // Always auto-fetch fresh data (don't rely on cached metrics)
+    initEmptyCharts();
+    _autoFetchMetrics(c.metricsSheetUrl, c);
   } else {
     // No-link state
     document.getElementById('metricsNoLink').style.display = '';
@@ -2664,6 +3108,106 @@ function initEmptyCharts() {
   lineChartInst = new Chart(lc.getContext('2d'),{type:'line',data:{labels:[],datasets:[]},options:{responsive:true}});
   const dc = document.getElementById('donutChart'); if(!dc) return;
   donutChartInst = new Chart(dc.getContext('2d'),{type:'doughnut',data:{labels:['Likes','Comentarios','Shares','Guardados'],datasets:[{data:[45,25,15,15],backgroundColor:['#ff2d87','#2c6dff','#c6f24a','#ffb3d3'],borderWidth:0}]},options:{responsive:true,plugins:{legend:{position:'right'}},cutout:'65%'}});
+}
+
+// ---- Multi-tab metrics ----
+let _metricsSheetTabs  = [];   // [{title, gid}]
+let _selectedMetricsTab = 'all'; // 'all' | gid string
+let _metricsCurrentCampaign = null;
+
+function _extractSheetId(url) {
+  const m = url.match(/\/spreadsheets\/d\/([^/]+)/);
+  return m ? m[1] : null;
+}
+
+async function _fetchSheetTabs(sheetId) {
+  const url = `https://spreadsheets.google.com/feeds/worksheets/${sheetId}/public/full?alt=json`;
+  const res = await fetch(url);
+  if(!res.ok) throw new Error(`tabs HTTP ${res.status}`);
+  const data = await res.json();
+  return (data.feed.entry || []).map(e => ({
+    title: e.title.$t,
+    gid:   e['gs$sheetId'].$t,
+  }));
+}
+
+async function _fetchTabRows(sheetId, gid) {
+  const url = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gid}`;
+  const res = await fetch(url);
+  if(!res.ok) throw new Error(`tab ${gid} HTTP ${res.status}`);
+  const text = await res.text();
+  if(text.trim().startsWith('<!')) throw new Error('not public');
+  return parseCSV(text);
+}
+
+function _renderMetricsTabs() {
+  const sel = document.getElementById('metricsTabSelector');
+  if(!sel || !_metricsSheetTabs.length) { if(sel) sel.style.display='none'; return; }
+  sel.style.display = 'flex';
+  sel.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;';
+  sel.innerHTML = [
+    `<button class="metrics-tab-pill ${_selectedMetricsTab==='all'?'active':''}" onclick="selectMetricsTab('all')">Todas las pestañas</button>`,
+    ..._metricsSheetTabs.map(t =>
+      `<button class="metrics-tab-pill ${_selectedMetricsTab===t.gid?'active':''}" onclick="selectMetricsTab('${t.gid}')">${t.title}</button>`)
+  ].join('');
+}
+
+async function selectMetricsTab(gid) {
+  _selectedMetricsTab = gid;
+  _renderMetricsTabs();
+  if(!_metricsCurrentCampaign) return;
+  initEmptyCharts();
+  const sheetId = _extractSheetId(_metricsCurrentCampaign.metricsSheetUrl);
+  if(!sheetId) return;
+  try {
+    let rows;
+    if(gid === 'all') {
+      const all = await Promise.all(_metricsSheetTabs.map(t => _fetchTabRows(sheetId, t.gid)));
+      rows = all.flat();
+    } else {
+      rows = await _fetchTabRows(sheetId, gid);
+    }
+    if(rows.length) displayMetrics(rows, _metricsCurrentCampaign);
+  } catch(e) { console.warn('selectMetricsTab error:', e.message); }
+}
+
+async function _autoFetchMetrics(url, campaign) {
+  _metricsCurrentCampaign = campaign;
+  _selectedMetricsTab = 'all';
+  const sheetId = _extractSheetId(url);
+  // Reset tab selector while loading
+  const sel = document.getElementById('metricsTabSelector');
+  if(sel) sel.style.display = 'none';
+
+  // Try to discover tabs (requires sheet published to web)
+  if(sheetId) {
+    try {
+      _metricsSheetTabs = await _fetchSheetTabs(sheetId);
+      _renderMetricsTabs();
+      // Fetch all tabs and merge
+      const all = await Promise.all(_metricsSheetTabs.map(t => _fetchTabRows(sheetId, t.gid)));
+      const rows = all.flat();
+      if(rows.length) { displayMetrics(rows, campaign); return; }
+    } catch(e) {
+      console.warn('Multi-tab fetch failed, falling back to single:', e.message);
+      _metricsSheetTabs = [];
+      if(sel) sel.style.display = 'none';
+    }
+  }
+
+  // Fallback: single CSV fetch
+  const csvUrl = normalizeCsvUrl(url);
+  if(!csvUrl) return;
+  try {
+    const res = await fetch(csvUrl);
+    if(!res.ok) throw new Error(`HTTP ${res.status}`);
+    const text = await res.text();
+    if(text.trim().startsWith('<!')) throw new Error('not public');
+    const rows = parseCSV(text);
+    if(rows.length) displayMetrics(rows, campaign);
+  } catch(e) {
+    console.warn('Auto-fetch metrics failed:', e.message);
+  }
 }
 
 function normalizeCsvUrl(raw) {
@@ -2695,13 +3239,27 @@ async function loadMetrics() {
     if(text.trim().startsWith('<!')) throw new Error('El sheet no es público o no está en formato CSV');
     const rows = parseCSV(text);
     if(!rows.length) throw new Error('No se encontraron filas en el sheet');
-    // Save sheetsUrl + cachedMetrics to campaign
+    let campaign = null;
     if(currentMetricsCampaignId) {
       const campaigns = getData('campaigns');
       const idx = campaigns.findIndex(x=>x.id===currentMetricsCampaignId);
-      if(idx!==-1) { campaigns[idx].sheetsUrl = raw; campaigns[idx].cachedMetrics = rows; setData('campaigns', campaigns); }
+      if(idx!==-1) {
+        campaigns[idx].metricsSheetUrl = raw;
+        campaigns[idx].cachedMetrics = rows;
+        setData('campaigns', campaigns);
+        campaign = campaigns[idx];
+        _cache.campaigns = campaigns;
+      }
+      // Switch to linked state UI
+      document.getElementById('metricsNoLink').style.display = 'none';
+      document.getElementById('metricsLinked').style.display = '';
+      document.getElementById('changeSheetsRow').style.display = 'none';
+      const lbl = document.getElementById('sheetsUrlLabel');
+      if(lbl) lbl.textContent = '📊 ' + raw.replace(/^https?:\/\/(docs\.google\.com\/)?/,'').substring(0,60) + '…';
+      const inp = document.getElementById('sheetsUrlInputChange');
+      if(inp) inp.value = raw;
     }
-    displayMetrics(rows);
+    displayMetrics(rows, campaign);
     showToast('Datos cargados','success');
   } catch(e) {
     const hint = e.message.includes('HTTP')||e.message.includes('público')
@@ -2742,83 +3300,104 @@ function parseCSV(text) {
   });
 }
 
-// Normalize a metrics row to a standard shape regardless of column name convention
-function normalizeMetricRow(r) {
-  const get = (...keys) => { for(const k of keys) if(r[k]!==undefined && r[k]!=='') return r[k]; return ''; };
-  const getNum = (...keys) => { for(const k of keys) { const v=parseInt(r[k]); if(!isNaN(v) && v>0) return v; } return 0; };
-  // Organic interactions = likes + comments + shares + saves (sum whatever exists)
-  const likes    = getNum('Organic_Likes','Likes','likes');
-  const comments = getNum('Organic_Comments','Comments','comments');
-  const shares   = getNum('Organic_Shares','Shares','shares');
-  const saves    = getNum('Organic_Saves','Saves','saves');
-  const views    = getNum('Organic_Views','Views','views');
-  const interactions = likes+comments+shares+saves || getNum('Interacciones','interacciones','interactions','Interactions');
-  const reach    = getNum('Organic_Reach','Reach','Alcance','alcance','reach');
-  const impressions = getNum('Organic_Impressions','Impressions','Impresiones','impresiones','impressions');
-  const influencer  = get('Influencer Name','Influencer','influencer','Creator','creator');
-  const platform    = get('Platform','Plataforma','plataforma','platform');
-  const date        = get('Post Date','Campaign Date','Fecha','fecha','date');
-  const format      = get('Formato','formato','format','Format','Post Type');
-  const er          = get('ER% Profile Instagram','ER% Profile Tiktok','Engagement Rate','engagement_rate','ER','er');
-  return {influencer,platform,date,format,er,reach,impressions,interactions,likes,comments,shares,saves,views};
-}
+function displayMetrics(rows, campaign) {
+  // Case-insensitive, underscore/space-normalized key lookup
+  const gi = (r, ...keys) => {
+    for(const k of keys) {
+      const kn = k.toLowerCase().replace(/_/g,' ');
+      for(const rk of Object.keys(r)) {
+        if(rk.toLowerCase().replace(/_/g,' ') === kn) {
+          const v = parseInt((r[rk]||'').toString().replace(/[,$\s]/g,''));
+          if(v) return v;
+        }
+      }
+    }
+    return 0;
+  };
+  // Case-insensitive string field lookup
+  const gs = (r, ...keys) => {
+    for(const k of keys) {
+      const kn = k.toLowerCase().replace(/_/g,' ');
+      for(const rk of Object.keys(r)) {
+        if(rk.toLowerCase().replace(/_/g,' ') === kn && r[rk]) return r[rk];
+      }
+    }
+    return '—';
+  };
 
-function displayMetrics(rows) {
-  const norm = rows.map(normalizeMetricRow);
-  let totalReach=0, totalImpressions=0, totalInteractions=0;
-  norm.forEach(r=>{
-    totalReach       += r.reach;
-    totalImpressions += r.impressions;
-    totalInteractions+= r.interactions;
+  let totalViews=0, totalReach=0, totalEngagement=0;
+  let totalLikes=0, totalComments=0, totalShares=0, totalSaves=0;
+  rows.forEach(r=>{
+    totalViews    += gi(r,'Views','Vistas','organic views','Total Views','Impresiones','Impressions','Reproducciones','Plays','Visualizaciones','Video Views');
+    totalReach    += gi(r,'Reach','Alcance');
+    totalLikes    += gi(r,'Likes','Me gusta','organic likes');
+    totalComments += gi(r,'Comments','Comentarios','organic comments');
+    totalShares   += gi(r,'Shares','Compartidos','organic shares','Retweets','Reposts');
+    totalSaves    += gi(r,'Saves','Guardados','Saved','organic saves');
+    totalEngagement += gi(r,'Engagement','Interacciones','Interactions','Total Engagement','Engagements');
   });
-  const er = totalReach>0 ? ((totalInteractions/totalReach)*100).toFixed(2)+'%' : '—';
-  document.getElementById('mReach').textContent = formatNum(totalReach);
-  document.getElementById('mImpressions').textContent = formatNum(totalImpressions);
-  document.getElementById('mInteractions').textContent = formatNum(totalInteractions);
-  document.getElementById('mER').textContent = er;
+  // Individual breakdown overrides aggregate column if available
+  const breakdownSum = totalLikes + totalComments + totalShares + totalSaves;
+  if(breakdownSum > 0) totalEngagement = breakdownSum;
 
+  const er  = totalReach>0   ? ((totalEngagement/totalReach)*100).toFixed(2)+'%' : '—';
+  const budget = campaign ? (campaign.budgetClient||campaign.budget||0) : 0;
+  const fmtMXN = n => n>0 ? '$'+Number(n).toFixed(2) : '—';
+  const cpv = (budget>0 && totalViews>0)      ? fmtMXN(budget/totalViews)      : '—';
+  const cpe = (budget>0 && totalEngagement>0) ? fmtMXN(budget/totalEngagement) : '—';
+
+  document.getElementById('mViews').textContent      = formatNum(totalViews);
+  document.getElementById('mEngagement').textContent = formatNum(totalEngagement);
+  document.getElementById('mER').textContent         = er;
+  document.getElementById('mVR').textContent         = '—';
+  document.getElementById('mCPV').textContent        = cpv;
+  document.getElementById('mCPE').textContent        = cpe;
+
+  const rowViews = r => gi(r,'Views','Vistas','organic views','Total Views','Impresiones','Impressions','Reproducciones','Plays','Visualizaciones','Video Views');
+  const rowEng   = r => {
+    const bd = gi(r,'Likes','Me gusta','organic likes')
+             + gi(r,'Comments','Comentarios','organic comments')
+             + gi(r,'Shares','Compartidos','organic shares')
+             + gi(r,'Saves','Guardados','Saved','organic saves');
+    return bd>0 ? bd : gi(r,'Engagement','Interacciones','Interactions','Total Engagement','Engagements');
+  };
   const tb = document.getElementById('metricsTable');
-  tb.innerHTML = norm.map(r=>`<tr>
-    <td>${r.influencer||'—'}</td>
-    <td>${r.format||r.platform||'—'}</td>
-    <td>${r.date||'—'}</td>
-    <td>${r.platform||'—'}</td>
-    <td>${formatNum(r.reach)}</td>
-    <td>${formatNum(r.impressions)}</td>
-    <td>${formatNum(r.interactions)}</td>
-    <td>${r.er||'—'}</td>
+  tb.innerHTML = rows.map(r=>`<tr>
+    <td>${gs(r,'Influencer Name','Influencer','Creator','Creador','Cuenta')}</td>
+    <td>${gs(r,'Formato','Format','Tipo','Type','Content Type')}</td>
+    <td>${gs(r,'Post Date','Campaign Date','Fecha','Date')}</td>
+    <td>${gs(r,'Platform','Plataforma','Red Social','Network','Canal')}</td>
+    <td>${formatNum(rowViews(r))}</td>
+    <td>${formatNum(gi(r,'Organic_Reach','Reach','Alcance'))}</td>
+    <td>${formatNum(gi(r,'Organic_Likes','Likes','Me gusta'))}</td>
+    <td>${formatNum(rowEng(r))}</td>
+    <td>${gs(r,'ER% Profile Instagram','ER% Profile Tiktok','Engagement Rate','ER','Tasa Engagement')}</td>
   </tr>`).join('');
 
   if(lineChartInst) lineChartInst.destroy();
   if(donutChartInst) donutChartInst.destroy();
-  const labels = norm.map(r=>r.date||r.influencer||'').filter(Boolean);
-  const reaches = norm.map(r=>r.reach);
-  const inters  = norm.map(r=>r.interactions);
+  const labels    = rows.map(r=>gs(r,'Post Date','Campaign Date','Fecha','Date')).filter(v=>v&&v!=='—');
+  const viewsData = rows.map(r=>rowViews(r));
+  const engData   = rows.map(r=>rowEng(r));
   const lc = document.getElementById('lineChart'); if(!lc) return;
   lineChartInst = new Chart(lc.getContext('2d'),{type:'line',data:{labels,datasets:[
-    {label:'Alcance',data:reaches,borderColor:'#ff2d87',backgroundColor:'rgba(255,45,135,0.1)',tension:.4,fill:true,pointBackgroundColor:'#ff2d87'},
-    {label:'Interacciones',data:inters,borderColor:'#2c6dff',backgroundColor:'rgba(44,109,255,0.08)',tension:.4,fill:true,pointBackgroundColor:'#2c6dff'}
+    {label:'Vistas',data:viewsData,borderColor:'#ff2d87',backgroundColor:'rgba(255,45,135,0.1)',tension:.4,fill:true,pointBackgroundColor:'#ff2d87'},
+    {label:'Engagement',data:engData,borderColor:'#2c6dff',backgroundColor:'rgba(44,109,255,0.08)',tension:.4,fill:true,pointBackgroundColor:'#2c6dff'}
   ]},options:{responsive:true,plugins:{legend:{position:'top'}},scales:{y:{beginAtZero:true}}}});
   const dc = document.getElementById('donutChart'); if(!dc) return;
-  const totLikes    = norm.reduce((s,r)=>s+r.likes,0);
-  const totComments = norm.reduce((s,r)=>s+r.comments,0);
-  const totShares   = norm.reduce((s,r)=>s+r.shares,0);
-  const totSaves    = norm.reduce((s,r)=>s+r.saves,0);
-  const totViews    = norm.reduce((s,r)=>s+r.views,0);
-  // Only include non-zero buckets for clarity
-  const donutData = [
-    {l:'Likes',v:totLikes,c:'#ff2d87'},
-    {l:'Comentarios',v:totComments,c:'#2c6dff'},
-    {l:'Shares',v:totShares,c:'#c6f24a'},
-    {l:'Guardados',v:totSaves,c:'#ffb3d3'},
-    {l:'Views',v:totViews,c:'#fbbf24'},
+  // Dynamic donut: only show non-zero buckets, no hardcoded fallback
+  const donutBuckets = [
+    {l:'Likes',v:totalLikes,c:'#ff2d87'},
+    {l:'Comentarios',v:totalComments,c:'#2c6dff'},
+    {l:'Shares',v:totalShares,c:'#c6f24a'},
+    {l:'Guardados',v:totalSaves,c:'#ffb3d3'},
   ].filter(d=>d.v>0);
-  const fallback = donutData.length === 0;
+  const noDonutData = donutBuckets.length === 0;
   donutChartInst = new Chart(dc.getContext('2d'),{type:'doughnut',data:{
-    labels: fallback ? ['Sin datos'] : donutData.map(d=>d.l),
+    labels: noDonutData ? ['Sin datos'] : donutBuckets.map(d=>d.l),
     datasets:[{
-      data: fallback ? [1] : donutData.map(d=>d.v),
-      backgroundColor: fallback ? ['#e5e7eb'] : donutData.map(d=>d.c),
+      data: noDonutData ? [1] : donutBuckets.map(d=>d.v),
+      backgroundColor: noDonutData ? ['#e5e7eb'] : donutBuckets.map(d=>d.c),
       borderWidth:0,hoverOffset:6
     }]
   },options:{responsive:true,plugins:{legend:{position:'right',labels:{font:{size:12}}}},cutout:'65%'}});
@@ -2982,7 +3561,7 @@ function renderAreaPicker(areaKey) {
         const name = u.name || u.email.split('@')[0];
         const initial = name[0]?.toUpperCase() || '?';
         return `<div class="area-dropdown-item" onclick="addToArea('${areaKey}','${u.uid}');event.stopPropagation();">
-          <span class="ddi-avatar">${initial}</span>
+          ${memberAvatarHtml(u, 26)}
           <span style="flex:1">${name}</span>
           ${u.area ? `<span class="badge badge-area-${u.area}" style="font-size:9px;">${u.area}</span>` : ''}
         </div>`;
@@ -3162,7 +3741,7 @@ function renderTeam() {
     return `
     <div onclick="openProfileModal('${u.uid}')" style="display:flex;align-items:center;gap:12px;padding:14px;border:1px solid var(--border);border-radius:14px;margin-bottom:8px;cursor:pointer;transition:all .2s var(--ease);"
       onmouseover="this.style.borderColor='var(--pink)';this.style.background='var(--pink-pale)'" onmouseout="this.style.borderColor='var(--border)';this.style.background=''">
-      <div style="width:40px;height:40px;border-radius:12px;background:var(--pink);color:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;flex-shrink:0;">${(u.name||u.email)[0].toUpperCase()}</div>
+      ${memberAvatarHtml(u, 40, '12px')}
       <div style="flex:1;min-width:0;">
         <div style="font-size:14px;font-weight:700;display:flex;align-items:center;gap:6px;">${u.name||'—'} ${u.uid===currentUser.uid?'<span style="font-size:10px;color:var(--text-muted);font-weight:400;">(tú)</span>':''}</div>
         <div style="font-size:11px;color:var(--text-muted);margin-top:2px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">${u.email}${u.area?`<span class="badge badge-area-${u.area}">${u.area}</span>`:''}${u.puesto?`<span style="font-size:10px;color:var(--text-muted);">${u.puesto}</span>`:''}</div>
@@ -3308,6 +3887,9 @@ function openAddTaskModal() {
   document.getElementById('fTaskPriority').value='medium';
   document.getElementById('fTaskDocLink').value='';
   document.getElementById('fTaskNotes').value='';
+  document.getElementById('fTaskRecurring').checked = false;
+  document.getElementById('fTaskRecurringDayGroup').style.display = 'none';
+  document.getElementById('fTaskRecurringDay').value = new Date().getDay().toString();
   if(currentCampaignId) document.getElementById('fTaskCampaign').value=currentCampaignId;
   document.querySelector('#taskModal .modal-title').textContent='Nueva tarea';
   openModal('taskModal');
@@ -3323,6 +3905,9 @@ function openAddGlobalTaskModal() {
   document.getElementById('fTaskPriority').value='medium';
   document.getElementById('fTaskDocLink').value='';
   document.getElementById('fTaskNotes').value='';
+  document.getElementById('fTaskRecurring').checked = false;
+  document.getElementById('fTaskRecurringDayGroup').style.display = 'none';
+  document.getElementById('fTaskRecurringDay').value = new Date().getDay().toString();
   document.querySelector('#taskModal .modal-title').textContent='Nueva tarea';
   openModal('taskModal');
 }
@@ -3339,6 +3924,9 @@ function openEditTaskModal(tid, cid) {
   document.getElementById('fTaskPriority').value = task.priority || 'medium';
   document.getElementById('fTaskDocLink').value = task.docLink || '';
   document.getElementById('fTaskNotes').value = task.notes || '';
+  document.getElementById('fTaskRecurring').checked = !!task.recurring;
+  document.getElementById('fTaskRecurringDayGroup').style.display = task.recurring ? '' : 'none';
+  document.getElementById('fTaskRecurringDay').value = task.recurringDay !== undefined ? task.recurringDay.toString() : '1';
   if(cid) document.getElementById('fTaskCampaign').value = cid;
   if(task.assigneeUid) document.getElementById('fTaskAssignee').value = task.assigneeUid;
   document.querySelector('#taskModal .modal-title').textContent='Editar tarea';
@@ -3357,6 +3945,8 @@ function saveTask() {
   const priority = document.getElementById('fTaskPriority').value;
   const docLink = document.getElementById('fTaskDocLink').value.trim();
   const notes = document.getElementById('fTaskNotes').value.trim();
+  const recurring = document.getElementById('fTaskRecurring').checked;
+  const recurringDay = recurring ? parseInt(document.getElementById('fTaskRecurringDay').value) : undefined;
 
   if(editingTaskId) {
     const cid = editingTaskCampaignId;
@@ -3365,13 +3955,13 @@ function saveTask() {
       const c = campaigns.find(x=>x.id===cid);
       if(c) {
         const t = c.tasks.find(x=>x.id===editingTaskId);
-        if(t) { t.title=title; t.dueDate=dueDate; t.priority=priority; t.assigneeUid=assigneeUid; t.assignee=assigneeName; t.docLink=docLink; t.notes=notes; }
+        if(t) { t.title=title; t.dueDate=dueDate; t.priority=priority; t.assigneeUid=assigneeUid; t.assignee=assigneeName; t.docLink=docLink; t.notes=notes; t.recurring=recurring; t.recurringDay=recurringDay; }
         setData('campaigns', campaigns);
       }
     } else {
       const tasks = getData('globalTasks');
       const t = tasks.find(x=>x.id===editingTaskId);
-      if(t) { t.title=title; t.dueDate=dueDate; t.priority=priority; t.assigneeUid=assigneeUid; t.assignee=assigneeName; t.docLink=docLink; t.notes=notes; }
+      if(t) { t.title=title; t.dueDate=dueDate; t.priority=priority; t.assigneeUid=assigneeUid; t.assignee=assigneeName; t.docLink=docLink; t.notes=notes; t.recurring=recurring; t.recurringDay=recurringDay; }
       setData('globalTasks', tasks);
     }
     closeModal('taskModal');
@@ -3381,7 +3971,8 @@ function saveTask() {
       id:id(), title, dueDate, priority, assigneeUid,
       assignee: assigneeName, docLink, notes,
       createdBy: currentUser.uid,
-      done:false
+      done:false,
+      ...(recurring ? { recurring:true, recurringDay } : {})
     };
     if(campId) {
       const campaigns=getData('campaigns');
@@ -3774,6 +4365,11 @@ function formatNum(n) {
   return num.toLocaleString();
 }
 
+function statusBadgeClass(s) {
+  const map = {'En proceso':'badge-blue','Ajustes':'badge-yellow','Pendiente cliente':'badge-orange','En reporte':'badge-red','En producción':'badge-purple','Completado':'badge-green'};
+  return map[s] || 'badge-gray';
+}
+
 function showToast(msg, type='') {
   const t=document.getElementById('toast');
   t.textContent=msg; t.className='toast '+(type||'');
@@ -3949,8 +4545,9 @@ auth.onAuthStateChanged(async (user) => {
     role: currentUserProfile.role,
     area: currentUserProfile.area || '',
     photoURL: currentUserProfile.photoURL || null,
-    profileEmoji: currentUserProfile.profileEmoji || '',
-    profileGradient: currentUserProfile.profileGradient || ''
+    // Only write emoji/gradient if they exist — never overwrite with empty string
+    ...(currentUserProfile.profileEmoji    ? { profileEmoji:    currentUserProfile.profileEmoji    } : {}),
+    ...(currentUserProfile.profileGradient ? { profileGradient: currentUserProfile.profileGradient } : {}),
   };
   await memberRef.set(memberProfile, {merge:true});
 
@@ -4270,6 +4867,188 @@ document.addEventListener('click', () => {
 });
 
 // ============================================================
+// INFLUENCER DIRECTORY
+// ============================================================
+
+function infKey(inf) {
+  return (inf.handle || inf.name || 'unknown').toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9\-@_]/g, '');
+}
+
+function getAllInfluencers() {
+  const map = {};
+  _cache.campaigns.forEach(c => {
+    (c.influencers || []).forEach(inf => {
+      const k = infKey(inf);
+      if (!map[k]) map[k] = { key: k, name: inf.name, handle: inf.handle || '', platform: inf.platform || '', campaigns: [] };
+      if (!map[k].campaigns.find(x => x.id === c.id)) {
+        map[k].campaigns.push({ id: c.id, name: c.name, client: c.client || '', status: c.status || '' });
+      }
+    });
+  });
+  return Object.values(map).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function infRatingsFor(key) {
+  return (_cache.influencerRatings || []).filter(r => r.influencerKey === key);
+}
+
+function avgStars(ratings) {
+  if (!ratings.length) return 0;
+  return ratings.reduce((s, r) => s + r.stars, 0) / ratings.length;
+}
+
+function starsHtml(avg, size) {
+  const cls = size === 'sm' ? ' star-sm' : '';
+  return [1,2,3,4,5].map(i => `<span class="star${cls}" style="color:${i <= Math.round(avg) ? '#f5a623' : '#ddd'};">★</span>`).join('');
+}
+
+function renderInfluencers() {
+  const grid = document.getElementById('infGrid');
+  if (!grid) return;
+  const q = (document.getElementById('infSearch')?.value || '').toLowerCase();
+  let infs = getAllInfluencers();
+  if (q) infs = infs.filter(inf => inf.name.toLowerCase().includes(q) || inf.handle.toLowerCase().includes(q));
+  if (!infs.length) {
+    grid.innerHTML = '<div class="empty-state"><p>' + (q ? 'Sin resultados.' : 'Agrega influencers a tus campañas para verlos aquí.') + '</p></div>';
+    return;
+  }
+  grid.innerHTML = infs.map(inf => {
+    const ratings = infRatingsFor(inf.key);
+    const avg = avgStars(ratings);
+    const campList = inf.campaigns.map(c => `<span style="font-size:11px;padding:2px 7px;border-radius:12px;background:var(--bg);color:var(--text-muted);border:1px solid var(--border);">${c.name}</span>`).join(' ');
+    return `<div class="campaign-card" onclick="openInfluencerDetail('${inf.key}')" style="cursor:pointer;">
+      <div class="campaign-card-header">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div class="inf-avatar" style="width:40px;height:40px;font-size:15px;flex-shrink:0;">${(inf.name||'?')[0].toUpperCase()}</div>
+          <div>
+            <div class="campaign-name">${inf.name}</div>
+            <div class="campaign-client">${inf.handle ? '@'+inf.handle : ''} ${inf.platform ? '· '+inf.platform : ''}</div>
+          </div>
+        </div>
+      </div>
+      <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:4px;">${campList || '<span style="font-size:11px;color:var(--text-muted);">Sin campañas</span>'}</div>
+      <div style="margin-top:10px;display:flex;align-items:center;gap:6px;">
+        <span>${starsHtml(avg, 'sm')}</span>
+        ${ratings.length ? `<span style="font-size:11px;color:var(--text-muted);">${avg.toFixed(1)} (${ratings.length})</span>` : `<span style="font-size:11px;color:var(--text-muted);">Sin calificaciones</span>`}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+let _infDetailKey = null;
+let _infDetailStars = 0;
+
+function openInfluencerDetail(key) {
+  _infDetailKey = key;
+  _infDetailStars = 0;
+  const infs = getAllInfluencers();
+  const inf = infs.find(x => x.key === key);
+  if (!inf) return;
+  document.getElementById('infDetailName').textContent = inf.name;
+  document.getElementById('infDetailHandle').textContent = (inf.handle ? '@'+inf.handle : '') + (inf.platform ? ' · '+inf.platform : '');
+  renderInfluencerDetailContent(inf);
+  openModal('infDetailModal');
+}
+
+function renderInfluencerDetailContent(inf) {
+  const ratings = infRatingsFor(inf.key);
+  const avg = avgStars(ratings);
+  const myRating = currentUser ? ratings.find(r => r.userId === currentUser.uid) : null;
+
+  const campRows = inf.campaigns.map(c => `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);">
+      <div>
+        <div style="font-size:13px;font-weight:600;">${c.name}</div>
+        <div style="font-size:11px;color:var(--text-muted);">${c.client}</div>
+      </div>
+      <span class="badge ${statusBadgeClass(c.status)}">${c.status}</span>
+    </div>`).join('');
+
+  const ratingCards = ratings.length ? ratings.map(r => `
+    <div class="rating-card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div style="width:28px;height:28px;border-radius:50%;background:var(--pink);color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;">${(r.userName||'?')[0].toUpperCase()}</div>
+          <span style="font-size:13px;font-weight:600;">${r.userName||'Usuario'}</span>
+          ${r.campaignName ? `<span style="font-size:11px;color:var(--text-muted);">${r.campaignName}</span>` : ''}
+        </div>
+        <span style="font-size:12px;">${starsHtml(r.stars,'sm')}</span>
+      </div>
+      ${r.comment ? `<div style="font-size:12px;color:var(--text-muted);padding:6px 10px;background:var(--bg);border-radius:8px;margin-top:4px;">${r.comment}</div>` : ''}
+      <div style="font-size:10px;color:var(--text-muted);margin-top:4px;">${r.date ? new Date(r.date).toLocaleDateString('es-MX') : ''}</div>
+    </div>`).join('')
+  : '<p style="font-size:13px;color:var(--text-muted);">Sin calificaciones aún.</p>';
+
+  const starSelector = [1,2,3,4,5].map(i =>
+    `<span class="star" id="infStar${i}" onclick="selectStar(${i})" style="font-size:28px;cursor:pointer;color:${myRating && i<=myRating.stars ? '#f5a623' : '#ddd'};">★</span>`
+  ).join('');
+
+  document.getElementById('infDetailContent').innerHTML = `
+    <!-- Avg rating -->
+    ${ratings.length ? `
+    <div style="display:flex;align-items:center;gap:12px;padding:16px;background:var(--bg);border-radius:14px;margin-bottom:20px;">
+      <div style="font-size:40px;font-weight:700;line-height:1;color:var(--text);">${avg.toFixed(1)}</div>
+      <div>
+        <div>${starsHtml(avg,'')}</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">${ratings.length} calificación${ratings.length!==1?'es':''}</div>
+      </div>
+    </div>` : ''}
+
+    <!-- Campaigns -->
+    <div style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;">Campañas</div>
+    <div style="margin-bottom:20px;">${campRows || '<p style="font-size:13px;color:var(--text-muted);">Sin campañas registradas.</p>'}</div>
+
+    <!-- Ratings list -->
+    <div style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;">Calificaciones</div>
+    <div style="margin-bottom:24px;">${ratingCards}</div>
+
+    <!-- Leave rating -->
+    <div style="background:var(--pink-pale);border-radius:14px;padding:18px;">
+      <div style="font-size:13px;font-weight:700;margin-bottom:10px;">${myRating ? 'Tu calificación' : 'Dejar calificación'}</div>
+      <div style="margin-bottom:12px;">${starSelector}</div>
+      <textarea id="infRatingComment" class="form-input" rows="2" style="font-size:13px;margin-bottom:10px;" placeholder="Comentario (opcional)...">${myRating ? myRating.comment||'' : ''}</textarea>
+      <button class="btn btn-pink btn-sm" onclick="submitInfluencerRating('${inf.key}')">${myRating ? 'Actualizar calificación' : 'Guardar calificación'}</button>
+    </div>`;
+}
+
+function selectStar(n) {
+  _infDetailStars = n;
+  for(let i=1;i<=5;i++) {
+    const el = document.getElementById('infStar'+i);
+    if(el) el.style.color = i<=n ? '#f5a623' : '#ddd';
+  }
+}
+
+async function submitInfluencerRating(key) {
+  if (!_infDetailStars) { showToast('Selecciona una calificación de 1 a 5 estrellas','error'); return; }
+  if (!currentUser) { showToast('Debes iniciar sesión','error'); return; }
+  const comment = (document.getElementById('infRatingComment')?.value||'').trim();
+  const infs = getAllInfluencers();
+  const inf = infs.find(x=>x.key===key);
+  const campaignName = inf?.campaigns?.[0]?.name || '';
+  const rating = {
+    influencerKey: key,
+    userId: currentUser.uid,
+    userName: currentUserProfile?.name || currentUser.email?.split('@')[0] || 'Usuario',
+    stars: _infDetailStars,
+    comment,
+    campaignName,
+    date: new Date().toISOString()
+  };
+  try {
+    const docId = key + '_' + currentUser.uid;
+    await db.collection('workspaces').doc(WORKSPACE).collection('influencerRatings').doc(docId).set(rating);
+    showToast('Calificación guardada','success');
+    // Refresh detail
+    _infDetailStars = 0;
+    const updatedInf = getAllInfluencers().find(x=>x.key===key);
+    if(updatedInf) renderInfluencerDetailContent(updatedInf);
+  } catch(e) {
+    showToast('Error al guardar: '+e.message,'error');
+  }
+}
+
+// ============================================================
 // CALENDAR PAGE
 // ============================================================
 let calYear = new Date().getFullYear();
@@ -4345,46 +5124,78 @@ function renderCalendar() {
 function openProfileModal(uid) {
   const u = allUsers.find(x => x.uid === uid);
   if(!u) return;
+
+  // Tasks assigned to this user
   const allTasks = [
     ..._cache.campaigns.flatMap(c => (c.tasks||[]).filter(t => t.assigneeUid === uid).map(t => ({...t, campaignName: c.name, campaignId: c.id}))),
     ..._cache.globalTasks.filter(t => t.assigneeUid === uid).map(t => ({...t, campaignName: t.campaignName||'General'}))
   ];
   const active = allTasks.filter(t => !t.done);
-  const done = allTasks.filter(t => t.done).slice(0, 5);
+  const done   = allTasks.filter(t => t.done).slice(0,5);
+
+  // Campaigns where user appears (assignedTo or any responsables group)
+  const userCampaigns = _cache.campaigns.filter(c => {
+    if((c.assignedTo||[]).includes(uid)) return true;
+    const r = c.responsables || {};
+    return Object.values(r).some(arr => Array.isArray(arr) && arr.includes(uid));
+  });
 
   const taskRow = (t, isDone) => `
     <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);">
-      <div style="width:10px;height:10px;border-radius:50%;margin-top:4px;flex-shrink:0;background:${t.priority==='high'?'var(--red)':t.priority==='medium'?'var(--yellow)':'var(--border)'}"></div>
+      <div style="width:8px;height:8px;border-radius:50%;margin-top:5px;flex-shrink:0;background:${t.priority==='high'?'var(--red)':t.priority==='medium'?'var(--yellow)':'var(--border)'}"></div>
       <div style="flex:1;min-width:0;">
         <div style="font-size:13px;font-weight:600;${isDone?'text-decoration:line-through;color:var(--text-muted);':''}">${t.title}</div>
         <div style="font-size:11px;color:var(--text-muted);margin-top:2px;display:flex;gap:8px;flex-wrap:wrap;">
           <span>${t.campaignName}</span>
           ${t.dueDate?`<span>${formatDate(t.dueDate)}</span>`:''}
-          ${t.docLink?`<a href="${t.docLink}" target="_blank" style="color:var(--pink);text-decoration:none;font-weight:600;">📄 Ver doc</a>`:''}
         </div>
-        ${t.notes?`<div style="font-size:11px;color:var(--text-muted);margin-top:4px;background:var(--bg);border-radius:8px;padding:6px 8px;">${t.notes}</div>`:''}
       </div>
     </div>`;
 
-  const avatarBg = u.profileGradient || 'var(--pink)';
-  const avatarContent = u.profileEmoji || (u.name||u.email)[0].toUpperCase();
+  const campCard = c => `
+    <div onclick="openCampaignDetail('${c.id}');closeModal('profileModal');" style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;cursor:pointer;transition:all .15s;" onmouseover="this.style.borderColor='var(--pink)'" onmouseout="this.style.borderColor='var(--border)'">
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${c.name}</div>
+        <div style="font-size:11px;color:var(--text-muted);">${c.client||''}</div>
+      </div>
+      <span class="badge ${statusBadgeClass(c.status)}" style="font-size:10px;">${c.status}</span>
+    </div>`;
+
   document.getElementById('profileModalContent').innerHTML = `
-    <div style="display:flex;align-items:center;gap:16px;margin-bottom:24px;padding-bottom:20px;border-bottom:1px solid var(--border);">
-      <div style="width:56px;height:56px;border-radius:16px;background:${avatarBg};color:#fff;display:flex;align-items:center;justify-content:center;font-size:${u.profileEmoji?'28px':'22px'};font-weight:700;flex-shrink:0;">${avatarContent}</div>
-      <div>
+    <!-- Header -->
+    <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px;padding-bottom:20px;border-bottom:1px solid var(--border);">
+      ${memberAvatarHtml(u, 56, '16px')}
+      <div style="flex:1;min-width:0;">
         <div style="font-size:20px;font-weight:700;">${u.name||'—'}</div>
-        <div style="font-size:13px;color:var(--text-muted);margin-top:2px;">${u.email}</div>
-        <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;">
+        <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">${u.email}</div>
+        <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
           ${u.puesto?`<span class="badge" style="background:var(--lavender-pale);color:var(--blue);">${u.puesto}</span>`:''}
           ${u.area?`<span class="badge badge-area-${u.area}">${u.area}</span>`:''}
           ${u.role==='admin'?`<span class="badge" style="background:var(--pink-pale);color:var(--pink-deep);">Admin</span>`:''}
         </div>
       </div>
-      <div style="margin-left:auto;text-align:right;">
-        <div style="font-size:32px;font-weight:700;color:var(--pink);">${active.length}</div>
-        <div style="font-size:11px;color:var(--text-muted);">tareas activas</div>
+    </div>
+    <!-- Stats row -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px;">
+      <div style="text-align:center;padding:12px;background:var(--pink-pale);border-radius:12px;">
+        <div style="font-size:26px;font-weight:700;color:var(--pink);">${active.length}</div>
+        <div style="font-size:11px;color:var(--text-muted);">Pendientes</div>
+      </div>
+      <div style="text-align:center;padding:12px;background:var(--lavender-pale);border-radius:12px;">
+        <div style="font-size:26px;font-weight:700;color:var(--lavender);">${userCampaigns.length}</div>
+        <div style="font-size:11px;color:var(--text-muted);">Campañas</div>
+      </div>
+      <div style="text-align:center;padding:12px;background:var(--mint-pale);border-radius:12px;">
+        <div style="font-size:26px;font-weight:700;color:#3a7a5e;">${done.length}</div>
+        <div style="font-size:11px;color:var(--text-muted);">Completadas</div>
       </div>
     </div>
+    <!-- Campaigns -->
+    ${userCampaigns.length ? `
+    <div style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">Campañas</div>
+    <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:20px;">${userCampaigns.map(campCard).join('')}</div>
+    ` : ''}
+    <!-- Active tasks -->
     <div style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">Tareas activas</div>
     ${active.length ? active.map(t=>taskRow(t,false)).join('') : '<div style="color:var(--text-muted);font-size:13px;padding:12px 0;">Sin tareas activas 🎉</div>'}
     ${done.length ? `
@@ -4399,6 +5210,14 @@ function openProfileModal(uid) {
 // ============================================================
 let _editProfileEmoji = '';
 let _editProfileGradient = 'linear-gradient(135deg,#ff2d87,#2c6dff)';
+
+function memberAvatarHtml(u, size=20, radius='50%') {
+  if(!u) return '';
+  const bg = u.profileGradient || 'var(--lavender)';
+  const content = u.profileEmoji || (u.name||u.email||'?')[0].toUpperCase();
+  const fontSize = u.profileEmoji ? `${Math.round(size*0.6)}px` : `${Math.round(size*0.5)}px`;
+  return `<span style="width:${size}px;height:${size}px;border-radius:${radius};background:${bg};color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:${fontSize};font-weight:700;flex-shrink:0;">${content}</span>`;
+}
 
 function applyAvatarEl(el, profile) {
   if(!el) return;
@@ -4478,15 +5297,14 @@ async function saveMyProfile() {
   const area   = document.getElementById('profileAreaInput').value;
   const puesto = document.getElementById('profilePuestoInput').value;
   const emoji  = document.getElementById('profileEmojiInput').value.trim();
-  _editProfileEmoji   = emoji;
+  _editProfileEmoji = emoji;
   const updates = {
     area, puesto,
     profileEmoji: emoji,
     profileGradient: _editProfileGradient,
   };
-  // Update both user doc (for persistence across sessions) and members (for team visibility)
   try {
-    const ws = db.collection('workspaces').doc('default');
+    const ws = db.collection('workspaces').doc(WORKSPACE);
     await Promise.all([
       ws.collection('members').doc(currentUser.uid).set(updates, {merge:true}),
       db.collection('users').doc(currentUser.uid).set(updates, {merge:true})
