@@ -2630,8 +2630,13 @@ function openMetricsCampaign(cid) {
     if(lbl) lbl.textContent = '📊 ' + c.sheetsUrl.replace(/^https?:\/\/(docs\.google\.com\/)?/,'').substring(0,60) + '…';
     const inp = document.getElementById('sheetsUrlInputChange');
     if(inp) inp.value = c.sheetsUrl;
-    if(c.cachedMetrics && c.cachedMetrics.length) displayMetrics(c.cachedMetrics);
-    else initEmptyCharts();
+    if(c.cachedMetrics && c.cachedMetrics.length) {
+      // Check if cache is stale (all rows normalize to 0 — wrong column names from old parse)
+      const sample = c.cachedMetrics.slice(0,3).map(normalizeMetricRow);
+      const anyData = sample.some(r => r.reach>0 || r.impressions>0 || r.interactions>0 || r.influencer);
+      if(anyData) displayMetrics(c.cachedMetrics);
+      else { initEmptyCharts(); loadMetrics(); } // stale cache → auto-reload
+    } else initEmptyCharts();
   } else {
     // No-link state
     document.getElementById('metricsNoLink').style.display = '';
@@ -2721,8 +2726,15 @@ function parseCSV(text) {
     }
     result.push(cur.trim()); return result;
   }
-  const headers = splitLine(lines[0]);
-  return lines.slice(1).filter(l=>l.trim()).map(line=>{
+  // Smart header detection: if first row has ≤3 unique non-empty values and many columns,
+  // it's a category/meta row (e.g. "Must Have, Must Have, ...") → skip it, use row 2 as headers
+  let headerLine = 0;
+  const firstRow = splitLine(lines[0]);
+  const uniqueFirst = new Set(firstRow.filter(Boolean));
+  if(uniqueFirst.size <= 4 && firstRow.length > 5) headerLine = 1;
+  if(lines.length <= headerLine + 1) return [];
+  const headers = splitLine(lines[headerLine]);
+  return lines.slice(headerLine + 1).filter(l=>l.trim()).map(line=>{
     const vals = splitLine(line);
     const obj={};
     headers.forEach((h,i)=>obj[h]=vals[i]||'');
@@ -2730,12 +2742,34 @@ function parseCSV(text) {
   });
 }
 
+// Normalize a metrics row to a standard shape regardless of column name convention
+function normalizeMetricRow(r) {
+  const get = (...keys) => { for(const k of keys) if(r[k]!==undefined && r[k]!=='') return r[k]; return ''; };
+  const getNum = (...keys) => { for(const k of keys) { const v=parseInt(r[k]); if(!isNaN(v) && v>0) return v; } return 0; };
+  // Organic interactions = likes + comments + shares + saves (sum whatever exists)
+  const likes    = getNum('Organic_Likes','Likes','likes');
+  const comments = getNum('Organic_Comments','Comments','comments');
+  const shares   = getNum('Organic_Shares','Shares','shares');
+  const saves    = getNum('Organic_Saves','Saves','saves');
+  const views    = getNum('Organic_Views','Views','views');
+  const interactions = likes+comments+shares+saves || getNum('Interacciones','interacciones','interactions','Interactions');
+  const reach    = getNum('Organic_Reach','Reach','Alcance','alcance','reach');
+  const impressions = getNum('Organic_Impressions','Impressions','Impresiones','impresiones','impressions');
+  const influencer  = get('Influencer Name','Influencer','influencer','Creator','creator');
+  const platform    = get('Platform','Plataforma','plataforma','platform');
+  const date        = get('Post Date','Campaign Date','Fecha','fecha','date');
+  const format      = get('Formato','formato','format','Format','Post Type');
+  const er          = get('ER% Profile Instagram','ER% Profile Tiktok','Engagement Rate','engagement_rate','ER','er');
+  return {influencer,platform,date,format,er,reach,impressions,interactions,likes,comments,shares,saves,views};
+}
+
 function displayMetrics(rows) {
+  const norm = rows.map(normalizeMetricRow);
   let totalReach=0, totalImpressions=0, totalInteractions=0;
-  rows.forEach(r=>{
-    totalReach += parseInt(r.Alcance||r.alcance||r.reach||r.Reach||0)||0;
-    totalImpressions += parseInt(r.Impresiones||r.impresiones||r.impressions||r.Impressions||0)||0;
-    totalInteractions += parseInt(r.Interacciones||r.interacciones||r.interactions||r.Interactions||0)||0;
+  norm.forEach(r=>{
+    totalReach       += r.reach;
+    totalImpressions += r.impressions;
+    totalInteractions+= r.interactions;
   });
   const er = totalReach>0 ? ((totalInteractions/totalReach)*100).toFixed(2)+'%' : '—';
   document.getElementById('mReach').textContent = formatNum(totalReach);
@@ -2744,31 +2778,49 @@ function displayMetrics(rows) {
   document.getElementById('mER').textContent = er;
 
   const tb = document.getElementById('metricsTable');
-  tb.innerHTML = rows.map(r=>`<tr>
-    <td>${r.Influencer||r.influencer||'—'}</td>
-    <td>${r.Formato||r.formato||r.format||'—'}</td>
-    <td>${r.Fecha||r.fecha||r.date||'—'}</td>
-    <td>${r.Plataforma||r.plataforma||r.platform||'—'}</td>
-    <td>${formatNum(r.Alcance||r.alcance||r.reach||0)}</td>
-    <td>${formatNum(r.Impresiones||r.impresiones||r.impressions||0)}</td>
-    <td>${formatNum(r.Interacciones||r.interacciones||r.interactions||0)}</td>
-    <td>${r['Engagement Rate']||r['engagement_rate']||r.ER||r.er||'—'}</td>
+  tb.innerHTML = norm.map(r=>`<tr>
+    <td>${r.influencer||'—'}</td>
+    <td>${r.format||r.platform||'—'}</td>
+    <td>${r.date||'—'}</td>
+    <td>${r.platform||'—'}</td>
+    <td>${formatNum(r.reach)}</td>
+    <td>${formatNum(r.impressions)}</td>
+    <td>${formatNum(r.interactions)}</td>
+    <td>${r.er||'—'}</td>
   </tr>`).join('');
 
   if(lineChartInst) lineChartInst.destroy();
   if(donutChartInst) donutChartInst.destroy();
-  const labels = rows.map(r=>r.Fecha||r.fecha||r.date||'').filter(Boolean);
-  const reaches = rows.map(r=>parseInt(r.Alcance||r.alcance||r.reach||0)||0);
-  const inters = rows.map(r=>parseInt(r.Interacciones||r.interacciones||r.interactions||0)||0);
+  const labels = norm.map(r=>r.date||r.influencer||'').filter(Boolean);
+  const reaches = norm.map(r=>r.reach);
+  const inters  = norm.map(r=>r.interactions);
   const lc = document.getElementById('lineChart'); if(!lc) return;
   lineChartInst = new Chart(lc.getContext('2d'),{type:'line',data:{labels,datasets:[
     {label:'Alcance',data:reaches,borderColor:'#ff2d87',backgroundColor:'rgba(255,45,135,0.1)',tension:.4,fill:true,pointBackgroundColor:'#ff2d87'},
     {label:'Interacciones',data:inters,borderColor:'#2c6dff',backgroundColor:'rgba(44,109,255,0.08)',tension:.4,fill:true,pointBackgroundColor:'#2c6dff'}
   ]},options:{responsive:true,plugins:{legend:{position:'top'}},scales:{y:{beginAtZero:true}}}});
   const dc = document.getElementById('donutChart'); if(!dc) return;
+  const totLikes    = norm.reduce((s,r)=>s+r.likes,0);
+  const totComments = norm.reduce((s,r)=>s+r.comments,0);
+  const totShares   = norm.reduce((s,r)=>s+r.shares,0);
+  const totSaves    = norm.reduce((s,r)=>s+r.saves,0);
+  const totViews    = norm.reduce((s,r)=>s+r.views,0);
+  // Only include non-zero buckets for clarity
+  const donutData = [
+    {l:'Likes',v:totLikes,c:'#ff2d87'},
+    {l:'Comentarios',v:totComments,c:'#2c6dff'},
+    {l:'Shares',v:totShares,c:'#c6f24a'},
+    {l:'Guardados',v:totSaves,c:'#ffb3d3'},
+    {l:'Views',v:totViews,c:'#fbbf24'},
+  ].filter(d=>d.v>0);
+  const fallback = donutData.length === 0;
   donutChartInst = new Chart(dc.getContext('2d'),{type:'doughnut',data:{
-    labels:['Likes','Comentarios','Shares','Guardados'],
-    datasets:[{data:[45,25,15,15],backgroundColor:['#ff2d87','#2c6dff','#c6f24a','#ffb3d3'],borderWidth:0,hoverOffset:6}]
+    labels: fallback ? ['Sin datos'] : donutData.map(d=>d.l),
+    datasets:[{
+      data: fallback ? [1] : donutData.map(d=>d.v),
+      backgroundColor: fallback ? ['#e5e7eb'] : donutData.map(d=>d.c),
+      borderWidth:0,hoverOffset:6
+    }]
   },options:{responsive:true,plugins:{legend:{position:'right',labels:{font:{size:12}}}},cutout:'65%'}});
 }
 
@@ -3896,7 +3948,9 @@ auth.onAuthStateChanged(async (user) => {
     email: currentUserProfile.email,
     role: currentUserProfile.role,
     area: currentUserProfile.area || '',
-    photoURL: currentUserProfile.photoURL || null
+    photoURL: currentUserProfile.photoURL || null,
+    profileEmoji: currentUserProfile.profileEmoji || '',
+    profileGradient: currentUserProfile.profileGradient || ''
   };
   await memberRef.set(memberProfile, {merge:true});
 
@@ -4430,10 +4484,13 @@ async function saveMyProfile() {
     profileEmoji: emoji,
     profileGradient: _editProfileGradient,
   };
-  // Update Firestore member profile
+  // Update both user doc (for persistence across sessions) and members (for team visibility)
   try {
     const ws = db.collection('workspaces').doc('default');
-    await ws.collection('members').doc(currentUser.uid).set(updates, {merge:true});
+    await Promise.all([
+      ws.collection('members').doc(currentUser.uid).set(updates, {merge:true}),
+      db.collection('users').doc(currentUser.uid).set(updates, {merge:true})
+    ]);
     Object.assign(currentUserProfile, updates);
     updateSidebarAvatar();
     const roleBadge = document.getElementById('userRoleSidebar');
