@@ -3284,8 +3284,15 @@ function parseCSV(text) {
     }
     result.push(cur.trim()); return result;
   }
-  const headers = splitLine(lines[0]);
-  return lines.slice(1).filter(l=>l.trim()).map(line=>{
+  // Smart header detection: if first row has ≤3 unique non-empty values and many columns,
+  // it's a category/meta row (e.g. "Must Have, Must Have, ...") → skip it, use row 2 as headers
+  let headerLine = 0;
+  const firstRow = splitLine(lines[0]);
+  const uniqueFirst = new Set(firstRow.filter(Boolean));
+  if(uniqueFirst.size <= 4 && firstRow.length > 5) headerLine = 1;
+  if(lines.length <= headerLine + 1) return [];
+  const headers = splitLine(lines[headerLine]);
+  return lines.slice(headerLine + 1).filter(l=>l.trim()).map(line=>{
     const vals = splitLine(line);
     const obj={};
     headers.forEach((h,i)=>obj[h]=vals[i]||'');
@@ -3356,20 +3363,20 @@ function displayMetrics(rows, campaign) {
   };
   const tb = document.getElementById('metricsTable');
   tb.innerHTML = rows.map(r=>`<tr>
-    <td>${gs(r,'Influencer','Creator','Creador','Cuenta')}</td>
+    <td>${gs(r,'Influencer Name','Influencer','Creator','Creador','Cuenta')}</td>
     <td>${gs(r,'Formato','Format','Tipo','Type','Content Type')}</td>
-    <td>${gs(r,'Fecha','Date')}</td>
-    <td>${gs(r,'Plataforma','Platform','Red Social','Network','Canal')}</td>
+    <td>${gs(r,'Post Date','Campaign Date','Fecha','Date')}</td>
+    <td>${gs(r,'Platform','Plataforma','Red Social','Network','Canal')}</td>
     <td>${formatNum(rowViews(r))}</td>
-    <td>${formatNum(gi(r,'Reach','Alcance'))}</td>
-    <td>${formatNum(gi(r,'Likes','Me gusta','organic likes'))}</td>
+    <td>${formatNum(gi(r,'Organic_Reach','Reach','Alcance'))}</td>
+    <td>${formatNum(gi(r,'Organic_Likes','Likes','Me gusta'))}</td>
     <td>${formatNum(rowEng(r))}</td>
-    <td>${gs(r,'Engagement Rate','ER','Tasa de Engagement','Tasa Engagement')}</td>
+    <td>${gs(r,'ER% Profile Instagram','ER% Profile Tiktok','Engagement Rate','ER','Tasa Engagement')}</td>
   </tr>`).join('');
 
   if(lineChartInst) lineChartInst.destroy();
   if(donutChartInst) donutChartInst.destroy();
-  const labels = rows.map(r=>r.Fecha||r.fecha||r.date||'').filter(Boolean);
+  const labels    = rows.map(r=>gs(r,'Post Date','Campaign Date','Fecha','Date')).filter(v=>v&&v!=='—');
   const viewsData = rows.map(r=>rowViews(r));
   const engData   = rows.map(r=>rowEng(r));
   const lc = document.getElementById('lineChart'); if(!lc) return;
@@ -3378,12 +3385,21 @@ function displayMetrics(rows, campaign) {
     {label:'Engagement',data:engData,borderColor:'#2c6dff',backgroundColor:'rgba(44,109,255,0.08)',tension:.4,fill:true,pointBackgroundColor:'#2c6dff'}
   ]},options:{responsive:true,plugins:{legend:{position:'top'}},scales:{y:{beginAtZero:true}}}});
   const dc = document.getElementById('donutChart'); if(!dc) return;
-  const donutData = breakdownSum>0
-    ? [totalLikes,totalComments,totalShares,totalSaves]
-    : [45,25,15,15];
+  // Dynamic donut: only show non-zero buckets, no hardcoded fallback
+  const donutBuckets = [
+    {l:'Likes',v:totalLikes,c:'#ff2d87'},
+    {l:'Comentarios',v:totalComments,c:'#2c6dff'},
+    {l:'Shares',v:totalShares,c:'#c6f24a'},
+    {l:'Guardados',v:totalSaves,c:'#ffb3d3'},
+  ].filter(d=>d.v>0);
+  const noDonutData = donutBuckets.length === 0;
   donutChartInst = new Chart(dc.getContext('2d'),{type:'doughnut',data:{
-    labels:['Likes','Comentarios','Shares','Guardados'],
-    datasets:[{data:donutData,backgroundColor:['#ff2d87','#2c6dff','#c6f24a','#ffb3d3'],borderWidth:0,hoverOffset:6}]
+    labels: noDonutData ? ['Sin datos'] : donutBuckets.map(d=>d.l),
+    datasets:[{
+      data: noDonutData ? [1] : donutBuckets.map(d=>d.v),
+      backgroundColor: noDonutData ? ['#e5e7eb'] : donutBuckets.map(d=>d.c),
+      borderWidth:0,hoverOffset:6
+    }]
   },options:{responsive:true,plugins:{legend:{position:'right',labels:{font:{size:12}}}},cutout:'65%'}});
 }
 
