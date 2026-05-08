@@ -680,6 +680,19 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
   position:absolute; bottom:-2px; right:-2px; width:9px; height:9px;
   border-radius:50%; background:#4ec38a; border:1.5px solid #141418;
 }
+.sidebar-avatar-tooltip {
+  position:absolute; left:calc(100% + 10px); top:50%; transform:translateY(-50%);
+  background:#1e1c24; color:#e8e6f0; font-size:11px; font-weight:500;
+  padding:5px 10px; border-radius:8px; white-space:nowrap; pointer-events:none;
+  opacity:0; transition:opacity .15s ease; z-index:9999;
+  box-shadow:0 4px 12px rgba(0,0,0,.4);
+  border:1px solid rgba(255,255,255,.08);
+}
+.sidebar-avatar-tooltip::before {
+  content:''; position:absolute; right:100%; top:50%; transform:translateY(-50%);
+  border:5px solid transparent; border-right-color:#1e1c24;
+}
+.sidebar-team-avatar:hover .sidebar-avatar-tooltip { opacity:1; }
 
 /* ---- Sidebar status clear button ---- */
 .sidebar-user-status-row {
@@ -5555,10 +5568,11 @@ function renderSidebarTeam() {
     const bg      = u.profileGradient || 'var(--lavender)';
     const content = u.profileEmoji || (u.name||u.email||'?')[0].toUpperCase();
     const hasStatus = !!u.statusText;
-    const title   = [u.name||u.email, u.statusText ? (u.statusEmoji||'') + ' ' + u.statusText : ''].filter(Boolean).join(' · ');
-    return `<div class="sidebar-team-avatar" style="background:${bg};" onclick="openProfileModal('${u.uid}')" title="${title}">
+    const tooltipText = hasStatus ? `${u.statusEmoji||'💬'} ${u.statusText}` : (u.name||u.email||'');
+    return `<div class="sidebar-team-avatar" style="background:${bg};" onclick="openProfileModal('${u.uid}')">
       ${content}
       ${hasStatus ? '<div class="team-status-dot"></div>' : ''}
+      <div class="sidebar-avatar-tooltip">${tooltipText}</div>
     </div>`;
   }).join('');
 }
