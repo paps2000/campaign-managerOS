@@ -969,6 +969,10 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
   .form-row { grid-template-columns:1fr; }
   .metrics-grid { grid-template-columns:1fr; }
 }
+@media (max-width:768px) {
+  /* No hover on touch — tooltip inaccessible; status visible via tap→profile */
+  .sidebar-avatar-tooltip { display:none !important; }
+}
 /* Profile edit */
 .profile-gradient-swatch {
   width:36px;height:36px;border-radius:10px;cursor:pointer;border:3px solid transparent;
