@@ -1571,6 +1571,21 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
   </div>
 </div>
 
+<!-- MODAL: TASK DETAIL -->
+<div class="modal-overlay" id="taskDetailModal">
+  <div class="modal" style="width:480px;">
+    <div class="modal-header">
+      <div class="modal-title" id="tdTitle"></div>
+      <button class="modal-close" onclick="closeModal('taskDetailModal')"><span class="icn-close"></span></button>
+    </div>
+    <div id="taskDetailBody" style="padding:4px 0 8px;"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('taskDetailModal')">Cerrar</button>
+      <button class="btn btn-primary" id="tdEditBtn">Editar tarea</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL: PROFILE -->
 <div class="modal-overlay" id="profileModal">
   <div class="modal" style="width:580px;max-height:80vh;">
@@ -2658,7 +2673,7 @@ function _taskItemHtml(t, cid) {
   <div class="task-item">
     <div class="task-check ${t.done?'done':''}" onclick="toggleTask('${t.id}','${cid}')"></div>
     <div class="priority-dot priority-${t.priority}"></div>
-    <div class="task-info">
+    <div class="task-info" onclick="openTaskDetail('${t.id}','${cid}')" style="cursor:pointer;">
       <div class="task-title ${t.done?'done-text':''}">${t.title}</div>
       <div class="task-meta" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">${assigneeHtml}${t.dueDate?`<span>${formatDate(t.dueDate)}</span>`:''}</div>
     </div>
@@ -3910,6 +3925,54 @@ function openAddGlobalTaskModal() {
   document.getElementById('fTaskRecurringDay').value = new Date().getDay().toString();
   document.querySelector('#taskModal .modal-title').textContent='Nueva tarea';
   openModal('taskModal');
+}
+
+function openTaskDetail(tid, cid) {
+  let task = null;
+  if(cid) { const c = _cache.campaigns.find(x=>x.id===cid); if(c) task = c.tasks.find(x=>x.id===tid); }
+  else { task = (_cache.globalTasks||[]).find(x=>x.id===tid); }
+  if(!task) { showToast('Tarea no encontrada','error'); return; }
+
+  const u = allUsers.find(x=>x.uid===task.assigneeUid);
+  const assigneeName = u ? (u.name||u.email.split('@')[0]) : (task.assignee||'—');
+  const prioMap = {high:['#fee2e2','#991b1b','Alta'], medium:['#fef9c3','#854d0e','Media'], low:['#dcfce7','#15803d','Baja']};
+  const [pbg,pcol,plbl] = prioMap[task.priority]||prioMap.medium;
+  const dayNames = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+
+  document.getElementById('tdTitle').textContent = task.title;
+  document.getElementById('taskDetailBody').innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:14px;padding:4px 0;">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+        <span style="font-size:12px;padding:3px 10px;border-radius:10px;background:${pbg};color:${pcol};font-weight:600;">${plbl}</span>
+        ${task.done ? '<span style="font-size:12px;padding:3px 10px;border-radius:10px;background:#dcfce7;color:#15803d;font-weight:600;">✓ Completada</span>' : '<span style="font-size:12px;padding:3px 10px;border-radius:10px;background:#f1f5f9;color:#475569;font-weight:600;">Pendiente</span>'}
+        ${task.recurring ? `<span style="font-size:12px;padding:3px 10px;border-radius:10px;background:#ede9fe;color:#6d28d9;font-weight:600;">🔄 ${dayNames[task.recurringDay]||''}</span>` : ''}
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div>
+          <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px;">Asignado a</div>
+          <div style="display:flex;align-items:center;gap:6px;">${memberAvatarHtml(u||{name:assigneeName},20)} <span style="font-size:14px;">${assigneeName}</span></div>
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px;">Fecha límite</div>
+          <div style="font-size:14px;">${task.dueDate ? formatDate(task.dueDate) : '—'}</div>
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px;">Campaña</div>
+          <div style="font-size:14px;">${task.campaignName||'General'}</div>
+        </div>
+      </div>
+      ${task.docLink ? `<div>
+        <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px;">Documento</div>
+        <a href="${task.docLink}" target="_blank" rel="noopener noreferrer" style="font-size:14px;color:var(--blue);word-break:break-all;">${task.docLink}</a>
+      </div>` : ''}
+      ${task.notes ? `<div>
+        <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px;">Notas</div>
+        <div style="font-size:14px;line-height:1.5;white-space:pre-wrap;">${task.notes}</div>
+      </div>` : ''}
+    </div>`;
+
+  document.getElementById('tdEditBtn').onclick = () => { closeModal('taskDetailModal'); openEditTaskModal(tid, cid); };
+  openModal('taskDetailModal');
 }
 
 function openEditTaskModal(tid, cid) {
