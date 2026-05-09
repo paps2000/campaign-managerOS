@@ -47,6 +47,105 @@
   --shadow-lg: 0 18px 44px rgba(10,10,12,.10);
   --ease: cubic-bezier(.2,.8,.2,1);
 }
+/* ============================================================
+   THEME PALETTES — override accent vars on body class
+   ============================================================ */
+body.theme-ocean {
+  --pink:#2563eb; --pink-deep:#1d4ed8; --pink-light:#93c5fd; --pink-pale:#dbeafe;
+  --accent-shadow:rgba(37,99,235,.35);
+}
+body.theme-forest {
+  --pink:#16a34a; --pink-deep:#15803d; --pink-light:#86efac; --pink-pale:#dcfce7;
+  --accent-shadow:rgba(22,163,74,.35);
+}
+body.theme-royal {
+  --pink:#7c3aed; --pink-deep:#6d28d9; --pink-light:#c4b5fd; --pink-pale:#ede9fe;
+  --accent-shadow:rgba(124,58,237,.35);
+}
+body.theme-sunset {
+  --pink:#ea580c; --pink-deep:#c2410c; --pink-light:#fdba74; --pink-pale:#ffedd5;
+  --accent-shadow:rgba(234,88,12,.35);
+}
+body.theme-rose {
+  --pink:#e11d48; --pink-deep:#be123c; --pink-light:#fda4af; --pink-pale:#ffe4e6;
+  --accent-shadow:rgba(225,29,72,.35);
+}
+/* default pink theme keeps existing vars — no override needed */
+
+/* ============================================================
+   NOTIFICATION BELL
+   ============================================================ */
+.notif-bell-btn {
+  position:relative; background:none; border:none; cursor:pointer;
+  width:36px; height:36px; border-radius:10px; display:flex; align-items:center;
+  justify-content:center; color:var(--text-muted); transition:all .2s var(--ease);
+  font-size:18px;
+}
+.notif-bell-btn:hover { background:var(--pink-pale); color:var(--pink); }
+.notif-badge {
+  position:absolute; top:2px; right:2px; min-width:16px; height:16px;
+  background:var(--pink); color:#fff; font-size:9px; font-weight:700;
+  border-radius:8px; display:none; align-items:center; justify-content:center;
+  padding:0 3px; border:2px solid var(--bg);
+}
+.notif-panel {
+  position:fixed; top:58px; right:16px; width:340px; max-height:480px;
+  background:var(--white); border:1px solid var(--border); border-radius:18px;
+  box-shadow:var(--shadow-lg); z-index:1000; display:none; flex-direction:column;
+  overflow:hidden;
+}
+.notif-panel.open { display:flex; }
+.notif-panel-header {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:14px 16px 10px; border-bottom:1px solid var(--border); flex-shrink:0;
+}
+.notif-panel-header span { font-size:14px; font-weight:700; }
+.notif-list { overflow-y:auto; flex:1; }
+.notif-item {
+  display:flex; gap:10px; padding:12px 16px; border-bottom:1px solid var(--border);
+  cursor:pointer; transition:background .15s;
+}
+.notif-item:hover { background:var(--bg); }
+.notif-item.unread { background:var(--pink-pale); }
+.notif-item.unread:hover { background:var(--pink-pale); filter:brightness(.97); }
+.notif-avatar { width:32px; height:32px; border-radius:10px; background:var(--pink); color:#fff; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:700; flex-shrink:0; }
+.notif-body { flex:1; min-width:0; }
+.notif-body p { font-size:12px; color:var(--text); line-height:1.4; }
+.notif-body time { font-size:10px; color:var(--text-muted); margin-top:2px; display:block; }
+.notif-empty { padding:32px 16px; text-align:center; color:var(--text-muted); font-size:13px; }
+
+/* ============================================================
+   EMOJI REACTIONS
+   ============================================================ */
+.task-reactions { display:flex; gap:4px; flex-wrap:wrap; margin-top:4px; }
+.reaction-btn {
+  font-size:12px; padding:2px 7px; border-radius:10px;
+  border:1px solid var(--border); background:none; cursor:pointer;
+  transition:all .15s; color:var(--text); line-height:1.4;
+}
+.reaction-btn:hover { border-color:var(--pink); background:var(--pink-pale); }
+.reaction-btn.reacted { border-color:var(--pink); background:var(--pink-pale); color:var(--pink-deep); font-weight:700; }
+
+/* ============================================================
+   KUDOS
+   ============================================================ */
+.kudos-btn {
+  font-size:11px; padding:4px 10px; border-radius:20px;
+  border:1.5px solid var(--border); background:none; cursor:pointer;
+  color:var(--text-muted); transition:all .15s; white-space:nowrap;
+}
+.kudos-btn:hover { border-color:#f59e0b; color:#b45309; background:#fef3c7; }
+
+/* ============================================================
+   THEME PICKER
+   ============================================================ */
+.theme-swatch {
+  width:28px; height:28px; border-radius:50%; cursor:pointer;
+  border:3px solid transparent; transition:all .15s; flex-shrink:0;
+}
+.theme-swatch:hover { transform:scale(1.15); }
+.theme-swatch.selected { border-color:var(--text); transform:scale(1.15); }
+
 * { margin:0; padding:0; box-sizing:border-box; }
 body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); color:var(--text); display:flex; height:100vh; overflow:hidden; -webkit-font-smoothing:antialiased; }
 
@@ -680,6 +779,19 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
   position:absolute; bottom:-2px; right:-2px; width:9px; height:9px;
   border-radius:50%; background:#4ec38a; border:1.5px solid #141418;
 }
+.sidebar-avatar-tooltip {
+  position:absolute; left:calc(100% + 10px); top:50%; transform:translateY(-50%);
+  background:#1e1c24; color:#e8e6f0; font-size:11px; font-weight:500;
+  padding:5px 10px; border-radius:8px; white-space:nowrap; pointer-events:none;
+  opacity:0; transition:opacity .15s ease; z-index:9999;
+  box-shadow:0 4px 12px rgba(0,0,0,.4);
+  border:1px solid rgba(255,255,255,.08);
+}
+.sidebar-avatar-tooltip::before {
+  content:''; position:absolute; right:100%; top:50%; transform:translateY(-50%);
+  border:5px solid transparent; border-right-color:#1e1c24;
+}
+.sidebar-team-avatar:hover .sidebar-avatar-tooltip { opacity:1; }
 
 /* ---- Sidebar status clear button ---- */
 .sidebar-user-status-row {
@@ -956,6 +1068,10 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
   .form-row { grid-template-columns:1fr; }
   .metrics-grid { grid-template-columns:1fr; }
 }
+@media (max-width:768px) {
+  /* No hover on touch — tooltip inaccessible; status visible via tap→profile */
+  .sidebar-avatar-tooltip { display:none !important; }
+}
 /* Profile edit */
 .profile-gradient-swatch {
   width:36px;height:36px;border-radius:10px;cursor:pointer;border:3px solid transparent;
@@ -1155,8 +1271,22 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
     </div>
     <div class="topbar-right">
       <span class="topbar-date" id="topbarDate"></span>
+      <button class="notif-bell-btn" id="notifBellBtn" onclick="toggleNotifPanel()" title="Notificaciones">
+        🔔
+        <span class="notif-badge" id="notifBadge"></span>
+      </button>
       <button class="btn btn-primary" id="mainActionBtn" onclick="openNewCampaignModal()">+ Nueva campaña</button>
       <button class="logout-btn" onclick="logout()" title="Cerrar sesión">⎋ Salir</button>
+    </div>
+    <!-- NOTIFICATION PANEL -->
+    <div class="notif-panel" id="notifPanel">
+      <div class="notif-panel-header">
+        <span>🔔 Notificaciones</span>
+        <button onclick="markAllNotifsRead()" style="font-size:11px;background:none;border:none;cursor:pointer;color:var(--pink);font-weight:600;">Marcar todo leído</button>
+      </div>
+      <div class="notif-list" id="notifList">
+        <div class="notif-empty">Sin notificaciones</div>
+      </div>
     </div>
   </div>
 
@@ -1369,10 +1499,28 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
 
         <!-- TAB: TRACKER -->
         <div class="tab-content" id="tab-tracker">
-          <div class="sheets-sync-bar" style="margin-bottom:16px;">
-            <span style="font-size:12px;font-weight:600;color:#3a7a5e;white-space:nowrap;">📊 Master Tracker</span>
-            <input type="text" id="trackerSheetsUrl" class="form-input" placeholder="URL del Google Sheets master tracker..." oninput="saveTrackerUrl()">
-            <button class="btn btn-ghost btn-sm" onclick="syncTracker()">Sincronizar</button>
+          <div style="background:var(--bg);border:1px solid var(--border);border-radius:14px;padding:14px 16px;margin-bottom:16px;">
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
+              <span style="font-size:12px;font-weight:700;color:#3a7a5e;white-space:nowrap;">📊 Master Tracker</span>
+              <input type="text" id="trackerSheetsUrl" class="form-input" style="flex:1;min-width:180px;font-size:12px;" placeholder="URL del Google Sheets master tracker..." oninput="saveTrackerUrl()">
+              <button class="btn btn-ghost btn-sm" onclick="syncTracker()">🔄 Sincronizar</button>
+              <span id="trackerLastSync" style="font-size:11px;color:var(--text-muted);"></span>
+            </div>
+            <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;">
+              <div style="display:flex;align-items:center;gap:6px;">
+                <label style="font-size:11px;font-weight:600;color:var(--text-muted);white-space:nowrap;">Pestaña AON:</label>
+                <input type="text" id="trackerAonTab" class="form-input" style="width:110px;font-size:12px;" placeholder="ej: AON" oninput="saveTrackerConfig()">
+              </div>
+              <div id="trackerNanoTabGroup" style="display:none;align-items:center;gap:6px;">
+                <label style="font-size:11px;font-weight:600;color:var(--text-muted);white-space:nowrap;">Pestaña Nano/CGC:</label>
+                <input type="text" id="trackerNanoTab" class="form-input" style="width:110px;font-size:12px;" placeholder="ej: NANO" oninput="saveTrackerConfig()">
+              </div>
+            </div>
+          </div>
+          <div id="trackerBatchPills" style="display:none;margin-bottom:14px;gap:8px;">
+            <button class="metrics-tab-pill active" onclick="setTrackerBatchFilter('all',this)">Todos</button>
+            <button class="metrics-tab-pill" onclick="setTrackerBatchFilter('aon',this)">AON</button>
+            <button class="metrics-tab-pill" onclick="setTrackerBatchFilter('nano',this)">Nano/CGC</button>
           </div>
           <div id="trackerTableWrap">
             <div class="empty-state"><p>Vincula el master tracker para ver las publicaciones</p></div>
@@ -1745,6 +1893,28 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
         <input type="date" class="form-input" id="fCampEndDate">
       </div>
     </div>
+    <div style="border:1.5px solid var(--border);border-radius:12px;padding:14px;margin-bottom:4px;">
+      <div style="display:flex;align-items:center;gap:10px;cursor:pointer;" onclick="document.getElementById('fCampHasNano').click()">
+        <input type="checkbox" id="fCampHasNano" onchange="toggleNanoSection()" onclick="event.stopPropagation()" style="width:16px;height:16px;accent-color:var(--pink);flex-shrink:0;">
+        <div>
+          <div style="font-size:13px;font-weight:700;">¿Incluir estrategia Nano / CGC?</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">Agrega un segundo batch de creadores con su propio tracker</div>
+        </div>
+      </div>
+      <div id="fCampNanoSection" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid var(--border);">
+        <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;">Configuración Nano/CGC</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Pestaña AON en el Sheet</label>
+            <input type="text" class="form-input" id="fCampAonTab" placeholder="ej: AON">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Pestaña Nano/CGC en el Sheet</label>
+            <input type="text" class="form-input" id="fCampNanoTab" placeholder="ej: NANO">
+          </div>
+        </div>
+      </div>
+    </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('campaignModal')">Cancelar</button>
       <button class="btn btn-primary" onclick="saveCampaign()">Guardar campaña</button>
@@ -1946,6 +2116,32 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
         </div>
         <div style="font-size:10px;color:var(--text-muted);margin-top:4px;">Visible para tu equipo en el sidebar y perfil.</div>
       </div>
+
+        <div class="form-group" style="margin-top:16px;">
+          <label class="form-label">Pronombres</label>
+          <select class="form-input" id="profilePronounsInput">
+            <option value="">— No especificar —</option>
+            <option value="ella/sus">ella/sus</option>
+            <option value="él/sus">él/sus</option>
+            <option value="elle/sus">elle/sus</option>
+            <option value="they/them">they/them</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Tagline personal</label>
+          <input type="text" class="form-input" id="profileTaglineInput" placeholder="ej: Estratega de contenido · Amante del café ☕" maxlength="80">
+        </div>
+        <div class="form-group">
+          <label class="form-label">🎨 Tema de color</label>
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:6px;">
+            <button class="theme-swatch" id="theme-default" style="background:linear-gradient(135deg,#ff2d87,#e6126d);" onclick="applyTheme('default')" title="Think Y (Rosa)"></button>
+            <button class="theme-swatch" id="theme-ocean"   style="background:linear-gradient(135deg,#2563eb,#1d4ed8);" onclick="applyTheme('ocean')"   title="Ocean (Azul)"></button>
+            <button class="theme-swatch" id="theme-forest"  style="background:linear-gradient(135deg,#16a34a,#15803d);" onclick="applyTheme('forest')"  title="Forest (Verde)"></button>
+            <button class="theme-swatch" id="theme-royal"   style="background:linear-gradient(135deg,#7c3aed,#6d28d9);" onclick="applyTheme('royal')"   title="Royal (Morado)"></button>
+            <button class="theme-swatch" id="theme-sunset"  style="background:linear-gradient(135deg,#ea580c,#c2410c);" onclick="applyTheme('sunset')"  title="Sunset (Naranja)"></button>
+            <button class="theme-swatch" id="theme-rose"    style="background:linear-gradient(135deg,#e11d48,#be123c);" onclick="applyTheme('rose')"    title="Rose (Rojo)"></button>
+          </div>
+        </div>
 
       <!-- Bio -->
       <div class="form-group">
@@ -2551,7 +2747,7 @@ function renderDashboard() {
     // Also pull from tracker rows
     const gst = (r,...keys)=>{for(const k of keys){const kn=k.toLowerCase().replace(/_/g,' ');for(const rk of Object.keys(r)){if(rk.toLowerCase().replace(/_/g,' ')===kn&&r[rk])return r[rk];}}return '';};
     (c.trackerRows||[]).forEach(row=>{
-      const pubDate = gst(row,'Fecha de publicación','Fecha publicación','Fecha pub','Fecha','publish date','date','fecha');
+      const pubDate = gst(row,'FECHA DE POST','Fecha de Post','Fecha de publicación','Fecha publicación','Fecha pub','Fecha','publish date','date','fecha');
       if(pubDate && pubDate >= today && pubDate <= weekEndStr) {
         upcomingPubs.push({
           name: gst(row,'Influencer','Nombre','Perfil','Creator','name'),
@@ -2920,6 +3116,10 @@ function _taskItemHtml(t, cid) {
     </div>
     <button class="task-edit-btn" onclick="openEditTaskModal('${t.id}','${cid}')" title="Editar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></svg></button>
     <button onclick="deleteTask('${t.id}','${cid}')" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:12px;padding:4px;"><span class="icn-close"></span></button>
+  </div>
+  <div style="padding:0 8px 2px 38px;display:flex;align-items:center;gap:4px;">
+    ${_reactionHtml(t,cid)}
+    <button onclick="showReactions('${t.id}','${cid}',event)" style="font-size:11px;background:none;border:none;cursor:pointer;color:var(--text-muted);padding:2px 4px;" title="Reaccionar">😊+</button>
   </div>`;
 }
 
@@ -2966,13 +3166,405 @@ function renderCampaignTasks(c) {
   }).join('');
 }
 
+// ============================================================
+// THEMES
+// ============================================================
+const THEMES = ['default','ocean','forest','royal','sunset','rose'];
+
+function applyTheme(name) {
+  THEMES.forEach(t => document.body.classList.remove('theme-'+t));
+  if(name && name !== 'default') document.body.classList.add('theme-'+name);
+  // Update swatch selection UI
+  THEMES.forEach(t => {
+    const sw = document.getElementById('theme-'+t);
+    if(sw) sw.classList.toggle('selected', t === (name||'default'));
+  });
+  // Persist
+  if(currentUserProfile) {
+    currentUserProfile.theme = name || 'default';
+    try {
+      db.collection('users').doc(currentUser.uid).update({theme: name||'default'});
+      db.collection('workspaces').doc(WORKSPACE).collection('members').doc(currentUser.uid).set({theme:name||'default'},{merge:true});
+    } catch(e) {}
+  }
+}
+
+function loadTheme(profile) {
+  if(profile?.theme) applyTheme(profile.theme);
+}
+
+// ============================================================
+// NOTIFICATIONS
+// ============================================================
+let _notifUnsub = null;
+let _notifs = [];
+
+function initNotifications() {
+  if(!currentUser || !db) return;
+  if(_notifUnsub) _notifUnsub();
+  const q = db.collection('workspaces').doc(WORKSPACE)
+    .collection('notifications')
+    .where('toUid','==',currentUser.uid)
+    .orderBy('createdAt','desc')
+    .limit(30);
+  _notifUnsub = q.onSnapshot(snap => {
+    _notifs = snap.docs.map(d=>({id:d.id,...d.data()}));
+    _renderNotifBell();
+  }, () => {});
+}
+
+function _renderNotifBell() {
+  const unread = _notifs.filter(n=>!n.read).length;
+  const badge = document.getElementById('notifBadge');
+  if(badge) {
+    badge.textContent = unread > 9 ? '9+' : (unread || '');
+    badge.style.display = unread > 0 ? 'flex' : 'none';
+  }
+  const list = document.getElementById('notifList');
+  if(!list) return;
+  if(!_notifs.length) { list.innerHTML='<div class="notif-empty">Sin notificaciones 🎉</div>'; return; }
+  list.innerHTML = _notifs.map(n => {
+    const ago = _timeAgo(n.createdAt?.toDate ? n.createdAt.toDate() : new Date(n.createdAt||Date.now()));
+    const icon = n.type==='kudos'?'🏆':n.type==='task_assigned'?'✅':'💬';
+    return `<div class="notif-item ${n.read?'':'unread'}" onclick="markNotifRead('${n.id}')">
+      <div class="notif-avatar">${icon}</div>
+      <div class="notif-body">
+        <p>${n.text||''}</p>
+        <time>${ago}</time>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function _timeAgo(date) {
+  if(!date) return '';
+  const diff = Math.floor((Date.now() - date.getTime())/1000);
+  if(diff < 60) return 'Ahora';
+  if(diff < 3600) return `${Math.floor(diff/60)}m`;
+  if(diff < 86400) return `${Math.floor(diff/3600)}h`;
+  return `${Math.floor(diff/86400)}d`;
+}
+
+function toggleNotifPanel() {
+  const panel = document.getElementById('notifPanel');
+  if(!panel) return;
+  const isOpen = panel.classList.toggle('open');
+  if(isOpen) {
+    // Close on outside click
+    setTimeout(()=>document.addEventListener('click', _closeNotifOnOutside, {once:true}),0);
+  }
+}
+
+function _closeNotifOnOutside(e) {
+  const panel = document.getElementById('notifPanel');
+  const btn = document.getElementById('notifBellBtn');
+  if(panel && !panel.contains(e.target) && !btn?.contains(e.target)) {
+    panel.classList.remove('open');
+  }
+}
+
+async function markNotifRead(nid) {
+  try {
+    await db.collection('workspaces').doc(WORKSPACE).collection('notifications').doc(nid).update({read:true});
+  } catch(e) {}
+}
+
+async function markAllNotifsRead() {
+  const unread = _notifs.filter(n=>!n.read);
+  await Promise.all(unread.map(n=>markNotifRead(n.id)));
+}
+
+async function _createNotification({toUid, type, text}) {
+  if(!toUid || toUid === currentUser?.uid) return;
+  try {
+    await db.collection('workspaces').doc(WORKSPACE).collection('notifications').add({
+      toUid, fromUid: currentUser.uid,
+      fromName: currentUserProfile?.name || currentUser.email,
+      type, text,
+      read: false,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+  } catch(e) {}
+}
+
+// ============================================================
+// KUDOS
+// ============================================================
+async function sendKudos(toUid, e) {
+  if(e) e.stopPropagation();
+  const toUser = allUsers.find(u=>u.uid===toUid);
+  if(!toUser) return;
+  const name = toUser.name || toUser.email.split('@')[0];
+  const emojis = ['🏆','⭐','🔥','💪','🎉','❤️','✨'];
+  const pick = emojis[Math.floor(Math.random()*emojis.length)];
+  await _createNotification({
+    toUid,
+    type: 'kudos',
+    text: `${pick} ${currentUserProfile?.name||'Alguien'} te envió kudos. ¡Buen trabajo!`
+  });
+  showToast(`Kudos enviado a ${name} ${pick}`,'success');
+}
+
+// ============================================================
+// EMOJI REACTIONS ON TASKS
+// ============================================================
+const REACTION_EMOJIS = ['👍','❤️','🔥','✅','😅'];
+
+function _reactionHtml(t, cid) {
+  const reactions = t.reactions || {};
+  const hasAny = Object.values(reactions).some(u=>u.length>0);
+  const buttons = REACTION_EMOJIS.map(e => {
+    const users = reactions[e] || [];
+    const reacted = users.includes(currentUser?.uid);
+    return users.length > 0 || !hasAny
+      ? `<button class="reaction-btn ${reacted?'reacted':''}" onclick="toggleReaction('${t.id}','${cid}','${e}',event)">${e}${users.length>0?' '+users.length:''}</button>`
+      : '';
+  }).join('');
+  // Show add-reaction button only if clicking it
+  return `<div class="task-reactions" style="${hasAny?'':'display:none'}" id="reactions-${t.id}">${buttons}</div>`;
+}
+
+function toggleReaction(tid, cid, emoji, e) {
+  if(e) e.stopPropagation();
+  if(!currentUser) return;
+  const uid = currentUser.uid;
+  // Find task in cache
+  let task = null;
+  if(cid) {
+    const c = _cache.campaigns.find(x=>x.id===cid);
+    if(c) task = c.tasks.find(x=>x.id===tid);
+  } else {
+    task = (_cache.globalTasks||[]).find(x=>x.id===tid);
+  }
+  if(!task) return;
+  if(!task.reactions) task.reactions = {};
+  if(!task.reactions[emoji]) task.reactions[emoji] = [];
+  const idx = task.reactions[emoji].indexOf(uid);
+  if(idx > -1) task.reactions[emoji].splice(idx,1);
+  else task.reactions[emoji].push(uid);
+  // Persist
+  if(cid) {
+    const campaigns = getData('campaigns');
+    const c = campaigns.find(x=>x.id===cid);
+    if(c) { const t2=c.tasks.find(x=>x.id===tid); if(t2) t2.reactions=task.reactions; setData('campaigns',campaigns); }
+  } else {
+    const tasks = getData('globalTasks');
+    const t2 = tasks.find(x=>x.id===tid);
+    if(t2) { t2.reactions=task.reactions; setData('globalTasks',tasks); }
+  }
+  // Re-render reactions inline
+  const el = document.getElementById('reactions-'+tid);
+  if(el) {
+    const hasAny = Object.values(task.reactions).some(u=>u.length>0);
+    el.style.display = hasAny ? '' : 'none';
+    el.innerHTML = REACTION_EMOJIS.map(em=>{
+      const users = task.reactions[em]||[];
+      const reacted = users.includes(uid);
+      return users.length>0
+        ? `<button class="reaction-btn ${reacted?'reacted':''}" onclick="toggleReaction('${tid}','${cid}','${em}',event)">${em} ${users.length}</button>`
+        : '';
+    }).join('');
+  }
+}
+
+function showReactions(tid, cid, e) {
+  if(e) e.stopPropagation();
+  const el = document.getElementById('reactions-'+tid);
+  if(el) {
+    el.style.display = '';
+    el.innerHTML = REACTION_EMOJIS.map(em=>`<button class="reaction-btn" onclick="toggleReaction('${tid}','${cid}','${em}',event)">${em}</button>`).join('');
+  }
+}
+
+function trackerStatusBadge(s) {
+  if(!s) return '<span style="color:var(--text-muted);">—</span>';
+  const sl = s.toLowerCase().replace(/[()]/g,'').trim();
+  const map = [
+    [['publicado'],                          '#166534','#fff'],
+    [['por publicar'],                       '#fca5a5','#991b1b'],
+    [['aprobado'],                           '#bbf7d0','#166534'],
+    [['revisión int','revision int','rev int','revisión (int','revision (int'], '#fef08a','#854d0e'],
+    [['revisión ext','revision ext','rev ext','revisión (ext','revision (ext'], '#fde047','#713f12'],
+    [['pendiente'],                          '#991b1b','#fff'],
+    [['en grabación','en grabacion','grabación','grabacion'], '#ede9fe','#5b21b6'],
+    [['corrigiendo'],                        '#78350f','#fff'],
+    [['trabajando guión','trabajando guion','trab. guión'], '#f3e8ff','#7c3aed'],
+  ];
+  for(const [keys,bg,col] of map) {
+    if(keys.some(k => sl.includes(k) || k.includes(sl))) {
+      return `<span style="font-size:11px;padding:2px 8px;border-radius:10px;background:${bg};color:${col};font-weight:600;white-space:nowrap;display:inline-block;">${s}</span>`;
+    }
+  }
+  return `<span style="font-size:11px;padding:2px 8px;border-radius:10px;background:rgba(0,0,0,.07);color:var(--text);font-weight:600;white-space:nowrap;display:inline-block;">${s}</span>`;
+}
+
+function setTrackerBatchFilter(batch, btn) {
+  _trackerBatchFilter = batch;
+  document.querySelectorAll('#trackerBatchPills .metrics-tab-pill').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  _renderTrackerSummaryAndTable();
+}
+
+function filterTrackerByStatus(field, value) {
+  _trackerStatusFilter = {field, value};
+  _renderTrackerSummaryAndTable();
+}
+
+function clearTrackerFilter() {
+  _trackerStatusFilter = null;
+  _renderTrackerSummaryAndTable();
+}
+
+function saveTrackerConfig() {
+  if(!currentCampaignId) return;
+  const campaigns = getData('campaigns');
+  const c = campaigns.find(x=>x.id===currentCampaignId);
+  if(!c) return;
+  const aonTab = document.getElementById('trackerAonTab')?.value?.trim()||'';
+  const nanoTab = document.getElementById('trackerNanoTab')?.value?.trim()||'';
+  c.trackerAonTab = aonTab;
+  c.trackerNanoTab = nanoTab;
+  setData('campaigns', campaigns);
+}
+
+function _startTrackerAutoRefresh(campaign) {
+  if(_trackerAutoRefreshTimer) clearInterval(_trackerAutoRefreshTimer);
+  _trackerAutoRefreshTimer = setInterval(() => {
+    if(currentCampaignId === campaign.id && document.getElementById('tab-tracker')?.classList.contains('active')) {
+      _autoFetchTracker(campaign.trackerSheetUrl, campaign);
+    }
+  }, 2 * 60 * 60 * 1000); // 2 hours
+}
+
+function _renderTrackerSummaryAndTable() {
+  const wrap = document.getElementById('trackerTableWrap');
+  if(!wrap || !_trackerAllRows.length) return;
+
+  const gst = (r, ...keys) => {
+    for(const k of keys){
+      const kn = k.toLowerCase().replace(/_/g,' ');
+      for(const rk of Object.keys(r)){
+        if(rk.toLowerCase().replace(/_/g,' ')===kn && r[rk]) return r[rk];
+      }
+    }
+    return '';
+  };
+
+  // Apply batch filter
+  let rows = _trackerAllRows;
+  if(_trackerBatchFilter === 'aon') rows = _trackerAllRows.filter(r=>(r._batch||'aon')==='aon');
+  else if(_trackerBatchFilter === 'nano') rows = _trackerAllRows.filter(r=>r._batch==='nano');
+
+  // Build status group counts
+  const countStatus = (colKeys) => {
+    const counts = {};
+    rows.forEach(r => {
+      const v = gst(r, ...colKeys);
+      if(v && v !== '—') counts[v] = (counts[v]||0) + 1;
+    });
+    return counts;
+  };
+
+  const guionCounts = countStatus(['ESTATUS GUIÓN','Estatus Guión','estatus guion','ESTATUS GUION']);
+  const contenidoCounts = countStatus(['ESTATUS CONTENIDO','Estatus Contenido','estatus contenido','ESTATUS CONTENIDO']);
+
+  // Apply status filter to table rows
+  let tableRows = rows;
+  if(_trackerStatusFilter) {
+    const {field, value} = _trackerStatusFilter;
+    const keys = field==='guion'
+      ? ['ESTATUS GUIÓN','Estatus Guión','estatus guion','ESTATUS GUION']
+      : ['ESTATUS CONTENIDO','Estatus Contenido','estatus contenido','ESTATUS CONTENIDO'];
+    tableRows = rows.filter(r => gst(r,...keys) === value);
+  }
+
+  const LINK_COLS = ['GUIÓN','ASSET','LINK TO POST','TESTIGO','Presentación Usada ABD','SS DÍA BOOST'];
+  const STATUS_COLS = ['ESTATUS GUIÓN','ESTATUS CONTENIDO'];
+  const DATE_COLS = ['FECHA DE POST'];
+  const COLS = ['Nombre','COMUNIDAD','COHORT','TIPO DE CONTENIDO','PLATAFORMA','GOODWILL','RÉPLICA','BRIEF','GUIÓN','ESTATUS GUIÓN','ASSET','COPY','FECHA DE POST','ESTATUS CONTENIDO','LINK TO POST','TESTIGO','Presentación Usada ABD','BOOST','CÓDIGO DE BOOST','SS DÍA BOOST','METRICAS','TRACKING','SENTIMENT'];
+
+  const makeSummaryCard = (status, count, field) =>
+    `<button onclick="filterTrackerByStatus('${field}','${status.replace(/'/g,"&#39;")}')"
+      style="border:1.5px solid var(--border);background:var(--white);border-radius:12px;padding:10px 14px;cursor:pointer;text-align:left;transition:border-color .15s;${_trackerStatusFilter&&_trackerStatusFilter.value===status?'border-color:var(--pink);':''}"
+      onmouseover="this.style.borderColor='var(--pink)'" onmouseout="this.style.borderColor='${_trackerStatusFilter&&_trackerStatusFilter.value===status?'var(--pink)':'var(--border)'}'">
+      <div style="font-size:24px;font-weight:800;color:var(--text);line-height:1;">${count}</div>
+      <div style="margin-top:6px;">${trackerStatusBadge(status)}</div>
+    </button>`;
+
+  const filterBar = _trackerStatusFilter
+    ? `<div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-muted);margin-bottom:10px;">
+        Filtrando por: ${trackerStatusBadge(_trackerStatusFilter.value)}
+        <button onclick="clearTrackerFilter()" style="background:none;border:none;cursor:pointer;color:var(--pink);font-size:12px;font-weight:700;">✕ Limpiar</button>
+        <span style="color:var(--text-muted);">${tableRows.length} resultado${tableRows.length!==1?'s':''}</span>
+       </div>`
+    : '';
+
+  wrap.innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:16px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:14px;padding:14px 16px;">
+          <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;">📝 Guión</div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;">
+            ${Object.entries(guionCounts).map(([s,c])=>makeSummaryCard(s,c,'guion')).join('')||'<span style="font-size:12px;color:var(--text-muted);">Sin datos</span>'}
+          </div>
+        </div>
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:14px;padding:14px 16px;">
+          <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;">🎬 Contenido / Asset</div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;">
+            ${Object.entries(contenidoCounts).map(([s,c])=>makeSummaryCard(s,c,'contenido')).join('')||'<span style="font-size:12px;color:var(--text-muted);">Sin datos</span>'}
+          </div>
+        </div>
+      </div>
+      ${filterBar}
+      <div class="table-wrap">
+        <table class="table">
+          <thead><tr>${COLS.map(c=>`<th style="white-space:nowrap;font-size:11px;">${c}</th>`).join('')}</tr></thead>
+          <tbody>
+            ${tableRows.length===0
+              ? `<tr><td colspan="${COLS.length}" style="text-align:center;color:var(--text-muted);padding:24px;">Sin resultados</td></tr>`
+              : tableRows.map(r=>`<tr>
+                ${COLS.map(col=>{
+                  const val = gst(r,col,col.toLowerCase(),col.toUpperCase());
+                  if(LINK_COLS.includes(col)) {
+                    return val&&(val.startsWith('http')||val.startsWith('www'))
+                      ? `<td><a href="${val}" target="_blank" rel="noopener" style="color:var(--blue);font-size:11px;white-space:nowrap;">Ver →</a></td>`
+                      : `<td style="font-size:12px;">${val||'—'}</td>`;
+                  }
+                  if(STATUS_COLS.includes(col)) return `<td>${val?trackerStatusBadge(val):'—'}</td>`;
+                  if(DATE_COLS.includes(col)) return `<td style="font-size:12px;white-space:nowrap;">${val?formatDateShort(val):'—'}</td>`;
+                  return `<td style="font-size:12px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${(val||'').replace(/"/g,'&quot;')}">${val||'—'}</td>`;
+                }).join('')}
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
 function renderCampaignTracker(c) {
+  _trackerBatchFilter = 'all';
+  _trackerStatusFilter = null;
+  // Populate config fields
   const urlInp = document.getElementById('trackerSheetsUrl');
   if(urlInp) urlInp.value = c.trackerSheetUrl || '';
+  const aonInp = document.getElementById('trackerAonTab');
+  if(aonInp) aonInp.value = c.trackerAonTab || '';
+  const nanoInp = document.getElementById('trackerNanoTab');
+  if(nanoInp) nanoInp.value = c.trackerNanoTab || '';
+  // Show/hide Nano tab input and batch pills
+  const nanoGrp = document.getElementById('trackerNanoTabGroup');
+  const batchPills = document.getElementById('trackerBatchPills');
+  if(nanoGrp) nanoGrp.style.display = c.hasNano ? 'flex' : 'none';
+  if(batchPills) batchPills.style.display = c.hasNano ? 'flex' : 'none';
+  // Show last sync time
+  const syncEl = document.getElementById('trackerLastSync');
+  if(syncEl && c.trackerLastSync) syncEl.textContent = 'Última sync: ' + new Date(c.trackerLastSync).toLocaleString('es-MX',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
   const wrap = document.getElementById('trackerTableWrap');
   if(!wrap) return;
   if(c.trackerRows && c.trackerRows.length) {
-    _renderTrackerTable(c.trackerRows);
+    _trackerAllRows = c.trackerRows;
+    _renderTrackerSummaryAndTable();
+    _startTrackerAutoRefresh(c);
   } else if(c.trackerSheetUrl) {
     wrap.innerHTML = `<div class="empty-state"><p>Cargando datos del tracker...</p></div>`;
     _autoFetchTracker(c.trackerSheetUrl, c);
@@ -2982,34 +3574,8 @@ function renderCampaignTracker(c) {
 }
 
 function _renderTrackerTable(rows) {
-  const wrap = document.getElementById('trackerTableWrap');
-  if(!wrap || !rows.length) return;
-  const gst = (r, ...keys) => {
-    for(const k of keys) {
-      const kn = k.toLowerCase().replace(/_/g,' ');
-      for(const rk of Object.keys(r)) {
-        if(rk.toLowerCase().replace(/_/g,' ')===kn && r[rk]) return r[rk];
-      }
-    }
-    return '—';
-  };
-  wrap.innerHTML = `
-    <div class="table-wrap">
-      <table class="table">
-        <thead><tr>
-          <th>Influencer</th><th>Plataforma</th><th>Tipo de contenido</th>
-          <th>Fecha de publicación</th><th>Estatus guión</th><th>Estatus contenido</th>
-        </tr></thead>
-        <tbody>${rows.map(r=>`<tr>
-          <td>${gst(r,'Influencer','Nombre','Perfil','Creator','name','perfil')}</td>
-          <td>${gst(r,'Plataforma','Platform','Red social','canal','network')}</td>
-          <td>${gst(r,'Tipo de contenido','Tipo','Content type','formato','format','type')}</td>
-          <td>${gst(r,'Fecha de publicación','Fecha publicación','Fecha pub','Fecha','publish date','date','fecha')}</td>
-          <td>${gst(r,'Estatus guión','Status guión','Guión','script status','guion')}</td>
-          <td>${gst(r,'Estatus contenido','Status contenido','Contenido','content status','status','estatus')}</td>
-        </tr>`).join('')}</tbody>
-      </table>
-    </div>`;
+  _trackerAllRows = rows;
+  _renderTrackerSummaryAndTable();
 }
 
 async function _autoFetchTracker(url, campaign) {
@@ -3020,19 +3586,38 @@ async function _autoFetchTracker(url, campaign) {
     if(!res.ok) throw new Error(`HTTP ${res.status}`);
     const text = await res.text();
     if(text.trim().startsWith('<!')) throw new Error('not public');
-    const rows = parseCSV(text);
+    let rows = parseCSV(text);
+    // Tag rows as AON by default
+    rows = rows.map(r=>({...r, _batch:'aon'}));
     campaign.trackerRows = rows;
     const sid = _extractSheetId(url);
     if(sid) {
       try {
         const tabs = await _fetchSheetTabs(sid);
-        if(tabs.length > 1) {
-          const all = await Promise.all(tabs.map(t=>_fetchTabRows(sid,t.gid)));
-          campaign.trackerRows = all.flat();
+        const aonTabName = (campaign.trackerAonTab||'').toLowerCase();
+        const nanoTabName = (campaign.trackerNanoTab||'').toLowerCase();
+        if(tabs.length > 0) {
+          const allRows = [];
+          for(const t of tabs) {
+            const tabRows = await _fetchTabRows(sid, t.gid);
+            const tname = (t.name||'').toLowerCase();
+            const isNano = nanoTabName && (tname.includes(nanoTabName) || tname.includes('nano') || tname.includes('cgc') || tname.includes('ugc'));
+            const batch = isNano ? 'nano' : 'aon';
+            // Only include if: no tab filter set (include all), or matches filter
+            if(!aonTabName && !nanoTabName) {
+              allRows.push(...tabRows.map(r=>({...r, _batch:batch, _tabName:t.name})));
+            } else {
+              const isAon = aonTabName && tname.includes(aonTabName);
+              if(isAon || isNano) allRows.push(...tabRows.map(r=>({...r, _batch:batch, _tabName:t.name})));
+            }
+          }
+          if(allRows.length) campaign.trackerRows = allRows;
         }
-      } catch(e) { /* single tab fallback already done */ }
+      } catch(e) { /* single tab fallback */ }
     }
+    campaign.trackerLastSync = Date.now();
     _renderTrackerTable(campaign.trackerRows);
+    _startTrackerAutoRefresh(campaign);
     const campaigns = getData('campaigns');
     const idx = campaigns.findIndex(x=>x.id===campaign.id);
     if(idx!==-1) { campaigns[idx].trackerSheetUrl = url; setData('campaigns',campaigns); }
@@ -3061,6 +3646,7 @@ function syncTracker() {
   setData('campaigns',campaigns);
   const wrap = document.getElementById('trackerTableWrap');
   if(wrap) wrap.innerHTML = `<div class="empty-state"><p>Cargando...</p></div>`;
+  showToast('Sincronizando tracker...','success');
   _autoFetchTracker(url, c);
 }
 
@@ -3107,6 +3693,10 @@ function updateFlowStep(cid, idx, status) {
 // ============================================================
 // PENDIENTES
 // ============================================================
+let _trackerAllRows = [];
+let _trackerBatchFilter = 'all';
+let _trackerStatusFilter = null;
+let _trackerAutoRefreshTimer = null;
 let currentFilter = 'hoy';
 let filterByUser = '';
 
@@ -3865,12 +4455,24 @@ function userChip(uid, fallbackName) {
   </span>`;
 }
 
+function toggleNanoSection() {
+  const checked = document.getElementById('fCampHasNano')?.checked;
+  const section = document.getElementById('fCampNanoSection');
+  if(section) section.style.display = checked ? '' : 'none';
+}
+
 function openNewCampaignModal() {
   editingCampaignId = null;
   document.getElementById('campaignModalTitle').textContent='Nueva campaña';
   ['fCampName','fCampClient','fCampSeason','fCampObjective','fCampCore','fCampBudgetClient','fCampMargin','fCampStartDate','fCampEndDate'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
   document.getElementById('fCampBudgetOpsResult').textContent='—';
   document.getElementById('fCampStatus').value='En proceso';
+  const nanoChk = document.getElementById('fCampHasNano');
+  if(nanoChk) { nanoChk.checked = false; toggleNanoSection(); }
+  const aonInp = document.getElementById('fCampAonTab');
+  const nanoInp2 = document.getElementById('fCampNanoTab');
+  if(aonInp) aonInp.value='';
+  if(nanoInp2) nanoInp2.value='';
   populateCampResponsibles({});
   applyBudgetVisibility();
   openModal('campaignModal');
@@ -3898,6 +4500,14 @@ function openEditCampaignModal() {
   populateCampResponsibles(c.responsables||{});
   document.getElementById('fCampStartDate').value=c.startDate||'';
   document.getElementById('fCampEndDate').value=c.endDate||'';
+  const nanoChk = document.getElementById('fCampHasNano');
+  if(nanoChk) { nanoChk.checked = !!c.hasNano; toggleNanoSection(); }
+  if(c.hasNano) {
+    const aonInp = document.getElementById('fCampAonTab');
+    const nanoInp = document.getElementById('fCampNanoTab');
+    if(aonInp) aonInp.value = c.trackerAonTab||'';
+    if(nanoInp) nanoInp.value = c.trackerNanoTab||'';
+  }
   applyBudgetVisibility();
   openModal('campaignModal');
 }
@@ -4004,16 +4614,17 @@ function renderTeam() {
       </div>
       <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;" onclick="event.stopPropagation()">
         ${activeTasks.length>0?`<span style="font-size:11px;font-weight:700;padding:3px 8px;border-radius:20px;background:var(--pink-pale);color:var(--pink-deep);">${activeTasks.length} tarea${activeTasks.length!==1?'s':''}</span>`:''}
+        ${u.uid!==currentUser?.uid?`<button class="kudos-btn" onclick="sendKudos('${u.uid}',event)" title="Dar kudos">🏆 Kudos</button>`:''}
         ${isAdmin() && u.uid !== currentUser.uid ? `
-          <select onchange="changeArea('${u.uid}',this.value)" style="padding:5px 10px;border:1px solid var(--border);border-radius:10px;font-size:11px;font-family:inherit;background:var(--white);cursor:pointer;">
+          <select onchange="changeArea('${u.uid}',this.value)" style="padding:5px 10px;border:1px solid var(--border);border-radius:10px;font-size:11px;font-family:inherit;background:var(--white);color:var(--text);cursor:pointer;">
             <option value="">Sin área</option>
             ${AREAS.map(a=>`<option value="${a}" ${u.area===a?'selected':''}>${a}</option>`).join('')}
           </select>
-          <select onchange="changePuesto('${u.uid}',this.value)" style="padding:5px 10px;border:1px solid var(--border);border-radius:10px;font-size:11px;font-family:inherit;background:var(--white);cursor:pointer;">
+          <select onchange="changePuesto('${u.uid}',this.value)" style="padding:5px 10px;border:1px solid var(--border);border-radius:10px;font-size:11px;font-family:inherit;background:var(--white);color:var(--text);cursor:pointer;">
             <option value="">Sin puesto</option>
             ${PUESTOS.map(p=>`<option value="${p}" ${u.puesto===p?'selected':''}>${p}</option>`).join('')}
           </select>
-          <select onchange="changeRole('${u.uid}',this.value)" style="padding:5px 10px;border:1px solid var(--border);border-radius:10px;font-size:11px;font-family:inherit;background:var(--white);cursor:pointer;">
+          <select onchange="changeRole('${u.uid}',this.value)" style="padding:5px 10px;border:1px solid var(--border);border-radius:10px;font-size:11px;font-family:inherit;background:var(--white);color:var(--text);cursor:pointer;">
             <option value="member" ${u.role==='member'?'selected':''}>Miembro</option>
             <option value="admin" ${u.role==='admin'?'selected':''}>Admin</option>
           </select>` : `<span class="badge ${u.role==='admin'?'':'badge-gray'}" style="${u.role==='admin'?'background:var(--pink-pale);color:var(--pink-deep);':''}">${u.role==='admin'?'Admin':u.puesto||'Miembro'}</span>`}
@@ -4090,6 +4701,9 @@ function saveCampaign() {
         },
         startDate:document.getElementById('fCampStartDate').value,
         endDate:document.getElementById('fCampEndDate').value,
+        hasNano: !!document.getElementById('fCampHasNano')?.checked,
+        trackerAonTab: document.getElementById('fCampAonTab')?.value?.trim()||'',
+        trackerNanoTab: document.getElementById('fCampNanoTab')?.value?.trim()||'',
       };
     }
   } else {
@@ -4111,6 +4725,9 @@ function saveCampaign() {
       },
       startDate:document.getElementById('fCampStartDate').value,
       endDate:document.getElementById('fCampEndDate').value,
+      hasNano: !!document.getElementById('fCampHasNano')?.checked,
+      trackerAonTab: document.getElementById('fCampAonTab')?.value?.trim()||'',
+      trackerNanoTab: document.getElementById('fCampNanoTab')?.value?.trim()||'',
       createdBy: currentUser.uid,
       assignedTo: [currentUser.uid],
       flowSteps:FLOW_STEPS.map(s=>({step:s,status:'Pendiente'})),
@@ -4886,6 +5503,8 @@ auth.onAuthStateChanged(async (user) => {
   const displayName = currentUserProfile.name || user.email.split('@')[0];
   document.getElementById('userNameSidebar').textContent = displayName;
   updateSidebarAvatar();
+  loadTheme(currentUserProfile);
+  initNotifications();
   const roleBadge = document.getElementById('userRoleSidebar');
   if(roleBadge) roleBadge.textContent = currentUserProfile.puesto || (currentUserProfile.role === 'admin' ? 'Admin' : 'Miembro');
 
@@ -5476,6 +6095,8 @@ function openProfileModal(uid) {
         <div style="font-size:20px;font-weight:700;">${u.name||'—'}</div>
         <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">${u.email}</div>
         ${(u.statusText) ? `<div style="display:inline-flex;align-items:center;gap:5px;padding:3px 10px;background:var(--pink-pale);border-radius:20px;font-size:12px;color:var(--text-muted);margin-top:6px;">${u.statusEmoji||'💬'} ${u.statusText}</div>` : ''}
+        ${u.tagline ? `<div style="font-size:12px;color:var(--text-muted);margin-top:4px;font-style:italic;">${u.tagline}</div>` : ''}
+        ${u.pronouns ? `<div style="font-size:11px;color:var(--text-muted);margin-top:2px;">${u.pronouns}</div>` : ''}
         ${u.bio ? `<div style="font-size:13px;color:var(--text-muted);margin-top:8px;font-style:italic;">"${u.bio}"</div>` : ''}
         <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
           ${u.puesto?`<span class="badge" style="background:var(--lavender-pale);color:var(--blue);">${u.puesto}</span>`:''}
@@ -5618,10 +6239,11 @@ function renderSidebarTeam() {
     const bg      = u.profileGradient || 'var(--lavender)';
     const content = u.profileEmoji || (u.name||u.email||'?')[0].toUpperCase();
     const hasStatus = !!u.statusText;
-    const title   = [u.name||u.email, u.statusText ? (u.statusEmoji||'') + ' ' + u.statusText : ''].filter(Boolean).join(' · ');
-    return `<div class="sidebar-team-avatar" style="background:${bg};" onclick="openProfileModal('${u.uid}')" title="${title}">
+    const tooltipText = hasStatus ? `${u.statusEmoji||'💬'} ${u.statusText}` : (u.name||u.email||'');
+    return `<div class="sidebar-team-avatar" style="background:${bg};" onclick="openProfileModal('${u.uid}')">
       ${content}
       ${hasStatus ? '<div class="team-status-dot"></div>' : ''}
+      <div class="sidebar-avatar-tooltip">${tooltipText}</div>
     </div>`;
   }).join('');
 }
@@ -5730,6 +6352,15 @@ function openEditProfileModal() {
   // Status
   const statusInput = document.getElementById('profileStatusInput');
   if(statusInput) statusInput.value = currentUserProfile.statusText || '';
+  const pronounsInput = document.getElementById('profilePronounsInput');
+  if(pronounsInput) pronounsInput.value = currentUserProfile.pronouns || '';
+  const taglineInput = document.getElementById('profileTaglineInput');
+  if(taglineInput) taglineInput.value = currentUserProfile.tagline || '';
+  // Mark active theme swatch
+  THEMES.forEach(t => {
+    const sw = document.getElementById('theme-'+t);
+    if(sw) sw.classList.toggle('selected', (currentUserProfile.theme||'default') === t);
+  });
   const statusBtn = document.getElementById('statusEmojiBtn');
   if(statusBtn) statusBtn.textContent = _editStatusEmoji;
   const bioInput = document.getElementById('profileBioInput');
@@ -5836,6 +6467,8 @@ async function saveMyProfile() {
   const statusText  = (document.getElementById('profileStatusInput')?.value || '').trim();
   const bio         = (document.getElementById('profileBioInput')?.value || '').trim();
   _editProfileEmoji = emoji;
+  const pronouns  = (document.getElementById('profilePronounsInput')?.value||'').trim();
+  const tagline   = (document.getElementById('profileTaglineInput')?.value||'').trim();
   const updates = {
     area, puesto,
     profileEmoji:    emoji,
@@ -5844,6 +6477,8 @@ async function saveMyProfile() {
     statusEmoji,
     statusText,
     bio,
+    pronouns,
+    tagline,
   };
   try {
     const ws = db.collection('workspaces').doc(WORKSPACE);
