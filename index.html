@@ -1386,10 +1386,28 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
 
         <!-- TAB: TRACKER -->
         <div class="tab-content" id="tab-tracker">
-          <div class="sheets-sync-bar" style="margin-bottom:16px;">
-            <span style="font-size:12px;font-weight:600;color:#3a7a5e;white-space:nowrap;">📊 Master Tracker</span>
-            <input type="text" id="trackerSheetsUrl" class="form-input" placeholder="URL del Google Sheets master tracker..." oninput="saveTrackerUrl()">
-            <button class="btn btn-ghost btn-sm" onclick="syncTracker()">Sincronizar</button>
+          <div style="background:var(--bg);border:1px solid var(--border);border-radius:14px;padding:14px 16px;margin-bottom:16px;">
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
+              <span style="font-size:12px;font-weight:700;color:#3a7a5e;white-space:nowrap;">📊 Master Tracker</span>
+              <input type="text" id="trackerSheetsUrl" class="form-input" style="flex:1;min-width:180px;font-size:12px;" placeholder="URL del Google Sheets master tracker..." oninput="saveTrackerUrl()">
+              <button class="btn btn-ghost btn-sm" onclick="syncTracker()">🔄 Sincronizar</button>
+              <span id="trackerLastSync" style="font-size:11px;color:var(--text-muted);"></span>
+            </div>
+            <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;">
+              <div style="display:flex;align-items:center;gap:6px;">
+                <label style="font-size:11px;font-weight:600;color:var(--text-muted);white-space:nowrap;">Pestaña AON:</label>
+                <input type="text" id="trackerAonTab" class="form-input" style="width:110px;font-size:12px;" placeholder="ej: AON" oninput="saveTrackerConfig()">
+              </div>
+              <div id="trackerNanoTabGroup" style="display:none;align-items:center;gap:6px;">
+                <label style="font-size:11px;font-weight:600;color:var(--text-muted);white-space:nowrap;">Pestaña Nano/CGC:</label>
+                <input type="text" id="trackerNanoTab" class="form-input" style="width:110px;font-size:12px;" placeholder="ej: NANO" oninput="saveTrackerConfig()">
+              </div>
+            </div>
+          </div>
+          <div id="trackerBatchPills" style="display:none;margin-bottom:14px;gap:8px;">
+            <button class="metrics-tab-pill active" onclick="setTrackerBatchFilter('all',this)">Todos</button>
+            <button class="metrics-tab-pill" onclick="setTrackerBatchFilter('aon',this)">AON</button>
+            <button class="metrics-tab-pill" onclick="setTrackerBatchFilter('nano',this)">Nano/CGC</button>
           </div>
           <div id="trackerTableWrap">
             <div class="empty-state"><p>Vincula el master tracker para ver las publicaciones</p></div>
@@ -1760,6 +1778,28 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
       <div class="form-group">
         <label class="form-label">Fecha de cierre</label>
         <input type="date" class="form-input" id="fCampEndDate">
+      </div>
+    </div>
+    <div style="border:1.5px solid var(--border);border-radius:12px;padding:14px;margin-bottom:4px;">
+      <div style="display:flex;align-items:center;gap:10px;cursor:pointer;" onclick="document.getElementById('fCampHasNano').click()">
+        <input type="checkbox" id="fCampHasNano" onchange="toggleNanoSection()" onclick="event.stopPropagation()" style="width:16px;height:16px;accent-color:var(--pink);flex-shrink:0;">
+        <div>
+          <div style="font-size:13px;font-weight:700;">¿Incluir estrategia Nano / CGC?</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">Agrega un segundo batch de creadores con su propio tracker</div>
+        </div>
+      </div>
+      <div id="fCampNanoSection" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid var(--border);">
+        <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;">Configuración Nano/CGC</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Pestaña AON en el Sheet</label>
+            <input type="text" class="form-input" id="fCampAonTab" placeholder="ej: AON">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Pestaña Nano/CGC en el Sheet</label>
+            <input type="text" class="form-input" id="fCampNanoTab" placeholder="ej: NANO">
+          </div>
+        </div>
       </div>
     </div>
     <div class="modal-footer">
@@ -2553,7 +2593,7 @@ function renderDashboard() {
     // Also pull from tracker rows
     const gst = (r,...keys)=>{for(const k of keys){const kn=k.toLowerCase().replace(/_/g,' ');for(const rk of Object.keys(r)){if(rk.toLowerCase().replace(/_/g,' ')===kn&&r[rk])return r[rk];}}return '';};
     (c.trackerRows||[]).forEach(row=>{
-      const pubDate = gst(row,'Fecha de publicación','Fecha publicación','Fecha pub','Fecha','publish date','date','fecha');
+      const pubDate = gst(row,'FECHA DE POST','Fecha de Post','Fecha de publicación','Fecha publicación','Fecha pub','Fecha','publish date','date','fecha');
       if(pubDate && pubDate >= today && pubDate <= weekEndStr) {
         upcomingPubs.push({
           name: gst(row,'Influencer','Nombre','Perfil','Creator','name'),
@@ -2968,13 +3008,195 @@ function renderCampaignTasks(c) {
   }).join('');
 }
 
+function trackerStatusBadge(s) {
+  if(!s) return '<span style="color:var(--text-muted);">—</span>';
+  const sl = s.toLowerCase().replace(/[()]/g,'').trim();
+  const map = [
+    [['publicado'],                          '#166534','#fff'],
+    [['por publicar'],                       '#fca5a5','#991b1b'],
+    [['aprobado'],                           '#bbf7d0','#166534'],
+    [['revisión int','revision int','rev int','revisión (int','revision (int'], '#fef08a','#854d0e'],
+    [['revisión ext','revision ext','rev ext','revisión (ext','revision (ext'], '#fde047','#713f12'],
+    [['pendiente'],                          '#991b1b','#fff'],
+    [['en grabación','en grabacion','grabación','grabacion'], '#ede9fe','#5b21b6'],
+    [['corrigiendo'],                        '#78350f','#fff'],
+    [['trabajando guión','trabajando guion','trab. guión'], '#f3e8ff','#7c3aed'],
+  ];
+  for(const [keys,bg,col] of map) {
+    if(keys.some(k => sl.includes(k) || k.includes(sl))) {
+      return `<span style="font-size:11px;padding:2px 8px;border-radius:10px;background:${bg};color:${col};font-weight:600;white-space:nowrap;display:inline-block;">${s}</span>`;
+    }
+  }
+  return `<span style="font-size:11px;padding:2px 8px;border-radius:10px;background:rgba(0,0,0,.07);color:var(--text);font-weight:600;white-space:nowrap;display:inline-block;">${s}</span>`;
+}
+
+function setTrackerBatchFilter(batch, btn) {
+  _trackerBatchFilter = batch;
+  document.querySelectorAll('#trackerBatchPills .metrics-tab-pill').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  _renderTrackerSummaryAndTable();
+}
+
+function filterTrackerByStatus(field, value) {
+  _trackerStatusFilter = {field, value};
+  _renderTrackerSummaryAndTable();
+}
+
+function clearTrackerFilter() {
+  _trackerStatusFilter = null;
+  _renderTrackerSummaryAndTable();
+}
+
+function saveTrackerConfig() {
+  if(!currentCampaignId) return;
+  const campaigns = getData('campaigns');
+  const c = campaigns.find(x=>x.id===currentCampaignId);
+  if(!c) return;
+  const aonTab = document.getElementById('trackerAonTab')?.value?.trim()||'';
+  const nanoTab = document.getElementById('trackerNanoTab')?.value?.trim()||'';
+  c.trackerAonTab = aonTab;
+  c.trackerNanoTab = nanoTab;
+  setData('campaigns', campaigns);
+}
+
+function _startTrackerAutoRefresh(campaign) {
+  if(_trackerAutoRefreshTimer) clearInterval(_trackerAutoRefreshTimer);
+  _trackerAutoRefreshTimer = setInterval(() => {
+    if(currentCampaignId === campaign.id && document.getElementById('tab-tracker')?.classList.contains('active')) {
+      _autoFetchTracker(campaign.trackerSheetUrl, campaign);
+    }
+  }, 2 * 60 * 60 * 1000); // 2 hours
+}
+
+function _renderTrackerSummaryAndTable() {
+  const wrap = document.getElementById('trackerTableWrap');
+  if(!wrap || !_trackerAllRows.length) return;
+
+  const gst = (r, ...keys) => {
+    for(const k of keys){
+      const kn = k.toLowerCase().replace(/_/g,' ');
+      for(const rk of Object.keys(r)){
+        if(rk.toLowerCase().replace(/_/g,' ')===kn && r[rk]) return r[rk];
+      }
+    }
+    return '';
+  };
+
+  // Apply batch filter
+  let rows = _trackerAllRows;
+  if(_trackerBatchFilter === 'aon') rows = _trackerAllRows.filter(r=>(r._batch||'aon')==='aon');
+  else if(_trackerBatchFilter === 'nano') rows = _trackerAllRows.filter(r=>r._batch==='nano');
+
+  // Build status group counts
+  const countStatus = (colKeys) => {
+    const counts = {};
+    rows.forEach(r => {
+      const v = gst(r, ...colKeys);
+      if(v && v !== '—') counts[v] = (counts[v]||0) + 1;
+    });
+    return counts;
+  };
+
+  const guionCounts = countStatus(['ESTATUS GUIÓN','Estatus Guión','estatus guion','ESTATUS GUION']);
+  const contenidoCounts = countStatus(['ESTATUS CONTENIDO','Estatus Contenido','estatus contenido','ESTATUS CONTENIDO']);
+
+  // Apply status filter to table rows
+  let tableRows = rows;
+  if(_trackerStatusFilter) {
+    const {field, value} = _trackerStatusFilter;
+    const keys = field==='guion'
+      ? ['ESTATUS GUIÓN','Estatus Guión','estatus guion','ESTATUS GUION']
+      : ['ESTATUS CONTENIDO','Estatus Contenido','estatus contenido','ESTATUS CONTENIDO'];
+    tableRows = rows.filter(r => gst(r,...keys) === value);
+  }
+
+  const LINK_COLS = ['GUIÓN','ASSET','LINK TO POST','TESTIGO','Presentación Usada ABD','SS DÍA BOOST'];
+  const STATUS_COLS = ['ESTATUS GUIÓN','ESTATUS CONTENIDO'];
+  const DATE_COLS = ['FECHA DE POST'];
+  const COLS = ['Nombre','COMUNIDAD','COHORT','TIPO DE CONTENIDO','PLATAFORMA','GOODWILL','RÉPLICA','BRIEF','GUIÓN','ESTATUS GUIÓN','ASSET','COPY','FECHA DE POST','ESTATUS CONTENIDO','LINK TO POST','TESTIGO','Presentación Usada ABD','BOOST','CÓDIGO DE BOOST','SS DÍA BOOST','METRICAS','TRACKING','SENTIMENT'];
+
+  const makeSummaryCard = (status, count, field) =>
+    `<button onclick="filterTrackerByStatus('${field}','${status.replace(/'/g,"&#39;")}')"
+      style="border:1.5px solid var(--border);background:var(--white);border-radius:12px;padding:10px 14px;cursor:pointer;text-align:left;transition:border-color .15s;${_trackerStatusFilter&&_trackerStatusFilter.value===status?'border-color:var(--pink);':''}"
+      onmouseover="this.style.borderColor='var(--pink)'" onmouseout="this.style.borderColor='${_trackerStatusFilter&&_trackerStatusFilter.value===status?'var(--pink)':'var(--border)'}'">
+      <div style="font-size:24px;font-weight:800;color:var(--text);line-height:1;">${count}</div>
+      <div style="margin-top:6px;">${trackerStatusBadge(status)}</div>
+    </button>`;
+
+  const filterBar = _trackerStatusFilter
+    ? `<div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-muted);margin-bottom:10px;">
+        Filtrando por: ${trackerStatusBadge(_trackerStatusFilter.value)}
+        <button onclick="clearTrackerFilter()" style="background:none;border:none;cursor:pointer;color:var(--pink);font-size:12px;font-weight:700;">✕ Limpiar</button>
+        <span style="color:var(--text-muted);">${tableRows.length} resultado${tableRows.length!==1?'s':''}</span>
+       </div>`
+    : '';
+
+  wrap.innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:16px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:14px;padding:14px 16px;">
+          <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;">📝 Guión</div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;">
+            ${Object.entries(guionCounts).map(([s,c])=>makeSummaryCard(s,c,'guion')).join('')||'<span style="font-size:12px;color:var(--text-muted);">Sin datos</span>'}
+          </div>
+        </div>
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:14px;padding:14px 16px;">
+          <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;">🎬 Contenido / Asset</div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;">
+            ${Object.entries(contenidoCounts).map(([s,c])=>makeSummaryCard(s,c,'contenido')).join('')||'<span style="font-size:12px;color:var(--text-muted);">Sin datos</span>'}
+          </div>
+        </div>
+      </div>
+      ${filterBar}
+      <div class="table-wrap">
+        <table class="table">
+          <thead><tr>${COLS.map(c=>`<th style="white-space:nowrap;font-size:11px;">${c}</th>`).join('')}</tr></thead>
+          <tbody>
+            ${tableRows.length===0
+              ? `<tr><td colspan="${COLS.length}" style="text-align:center;color:var(--text-muted);padding:24px;">Sin resultados</td></tr>`
+              : tableRows.map(r=>`<tr>
+                ${COLS.map(col=>{
+                  const val = gst(r,col,col.toLowerCase(),col.toUpperCase());
+                  if(LINK_COLS.includes(col)) {
+                    return val&&(val.startsWith('http')||val.startsWith('www'))
+                      ? `<td><a href="${val}" target="_blank" rel="noopener" style="color:var(--blue);font-size:11px;white-space:nowrap;">Ver →</a></td>`
+                      : `<td style="font-size:12px;">${val||'—'}</td>`;
+                  }
+                  if(STATUS_COLS.includes(col)) return `<td>${val?trackerStatusBadge(val):'—'}</td>`;
+                  if(DATE_COLS.includes(col)) return `<td style="font-size:12px;white-space:nowrap;">${val?formatDateShort(val):'—'}</td>`;
+                  return `<td style="font-size:12px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${(val||'').replace(/"/g,'&quot;')}">${val||'—'}</td>`;
+                }).join('')}
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
 function renderCampaignTracker(c) {
+  _trackerBatchFilter = 'all';
+  _trackerStatusFilter = null;
+  // Populate config fields
   const urlInp = document.getElementById('trackerSheetsUrl');
   if(urlInp) urlInp.value = c.trackerSheetUrl || '';
+  const aonInp = document.getElementById('trackerAonTab');
+  if(aonInp) aonInp.value = c.trackerAonTab || '';
+  const nanoInp = document.getElementById('trackerNanoTab');
+  if(nanoInp) nanoInp.value = c.trackerNanoTab || '';
+  // Show/hide Nano tab input and batch pills
+  const nanoGrp = document.getElementById('trackerNanoTabGroup');
+  const batchPills = document.getElementById('trackerBatchPills');
+  if(nanoGrp) nanoGrp.style.display = c.hasNano ? 'flex' : 'none';
+  if(batchPills) batchPills.style.display = c.hasNano ? 'flex' : 'none';
+  // Show last sync time
+  const syncEl = document.getElementById('trackerLastSync');
+  if(syncEl && c.trackerLastSync) syncEl.textContent = 'Última sync: ' + new Date(c.trackerLastSync).toLocaleString('es-MX',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
   const wrap = document.getElementById('trackerTableWrap');
   if(!wrap) return;
   if(c.trackerRows && c.trackerRows.length) {
-    _renderTrackerTable(c.trackerRows);
+    _trackerAllRows = c.trackerRows;
+    _renderTrackerSummaryAndTable();
+    _startTrackerAutoRefresh(c);
   } else if(c.trackerSheetUrl) {
     wrap.innerHTML = `<div class="empty-state"><p>Cargando datos del tracker...</p></div>`;
     _autoFetchTracker(c.trackerSheetUrl, c);
@@ -2984,34 +3206,8 @@ function renderCampaignTracker(c) {
 }
 
 function _renderTrackerTable(rows) {
-  const wrap = document.getElementById('trackerTableWrap');
-  if(!wrap || !rows.length) return;
-  const gst = (r, ...keys) => {
-    for(const k of keys) {
-      const kn = k.toLowerCase().replace(/_/g,' ');
-      for(const rk of Object.keys(r)) {
-        if(rk.toLowerCase().replace(/_/g,' ')===kn && r[rk]) return r[rk];
-      }
-    }
-    return '—';
-  };
-  wrap.innerHTML = `
-    <div class="table-wrap">
-      <table class="table">
-        <thead><tr>
-          <th>Influencer</th><th>Plataforma</th><th>Tipo de contenido</th>
-          <th>Fecha de publicación</th><th>Estatus guión</th><th>Estatus contenido</th>
-        </tr></thead>
-        <tbody>${rows.map(r=>`<tr>
-          <td>${gst(r,'Influencer','Nombre','Perfil','Creator','name','perfil')}</td>
-          <td>${gst(r,'Plataforma','Platform','Red social','canal','network')}</td>
-          <td>${gst(r,'Tipo de contenido','Tipo','Content type','formato','format','type')}</td>
-          <td>${gst(r,'Fecha de publicación','Fecha publicación','Fecha pub','Fecha','publish date','date','fecha')}</td>
-          <td>${gst(r,'Estatus guión','Status guión','Guión','script status','guion')}</td>
-          <td>${gst(r,'Estatus contenido','Status contenido','Contenido','content status','status','estatus')}</td>
-        </tr>`).join('')}</tbody>
-      </table>
-    </div>`;
+  _trackerAllRows = rows;
+  _renderTrackerSummaryAndTable();
 }
 
 async function _autoFetchTracker(url, campaign) {
@@ -3022,19 +3218,38 @@ async function _autoFetchTracker(url, campaign) {
     if(!res.ok) throw new Error(`HTTP ${res.status}`);
     const text = await res.text();
     if(text.trim().startsWith('<!')) throw new Error('not public');
-    const rows = parseCSV(text);
+    let rows = parseCSV(text);
+    // Tag rows as AON by default
+    rows = rows.map(r=>({...r, _batch:'aon'}));
     campaign.trackerRows = rows;
     const sid = _extractSheetId(url);
     if(sid) {
       try {
         const tabs = await _fetchSheetTabs(sid);
-        if(tabs.length > 1) {
-          const all = await Promise.all(tabs.map(t=>_fetchTabRows(sid,t.gid)));
-          campaign.trackerRows = all.flat();
+        const aonTabName = (campaign.trackerAonTab||'').toLowerCase();
+        const nanoTabName = (campaign.trackerNanoTab||'').toLowerCase();
+        if(tabs.length > 0) {
+          const allRows = [];
+          for(const t of tabs) {
+            const tabRows = await _fetchTabRows(sid, t.gid);
+            const tname = (t.name||'').toLowerCase();
+            const isNano = nanoTabName && (tname.includes(nanoTabName) || tname.includes('nano') || tname.includes('cgc') || tname.includes('ugc'));
+            const batch = isNano ? 'nano' : 'aon';
+            // Only include if: no tab filter set (include all), or matches filter
+            if(!aonTabName && !nanoTabName) {
+              allRows.push(...tabRows.map(r=>({...r, _batch:batch, _tabName:t.name})));
+            } else {
+              const isAon = aonTabName && tname.includes(aonTabName);
+              if(isAon || isNano) allRows.push(...tabRows.map(r=>({...r, _batch:batch, _tabName:t.name})));
+            }
+          }
+          if(allRows.length) campaign.trackerRows = allRows;
         }
-      } catch(e) { /* single tab fallback already done */ }
+      } catch(e) { /* single tab fallback */ }
     }
+    campaign.trackerLastSync = Date.now();
     _renderTrackerTable(campaign.trackerRows);
+    _startTrackerAutoRefresh(campaign);
     const campaigns = getData('campaigns');
     const idx = campaigns.findIndex(x=>x.id===campaign.id);
     if(idx!==-1) { campaigns[idx].trackerSheetUrl = url; setData('campaigns',campaigns); }
@@ -3063,6 +3278,7 @@ function syncTracker() {
   setData('campaigns',campaigns);
   const wrap = document.getElementById('trackerTableWrap');
   if(wrap) wrap.innerHTML = `<div class="empty-state"><p>Cargando...</p></div>`;
+  showToast('Sincronizando tracker...','success');
   _autoFetchTracker(url, c);
 }
 
@@ -3109,6 +3325,10 @@ function updateFlowStep(cid, idx, status) {
 // ============================================================
 // PENDIENTES
 // ============================================================
+let _trackerAllRows = [];
+let _trackerBatchFilter = 'all';
+let _trackerStatusFilter = null;
+let _trackerAutoRefreshTimer = null;
 let currentFilter = 'hoy';
 let filterByUser = '';
 
@@ -3867,12 +4087,24 @@ function userChip(uid, fallbackName) {
   </span>`;
 }
 
+function toggleNanoSection() {
+  const checked = document.getElementById('fCampHasNano')?.checked;
+  const section = document.getElementById('fCampNanoSection');
+  if(section) section.style.display = checked ? '' : 'none';
+}
+
 function openNewCampaignModal() {
   editingCampaignId = null;
   document.getElementById('campaignModalTitle').textContent='Nueva campaña';
   ['fCampName','fCampClient','fCampSeason','fCampObjective','fCampCore','fCampBudgetClient','fCampMargin','fCampStartDate','fCampEndDate'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
   document.getElementById('fCampBudgetOpsResult').textContent='—';
   document.getElementById('fCampStatus').value='En proceso';
+  const nanoChk = document.getElementById('fCampHasNano');
+  if(nanoChk) { nanoChk.checked = false; toggleNanoSection(); }
+  const aonInp = document.getElementById('fCampAonTab');
+  const nanoInp2 = document.getElementById('fCampNanoTab');
+  if(aonInp) aonInp.value='';
+  if(nanoInp2) nanoInp2.value='';
   populateCampResponsibles({});
   applyBudgetVisibility();
   openModal('campaignModal');
@@ -3900,6 +4132,14 @@ function openEditCampaignModal() {
   populateCampResponsibles(c.responsables||{});
   document.getElementById('fCampStartDate').value=c.startDate||'';
   document.getElementById('fCampEndDate').value=c.endDate||'';
+  const nanoChk = document.getElementById('fCampHasNano');
+  if(nanoChk) { nanoChk.checked = !!c.hasNano; toggleNanoSection(); }
+  if(c.hasNano) {
+    const aonInp = document.getElementById('fCampAonTab');
+    const nanoInp = document.getElementById('fCampNanoTab');
+    if(aonInp) aonInp.value = c.trackerAonTab||'';
+    if(nanoInp) nanoInp.value = c.trackerNanoTab||'';
+  }
   applyBudgetVisibility();
   openModal('campaignModal');
 }
@@ -4007,15 +4247,15 @@ function renderTeam() {
       <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;" onclick="event.stopPropagation()">
         ${activeTasks.length>0?`<span style="font-size:11px;font-weight:700;padding:3px 8px;border-radius:20px;background:var(--pink-pale);color:var(--pink-deep);">${activeTasks.length} tarea${activeTasks.length!==1?'s':''}</span>`:''}
         ${isAdmin() && u.uid !== currentUser.uid ? `
-          <select onchange="changeArea('${u.uid}',this.value)" style="padding:5px 10px;border:1px solid var(--border);border-radius:10px;font-size:11px;font-family:inherit;background:var(--white);cursor:pointer;">
+          <select onchange="changeArea('${u.uid}',this.value)" style="padding:5px 10px;border:1px solid var(--border);border-radius:10px;font-size:11px;font-family:inherit;background:var(--white);color:var(--text);cursor:pointer;">
             <option value="">Sin área</option>
             ${AREAS.map(a=>`<option value="${a}" ${u.area===a?'selected':''}>${a}</option>`).join('')}
           </select>
-          <select onchange="changePuesto('${u.uid}',this.value)" style="padding:5px 10px;border:1px solid var(--border);border-radius:10px;font-size:11px;font-family:inherit;background:var(--white);cursor:pointer;">
+          <select onchange="changePuesto('${u.uid}',this.value)" style="padding:5px 10px;border:1px solid var(--border);border-radius:10px;font-size:11px;font-family:inherit;background:var(--white);color:var(--text);cursor:pointer;">
             <option value="">Sin puesto</option>
             ${PUESTOS.map(p=>`<option value="${p}" ${u.puesto===p?'selected':''}>${p}</option>`).join('')}
           </select>
-          <select onchange="changeRole('${u.uid}',this.value)" style="padding:5px 10px;border:1px solid var(--border);border-radius:10px;font-size:11px;font-family:inherit;background:var(--white);cursor:pointer;">
+          <select onchange="changeRole('${u.uid}',this.value)" style="padding:5px 10px;border:1px solid var(--border);border-radius:10px;font-size:11px;font-family:inherit;background:var(--white);color:var(--text);cursor:pointer;">
             <option value="member" ${u.role==='member'?'selected':''}>Miembro</option>
             <option value="admin" ${u.role==='admin'?'selected':''}>Admin</option>
           </select>` : `<span class="badge ${u.role==='admin'?'':'badge-gray'}" style="${u.role==='admin'?'background:var(--pink-pale);color:var(--pink-deep);':''}">${u.role==='admin'?'Admin':u.puesto||'Miembro'}</span>`}
@@ -4092,6 +4332,9 @@ function saveCampaign() {
         },
         startDate:document.getElementById('fCampStartDate').value,
         endDate:document.getElementById('fCampEndDate').value,
+        hasNano: !!document.getElementById('fCampHasNano')?.checked,
+        trackerAonTab: document.getElementById('fCampAonTab')?.value?.trim()||'',
+        trackerNanoTab: document.getElementById('fCampNanoTab')?.value?.trim()||'',
       };
     }
   } else {
@@ -4113,6 +4356,9 @@ function saveCampaign() {
       },
       startDate:document.getElementById('fCampStartDate').value,
       endDate:document.getElementById('fCampEndDate').value,
+      hasNano: !!document.getElementById('fCampHasNano')?.checked,
+      trackerAonTab: document.getElementById('fCampAonTab')?.value?.trim()||'',
+      trackerNanoTab: document.getElementById('fCampNanoTab')?.value?.trim()||'',
       createdBy: currentUser.uid,
       assignedTo: [currentUser.uid],
       flowSteps:FLOW_STEPS.map(s=>({step:s,status:'Pendiente'})),
