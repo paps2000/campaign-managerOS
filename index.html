@@ -47,6 +47,105 @@
   --shadow-lg: 0 18px 44px rgba(10,10,12,.10);
   --ease: cubic-bezier(.2,.8,.2,1);
 }
+/* ============================================================
+   THEME PALETTES — override accent vars on body class
+   ============================================================ */
+body.theme-ocean {
+  --pink:#2563eb; --pink-deep:#1d4ed8; --pink-light:#93c5fd; --pink-pale:#dbeafe;
+  --accent-shadow:rgba(37,99,235,.35);
+}
+body.theme-forest {
+  --pink:#16a34a; --pink-deep:#15803d; --pink-light:#86efac; --pink-pale:#dcfce7;
+  --accent-shadow:rgba(22,163,74,.35);
+}
+body.theme-royal {
+  --pink:#7c3aed; --pink-deep:#6d28d9; --pink-light:#c4b5fd; --pink-pale:#ede9fe;
+  --accent-shadow:rgba(124,58,237,.35);
+}
+body.theme-sunset {
+  --pink:#ea580c; --pink-deep:#c2410c; --pink-light:#fdba74; --pink-pale:#ffedd5;
+  --accent-shadow:rgba(234,88,12,.35);
+}
+body.theme-rose {
+  --pink:#e11d48; --pink-deep:#be123c; --pink-light:#fda4af; --pink-pale:#ffe4e6;
+  --accent-shadow:rgba(225,29,72,.35);
+}
+/* default pink theme keeps existing vars — no override needed */
+
+/* ============================================================
+   NOTIFICATION BELL
+   ============================================================ */
+.notif-bell-btn {
+  position:relative; background:none; border:none; cursor:pointer;
+  width:36px; height:36px; border-radius:10px; display:flex; align-items:center;
+  justify-content:center; color:var(--text-muted); transition:all .2s var(--ease);
+  font-size:18px;
+}
+.notif-bell-btn:hover { background:var(--pink-pale); color:var(--pink); }
+.notif-badge {
+  position:absolute; top:2px; right:2px; min-width:16px; height:16px;
+  background:var(--pink); color:#fff; font-size:9px; font-weight:700;
+  border-radius:8px; display:none; align-items:center; justify-content:center;
+  padding:0 3px; border:2px solid var(--bg);
+}
+.notif-panel {
+  position:fixed; top:58px; right:16px; width:340px; max-height:480px;
+  background:var(--white); border:1px solid var(--border); border-radius:18px;
+  box-shadow:var(--shadow-lg); z-index:1000; display:none; flex-direction:column;
+  overflow:hidden;
+}
+.notif-panel.open { display:flex; }
+.notif-panel-header {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:14px 16px 10px; border-bottom:1px solid var(--border); flex-shrink:0;
+}
+.notif-panel-header span { font-size:14px; font-weight:700; }
+.notif-list { overflow-y:auto; flex:1; }
+.notif-item {
+  display:flex; gap:10px; padding:12px 16px; border-bottom:1px solid var(--border);
+  cursor:pointer; transition:background .15s;
+}
+.notif-item:hover { background:var(--bg); }
+.notif-item.unread { background:var(--pink-pale); }
+.notif-item.unread:hover { background:var(--pink-pale); filter:brightness(.97); }
+.notif-avatar { width:32px; height:32px; border-radius:10px; background:var(--pink); color:#fff; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:700; flex-shrink:0; }
+.notif-body { flex:1; min-width:0; }
+.notif-body p { font-size:12px; color:var(--text); line-height:1.4; }
+.notif-body time { font-size:10px; color:var(--text-muted); margin-top:2px; display:block; }
+.notif-empty { padding:32px 16px; text-align:center; color:var(--text-muted); font-size:13px; }
+
+/* ============================================================
+   EMOJI REACTIONS
+   ============================================================ */
+.task-reactions { display:flex; gap:4px; flex-wrap:wrap; margin-top:4px; }
+.reaction-btn {
+  font-size:12px; padding:2px 7px; border-radius:10px;
+  border:1px solid var(--border); background:none; cursor:pointer;
+  transition:all .15s; color:var(--text); line-height:1.4;
+}
+.reaction-btn:hover { border-color:var(--pink); background:var(--pink-pale); }
+.reaction-btn.reacted { border-color:var(--pink); background:var(--pink-pale); color:var(--pink-deep); font-weight:700; }
+
+/* ============================================================
+   KUDOS
+   ============================================================ */
+.kudos-btn {
+  font-size:11px; padding:4px 10px; border-radius:20px;
+  border:1.5px solid var(--border); background:none; cursor:pointer;
+  color:var(--text-muted); transition:all .15s; white-space:nowrap;
+}
+.kudos-btn:hover { border-color:#f59e0b; color:#b45309; background:#fef3c7; }
+
+/* ============================================================
+   THEME PICKER
+   ============================================================ */
+.theme-swatch {
+  width:28px; height:28px; border-radius:50%; cursor:pointer;
+  border:3px solid transparent; transition:all .15s; flex-shrink:0;
+}
+.theme-swatch:hover { transform:scale(1.15); }
+.theme-swatch.selected { border-color:var(--text); transform:scale(1.15); }
+
 * { margin:0; padding:0; box-sizing:border-box; }
 body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); color:var(--text); display:flex; height:100vh; overflow:hidden; -webkit-font-smoothing:antialiased; }
 
@@ -1172,8 +1271,22 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
     </div>
     <div class="topbar-right">
       <span class="topbar-date" id="topbarDate"></span>
+      <button class="notif-bell-btn" id="notifBellBtn" onclick="toggleNotifPanel()" title="Notificaciones">
+        🔔
+        <span class="notif-badge" id="notifBadge"></span>
+      </button>
       <button class="btn btn-primary" id="mainActionBtn" onclick="openNewCampaignModal()">+ Nueva campaña</button>
       <button class="logout-btn" onclick="logout()" title="Cerrar sesión">⎋ Salir</button>
+    </div>
+    <!-- NOTIFICATION PANEL -->
+    <div class="notif-panel" id="notifPanel">
+      <div class="notif-panel-header">
+        <span>🔔 Notificaciones</span>
+        <button onclick="markAllNotifsRead()" style="font-size:11px;background:none;border:none;cursor:pointer;color:var(--pink);font-weight:600;">Marcar todo leído</button>
+      </div>
+      <div class="notif-list" id="notifList">
+        <div class="notif-empty">Sin notificaciones</div>
+      </div>
     </div>
   </div>
 
@@ -1988,6 +2101,32 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
         </div>
         <div style="font-size:10px;color:var(--text-muted);margin-top:4px;">Visible para tu equipo en el sidebar y perfil.</div>
       </div>
+
+        <div class="form-group" style="margin-top:16px;">
+          <label class="form-label">Pronombres</label>
+          <select class="form-input" id="profilePronounsInput">
+            <option value="">— No especificar —</option>
+            <option value="ella/sus">ella/sus</option>
+            <option value="él/sus">él/sus</option>
+            <option value="elle/sus">elle/sus</option>
+            <option value="they/them">they/them</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Tagline personal</label>
+          <input type="text" class="form-input" id="profileTaglineInput" placeholder="ej: Estratega de contenido · Amante del café ☕" maxlength="80">
+        </div>
+        <div class="form-group">
+          <label class="form-label">🎨 Tema de color</label>
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:6px;">
+            <button class="theme-swatch" id="theme-default" style="background:linear-gradient(135deg,#ff2d87,#e6126d);" onclick="applyTheme('default')" title="Think Y (Rosa)"></button>
+            <button class="theme-swatch" id="theme-ocean"   style="background:linear-gradient(135deg,#2563eb,#1d4ed8);" onclick="applyTheme('ocean')"   title="Ocean (Azul)"></button>
+            <button class="theme-swatch" id="theme-forest"  style="background:linear-gradient(135deg,#16a34a,#15803d);" onclick="applyTheme('forest')"  title="Forest (Verde)"></button>
+            <button class="theme-swatch" id="theme-royal"   style="background:linear-gradient(135deg,#7c3aed,#6d28d9);" onclick="applyTheme('royal')"   title="Royal (Morado)"></button>
+            <button class="theme-swatch" id="theme-sunset"  style="background:linear-gradient(135deg,#ea580c,#c2410c);" onclick="applyTheme('sunset')"  title="Sunset (Naranja)"></button>
+            <button class="theme-swatch" id="theme-rose"    style="background:linear-gradient(135deg,#e11d48,#be123c);" onclick="applyTheme('rose')"    title="Rose (Rojo)"></button>
+          </div>
+        </div>
 
       <!-- Bio -->
       <div class="form-group">
@@ -2962,6 +3101,10 @@ function _taskItemHtml(t, cid) {
     </div>
     <button class="task-edit-btn" onclick="openEditTaskModal('${t.id}','${cid}')" title="Editar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></svg></button>
     <button onclick="deleteTask('${t.id}','${cid}')" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:12px;padding:4px;"><span class="icn-close"></span></button>
+  </div>
+  <div style="padding:0 8px 2px 38px;display:flex;align-items:center;gap:4px;">
+    ${_reactionHtml(t,cid)}
+    <button onclick="showReactions('${t.id}','${cid}',event)" style="font-size:11px;background:none;border:none;cursor:pointer;color:var(--text-muted);padding:2px 4px;" title="Reaccionar">😊+</button>
   </div>`;
 }
 
@@ -3006,6 +3149,216 @@ function renderCampaignTasks(c) {
       <div class="task-area-body">${tasks.map(t=>_taskItemHtml(t,c.id)).join('')}</div>
     </details>`;
   }).join('');
+}
+
+// ============================================================
+// THEMES
+// ============================================================
+const THEMES = ['default','ocean','forest','royal','sunset','rose'];
+
+function applyTheme(name) {
+  THEMES.forEach(t => document.body.classList.remove('theme-'+t));
+  if(name && name !== 'default') document.body.classList.add('theme-'+name);
+  // Update swatch selection UI
+  THEMES.forEach(t => {
+    const sw = document.getElementById('theme-'+t);
+    if(sw) sw.classList.toggle('selected', t === (name||'default'));
+  });
+  // Persist
+  if(currentUserProfile) {
+    currentUserProfile.theme = name || 'default';
+    try {
+      db.collection('users').doc(currentUser.uid).update({theme: name||'default'});
+      db.collection('workspaces').doc(WORKSPACE).collection('members').doc(currentUser.uid).set({theme:name||'default'},{merge:true});
+    } catch(e) {}
+  }
+}
+
+function loadTheme(profile) {
+  if(profile?.theme) applyTheme(profile.theme);
+}
+
+// ============================================================
+// NOTIFICATIONS
+// ============================================================
+let _notifUnsub = null;
+let _notifs = [];
+
+function initNotifications() {
+  if(!currentUser || !db) return;
+  if(_notifUnsub) _notifUnsub();
+  const q = db.collection('workspaces').doc(WORKSPACE)
+    .collection('notifications')
+    .where('toUid','==',currentUser.uid)
+    .orderBy('createdAt','desc')
+    .limit(30);
+  _notifUnsub = q.onSnapshot(snap => {
+    _notifs = snap.docs.map(d=>({id:d.id,...d.data()}));
+    _renderNotifBell();
+  }, () => {});
+}
+
+function _renderNotifBell() {
+  const unread = _notifs.filter(n=>!n.read).length;
+  const badge = document.getElementById('notifBadge');
+  if(badge) {
+    badge.textContent = unread > 9 ? '9+' : (unread || '');
+    badge.style.display = unread > 0 ? 'flex' : 'none';
+  }
+  const list = document.getElementById('notifList');
+  if(!list) return;
+  if(!_notifs.length) { list.innerHTML='<div class="notif-empty">Sin notificaciones 🎉</div>'; return; }
+  list.innerHTML = _notifs.map(n => {
+    const ago = _timeAgo(n.createdAt?.toDate ? n.createdAt.toDate() : new Date(n.createdAt||Date.now()));
+    const icon = n.type==='kudos'?'🏆':n.type==='task_assigned'?'✅':'💬';
+    return `<div class="notif-item ${n.read?'':'unread'}" onclick="markNotifRead('${n.id}')">
+      <div class="notif-avatar">${icon}</div>
+      <div class="notif-body">
+        <p>${n.text||''}</p>
+        <time>${ago}</time>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function _timeAgo(date) {
+  if(!date) return '';
+  const diff = Math.floor((Date.now() - date.getTime())/1000);
+  if(diff < 60) return 'Ahora';
+  if(diff < 3600) return `${Math.floor(diff/60)}m`;
+  if(diff < 86400) return `${Math.floor(diff/3600)}h`;
+  return `${Math.floor(diff/86400)}d`;
+}
+
+function toggleNotifPanel() {
+  const panel = document.getElementById('notifPanel');
+  if(!panel) return;
+  const isOpen = panel.classList.toggle('open');
+  if(isOpen) {
+    // Close on outside click
+    setTimeout(()=>document.addEventListener('click', _closeNotifOnOutside, {once:true}),0);
+  }
+}
+
+function _closeNotifOnOutside(e) {
+  const panel = document.getElementById('notifPanel');
+  const btn = document.getElementById('notifBellBtn');
+  if(panel && !panel.contains(e.target) && !btn?.contains(e.target)) {
+    panel.classList.remove('open');
+  }
+}
+
+async function markNotifRead(nid) {
+  try {
+    await db.collection('workspaces').doc(WORKSPACE).collection('notifications').doc(nid).update({read:true});
+  } catch(e) {}
+}
+
+async function markAllNotifsRead() {
+  const unread = _notifs.filter(n=>!n.read);
+  await Promise.all(unread.map(n=>markNotifRead(n.id)));
+}
+
+async function _createNotification({toUid, type, text}) {
+  if(!toUid || toUid === currentUser?.uid) return;
+  try {
+    await db.collection('workspaces').doc(WORKSPACE).collection('notifications').add({
+      toUid, fromUid: currentUser.uid,
+      fromName: currentUserProfile?.name || currentUser.email,
+      type, text,
+      read: false,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+  } catch(e) {}
+}
+
+// ============================================================
+// KUDOS
+// ============================================================
+async function sendKudos(toUid, e) {
+  if(e) e.stopPropagation();
+  const toUser = allUsers.find(u=>u.uid===toUid);
+  if(!toUser) return;
+  const name = toUser.name || toUser.email.split('@')[0];
+  const emojis = ['🏆','⭐','🔥','💪','🎉','❤️','✨'];
+  const pick = emojis[Math.floor(Math.random()*emojis.length)];
+  await _createNotification({
+    toUid,
+    type: 'kudos',
+    text: `${pick} ${currentUserProfile?.name||'Alguien'} te envió kudos. ¡Buen trabajo!`
+  });
+  showToast(`Kudos enviado a ${name} ${pick}`,'success');
+}
+
+// ============================================================
+// EMOJI REACTIONS ON TASKS
+// ============================================================
+const REACTION_EMOJIS = ['👍','❤️','🔥','✅','😅'];
+
+function _reactionHtml(t, cid) {
+  const reactions = t.reactions || {};
+  const hasAny = Object.values(reactions).some(u=>u.length>0);
+  const buttons = REACTION_EMOJIS.map(e => {
+    const users = reactions[e] || [];
+    const reacted = users.includes(currentUser?.uid);
+    return users.length > 0 || !hasAny
+      ? `<button class="reaction-btn ${reacted?'reacted':''}" onclick="toggleReaction('${t.id}','${cid}','${e}',event)">${e}${users.length>0?' '+users.length:''}</button>`
+      : '';
+  }).join('');
+  // Show add-reaction button only if clicking it
+  return `<div class="task-reactions" style="${hasAny?'':'display:none'}" id="reactions-${t.id}">${buttons}</div>`;
+}
+
+function toggleReaction(tid, cid, emoji, e) {
+  if(e) e.stopPropagation();
+  if(!currentUser) return;
+  const uid = currentUser.uid;
+  // Find task in cache
+  let task = null;
+  if(cid) {
+    const c = _cache.campaigns.find(x=>x.id===cid);
+    if(c) task = c.tasks.find(x=>x.id===tid);
+  } else {
+    task = (_cache.globalTasks||[]).find(x=>x.id===tid);
+  }
+  if(!task) return;
+  if(!task.reactions) task.reactions = {};
+  if(!task.reactions[emoji]) task.reactions[emoji] = [];
+  const idx = task.reactions[emoji].indexOf(uid);
+  if(idx > -1) task.reactions[emoji].splice(idx,1);
+  else task.reactions[emoji].push(uid);
+  // Persist
+  if(cid) {
+    const campaigns = getData('campaigns');
+    const c = campaigns.find(x=>x.id===cid);
+    if(c) { const t2=c.tasks.find(x=>x.id===tid); if(t2) t2.reactions=task.reactions; setData('campaigns',campaigns); }
+  } else {
+    const tasks = getData('globalTasks');
+    const t2 = tasks.find(x=>x.id===tid);
+    if(t2) { t2.reactions=task.reactions; setData('globalTasks',tasks); }
+  }
+  // Re-render reactions inline
+  const el = document.getElementById('reactions-'+tid);
+  if(el) {
+    const hasAny = Object.values(task.reactions).some(u=>u.length>0);
+    el.style.display = hasAny ? '' : 'none';
+    el.innerHTML = REACTION_EMOJIS.map(em=>{
+      const users = task.reactions[em]||[];
+      const reacted = users.includes(uid);
+      return users.length>0
+        ? `<button class="reaction-btn ${reacted?'reacted':''}" onclick="toggleReaction('${tid}','${cid}','${em}',event)">${em} ${users.length}</button>`
+        : '';
+    }).join('');
+  }
+}
+
+function showReactions(tid, cid, e) {
+  if(e) e.stopPropagation();
+  const el = document.getElementById('reactions-'+tid);
+  if(el) {
+    el.style.display = '';
+    el.innerHTML = REACTION_EMOJIS.map(em=>`<button class="reaction-btn" onclick="toggleReaction('${tid}','${cid}','${em}',event)">${em}</button>`).join('');
+  }
 }
 
 function trackerStatusBadge(s) {
@@ -4246,6 +4599,7 @@ function renderTeam() {
       </div>
       <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;" onclick="event.stopPropagation()">
         ${activeTasks.length>0?`<span style="font-size:11px;font-weight:700;padding:3px 8px;border-radius:20px;background:var(--pink-pale);color:var(--pink-deep);">${activeTasks.length} tarea${activeTasks.length!==1?'s':''}</span>`:''}
+        ${u.uid!==currentUser?.uid?`<button class="kudos-btn" onclick="sendKudos('${u.uid}',event)" title="Dar kudos">🏆 Kudos</button>`:''}
         ${isAdmin() && u.uid !== currentUser.uid ? `
           <select onchange="changeArea('${u.uid}',this.value)" style="padding:5px 10px;border:1px solid var(--border);border-radius:10px;font-size:11px;font-family:inherit;background:var(--white);color:var(--text);cursor:pointer;">
             <option value="">Sin área</option>
@@ -5086,6 +5440,8 @@ auth.onAuthStateChanged(async (user) => {
   const displayName = currentUserProfile.name || user.email.split('@')[0];
   document.getElementById('userNameSidebar').textContent = displayName;
   updateSidebarAvatar();
+  loadTheme(currentUserProfile);
+  initNotifications();
   const roleBadge = document.getElementById('userRoleSidebar');
   if(roleBadge) roleBadge.textContent = currentUserProfile.puesto || (currentUserProfile.role === 'admin' ? 'Admin' : 'Miembro');
 
@@ -5676,6 +6032,8 @@ function openProfileModal(uid) {
         <div style="font-size:20px;font-weight:700;">${u.name||'—'}</div>
         <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">${u.email}</div>
         ${(u.statusText) ? `<div style="display:inline-flex;align-items:center;gap:5px;padding:3px 10px;background:var(--pink-pale);border-radius:20px;font-size:12px;color:var(--text-muted);margin-top:6px;">${u.statusEmoji||'💬'} ${u.statusText}</div>` : ''}
+        ${u.tagline ? `<div style="font-size:12px;color:var(--text-muted);margin-top:4px;font-style:italic;">${u.tagline}</div>` : ''}
+        ${u.pronouns ? `<div style="font-size:11px;color:var(--text-muted);margin-top:2px;">${u.pronouns}</div>` : ''}
         ${u.bio ? `<div style="font-size:13px;color:var(--text-muted);margin-top:8px;font-style:italic;">"${u.bio}"</div>` : ''}
         <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
           ${u.puesto?`<span class="badge" style="background:var(--lavender-pale);color:var(--blue);">${u.puesto}</span>`:''}
@@ -5931,6 +6289,15 @@ function openEditProfileModal() {
   // Status
   const statusInput = document.getElementById('profileStatusInput');
   if(statusInput) statusInput.value = currentUserProfile.statusText || '';
+  const pronounsInput = document.getElementById('profilePronounsInput');
+  if(pronounsInput) pronounsInput.value = currentUserProfile.pronouns || '';
+  const taglineInput = document.getElementById('profileTaglineInput');
+  if(taglineInput) taglineInput.value = currentUserProfile.tagline || '';
+  // Mark active theme swatch
+  THEMES.forEach(t => {
+    const sw = document.getElementById('theme-'+t);
+    if(sw) sw.classList.toggle('selected', (currentUserProfile.theme||'default') === t);
+  });
   const statusBtn = document.getElementById('statusEmojiBtn');
   if(statusBtn) statusBtn.textContent = _editStatusEmoji;
   const bioInput = document.getElementById('profileBioInput');
@@ -6037,6 +6404,8 @@ async function saveMyProfile() {
   const statusText  = (document.getElementById('profileStatusInput')?.value || '').trim();
   const bio         = (document.getElementById('profileBioInput')?.value || '').trim();
   _editProfileEmoji = emoji;
+  const pronouns  = (document.getElementById('profilePronounsInput')?.value||'').trim();
+  const tagline   = (document.getElementById('profileTaglineInput')?.value||'').trim();
   const updates = {
     area, puesto,
     profileEmoji:    emoji,
@@ -6045,6 +6414,8 @@ async function saveMyProfile() {
     statusEmoji,
     statusText,
     bio,
+    pronouns,
+    tagline,
   };
   try {
     const ws = db.collection('workspaces').doc(WORKSPACE);
