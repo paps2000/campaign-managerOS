@@ -5646,10 +5646,13 @@ async function loadCalendarEvents() {
         if(e.status === 'cancelled') return false;
         if(seen.has(e.id)) return false;
         seen.add(e.id);
-        // If event has attendees, user must be among them (self=true or email match)
-        // Events with no attendees are personal — always show
+        // User organized or created this event (covers personal events with no attendees)
+        if(e.organizer?.self === true) return true;
+        if(e.creator?.self === true) return true;
+        if(e.organizer?.email?.toLowerCase() === userEmail) return true;
+        if(e.creator?.email?.toLowerCase() === userEmail) return true;
+        // User is explicitly in attendees list
         const attendees = e.attendees || [];
-        if(attendees.length === 0) return true;
         return attendees.some(a =>
           a.self === true ||
           (a.email || '').toLowerCase() === userEmail
