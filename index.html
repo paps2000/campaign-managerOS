@@ -5539,7 +5539,7 @@ async function loginGoogle() {
     const provider = new firebase.auth.GoogleAuthProvider();
     provider.setCustomParameters({hd:'thinkydigital.com'});
     provider.addScope('https://www.googleapis.com/auth/calendar.readonly');
-    provider.addScope('https://www.googleapis.com/auth/gmail.readonly');
+    provider.addScope('https://www.googleapis.com/auth/gmail.modify');
     const result = await auth.signInWithPopup(provider);
     if(!isAllowedEmail(result.user.email)) {
       await auth.signOut();
@@ -5742,7 +5742,7 @@ async function connectGoogleCalendar() {
   try {
     const provider = new firebase.auth.GoogleAuthProvider();
     provider.addScope('https://www.googleapis.com/auth/calendar.readonly');
-    provider.addScope('https://www.googleapis.com/auth/gmail.readonly');
+    provider.addScope('https://www.googleapis.com/auth/gmail.modify');
     const result = await currentUser.reauthenticateWithPopup(provider);
     const tok = result.credential.accessToken;
     calendarAccessToken = tok;
@@ -5976,6 +5976,14 @@ async function trashGmailMessage(id, e) {
       `https://gmail.googleapis.com/gmail/v1/users/me/messages/${id}/trash`,
       { method:'POST', headers:{ Authorization:`Bearer ${calendarAccessToken}` } }
     );
+    if(res.status === 403) {
+      // Token lacks gmail.modify scope — force reconnect to get new scopes
+      calendarAccessToken = null;
+      localStorage.removeItem('gcalToken'); localStorage.removeItem('gcalTokenExpiry');
+      renderGmailWidget(); renderCalendarWidget();
+      showToast('Reconecta Google para habilitar borrar correos','error');
+      return;
+    }
     if(!res.ok) throw new Error('HTTP ' + res.status);
     gmailMessages = gmailMessages.filter(m => m.id !== id);
     renderGmailWidget();
