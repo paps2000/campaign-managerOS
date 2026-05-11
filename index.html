@@ -5564,11 +5564,20 @@ async function loadCalendarEvents() {
       renderGmailWidget();
       return;
     }
+    if(res.status === 403) {
+      const errData = await res.json().catch(()=>({}));
+      const msg = errData?.error?.message || 'Acceso denegado';
+      showToast('Calendar API no habilitada: ' + msg, 'error');
+      const el = document.getElementById('googleCalendarWidget');
+      if(el) el.innerHTML = `<div class="card"><div class="card-header"><span class="card-title">📅 Calendario de hoy</span></div><div style="padding:20px;text-align:center;color:var(--red);font-size:13px;">⚠️ Google Calendar API no está habilitada en tu proyecto de Google Cloud.<br><br><a href="https://console.cloud.google.com/apis/library/calendar-json.googleapis.com" target="_blank" class="btn btn-primary" style="margin-top:8px;">Habilitar Calendar API →</a></div></div>`;
+      return;
+    }
     const data = await res.json();
     calendarEvents = (data.items || []).filter(e => e.status !== 'cancelled');
     renderCalendarWidget();
   } catch(e) {
     console.error('Calendar fetch error', e);
+    showToast('Error cargando calendario: ' + e.message, 'error');
     renderCalendarWidget();
   }
 }
