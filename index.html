@@ -853,6 +853,13 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
 .cal-connect-empty p { margin-bottom:14px; line-height:1.5; }
 .cal-dot { width:8px; height:8px; border-radius:50%; background:var(--lavender); flex-shrink:0; }
 .cal-event.has-meet .cal-dot { background:#1a73e8; }
+.cal-event.cal-past { opacity:.42; filter:grayscale(.4); }
+.cal-event.cal-past:hover { opacity:.68; }
+.cal-event.cal-past .cal-time { color:var(--text-muted); }
+.cal-event.cal-ongoing { border-color:var(--pink); background:var(--pink-pale); box-shadow:0 0 0 2px var(--pink-light); }
+.cal-ongoing-badge { font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;background:var(--pink);color:#fff;white-space:nowrap;flex-shrink:0; }
+.cal-divider { display:flex;align-items:center;gap:8px;margin:6px 0 2px;color:var(--text-muted);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px; }
+.cal-divider::before,.cal-divider::after { content:'';flex:1;height:1px;background:var(--border); }
 
 /* INFLUENCER ADD ROW */
 .inf-add-row {
@@ -5624,8 +5631,10 @@ async function loadCalendarEvents() {
       renderCalendarWidget(); renderGmailWidget(); return;
     }
     const calList = await calListRes.json();
+    // Only query calendars the user OWNS — subscribed/shared calendars
+    // show other people's events even when user isn't invited
     const calIds = (calList.items || [])
-      .filter(c => c.selected !== false && c.accessRole !== 'freeBusyReader')
+      .filter(c => c.selected !== false && c.accessRole === 'owner')
       .map(c => c.id);
     if(!calIds.length) calIds.push('primary');
 
@@ -5784,8 +5793,8 @@ function renderGmailWidget() {
       ? '<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px;">¡Bandeja limpia! 🎉</div>'
       : `<div style="display:flex;flex-direction:column;gap:0;">
           ${msgs.map(m => `
-            <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s;"
-                 onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background=''"
+            <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s;position:relative;"
+                 onmouseover="this.style.background='var(--bg)';this.querySelector('.gmail-trash-btn').style.opacity='1'" onmouseout="this.style.background='';this.querySelector('.gmail-trash-btn').style.opacity='0'"
                  onclick="window.open('https://mail.google.com/mail/u/0/#inbox/${m.threadId}','_blank')">
               <div style="width:32px;height:32px;border-radius:10px;background:var(--pink-pale);color:var(--pink-deep);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0;">
                 ${(m.from[0]||'?').toUpperCase()}
@@ -5799,6 +5808,9 @@ function renderGmailWidget() {
                 <div style="font-size:11px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:2px;">${m.snippet}</div>
               </div>
               ${m.unread ? '<div style="width:7px;height:7px;border-radius:50%;background:var(--pink);flex-shrink:0;margin-top:4px;"></div>' : ''}
+              <button class="gmail-trash-btn" onclick="trashGmailMessage('${m.id}',event)" title="Borrar correo"
+                style="opacity:0;transition:opacity .15s;background:none;border:none;cursor:pointer;padding:2px 4px;color:var(--text-muted);font-size:14px;flex-shrink:0;line-height:1;border-radius:6px;"
+                onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--text-muted)'">🗑</button>
             </div>
           `).join('')}
         </div>
@@ -5807,6 +5819,23 @@ function renderGmailWidget() {
         </div>`
     }
   </div>`;
+}
+
+async function trashGmailMessage(id, e) {
+  e.stopPropagation();
+  if(!calendarAccessToken) return;
+  try {
+    const res = await fetch(
+      `https://gmail.googleapis.com/gmail/v1/users/me/messages/${id}/trash`,
+      { method:'POST', headers:{ Authorization:`Bearer ${calendarAccessToken}` } }
+    );
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    gmailMessages = gmailMessages.filter(m => m.id !== id);
+    renderGmailWidget();
+    showToast('Correo movido a papelera','success');
+  } catch(err) {
+    showToast('Error al borrar: ' + err.message,'error');
+  }
 }
 
 function renderCalendarWidget() {
@@ -5843,44 +5872,57 @@ function renderCalendarWidget() {
 
   const total = calendarEvents.length;
   const meetCount = calendarEvents.filter(e => getMeetLink(e)).length;
-  const summaryText = total === 0
-    ? 'Sin eventos hoy'
-    : `${total} evento${total !== 1 ? 's' : ''} hoy${meetCount > 0 ? ` · ${meetCount} con Google Meet` : ''}`;
 
-  const eventsHtml = total === 0
-    ? `<div class="cal-connect-empty" style="padding:12px 0"><p style="margin:0">¡Sin reuniones hoy! 🎉</p></div>`
-    : calendarEvents.map(ev => {
-        const meetLink = getMeetLink(ev);
-        const attendees = (ev.attendees || [])
-          .filter(a => !a.self)
-          .slice(0, 6)
-          .map(a => a.displayName || a.email)
-          .join(', ');
-        const organizer = ev.organizer?.displayName || ev.organizer?.email || '';
-        const rawDesc = ev.description || '';
-        const desc = rawDesc.replace(/<[^>]+>/g, '').replace(/&nbsp;/g,' ').trim().substring(0, 220);
-        const hasMeet = !!meetLink;
+  const now = new Date();
+  const evtStart = ev => ev.start?.dateTime ? new Date(ev.start.dateTime) : null;
+  const evtEnd   = ev => ev.end?.dateTime   ? new Date(ev.end.dateTime)   : null;
+  const isPastEv    = ev => { const e = evtEnd(ev);   return e && e < now; };
+  const isOngoingEv = ev => { const s = evtStart(ev), e = evtEnd(ev); return s && e && s <= now && now < e; };
 
-        // Escape any quotes in meetLink for inline onclick
-        const safeLink = meetLink ? meetLink.replace(/'/g, "\\'") : '';
+  const renderEvt = (ev, status) => {
+    const meetLink = getMeetLink(ev);
+    const attendees = (ev.attendees || []).filter(a => !a.self).slice(0,6).map(a => a.displayName || a.email).join(', ');
+    const organizer = ev.organizer?.displayName || ev.organizer?.email || '';
+    const rawDesc = ev.description || '';
+    const desc = rawDesc.replace(/<[^>]+>/g,'').replace(/&nbsp;/g,' ').trim().substring(0,220);
+    const hasMeet = !!meetLink;
+    const safeLink = meetLink ? meetLink.replace(/'/g,"\\'") : '';
+    const past = status === 'past';
+    const ongoing = status === 'ongoing';
+    return `
+      <div class="cal-event ${hasMeet?'has-meet':'no-meet'} ${past?'cal-past':''} ${ongoing?'cal-ongoing':''}"
+           ${hasMeet && !past ? `onclick="window.open('${safeLink}','_blank')"` : ''}>
+        <div class="cal-dot"></div>
+        <div class="cal-time">${fmtRange(ev)}</div>
+        <div class="cal-title">${ev.summary || '(Sin título)'}</div>
+        ${ongoing ? '<span class="cal-ongoing-badge">En curso</span>' : ''}
+        ${hasMeet && !past ? '<span class="cal-meet-badge">Meet</span>' : ''}
+        <div class="cal-tooltip-box">
+          <div class="cal-tooltip-title">${ev.summary || 'Sin título'}</div>
+          <div class="cal-tooltip-row">🕐 ${fmtRange(ev)}</div>
+          ${organizer ? `<div class="cal-tooltip-row">👤 Organiza: ${organizer}</div>` : ''}
+          ${attendees ? `<div class="cal-tooltip-row">👥 ${attendees}</div>` : ''}
+          ${desc ? `<div class="cal-tooltip-row" style="margin-top:8px;border-top:1px solid rgba(255,255,255,.15);padding-top:8px;">${desc}</div>` : ''}
+          ${hasMeet && !past ? `<div class="cal-tooltip-meet">→ Clic para abrir Google Meet</div>` : ''}
+        </div>
+      </div>`;
+  };
 
-        return `
-          <div class="cal-event ${hasMeet ? 'has-meet' : 'no-meet'}"
-               ${hasMeet ? `onclick="window.open('${safeLink}','_blank')"` : ''}>
-            <div class="cal-dot"></div>
-            <div class="cal-time">${fmtRange(ev)}</div>
-            <div class="cal-title">${ev.summary || '(Sin título)'}</div>
-            ${hasMeet ? '<span class="cal-meet-badge">Meet</span>' : ''}
-            <div class="cal-tooltip-box">
-              <div class="cal-tooltip-title">${ev.summary || 'Sin título'}</div>
-              <div class="cal-tooltip-row">🕐 ${fmtRange(ev)}</div>
-              ${organizer ? `<div class="cal-tooltip-row">👤 Organiza: ${organizer}</div>` : ''}
-              ${attendees ? `<div class="cal-tooltip-row">👥 ${attendees}</div>` : ''}
-              ${desc ? `<div class="cal-tooltip-row" style="margin-top:8px;border-top:1px solid rgba(255,255,255,.15);padding-top:8px;">${desc}</div>` : ''}
-              ${hasMeet ? `<div class="cal-tooltip-meet">→ Clic para abrir Google Meet</div>` : ''}
-            </div>
-          </div>`;
-      }).join('');
+  const pastEvs     = calendarEvents.filter(ev => isPastEv(ev));
+  const ongoingEvs  = calendarEvents.filter(ev => isOngoingEv(ev));
+  const upcomingEvs = calendarEvents.filter(ev => !isPastEv(ev) && !isOngoingEv(ev));
+
+  let eventsHtml;
+  if(total === 0) {
+    eventsHtml = `<div class="cal-connect-empty" style="padding:12px 0"><p style="margin:0">¡Sin reuniones hoy! 🎉</p></div>`;
+  } else {
+    const hasFuture = ongoingEvs.length > 0 || upcomingEvs.length > 0;
+    eventsHtml =
+      pastEvs.map(ev => renderEvt(ev,'past')).join('') +
+      (pastEvs.length > 0 && hasFuture ? `<div class="cal-divider"><span>${ongoingEvs.length > 0 ? 'En curso' : 'Próximas'}</span></div>` : '') +
+      ongoingEvs.map(ev => renderEvt(ev,'ongoing')).join('') +
+      upcomingEvs.map(ev => renderEvt(ev,'upcoming')).join('');
+  }
 
   // Classify events: internal = all attendees @thinkydigital.com, external = has outside attendees
   const domain = (currentUser?.email||'').split('@')[1] || 'thinkydigital.com';
