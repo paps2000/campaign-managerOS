@@ -640,6 +640,103 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
   .login-divider::before, .login-divider::after { background:var(--border); }
 }
 
+/* Manual dark/light class overrides (theme toggle) */
+html.dark {
+  --bg:#0d0d11; --white:#16161e; --text:#f0eef6; --text-muted:#7a7890;
+  --border:#26263a; --pink-pale:rgba(255,45,135,.14); --pink-light:rgba(255,45,135,.35);
+  --lavender-pale:rgba(44,109,255,.14); --mint-pale:rgba(85,196,98,.1);
+  --shadow:0 2px 12px rgba(0,0,0,.5); --shadow-lg:0 18px 48px rgba(0,0,0,.7);
+  --sidebar:#080809; --sidebar-hover:rgba(255,255,255,.06);
+}
+html.dark .sidebar-inner { background:#101015; border-color:rgba(255,255,255,.03); }
+html.dark .topbar-date { background:var(--white); border-color:var(--border); color:var(--text); }
+html.dark .btn-ghost { background:transparent; border-color:var(--border); color:var(--text); }
+html.dark .btn-ghost:hover { background:rgba(255,255,255,.05); }
+html.dark .form-input, html.dark .gen-select, html.dark .flow-step-select { background:var(--bg); border-color:var(--border); color:var(--text); }
+html.dark .form-input:focus { background:var(--white); border-color:var(--pink); }
+html.dark .filter-tab { background:var(--white); border-color:var(--border); }
+html.dark .filter-tab.active { background:var(--pink); color:#fff; border-color:var(--pink); }
+html.dark .modal { background:var(--white); }
+html.dark .login-card { background:#141418; }
+html.dark .login-input { background:#0d0d11; border-color:var(--border); color:var(--text); }
+html.dark .login-input:focus { background:var(--white); }
+html.dark .login-btn-google { background:var(--white); border-color:var(--border); color:var(--text); }
+html.dark .mobile-nav { background:var(--white); border-color:var(--border); }
+html.dark .task-area-group summary { background:var(--bg); }
+html.dark .profile-modal-hero { background:linear-gradient(160deg,#0d0d11 0%,rgba(255,45,135,.14) 100%); }
+html.dark .profile-tab-bar { background:var(--white); }
+html.dark .cal-tooltip-box { background:#1a1a26; }
+html.dark .badge-green { background:rgba(78,195,138,.15); color:#4ec38a; }
+html.dark .badge-yellow { background:rgba(240,200,74,.12); color:#d4a800; }
+html.dark .badge-red { background:rgba(255,77,109,.15); color:#ff4d6d; }
+html.dark .badge-blue { background:rgba(44,109,255,.15); color:#6fa3ff; }
+html.dark .badge-purple { background:rgba(122,61,240,.15); color:#a57bff; }
+html.dark .badge-lavender { background:rgba(44,109,255,.12); color:#8ab0ff; }
+html.dark .badge-mint { background:rgba(85,196,98,.12); color:#55c462; }
+html.dark .badge-area-Operaciones { background:rgba(85,196,98,.12); color:#55c462; }
+html.dark .badge-area-Cuentas { background:rgba(255,45,135,.13); color:var(--pink); }
+html.dark .badge-area-Creativo { background:rgba(44,109,255,.13); color:#6fa3ff; }
+html.dark .badge-area-Data { background:rgba(122,61,240,.12); color:#a57bff; }
+html.dark .notif-panel { background:var(--white); border-color:var(--border); }
+html.dark .area-dropdown { background:var(--white); border-color:var(--border); }
+html.dark select option { background:#1a1a24; color:var(--text); }
+html.dark table tr:hover td { background:rgba(255,45,135,.07) !important; }
+html.dark .stat-card.urgent { background:#1a0a14; }
+html.dark .stat-card.urgent .stat-label, html.dark .stat-card.urgent .stat-value, html.dark .stat-card.urgent .stat-sub { color:var(--pink); }
+html.dark .gen-output { background:var(--bg); }
+html.dark .shape-opt { border-color:var(--border); color:var(--text-muted); background:var(--white); }
+html.dark .emoji-cat-btn { background:var(--bg); border-color:var(--border); color:var(--text-muted); }
+html.dark .login-screen { background:var(--bg); }
+html.dark .infDetailModal .modal-header, html.dark .modal-header { border-color:var(--border); }
+html.dark .task-area-group { border-color:var(--border); }
+
+html.light {
+  --bg:#f8f7f9; --white:#ffffff; --text:#0a0a0c; --text-muted:#6f6c78;
+  --border:#e8e6ec; --pink-pale:#ffe6f0; --pink-light:#ffb3d3;
+  --lavender-pale:#deeaff; --mint-pale:#e4f9e7;
+  --shadow:0 1px 8px rgba(10,10,12,.06),0 4px 16px rgba(10,10,12,.04);
+  --shadow-lg:0 16px 48px rgba(10,10,12,.12);
+}
+
+/* Theme toggle button */
+.theme-toggle-btn {
+  width:36px; height:36px; border-radius:10px; border:1.5px solid var(--border);
+  background:var(--white); cursor:pointer; display:flex; align-items:center;
+  justify-content:center; font-size:16px; transition:all .2s var(--ease); flex-shrink:0;
+  color:var(--text-muted);
+}
+.theme-toggle-btn:hover { border-color:var(--pink); color:var(--pink); background:var(--pink-pale); }
+
+/* ── Team profile cards ── */
+.team-grid {
+  display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:14px;
+}
+.team-card {
+  background:var(--white); border:1.5px solid var(--border); border-radius:18px;
+  padding:22px 16px 18px; display:flex; flex-direction:column; align-items:center;
+  gap:10px; cursor:pointer; transition:all .28s var(--ease);
+  animation:fadeUp .4s var(--ease) backwards;
+  text-align:center; position:relative; overflow:hidden;
+}
+.team-card::before {
+  content:''; position:absolute; top:0; left:0; right:0; height:3px;
+  background:var(--pink); opacity:0; transition:opacity .25s;
+}
+.team-card:hover { border-color:var(--pink); transform:translateY(-4px); box-shadow:var(--shadow-lg); }
+.team-card:hover::before { opacity:1; }
+.team-card:nth-child(1){animation-delay:.03s} .team-card:nth-child(2){animation-delay:.07s}
+.team-card:nth-child(3){animation-delay:.11s} .team-card:nth-child(4){animation-delay:.15s}
+.team-card:nth-child(5){animation-delay:.19s} .team-card:nth-child(6){animation-delay:.23s}
+.team-card:nth-child(7){animation-delay:.27s} .team-card:nth-child(8){animation-delay:.31s}
+.team-card-avatar { flex-shrink:0; transition:transform .3s var(--ease); }
+.team-card:hover .team-card-avatar { transform:scale(1.08) rotate(-3deg); }
+.team-card-name { font-size:14px; font-weight:700; color:var(--text); line-height:1.2; }
+.team-card-role { font-size:11px; color:var(--text-muted); margin-top:-4px; }
+.team-card-status { font-size:11px; color:var(--text-muted); background:var(--bg); padding:3px 10px; border-radius:20px; max-width:160px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.team-card-tasks { font-size:11px; font-weight:700; padding:3px 10px; border-radius:20px; background:var(--pink-pale); color:var(--pink-deep); }
+.team-card-you { position:absolute; top:10px; right:10px; font-size:9px; font-weight:700; color:var(--pink); letter-spacing:.5px; text-transform:uppercase; background:var(--pink-pale); padding:2px 7px; border-radius:20px; }
+.team-card-badges { display:flex; gap:4px; flex-wrap:wrap; justify-content:center; }
+
 /* ============ PERFIL MODAL REDISEÑADO ============ */
 .profile-modal { padding:0; overflow:hidden; width:560px; }
 .profile-modal-hero {
@@ -1282,6 +1379,7 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
         🔔
         <span class="notif-badge" id="notifBadge"></span>
       </button>
+      <button class="theme-toggle-btn" id="themeToggleBtn" onclick="cycleTheme()" title="Cambiar modo"></button>
       <button class="btn btn-primary" id="mainActionBtn" onclick="openNewCampaignModal()">+ Nueva campaña</button>
       <button class="logout-btn" onclick="logout()" title="Cerrar sesión">⎋ Salir</button>
     </div>
@@ -2657,6 +2755,32 @@ function setPendientesBadge(count) {
   const mb = document.getElementById('mobileNavBadge');
   if(mb) { mb.textContent = count; mb.style.display = count > 0 ? 'flex' : 'none'; }
 }
+
+// ============================================================
+// THEME TOGGLE (dark / light / auto)
+// ============================================================
+function getThemePref() { return localStorage.getItem('themePref') || 'auto'; }
+
+function applyThemePref(pref) {
+  document.documentElement.classList.remove('dark', 'light');
+  if(pref === 'dark')  document.documentElement.classList.add('dark');
+  if(pref === 'light') document.documentElement.classList.add('light');
+  localStorage.setItem('themePref', pref);
+  const btn = document.getElementById('themeToggleBtn');
+  if(!btn) return;
+  const icons  = { dark:'🌙', light:'☀️', auto:'✦' };
+  const labels = { dark:'Modo oscuro', light:'Modo claro', auto:'Modo automático (sistema)' };
+  btn.textContent = icons[pref] || '✦';
+  btn.title = labels[pref] || 'Modo automático';
+}
+
+function cycleTheme() {
+  const order = ['auto', 'dark', 'light'];
+  const next = order[(order.indexOf(getThemePref()) + 1) % 3];
+  applyThemePref(next);
+}
+
+applyThemePref(getThemePref());
 
 function toggleMobileSidebar() {
   const sidebar = document.getElementById('mainSidebar');
@@ -4612,38 +4736,61 @@ function removeAssignee(cid, uid) {
 function renderTeam() {
   const list = document.getElementById('teamList');
   if(!list) return;
-  list.innerHTML = allUsers.map(u => {
+
+  if(allUsers.length === 0) {
+    list.innerHTML = '<div class="empty-state"><p>Sin miembros aún.</p></div>';
+    return;
+  }
+
+  const sorted = [...allUsers].sort((a,b) => {
+    if(a.uid === currentUser?.uid) return -1;
+    if(b.uid === currentUser?.uid) return 1;
+    if(a.role === 'admin' && b.role !== 'admin') return -1;
+    if(b.role === 'admin' && a.role !== 'admin') return 1;
+    return (a.name||'').localeCompare(b.name||'');
+  });
+
+  list.innerHTML = `<div class="team-grid">${sorted.map(u => {
     const activeTasks = [
       ..._cache.campaigns.flatMap(c=>(c.tasks||[]).filter(t=>!t.done&&t.assigneeUid===u.uid)),
       ..._cache.globalTasks.filter(t=>!t.done&&t.assigneeUid===u.uid)
     ];
+    const isMe = u.uid === currentUser?.uid;
+    const hasStatus = !!u.statusText;
+    const avatarHtml = memberAvatarHtml(u, 56, '16px');
+
+    const adminSelects = isAdmin() && !isMe ? `
+      <div style="display:flex;flex-direction:column;gap:5px;width:100%;margin-top:4px;" onclick="event.stopPropagation()">
+        <select onchange="changeArea('${u.uid}',this.value)" style="width:100%;padding:5px 8px;border:1.5px solid var(--border);border-radius:8px;font-size:11px;font-family:inherit;background:var(--white);color:var(--text);cursor:pointer;">
+          <option value="">Sin área</option>
+          ${AREAS.map(a=>`<option value="${a}" ${u.area===a?'selected':''}>${a}</option>`).join('')}
+        </select>
+        <select onchange="changePuesto('${u.uid}',this.value)" style="width:100%;padding:5px 8px;border:1.5px solid var(--border);border-radius:8px;font-size:11px;font-family:inherit;background:var(--white);color:var(--text);cursor:pointer;">
+          <option value="">Sin puesto</option>
+          ${PUESTOS.map(p=>`<option value="${p}" ${u.puesto===p?'selected':''}>${p}</option>`).join('')}
+        </select>
+        <select onchange="changeRole('${u.uid}',this.value)" style="width:100%;padding:5px 8px;border:1.5px solid var(--border);border-radius:8px;font-size:11px;font-family:inherit;background:var(--white);color:var(--text);cursor:pointer;">
+          <option value="member" ${u.role==='member'?'selected':''}>Miembro</option>
+          <option value="admin" ${u.role==='admin'?'selected':''}>Admin</option>
+        </select>
+      </div>` : '';
+
     return `
-    <div onclick="openProfileModal('${u.uid}')" style="display:flex;align-items:center;gap:12px;padding:14px;border:1px solid var(--border);border-radius:14px;margin-bottom:8px;cursor:pointer;transition:all .2s var(--ease);"
-      onmouseover="this.style.borderColor='var(--pink)';this.style.background='var(--pink-pale)'" onmouseout="this.style.borderColor='var(--border)';this.style.background=''">
-      ${memberAvatarHtml(u, 40, '12px')}
-      <div style="flex:1;min-width:0;">
-        <div style="font-size:14px;font-weight:700;display:flex;align-items:center;gap:6px;">${u.name||'—'} ${u.uid===currentUser.uid?'<span style="font-size:10px;color:var(--text-muted);font-weight:400;">(tú)</span>':''}</div>
-        <div style="font-size:11px;color:var(--text-muted);margin-top:2px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">${u.email}${u.area?`<span class="badge badge-area-${u.area}">${u.area}</span>`:''}${u.puesto?`<span style="font-size:10px;color:var(--text-muted);">${u.puesto}</span>`:''}</div>
+    <div class="team-card" onclick="openProfileModal('${u.uid}')">
+      ${isMe ? '<div class="team-card-you">Tú</div>' : ''}
+      <div class="team-card-avatar">${avatarHtml}</div>
+      <div class="team-card-name">${u.name||'—'}</div>
+      ${(u.puesto||u.role) ? `<div class="team-card-role">${u.puesto || (u.role==='admin'?'Admin':'Miembro')}</div>` : ''}
+      <div class="team-card-badges">
+        ${u.area ? `<span class="badge badge-area-${u.area}" style="font-size:10px;">${u.area}</span>` : ''}
+        ${u.role==='admin' ? `<span class="badge" style="background:var(--pink-pale);color:var(--pink-deep);font-size:10px;">Admin</span>` : ''}
       </div>
-      <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;" onclick="event.stopPropagation()">
-        ${activeTasks.length>0?`<span style="font-size:11px;font-weight:700;padding:3px 8px;border-radius:20px;background:var(--pink-pale);color:var(--pink-deep);">${activeTasks.length} tarea${activeTasks.length!==1?'s':''}</span>`:''}
-        ${u.uid!==currentUser?.uid?`<button class="kudos-btn" onclick="sendKudos('${u.uid}',event)" title="Dar kudos">🏆 Kudos</button>`:''}
-        ${isAdmin() && u.uid !== currentUser.uid ? `
-          <select onchange="changeArea('${u.uid}',this.value)" style="padding:5px 10px;border:1px solid var(--border);border-radius:10px;font-size:11px;font-family:inherit;background:var(--white);color:var(--text);cursor:pointer;">
-            <option value="">Sin área</option>
-            ${AREAS.map(a=>`<option value="${a}" ${u.area===a?'selected':''}>${a}</option>`).join('')}
-          </select>
-          <select onchange="changePuesto('${u.uid}',this.value)" style="padding:5px 10px;border:1px solid var(--border);border-radius:10px;font-size:11px;font-family:inherit;background:var(--white);color:var(--text);cursor:pointer;">
-            <option value="">Sin puesto</option>
-            ${PUESTOS.map(p=>`<option value="${p}" ${u.puesto===p?'selected':''}>${p}</option>`).join('')}
-          </select>
-          <select onchange="changeRole('${u.uid}',this.value)" style="padding:5px 10px;border:1px solid var(--border);border-radius:10px;font-size:11px;font-family:inherit;background:var(--white);color:var(--text);cursor:pointer;">
-            <option value="member" ${u.role==='member'?'selected':''}>Miembro</option>
-            <option value="admin" ${u.role==='admin'?'selected':''}>Admin</option>
-          </select>` : `<span class="badge ${u.role==='admin'?'':'badge-gray'}" style="${u.role==='admin'?'background:var(--pink-pale);color:var(--pink-deep);':''}">${u.role==='admin'?'Admin':u.puesto||'Miembro'}</span>`}
-      </div>
+      ${hasStatus ? `<div class="team-card-status">${u.statusEmoji||''} ${u.statusText}</div>` : ''}
+      ${activeTasks.length > 0 ? `<div class="team-card-tasks">${activeTasks.length} tarea${activeTasks.length!==1?'s':''}</div>` : ''}
+      ${!isMe ? `<button class="kudos-btn" onclick="sendKudos('${u.uid}',event)" style="margin-top:2px;">🏆 Kudos</button>` : ''}
+      ${adminSelects}
     </div>`;
-  }).join('') || '<div class="empty-state"><p>Sin miembros aún.</p></div>';
+  }).join('')}</div>`;
 }
 
 async function changeArea(uid, newArea) {
