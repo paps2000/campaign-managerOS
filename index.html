@@ -1410,6 +1410,14 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
       </div>
     </div>
 
+    <!-- GOOGLE WIDGETS -->
+    <div class="grid-main-side" style="margin-top:20px;">
+      <div id="googleCalendarWidget"></div>
+      <div id="googleGmailWidget"></div>
+    </div>
+
+    </div>
+
     <!-- CAMPAÑAS -->
     <div class="page" id="page-campannas">
       <!-- LIST VIEW -->
@@ -5316,16 +5324,19 @@ async function loginGoogle() {
     const provider = new firebase.auth.GoogleAuthProvider();
     provider.setCustomParameters({hd:'thinkydigital.com'});
     provider.addScope('https://www.googleapis.com/auth/calendar.readonly');
+    provider.addScope('https://www.googleapis.com/auth/gmail.readonly');
     const result = await auth.signInWithPopup(provider);
     if(!isAllowedEmail(result.user.email)) {
       await auth.signOut();
       errEl.textContent='Solo se permiten correos @thinkydigital.com';
       return;
     }
-    // Store calendar token immediately so dashboard connects without extra step
+    // Store token with expiry for persistence
     if(result.credential && result.credential.accessToken) {
       calendarAccessToken = result.credential.accessToken;
-      sessionStorage.setItem('gcalToken', calendarAccessToken);
+      const expiry = Date.now() + 55 * 60 * 1000;
+      localStorage.setItem('gcalToken', calendarAccessToken);
+      localStorage.setItem('gcalTokenExpiry', expiry.toString());
     }
     // user profile is created/merged in onAuthStateChanged
   } catch(e) {
@@ -5442,6 +5453,8 @@ auth.onAuthStateChanged(async (user) => {
   updateSidebarAvatar();
   loadTheme(currentUserProfile);
   initNotifications();
+  if(calendarAccessToken) { loadCalendarEvents(); loadGmailMessages(); }
+  else { renderCalendarWidget(); renderGmailWidget(); }
   const roleBadge = document.getElementById('userRoleSidebar');
   if(roleBadge) roleBadge.textContent = currentUserProfile.puesto || (currentUserProfile.role === 'admin' ? 'Admin' : 'Miembro');
 
@@ -5451,9 +5464,9 @@ auth.onAuthStateChanged(async (user) => {
 
   populateCampaignSelects();
   renderDashboard();
-  // Load calendar if token already in session (returning user)
-  if(calendarAccessToken) loadCalendarEvents();
-  else renderCalendarWidget();
+  // Load calendar and Gmail if token already stored (returning user)
+  if(calendarAccessToken) { loadCalendarEvents(); loadGmailMessages(); }
+  else { renderCalendarWidget(); renderGmailWidget(); }
 });
 
 function isAdmin() { return currentUserProfile && currentUserProfile.role === 'admin'; }
@@ -5492,7 +5505,14 @@ async function toggleSubscribeCampaign(cid, e) {
 // GOOGLE CALENDAR
 // ============================================================
 let calendarEvents = [];
-let calendarAccessToken = sessionStorage.getItem('gcalToken') || null;
+(function(){
+  const tok = localStorage.getItem('gcalToken');
+  const exp = parseInt(localStorage.getItem('gcalTokenExpiry')||'0');
+  if(tok && Date.now() < exp) { window._gcalTok = tok; }
+  else { localStorage.removeItem('gcalToken'); localStorage.removeItem('gcalTokenExpiry'); }
+})();
+let calendarAccessToken = window._gcalTok || null;
+let gmailMessages = [];
 let _calendarConnecting = false;
 
 function isGoogleUser() {
@@ -5507,10 +5527,15 @@ async function connectGoogleCalendar() {
   try {
     const provider = new firebase.auth.GoogleAuthProvider();
     provider.addScope('https://www.googleapis.com/auth/calendar.readonly');
+    provider.addScope('https://www.googleapis.com/auth/gmail.readonly');
     const result = await currentUser.reauthenticateWithPopup(provider);
-    calendarAccessToken = result.credential.accessToken;
-    sessionStorage.setItem('gcalToken', calendarAccessToken);
+    const tok = result.credential.accessToken;
+    calendarAccessToken = tok;
+    const expiry = Date.now() + 55 * 60 * 1000; // 55 min
+    localStorage.setItem('gcalToken', tok);
+    localStorage.setItem('gcalTokenExpiry', expiry.toString());
     await loadCalendarEvents();
+    await loadGmailMessages();
   } catch(e) {
     if(e.code !== 'auth/popup-closed-by-user') {
       showToast('Error conectando calendario: ' + (traduceFirebaseError(e.code) || e.message), 'error');
@@ -5533,8 +5558,10 @@ async function loadCalendarEvents() {
     );
     if(res.status === 401) {
       calendarAccessToken = null;
-      sessionStorage.removeItem('gcalToken');
+      localStorage.removeItem('gcalToken');
+      localStorage.removeItem('gcalTokenExpiry');
       renderCalendarWidget();
+      renderGmailWidget();
       return;
     }
     const data = await res.json();
@@ -5546,20 +5573,134 @@ async function loadCalendarEvents() {
   }
 }
 
+// ============================================================
+// GMAIL
+// ============================================================
+async function loadGmailMessages() {
+  if(!calendarAccessToken) { renderGmailWidget(); return; }
+  try {
+    // Fetch list of unread messages
+    const listRes = await fetch(
+      'https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=12&q=is:unread&labelIds=INBOX',
+      { headers: { Authorization: `Bearer ${calendarAccessToken}` } }
+    );
+    if(listRes.status === 401) {
+      calendarAccessToken = null;
+      localStorage.removeItem('gcalToken');
+      localStorage.removeItem('gcalTokenExpiry');
+      renderGmailWidget();
+      return;
+    }
+    const listData = await listRes.json();
+    const ids = (listData.messages || []).slice(0, 10).map(m => m.id);
+    if(!ids.length) { gmailMessages = []; renderGmailWidget(); return; }
+    // Fetch metadata for each message in parallel
+    const msgResults = await Promise.all(ids.map(id =>
+      fetch(
+        `https://gmail.googleapis.com/gmail/v1/users/me/messages/${id}?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Date`,
+        { headers: { Authorization: `Bearer ${calendarAccessToken}` } }
+      ).then(r => r.json())
+    ));
+    gmailMessages = msgResults.map(m => {
+      const headers = m.payload?.headers || [];
+      const get = name => (headers.find(h => h.name.toLowerCase() === name.toLowerCase())?.value || '');
+      const from = get('From');
+      // Parse "Name <email>" format
+      const nameMatch = from.match(/^"?([^"<]+)"?\s*</);
+      const emailMatch = from.match(/<([^>]+)>/);
+      return {
+        id: m.id,
+        threadId: m.threadId,
+        subject: get('Subject') || '(Sin asunto)',
+        from: nameMatch ? nameMatch[1].trim() : (emailMatch ? emailMatch[1] : from),
+        fromEmail: emailMatch ? emailMatch[1] : from,
+        date: get('Date'),
+        snippet: m.snippet || '',
+        unread: (m.labelIds || []).includes('UNREAD'),
+      };
+    });
+    renderGmailWidget();
+  } catch(e) {
+    console.error('Gmail fetch error', e);
+    renderGmailWidget();
+  }
+}
+
+function _gmailTimeAgo(dateStr) {
+  if(!dateStr) return '';
+  const d = new Date(dateStr);
+  if(isNaN(d)) return '';
+  const diff = Date.now() - d.getTime();
+  const h = Math.floor(diff / 3600000);
+  const m = Math.floor(diff / 60000);
+  if(m < 1) return 'Ahora';
+  if(m < 60) return `${m}m`;
+  if(h < 24) return `${h}h`;
+  const days = Math.floor(h/24);
+  return `${days}d`;
+}
+
+function renderGmailWidget() {
+  const el = document.getElementById('googleGmailWidget');
+  if(!el) return;
+  if(!calendarAccessToken) {
+    el.innerHTML = `<div class="card">
+      <div class="card-header"><span class="card-title">📧 Correos recientes</span></div>
+      <div style="padding:24px;text-align:center;">
+        <p style="color:var(--text-muted);font-size:13px;margin-bottom:14px;">Conecta tu cuenta de Google para ver tus correos no leídos aquí.</p>
+        <button class="btn btn-primary" onclick="connectGoogleCalendar()">Conectar Google</button>
+      </div>
+    </div>`;
+    return;
+  }
+  const unreadCount = gmailMessages.filter(m => m.unread).length;
+  const msgs = gmailMessages.slice(0, 8);
+  el.innerHTML = `<div class="card">
+    <div class="card-header">
+      <span class="card-title">📧 Correos <span style="font-size:12px;font-weight:600;padding:2px 8px;border-radius:10px;background:var(--pink-pale);color:var(--pink-deep);margin-left:4px;">${unreadCount} no leídos</span></span>
+      <button class="btn btn-ghost btn-sm" onclick="loadGmailMessages()" title="Actualizar">↻</button>
+    </div>
+    ${msgs.length === 0
+      ? '<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px;">¡Bandeja limpia! 🎉</div>'
+      : `<div style="display:flex;flex-direction:column;gap:0;">
+          ${msgs.map(m => `
+            <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s;"
+                 onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background=''"
+                 onclick="window.open('https://mail.google.com/mail/u/0/#inbox/${m.threadId}','_blank')">
+              <div style="width:32px;height:32px;border-radius:10px;background:var(--pink-pale);color:var(--pink-deep);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0;">
+                ${(m.from[0]||'?').toUpperCase()}
+              </div>
+              <div style="flex:1;min-width:0;">
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;">
+                  <span style="font-size:12px;font-weight:${m.unread?'700':'500'};color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${m.from}</span>
+                  <span style="font-size:10px;color:var(--text-muted);flex-shrink:0;">${_gmailTimeAgo(m.date)}</span>
+                </div>
+                <div style="font-size:12px;font-weight:${m.unread?'600':'400'};color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:1px;">${m.subject}</div>
+                <div style="font-size:11px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:2px;">${m.snippet}</div>
+              </div>
+              ${m.unread ? '<div style="width:7px;height:7px;border-radius:50%;background:var(--pink);flex-shrink:0;margin-top:4px;"></div>' : ''}
+            </div>
+          `).join('')}
+        </div>
+        <div style="padding-top:10px;">
+          <a href="https://mail.google.com" target="_blank" style="font-size:12px;color:var(--blue);font-weight:600;">Abrir Gmail →</a>
+        </div>`
+    }
+  </div>`;
+}
+
 function renderCalendarWidget() {
-  return; // Google Calendar widget removed
+  const el = document.getElementById('googleCalendarWidget');
+  if(!el) return;
 
   if(!calendarAccessToken) {
-    el.innerHTML = `
-      <div class="cal-card">
-        <div class="cal-header">
-          <span class="card-title">📅 Llamadas de hoy</span>
-        </div>
-        <div class="cal-connect-empty">
-          <p>Conecta tu Google Calendar para ver las reuniones del día, descripciones y links de Meet directamente aquí.</p>
-          <button class="btn btn-primary" onclick="connectGoogleCalendar()">Conectar Google Calendar</button>
-        </div>
-      </div>`;
+    el.innerHTML = `<div class="card">
+      <div class="card-header"><span class="card-title">📅 Calendario de hoy</span></div>
+      <div style="padding:24px;text-align:center;">
+        <p style="color:var(--text-muted);font-size:13px;margin-bottom:14px;">Conecta tu Google Calendar para ver tus reuniones y eventos del día aquí.</p>
+        <button class="btn btn-primary" onclick="connectGoogleCalendar()">Conectar Google</button>
+      </div>
+    </div>`;
     return;
   }
 
@@ -5621,17 +5762,34 @@ function renderCalendarWidget() {
           </div>`;
       }).join('');
 
-  el.innerHTML = `
-    <div class="cal-card">
-      <div class="cal-header">
-        <div style="display:flex;align-items:center;gap:10px;">
-          <span class="card-title">📅 Llamadas de hoy</span>
-          <span class="cal-summary-count">${summaryText}</span>
-        </div>
-        <button class="btn btn-ghost btn-sm" onclick="loadCalendarEvents()" title="Actualizar">↻</button>
+  // Classify events: internal = all attendees @thinkydigital.com, external = has outside attendees
+  const domain = (currentUser?.email||'').split('@')[1] || 'thinkydigital.com';
+  let internalCount = 0, externalCount = 0;
+  calendarEvents.forEach(ev => {
+    const attendees = ev.attendees || [];
+    const hasExternal = attendees.some(a => !a.self && !a.email?.endsWith('@'+domain));
+    if(attendees.length > 0) {
+      if(hasExternal) externalCount++;
+      else internalCount++;
+    }
+  });
+  const summaryParts = [];
+  if(internalCount > 0) summaryParts.push(`${internalCount} interna${internalCount!==1?'s':''}`);
+  if(externalCount > 0) summaryParts.push(`${externalCount} externa${externalCount!==1?'s':''}`);
+  const callSummary = summaryParts.length > 0
+    ? `📊 ${summaryParts.join(' · ')}`
+    : calendarEvents.length > 0 ? `${calendarEvents.length} evento${calendarEvents.length!==1?'s':''}` : '';
+
+  el.innerHTML = `<div class="card">
+    <div class="card-header">
+      <div>
+        <span class="card-title">📅 Calendario de hoy</span>
+        ${callSummary ? `<div style="font-size:11px;color:var(--text-muted);margin-top:2px;">${callSummary}</div>` : ''}
       </div>
-      <div class="cal-events">${eventsHtml}</div>
-    </div>`;
+      <button class="btn btn-ghost btn-sm" onclick="loadCalendarEvents()" title="Actualizar">↻</button>
+    </div>
+    <div class="cal-events">${eventsHtml}</div>
+  </div>`;
 }
 
 async function seedSampleData() {
