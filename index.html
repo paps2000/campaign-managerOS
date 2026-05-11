@@ -2793,7 +2793,7 @@ function renderDashboard() {
       .sort((a,b) => a.dueDate.localeCompare(b.dueDate))
       .slice(0, 6);
     if(upcoming.length === 0) {
-      ttl.innerHTML = `<div class="empty-state"><div class="empty-icon">${ICN_check}</div><p>¡Todo al día! No tienes tareas pendientes.</p></div>`;
+      ttl.innerHTML = `<div style="display:flex;align-items:center;gap:8px;padding:12px 4px;color:var(--text-muted);font-size:13px;"><span style="width:18px;height:18px;flex-shrink:0;color:var(--mint);">${ICN_check}</span>¡Todo al día! Sin tareas pendientes.</div>`;
     } else {
       ttl.innerHTML = `<div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;padding:0 2px;">Próximos pendientes</div>` +
         upcoming.map(t => taskItemHtml(t, true)).join('');
@@ -5639,9 +5639,22 @@ async function loadCalendarEvents() {
 
     // Merge + deduplicate by event ID
     const seen = new Set();
+    const userEmail = (currentUser?.email || '').toLowerCase();
     calendarEvents = allResults
       .flatMap(d => d.items || [])
-      .filter(e => e.status !== 'cancelled' && !seen.has(e.id) && seen.add(e.id))
+      .filter(e => {
+        if(e.status === 'cancelled') return false;
+        if(seen.has(e.id)) return false;
+        seen.add(e.id);
+        // If event has attendees, user must be among them (self=true or email match)
+        // Events with no attendees are personal — always show
+        const attendees = e.attendees || [];
+        if(attendees.length === 0) return true;
+        return attendees.some(a =>
+          a.self === true ||
+          (a.email || '').toLowerCase() === userEmail
+        );
+      })
       .sort((a,b) => (a.start?.dateTime||a.start?.date||'').localeCompare(b.start?.dateTime||b.start?.date||''));
 
     renderCalendarWidget();
