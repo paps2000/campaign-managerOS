@@ -4504,11 +4504,39 @@ function parseCSV(text) {
   if(uniqueFirst.size <= 4 && rows[0].length > 5) headerIdx = 1;
   if(rows.length <= headerIdx + 1) return [];
   const headers = rows[headerIdx].map(h => h.trim());
-  return rows.slice(headerIdx + 1).filter(r => r.some(v => v && v.trim())).map(vals => {
+  const N = headers.length;
+  // Normalize every data row to exactly N columns. Rows shorter than N are
+  // assumed to be a stray newline inside a previous-row cell (broken quoting):
+  // merge them back into the prior row's last cell joined by \n. Rows longer
+  // than N have their tail dropped — they can only come from leaked content
+  // that no real column can hold.
+  const dataRows = rows.slice(headerIdx + 1).filter(r => r.some(v => v && v.trim()));
+  const aligned = [];
+  for(const r of dataRows) {
+    if(r.length < N && aligned.length) {
+      const prev = aligned[aligned.length-1];
+      prev[prev.length-1] = (prev[prev.length-1]||'') + '\n' + (r[0]||'');
+      for(let k=1; k<r.length; k++) prev.push(r[k]);
+      // Re-trim if still too short — just leave for next iteration to fix
+      continue;
+    }
+    if(r.length > N) {
+      aligned.push(r.slice(0, N));
+    } else {
+      // Pad short rows that have no prior to attach to
+      while(r.length < N) r.push('');
+      aligned.push(r);
+    }
+  }
+  // Final pass: collapse any over-long rows accidentally produced by merging
+  const final = aligned.map(r => r.length > N ? r.slice(0, N) : r);
+  const out = final.filter(r => r.some(v => v && v.trim())).map(vals => {
     const obj = {};
     headers.forEach((h,i) => { obj[h] = (vals[i]||'').trim(); });
     return obj;
   });
+  try { console.log('[parseCSV]', { headers:N, rawRows:rows.length, dataRows:dataRows.length, aligned:aligned.length, final:out.length }); } catch(e){}
+  return out;
 }
 
 function displayMetrics(rows, campaign) {
