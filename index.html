@@ -3663,8 +3663,26 @@ function _renderTrackerSummaryAndTable() {
   if(_trackerBatchFilter === 'aon') rows = _trackerAllRows.filter(r=>(r._batch||'aon')==='aon');
   else if(_trackerBatchFilter === 'nano') rows = _trackerAllRows.filter(r=>r._batch==='nano');
 
-  // Drop fully empty rows (no NOMBRE and no FECHA)
-  rows = rows.filter(r => _trackerGet(r,['NOMBRE','Nombre']) || _trackerRowDate(r) || _trackerGet(r,['PLATAFORMA CREATIVA','Plataforma Creativa']));
+  // Drop rows that look like banners / section headers / totals rather than
+  // real content. Works across campaigns regardless of which columns exist.
+  const MONTHS_RE = /^(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)$/i;
+  const BANNER_RE = /^(total|subtotal|grand total|fase|mes|semana|week|month|h1|h2|q[1-4])\b/i;
+  rows = rows.filter(r => {
+    const nm = _trackerGet(r,['NOMBRE','Nombre']);
+    const fp = _trackerRowDate(r);
+    const pc = _trackerGet(r,['PLATAFORMA CREATIVA','Plataforma Creativa']);
+    const ec = _trackerGet(r,['ESTATUS CONTENIDO','Estatus Contenido']);
+    const eg = _trackerGet(r,['ESTATUS GUIÓN','Estatus Guión']);
+    // Need at least one strong signal of a real row
+    const signals = [nm, fp, pc, ec, eg].filter(Boolean).length;
+    if(signals === 0) return false;
+    // Drop banner rows
+    if(nm && (MONTHS_RE.test(String(nm).trim()) || BANNER_RE.test(String(nm).trim()))) return false;
+    // Drop rows where every populated cell shares the same value (separator)
+    const populated = Object.values(r).filter(v => v && String(v).trim());
+    if(populated.length > 3 && new Set(populated.map(v => String(v).trim().toLowerCase())).size === 1) return false;
+    return true;
+  });
 
   // Build status group counts
   const SKIP_VALS = new Set(['—','-','NA','N/A','na','n/a','','FALSE','TRUE','false','true']);
@@ -3899,6 +3917,19 @@ function renderCampaignTracker(c) {
   if(syncEl && c.trackerLastSync) syncEl.textContent = 'Última sync: ' + new Date(c.trackerLastSync).toLocaleString('es-MX',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
   const wrap = document.getElementById('trackerTableWrap');
   if(!wrap) return;
+  // Detect a corrupted cache (rows where PLATAFORMA CREATIVA / ESTATUS leaked
+  // content from neighbour columns under the old parser) and force a resync.
+  const looksCorrupted = (rows) => rows.some(r => {
+    const pc = String(r['PLATAFORMA CREATIVA']||r['Plataforma Creativa']||'');
+    const ec = String(r['ESTATUS CONTENIDO']||r['Estatus Contenido']||'');
+    return pc.length > 50 || ec.length > 40 || pc.includes(',') || ec.includes(',');
+  });
+  if(c.trackerRows && c.trackerRows.length && looksCorrupted(c.trackerRows) && c.trackerSheetUrl) {
+    c.trackerRows = [];
+    const campaigns = getData('campaigns');
+    const idx = campaigns.findIndex(x=>x.id===c.id);
+    if(idx!==-1) { campaigns[idx].trackerRows = []; setData('campaigns',campaigns); }
+  }
   if(c.trackerRows && c.trackerRows.length) {
     _trackerAllRows = c.trackerRows;
     _renderTrackerSummaryAndTable();
