@@ -2900,16 +2900,26 @@ function renderDashboard() {
     // Also pull from tracker rows
     const _n=s=>s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/_/g,' ').trim();
     const gst = (r,...keys)=>{for(const k of keys){const kn=_n(k);for(const rk of Object.keys(r)){if(_n(rk)===kn&&r[rk])return r[rk];}}return '';};
+    const campYear = (c.startDate && parseInt(c.startDate.slice(0,4))) || new Date().getFullYear();
     (c.trackerRows||[]).forEach(row=>{
-      const pubDate = gst(row,'FECHA DE POST','Fecha de Post','Fecha de publicación','Fecha publicación','Fecha pub','Fecha','publish date','date','fecha');
+      const rawDate = gst(row,'FECHA DE POST','Fecha de Post','Fecha de publicación','Fecha publicación','Fecha pub','Fecha','publish date','date','fecha');
+      const pubDate = (typeof _trackerParseDate==='function') ? _trackerParseDate(rawDate, campYear) : rawDate;
       if(pubDate && pubDate >= today && pubDate <= weekEndStr) {
+        const name = gst(row,'NOMBRE','Nombre','Influencer','Perfil','Creator','name');
+        const guion = gst(row,'ESTATUS GUIÓN','ESTATUS GUION','Estatus Guión','Estatus Guion');
+        const contenido = gst(row,'ESTATUS CONTENIDO','Estatus Contenido');
+        const creativa = gst(row,'PLATAFORMA CREATIVA','Plataforma Creativa');
         upcomingPubs.push({
-          name: gst(row,'Influencer','Nombre','Perfil','Creator','name'),
-          format: gst(row,'Tipo de contenido','Tipo','formato','format','type'),
+          name: name || 'Publicación',
+          format: gst(row,'TIPO DE CONTENIDO','Tipo de contenido','Tipo','formato','format','type'),
           publishDate: pubDate,
           campaignName: c.name,
           client: c.client,
-          platform: gst(row,'Plataforma','Platform','Red social')
+          platform: gst(row,'PLATFORM','PLATAFORMA','Platform','Plataforma','Red social'),
+          _trackerGuion: String(guion||'').trim(),
+          _trackerContenido: String(contenido||'').trim(),
+          _trackerCreativa: String(creativa||'').trim(),
+          _fromTracker: true
         });
       }
     });
@@ -2991,16 +3001,39 @@ function renderDashboard() {
 
   // Upcoming pubs
   const up = document.getElementById('upcomingPubs');
-  up.innerHTML = upcomingPubs.slice(0,5).map(p=>`
-    <div class="influencer-row">
-      <div class="inf-avatar">${p.name[0]}</div>
-      <div class="inf-info">
-        <div class="inf-name">${p.name}</div>
-        <div class="inf-handle">${p.campaignName} (${p.client||''})</div>
+  // Stage logic: if Guión != Aprobado → current stage = Guión (show its status).
+  // If Guión = Aprobado → current stage = Asset/Contenido (show its status).
+  const stageInfo = (p) => {
+    if(!p._fromTracker) return null;
+    const guion = p._trackerGuion;
+    const contenido = p._trackerContenido;
+    const guionApr = /aprobad/i.test(guion);
+    if(guionApr) {
+      return { stage: 'Asset', value: contenido || 'Pendiente' };
+    }
+    return { stage: 'Guión', value: guion || 'Pendiente' };
+  };
+  up.innerHTML = upcomingPubs.slice(0,8).map(p=>{
+    const st = stageInfo(p);
+    const initial = (p.name||'?')[0];
+    const sub = p._trackerCreativa
+      ? `${p._trackerCreativa} · ${p.campaignName}`
+      : `${p.campaignName}${p.client?' ('+p.client+')':''}`;
+    return `
+    <div class="influencer-row" style="gap:8px;">
+      <div class="inf-avatar">${initial}</div>
+      <div class="inf-info" style="min-width:0;">
+        <div class="inf-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.name}</div>
+        <div class="inf-handle" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${sub}</div>
       </div>
-      <span style="font-size:12px;color:var(--text-muted)">${p.format}</span>
+      ${p.format?`<span style="font-size:11px;color:var(--text-muted);white-space:nowrap;">${p.format}</span>`:''}
+      ${st?`<span style="display:inline-flex;flex-direction:column;align-items:flex-end;gap:2px;">
+        <span style="font-size:9px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;">${st.stage}</span>
+        ${(typeof trackerStatusBadge==='function')?trackerStatusBadge(st.value):`<span style="font-size:11px;font-weight:600;">${st.value}</span>`}
+      </span>`:''}
       <span class="inf-date">${formatDateShort(p.publishDate)}</span>
-    </div>`).join('') || '<div class="empty-state"><p>Sin publicaciones esta semana.</p></div>';
+    </div>`;
+  }).join('') || '<div class="empty-state"><p>Sin publicaciones esta semana.</p></div>';
 
   // Recent docs
   const allDocs = [];
