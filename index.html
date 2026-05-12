@@ -857,13 +857,14 @@ html.light {
 /* ---- Sidebar team strip ---- */
 .sidebar-team-strip {
   padding:10px 4px 6px; border-top:1px solid rgba(255,255,255,.07);
+  overflow:visible;
 }
 .sidebar-team-label {
   font-size:9px; font-weight:700; color:#4a4860; letter-spacing:1.5px;
   text-transform:uppercase; padding:0 10px 7px; display:block;
 }
 .sidebar-team-avatars {
-  display:flex; flex-wrap:wrap; gap:5px; padding:0 8px;
+  display:flex; flex-wrap:wrap; gap:5px; padding:0 8px; overflow:visible;
 }
 .sidebar-team-avatar {
   width:30px; height:30px; border-radius:10px; display:flex; align-items:center;
@@ -871,22 +872,23 @@ html.light {
   cursor:pointer; transition:all .2s; flex-shrink:0; position:relative;
   border:2px solid transparent;
 }
-.sidebar-team-avatar:hover { transform:scale(1.12); border-color:var(--pink); }
+.sidebar-team-avatar:hover { transform:scale(1.12); border-color:var(--pink); z-index:9999; }
 .sidebar-team-avatar .team-status-dot {
   position:absolute; bottom:-2px; right:-2px; width:9px; height:9px;
   border-radius:50%; background:#4ec38a; border:1.5px solid #141418;
 }
+/* Tooltip goes below avatar so sidebar overflow-y:auto doesn't clip it */
 .sidebar-avatar-tooltip {
-  position:absolute; left:calc(100% + 10px); top:50%; transform:translateY(-50%);
+  position:absolute; left:50%; top:calc(100% + 7px); transform:translateX(-50%);
   background:#1e1c24; color:#e8e6f0; font-size:11px; font-weight:500;
   padding:5px 10px; border-radius:8px; white-space:nowrap; pointer-events:none;
   opacity:0; transition:opacity .15s ease; z-index:9999;
-  box-shadow:0 4px 12px rgba(0,0,0,.4);
-  border:1px solid rgba(255,255,255,.08);
+  box-shadow:0 4px 12px rgba(0,0,0,.5);
+  border:1px solid rgba(255,255,255,.1);
 }
 .sidebar-avatar-tooltip::before {
-  content:''; position:absolute; right:100%; top:50%; transform:translateY(-50%);
-  border:5px solid transparent; border-right-color:#1e1c24;
+  content:''; position:absolute; bottom:100%; left:50%; transform:translateX(-50%);
+  border:5px solid transparent; border-bottom-color:#1e1c24;
 }
 .sidebar-team-avatar:hover .sidebar-avatar-tooltip { opacity:1; }
 
@@ -941,10 +943,10 @@ html.light {
 .cal-time { font-size:11px; font-weight:700; color:var(--pink-deep); min-width:90px; letter-spacing:.3px; }
 .cal-title { font-size:13px; font-weight:600; flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .cal-meet-badge { font-size:10px; font-weight:700; padding:2px 8px; border-radius:20px; background:#1a73e8; color:#fff; white-space:nowrap; flex-shrink:0; }
-.cal-tooltip-box { display:none; position:absolute; left:0; bottom:calc(100% + 8px); z-index:600; background:var(--text); color:#fff; border-radius:12px; padding:14px 16px; min-width:260px; max-width:400px; font-size:12px; line-height:1.6; box-shadow:var(--shadow-lg); pointer-events:none; }
+.cal-tooltip-box { display:none; position:absolute; left:0; top:calc(100% + 8px); z-index:9999; background:#1a1a2e; color:#f0eef6; border-radius:12px; padding:14px 16px; min-width:260px; max-width:400px; font-size:12px; line-height:1.6; box-shadow:0 8px 32px rgba(0,0,0,.55); pointer-events:none; border:1px solid rgba(255,255,255,.08); }
 .cal-event:hover .cal-tooltip-box { display:block; }
-.cal-tooltip-title { font-weight:700; font-size:13px; margin-bottom:8px; color:#fff; }
-.cal-tooltip-row { color:rgba(255,255,255,.75); margin-top:3px; }
+.cal-tooltip-title { font-weight:700; font-size:13px; margin-bottom:8px; color:#f0eef6; }
+.cal-tooltip-row { color:rgba(240,238,246,.72); margin-top:3px; }
 .cal-tooltip-meet { color:#86efac; font-weight:600; margin-top:10px; }
 .cal-connect-empty { text-align:center; padding:24px; color:var(--text-muted); font-size:13px; }
 .cal-connect-empty p { margin-bottom:14px; line-height:1.5; }
@@ -1307,6 +1309,9 @@ html.light {
     </div>
     <div class="nav-item" data-page="influencers">
       <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="9" r="2.5"/><path d="M15 16c2-1 5-1 6 1"/></svg></span> Influencers
+    </div>
+    <div class="nav-item" data-page="equipo">
+      <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="7" r="3"/><path d="M2 21c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="8" r="2.5"/><path d="M14 20c0-2.5 1.8-4.5 4-4.5"/></svg></span> Equipo
     </div>
     <div class="nav-item" data-page="documentos">
       <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/></svg></span> Documentos
@@ -1787,6 +1792,16 @@ html.light {
         <input type="search" id="infSearch" class="form-input" style="max-width:220px;font-size:13px;" placeholder="Buscar influencer..." oninput="renderInfluencers()">
       </div>
       <div class="campaign-grid" id="infGrid"></div>
+    </div>
+
+    <!-- EQUIPO -->
+    <div class="page" id="page-equipo">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
+        <h3 style="font-size:28px;font-weight:700;letter-spacing:-0.4px;">Equipo</h3>
+      </div>
+      <!-- Area filter tabs -->
+      <div id="equipoFilterBar" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px;"></div>
+      <div id="equipoGrid"></div>
     </div>
 
     <!-- DOCUMENTOS -->
@@ -2831,6 +2846,7 @@ function navigate(page) {
   if(page==='calendario') renderCalendar();
   if(page==='generador') populateCampaignSelects();
   if(page==='documentos') renderDocumentosPage();
+  if(page==='equipo') renderEquipo();
   if(page==='ajustes') loadSettingsUI();
   if(page==='influencers') renderInfluencers();
 }
@@ -2882,7 +2898,8 @@ function renderDashboard() {
       }
     });
     // Also pull from tracker rows
-    const gst = (r,...keys)=>{for(const k of keys){const kn=k.toLowerCase().replace(/_/g,' ');for(const rk of Object.keys(r)){if(rk.toLowerCase().replace(/_/g,' ')===kn&&r[rk])return r[rk];}}return '';};
+    const _n=s=>s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/_/g,' ').trim();
+    const gst = (r,...keys)=>{for(const k of keys){const kn=_n(k);for(const rk of Object.keys(r)){if(_n(rk)===kn&&r[rk])return r[rk];}}return '';};
     (c.trackerRows||[]).forEach(row=>{
       const pubDate = gst(row,'FECHA DE POST','Fecha de Post','Fecha de publicación','Fecha publicación','Fecha pub','Fecha','publish date','date','fecha');
       if(pubDate && pubDate >= today && pubDate <= weekEndStr) {
@@ -3577,11 +3594,12 @@ function _renderTrackerSummaryAndTable() {
   const wrap = document.getElementById('trackerTableWrap');
   if(!wrap || !_trackerAllRows.length) return;
 
+  const _norm = s => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/_/g,' ').trim();
   const gst = (r, ...keys) => {
     for(const k of keys){
-      const kn = k.toLowerCase().replace(/_/g,' ');
+      const kn = _norm(k);
       for(const rk of Object.keys(r)){
-        if(rk.toLowerCase().replace(/_/g,' ')===kn && r[rk]) return r[rk];
+        if(_norm(rk)===kn && r[rk]) return r[rk];
       }
     }
     return '';
@@ -4733,6 +4751,68 @@ function removeAssignee(cid, uid) {
 }
 
 // === TEAM MGMT ===
+// ============================================================
+// EQUIPO PAGE (visible to all users)
+// ============================================================
+let _equipoAreaFilter = 'todos';
+
+function renderEquipo() {
+  const filterBar = document.getElementById('equipoFilterBar');
+  const grid = document.getElementById('equipoGrid');
+  if(!filterBar || !grid) return;
+
+  const areas = ['Todos', ...AREAS];
+  filterBar.innerHTML = areas.map(a =>
+    `<button class="filter-tab ${_equipoAreaFilter===(a==='Todos'?'todos':a)?'active':''}"
+       onclick="_setEquipoFilter('${a==='Todos'?'todos':a}')">${a}</button>`
+  ).join('');
+
+  const members = _equipoAreaFilter === 'todos'
+    ? allUsers
+    : allUsers.filter(u => u.area === _equipoAreaFilter);
+
+  const sorted = [...members].sort((a,b) => {
+    if(a.uid === currentUser?.uid) return -1;
+    if(b.uid === currentUser?.uid) return 1;
+    if(a.role==='admin' && b.role!=='admin') return -1;
+    if(b.role==='admin' && a.role!=='admin') return 1;
+    return (a.name||'').localeCompare(b.name||'');
+  });
+
+  if(!sorted.length) {
+    grid.innerHTML = '<div class="empty-state"><p>Sin miembros en esta área.</p></div>';
+    return;
+  }
+
+  grid.innerHTML = `<div class="team-grid">${sorted.map(u => {
+    const activeTasks = [
+      ..._cache.campaigns.flatMap(c=>(c.tasks||[]).filter(t=>!t.done&&t.assigneeUid===u.uid)),
+      ..._cache.globalTasks.filter(t=>!t.done&&t.assigneeUid===u.uid)
+    ];
+    const isMe = u.uid === currentUser?.uid;
+    const hasStatus = !!u.statusText;
+    return `
+    <div class="team-card" onclick="openProfileModal('${u.uid}')">
+      ${isMe ? '<div class="team-card-you">Tú</div>' : ''}
+      <div class="team-card-avatar">${memberAvatarHtml(u, 56, '16px')}</div>
+      <div class="team-card-name">${u.name||'—'}</div>
+      ${(u.puesto||u.role) ? `<div class="team-card-role">${u.puesto||(u.role==='admin'?'Admin':'Miembro')}</div>` : ''}
+      <div class="team-card-badges">
+        ${u.area ? `<span class="badge badge-area-${u.area}" style="font-size:10px;">${u.area}</span>` : ''}
+        ${u.role==='admin' ? `<span class="badge" style="background:var(--pink-pale);color:var(--pink-deep);font-size:10px;">Admin</span>` : ''}
+      </div>
+      ${hasStatus ? `<div class="team-card-status">${u.statusEmoji||''} ${u.statusText}</div>` : ''}
+      ${activeTasks.length > 0 ? `<div class="team-card-tasks">${activeTasks.length} tarea${activeTasks.length!==1?'s':''}</div>` : ''}
+      ${!isMe ? `<button class="kudos-btn" onclick="sendKudos('${u.uid}',event)" style="margin-top:2px;">🏆 Kudos</button>` : ''}
+    </div>`;
+  }).join('')}</div>`;
+}
+
+function _setEquipoFilter(area) {
+  _equipoAreaFilter = area;
+  renderEquipo();
+}
+
 function renderTeam() {
   const list = document.getElementById('teamList');
   if(!list) return;
