@@ -3667,19 +3667,34 @@ function _renderTrackerSummaryAndTable() {
   rows = rows.filter(r => _trackerGet(r,['NOMBRE','Nombre']) || _trackerRowDate(r) || _trackerGet(r,['PLATAFORMA CREATIVA','Plataforma Creativa']));
 
   // Build status group counts
-  const SKIP_VALS = new Set(['—','-','NA','N/A','na','n/a','']);
-  const countStatus = (colKeys) => {
+  const SKIP_VALS = new Set(['—','-','NA','N/A','na','n/a','','FALSE','TRUE','false','true']);
+  // Reject values that look like leaked content from neighbouring columns:
+  // commas, newlines, very long strings, or starts-with-emoji/punctuation.
+  const looksLikeJunk = v => {
+    const s = String(v).trim();
+    if(!s) return true;
+    if(s.length > 35) return true;
+    if(s.includes(',') || s.includes('\n') || s.includes(';')) return true;
+    if(/^[#@.]/.test(s)) return true;
+    return false;
+  };
+  const countStatus = (colKeys, opts={}) => {
     const counts = {};
+    const strict = !!opts.strict;
     rows.forEach(r => {
       const v = gst(r, ...colKeys);
-      if(v && !SKIP_VALS.has(String(v).trim())) counts[v] = (counts[v]||0) + 1;
+      if(!v) return;
+      const s = String(v).trim();
+      if(SKIP_VALS.has(s)) return;
+      if(strict && looksLikeJunk(s)) return;
+      counts[s] = (counts[s]||0) + 1;
     });
     return counts;
   };
 
-  const guionCounts = countStatus(['ESTATUS GUIÓN','ESTATUS GUION','Estatus Guión']);
-  const contenidoCounts = countStatus(['ESTATUS CONTENIDO','Estatus Contenido']);
-  const creativaCounts = countStatus(['PLATAFORMA CREATIVA','Plataforma Creativa','LINEA','LÍNEA','CREATIVIDAD']);
+  const guionCounts = countStatus(['ESTATUS GUIÓN','ESTATUS GUION','Estatus Guión'], {strict:true});
+  const contenidoCounts = countStatus(['ESTATUS CONTENIDO','Estatus Contenido'], {strict:true});
+  const creativaCounts = countStatus(['PLATAFORMA CREATIVA','Plataforma Creativa','LINEA','LÍNEA','CREATIVIDAD'], {strict:true});
 
   // Headline totals
   const totalRows = rows.length;
@@ -4458,20 +4473,26 @@ function parseCSV(text) {
   // Full RFC 4180 parser: walks char-by-char so quoted fields can contain
   // commas, embedded newlines, and "" escapes without breaking row alignment.
   const rows = [];
-  let cur = '', row = [], inQ = false;
+  let cur = '', row = [], inQ = false, fieldStart = true;
   const t = text.replace(/\r\n?/g, '\n');
   for(let i=0; i<t.length; i++) {
     const ch = t[i];
     if(inQ) {
       if(ch === '"') {
-        if(t[i+1] === '"') { cur += '"'; i++; }
-        else inQ = false;
+        const next = t[i+1];
+        if(next === '"') { cur += '"'; i++; }
+        // Close quote only if followed by delimiter / newline / EOF.
+        // Otherwise treat as a stray quote in user-typed content.
+        else if(next === ',' || next === '\n' || next === undefined) { inQ = false; }
+        else { cur += '"'; }
       } else cur += ch;
     } else {
-      if(ch === '"') inQ = true;
-      else if(ch === ',') { row.push(cur); cur = ''; }
-      else if(ch === '\n') { row.push(cur); rows.push(row); row = []; cur = ''; }
-      else cur += ch;
+      // Opening quote only valid at start of field (RFC 4180); mid-field
+      // quotes are kept literal to survive malformed exports.
+      if(ch === '"' && fieldStart) { inQ = true; fieldStart = false; }
+      else if(ch === ',') { row.push(cur); cur = ''; fieldStart = true; }
+      else if(ch === '\n') { row.push(cur); rows.push(row); row = []; cur = ''; fieldStart = true; }
+      else { cur += ch; fieldStart = false; }
     }
   }
   if(cur.length || row.length) { row.push(cur); rows.push(row); }
