@@ -3626,10 +3626,14 @@ function _trackerGet(row, keys){
   }
   return '';
 }
-function _trackerParseDate(val){
+function _trackerParseDate(val, defaultYear){
   if(val==null) return '';
   const s = String(val).trim();
   if(!s) return '';
+  const dy = defaultYear || (window.currentCampaignId && (() => {
+    try { const c = getData('campaigns').find(x=>x.id===window.currentCampaignId); if(c && c.startDate) return parseInt(c.startDate.slice(0,4)); } catch(e){}
+    return new Date().getFullYear();
+  })()) || new Date().getFullYear();
   // Excel serial date (e.g., 46050) — Excel/Sheets epoch = 1899-12-30
   if(/^\d{4,6}(\.\d+)?$/.test(s)) {
     const n = parseFloat(s);
@@ -3642,11 +3646,18 @@ function _trackerParseDate(val){
   // dd/mm/yyyy or dd-mm-yyyy
   let m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
   if(m){ let [,a,b,c]=m; if(c.length===2) c='20'+c; return `${c}-${b.padStart(2,'0')}-${a.padStart(2,'0')}`; }
+  // dd/mm or dd-mm (no year) — assume campaign year
+  m = s.match(/^(\d{1,2})[\/\-](\d{1,2})$/);
+  if(m){ const [,a,b]=m; return `${dy}-${b.padStart(2,'0')}-${a.padStart(2,'0')}`; }
+  // Spanish month name: "15 de enero" / "15 enero 2026" / "15 ene"
+  const MES = {enero:'01',febrero:'02',marzo:'03',abril:'04',mayo:'05',junio:'06',julio:'07',agosto:'08',septiembre:'09',octubre:'10',noviembre:'11',diciembre:'12',ene:'01',feb:'02',mar:'03',abr:'04',may:'05',jun:'06',jul:'07',ago:'08',sep:'09',oct:'10',nov:'11',dic:'12'};
+  m = s.toLowerCase().match(/^(\d{1,2})\s*(?:de\s+)?([a-záéíóú]+)(?:\s+(?:de\s+)?(\d{2,4}))?/);
+  if(m){ const [,a,mname,c]=m; const mm = MES[mname.normalize('NFD').replace(/[̀-ͯ]/g,'')]; if(mm){ let yy = c||dy; if(String(yy).length===2) yy='20'+yy; return `${yy}-${mm}-${a.padStart(2,'0')}`; } }
   // ISO yyyy-mm-dd
   if(/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0,10);
   const d = new Date(s);
   if(!isNaN(d)) return d.toISOString().split('T')[0];
-  return s;
+  return '';
 }
 function _trackerRowDate(row){
   return _trackerParseDate(_trackerGet(row, ['FECHA DE POST','Fecha de Post','Fecha publicación','Fecha de publicación','Fecha Pub','Fecha']));
@@ -3802,26 +3813,73 @@ function _renderTrackerSummaryAndTable() {
   let maxWeekTotal = 0;
   weeks.forEach(w => { const t = Object.values(timelineMap[w]).reduce((a,b)=>a+b,0); if(t>maxWeekTotal) maxWeekTotal=t; });
 
-  const chartHtml = weeks.length===0 ? '' : `
-    <div style="background:var(--bg);border:1px solid var(--border);border-radius:14px;padding:14px 16px;">
-      <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:12px;">📈 Publicaciones por semana × Plataforma Creativa</div>
-      <div style="display:flex;align-items:flex-end;gap:6px;height:160px;overflow-x:auto;padding-bottom:4px;">
-        ${weeks.map(w => {
-          const total = Object.values(timelineMap[w]).reduce((a,b)=>a+b,0);
-          const heightPct = maxWeekTotal? (total/maxWeekTotal)*100 : 0;
-          const segs = Object.entries(timelineMap[w]).map(([cv,n])=>
-            `<div title="${cv}: ${n}" style="background:${creativaColor(cv)};flex:${n};min-height:2px;"></div>`).join('');
-          return `<div style="display:flex;flex-direction:column;align-items:center;gap:4px;min-width:46px;">
-            <div style="font-size:10px;font-weight:700;color:var(--text);">${total}</div>
-            <div style="height:${heightPct}%;min-height:6px;width:28px;display:flex;flex-direction:column-reverse;border-radius:4px;overflow:hidden;border:1px solid var(--border);">${segs}</div>
-            <div style="font-size:10px;color:var(--text-muted);white-space:nowrap;">${weekLabel(w)}</div>
-          </div>`;
-        }).join('')}
-      </div>
-      <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:10px;">
-        ${creativas.map(cv=>`<div style="display:flex;align-items:center;gap:5px;font-size:10px;color:var(--text);"><span style="width:9px;height:9px;border-radius:2px;background:${creativaColor(cv)};display:inline-block;"></span>${cv}</div>`).join('')}
-      </div>
-    </div>`;
+  // SVG line chart of total publications per week
+  let chartHtml = '';
+  if(weeks.length > 0) {
+    const W = Math.max(420, weeks.length * 56);
+    const H = 180, pad = {l:32, r:16, t:14, b:30};
+    const totals = weeks.map(w => Object.values(timelineMap[w]).reduce((a,b)=>a+b,0));
+    const yMax = Math.max(1, ...totals);
+    const xStep = (W - pad.l - pad.r) / Math.max(1, weeks.length-1);
+    const yScale = v => pad.t + (H - pad.t - pad.b) * (1 - v/yMax);
+    const xPos = i => pad.l + i*xStep;
+    const points = totals.map((t,i)=>`${xPos(i).toFixed(1)},${yScale(t).toFixed(1)}`).join(' ');
+    const ticks = Math.min(yMax, 5);
+    const yAxis = Array.from({length: ticks+1}, (_,k)=> {
+      const v = Math.round((yMax/ticks)*k);
+      return `<line x1="${pad.l}" x2="${W-pad.r}" y1="${yScale(v)}" y2="${yScale(v)}" stroke="var(--border)" stroke-width="1" opacity=".5"/>
+              <text x="${pad.l-6}" y="${yScale(v)+3}" text-anchor="end" font-size="9" fill="var(--text-muted)">${v}</text>`;
+    }).join('');
+    const dots = totals.map((t,i)=>`<circle cx="${xPos(i).toFixed(1)}" cy="${yScale(t).toFixed(1)}" r="3.5" fill="var(--pink)" stroke="var(--white)" stroke-width="1.5"><title>${weekLabel(weeks[i])}: ${t}</title></circle>`).join('');
+    const xLabels = weeks.map((w,i)=>`<text x="${xPos(i).toFixed(1)}" y="${H-pad.b+14}" text-anchor="middle" font-size="9" fill="var(--text-muted)">${weekLabel(w)}</text>`).join('');
+    const valLabels = totals.map((t,i)=>`<text x="${xPos(i).toFixed(1)}" y="${(yScale(t)-7).toFixed(1)}" text-anchor="middle" font-size="9" font-weight="700" fill="var(--text)">${t}</text>`).join('');
+    chartHtml = `
+      <div style="background:var(--bg);border:1px solid var(--border);border-radius:14px;padding:14px 16px;">
+        <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;">📈 Publicaciones por semana</div>
+        <div style="overflow-x:auto;">
+          <svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" preserveAspectRatio="xMinYMid meet" style="display:block;">
+            ${yAxis}
+            <polyline points="${points}" fill="none" stroke="var(--pink)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+            ${dots}
+            ${valLabels}
+            ${xLabels}
+          </svg>
+        </div>
+      </div>`;
+  }
+
+  // Compact weekly table
+  let weeklyTableHtml = '';
+  if(weeks.length > 0) {
+    const totalAll = weeks.reduce((acc,w)=>acc + Object.values(timelineMap[w]).reduce((a,b)=>a+b,0), 0);
+    weeklyTableHtml = `
+      <div style="background:var(--bg);border:1px solid var(--border);border-radius:14px;padding:14px 16px;">
+        <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;">📋 Tabla semanal</div>
+        <div class="table-wrap">
+          <table class="table" style="font-size:12px;">
+            <thead><tr>
+              <th style="text-align:left;">Semana</th>
+              <th style="text-align:right;">Publicaciones</th>
+              <th>Top plataforma creativa</th>
+            </tr></thead>
+            <tbody>
+              ${weeks.map(w => {
+                const tot = Object.values(timelineMap[w]).reduce((a,b)=>a+b,0);
+                const top = Object.entries(timelineMap[w]).sort((a,b)=>b[1]-a[1])[0];
+                return `<tr>
+                  <td style="white-space:nowrap;">${weekLabel(w)}</td>
+                  <td style="text-align:right;font-weight:700;">${tot}</td>
+                  <td><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:${creativaColor(top[0])};vertical-align:middle;margin-right:4px;"></span>${top[0]} <span style="color:var(--text-muted);">(${top[1]})</span></td>
+                </tr>`;
+              }).join('')}
+              <tr style="border-top:2px solid var(--border);font-weight:800;">
+                <td>Total</td><td style="text-align:right;">${totalAll}</td><td></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+  }
 
   const filterBar = _trackerStatusFilter
     ? `<div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-muted);margin-bottom:10px;">
@@ -3854,6 +3912,7 @@ function _renderTrackerSummaryAndTable() {
         </div>
       </div>
       ${chartHtml}
+      ${weeklyTableHtml}
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
         <div style="background:var(--bg);border:1px solid var(--border);border-radius:14px;padding:14px 16px;">
           <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;">📝 Estatus Guión</div>
@@ -6753,6 +6812,18 @@ function renderCalendar() {
   const grid = document.getElementById('calGrid');
   if(!grid) return;
 
+  // Lazy: for any visible campaign with a tracker URL but no cached rows,
+  // fetch in the background so events appear on the next render. Idempotent.
+  visibleCampaigns().forEach(c => {
+    if(c.trackerSheetUrl && (!c.trackerRows || !c.trackerRows.length) && !c._trackerFetching) {
+      c._trackerFetching = true;
+      _autoFetchTracker(c.trackerSheetUrl, c).then(()=>{
+        c._trackerFetching = false;
+        try { renderCalendar(); } catch(e){}
+      }).catch(()=>{ c._trackerFetching = false; });
+    }
+  });
+
   // Build event map: date string → [{type,label,color,campName}]
   const events = {};
   const add = (date, ev) => { if(!date) return; if(!events[date]) events[date]=[]; events[date].push(ev); };
@@ -6766,13 +6837,26 @@ function renderCalendar() {
       if(inf.publishDate) add(inf.publishDate, {type:'pub', label:inf.name||inf.handle, color:'var(--pink)', text:'#fff'});
     });
     // Tracker publications (Master Tracker / Social Calendar)
+    const campYear = (c.startDate && parseInt(c.startDate.slice(0,4))) || calYear;
     (c.trackerRows||[]).forEach(row => {
-      const iso = (typeof _trackerRowDate==='function') ? _trackerRowDate(row) : '';
+      let raw = '';
+      for(const k of ['FECHA DE POST','Fecha de Post','Fecha publicación','Fecha de publicación','Fecha Pub','Fecha']) {
+        if(row[k]) { raw = row[k]; break; }
+      }
+      if(!raw) {
+        // case-insensitive fallback
+        for(const rk of Object.keys(row)) {
+          if(/fecha/i.test(rk) && row[rk]) { raw = row[rk]; break; }
+        }
+      }
+      const iso = _trackerParseDate(raw, campYear);
       if(!iso) return;
       const name = row['NOMBRE']||row['Nombre']||'';
       const creativa = row['PLATAFORMA CREATIVA']||row['Plataforma Creativa']||'';
+      const estatus = String(row['ESTATUS CONTENIDO']||row['Estatus Contenido']||'').toLowerCase();
+      const published = estatus.includes('publicad');
       const label = (creativa? creativa+' · ':'') + (name || 'Publicación');
-      add(iso, {type:'pub', label:'📅 '+label, color:'var(--pink)', text:'#fff'});
+      add(iso, {type:'pub', label:(published?'✅ ':'📅 ')+label, color: published?'var(--mint)':'var(--pink)', text: published?'#3a6b28':'#fff', campaignId:c.id, campaignName:c.name});
     });
     // Campaign tasks
     (c.tasks||[]).filter(t=>!t.done&&t.dueDate).forEach(t => {
