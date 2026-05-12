@@ -1618,7 +1618,7 @@ html.light {
           <div style="background:var(--bg);border:1px solid var(--border);border-radius:14px;padding:14px 16px;margin-bottom:16px;">
             <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
               <span style="font-size:12px;font-weight:700;color:#3a7a5e;white-space:nowrap;">📊 Master Tracker</span>
-              <input type="text" id="trackerSheetsUrl" class="form-input" style="flex:1;min-width:180px;font-size:12px;" placeholder="URL del Google Sheets master tracker..." oninput="saveTrackerUrl()">
+              <input type="text" id="trackerSheetsUrl" class="form-input" style="flex:1;min-width:180px;font-size:12px;" placeholder="URL del master tracker (incluye #gid=... de la pestaña Social Calendar Mundial)" oninput="saveTrackerUrl()">
               <button class="btn btn-ghost btn-sm" onclick="syncTracker()">🔄 Sincronizar</button>
               <span id="trackerLastSync" style="font-size:11px;color:var(--text-muted);"></span>
             </div>
@@ -3590,81 +3590,246 @@ function _startTrackerAutoRefresh(campaign) {
   }, 2 * 60 * 60 * 1000); // 2 hours
 }
 
+// Column-key aliases: covers Rexona Men Calendar 2026 + older master trackers
+const TRACKER_COL_DEFS = [
+  {label:'Nombre',             keys:['NOMBRE','Nombre']},
+  {label:'Cohorts',            keys:['COHORTS','COHORT','Cohorts','Cohort','COMUNIDAD']},
+  {label:'Plataforma Creativa',keys:['PLATAFORMA CREATIVA','Plataforma Creativa','PLATAFORMA_CREATIVA','LINEA','LÍNEA','Linea de comunicación','Línea de comunicación','CREATIVIDAD']},
+  {label:'Tipo de contenido',  keys:['TIPO DE CONTENIDO','Tipo de Contenido','Tipo']},
+  {label:'Platform',           keys:['PLATFORM','PLATAFORMA','Platform','Plataforma']},
+  {label:'GW',                 keys:['GW','GOODWILL','Goodwill']},
+  {label:'Réplica',            keys:['RÉPLICA','REPLICA','Replica','Réplica']},
+  {label:'Brief',              keys:['BRIEF','Brief'], link:true},
+  {label:'Guión',              keys:['GUIÓN','GUION','Guion','Guión'], link:true},
+  {label:'Estatus Guión',      keys:['ESTATUS GUIÓN','ESTATUS GUION','Estatus Guión','Estatus Guion'], status:true},
+  {label:'Asset',              keys:['ASSET','Asset'], link:true},
+  {label:'Copy',               keys:['COPY / TUIT','COPY/TUIT','COPY','Copy / Tuit','Copy']},
+  {label:'Fecha de Post',      keys:['FECHA DE POST','Fecha de Post','Fecha publicación','Fecha de publicación','Fecha Pub','Fecha'], date:true},
+  {label:'Estatus Contenido',  keys:['ESTATUS CONTENIDO','Estatus Contenido'], status:true},
+  {label:'Link to Post',       keys:['LINK TO POST','Link to Post','Link'], link:true},
+  {label:'Testigo',            keys:['TESTIGO','Testigo'], link:true},
+  {label:'Boost',              keys:['BOOST','Boost']},
+  {label:'Código de Boost',    keys:['CÓDIGO DE BOOST','CODIGO DE BOOST','Codigo de Boost']},
+  {label:'SS Día Boost',       keys:['SS DÍA BOOST','SS DIA BOOST','SS Día Boost'], link:true},
+  {label:'Métricas',           keys:['METRICAS','Métricas','Metricas']},
+  {label:'Tracking',           keys:['TRACKING','Tracking']},
+  {label:'Sentiment',          keys:['SENTIMENT','Sentiment']},
+];
+
+function _trackerNorm(s){ return String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[_\s\/]+/g,' ').trim(); }
+function _trackerGet(row, keys){
+  for(const k of keys){
+    const kn = _trackerNorm(k);
+    for(const rk of Object.keys(row)){
+      if(_trackerNorm(rk)===kn && row[rk]!=null && row[rk]!=='') return row[rk];
+    }
+  }
+  return '';
+}
+function _trackerParseDate(val){
+  if(val==null) return '';
+  const s = String(val).trim();
+  if(!s) return '';
+  // Excel serial date (e.g., 46050) — Excel/Sheets epoch = 1899-12-30
+  if(/^\d{4,6}(\.\d+)?$/.test(s)) {
+    const n = parseFloat(s);
+    if(n > 20000 && n < 80000) {
+      const ms = Math.round((n - 25569) * 86400 * 1000);
+      const d = new Date(ms);
+      if(!isNaN(d)) return d.toISOString().split('T')[0];
+    }
+  }
+  // dd/mm/yyyy or dd-mm-yyyy
+  let m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+  if(m){ let [,a,b,c]=m; if(c.length===2) c='20'+c; return `${c}-${b.padStart(2,'0')}-${a.padStart(2,'0')}`; }
+  // ISO yyyy-mm-dd
+  if(/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0,10);
+  const d = new Date(s);
+  if(!isNaN(d)) return d.toISOString().split('T')[0];
+  return s;
+}
+function _trackerRowDate(row){
+  return _trackerParseDate(_trackerGet(row, ['FECHA DE POST','Fecha de Post','Fecha publicación','Fecha de publicación','Fecha Pub','Fecha']));
+}
+
 function _renderTrackerSummaryAndTable() {
   const wrap = document.getElementById('trackerTableWrap');
   if(!wrap || !_trackerAllRows.length) return;
 
-  const _norm = s => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/_/g,' ').trim();
-  const gst = (r, ...keys) => {
-    for(const k of keys){
-      const kn = _norm(k);
-      for(const rk of Object.keys(r)){
-        if(_norm(rk)===kn && r[rk]) return r[rk];
-      }
-    }
-    return '';
-  };
+  const gst = (r, ...keys) => _trackerGet(r, keys);
 
   // Apply batch filter
   let rows = _trackerAllRows;
   if(_trackerBatchFilter === 'aon') rows = _trackerAllRows.filter(r=>(r._batch||'aon')==='aon');
   else if(_trackerBatchFilter === 'nano') rows = _trackerAllRows.filter(r=>r._batch==='nano');
 
+  // Drop fully empty rows (no NOMBRE and no FECHA)
+  rows = rows.filter(r => _trackerGet(r,['NOMBRE','Nombre']) || _trackerRowDate(r) || _trackerGet(r,['PLATAFORMA CREATIVA','Plataforma Creativa']));
+
   // Build status group counts
+  const SKIP_VALS = new Set(['—','-','NA','N/A','na','n/a','']);
   const countStatus = (colKeys) => {
     const counts = {};
     rows.forEach(r => {
       const v = gst(r, ...colKeys);
-      if(v && v !== '—') counts[v] = (counts[v]||0) + 1;
+      if(v && !SKIP_VALS.has(String(v).trim())) counts[v] = (counts[v]||0) + 1;
     });
     return counts;
   };
 
-  const guionCounts = countStatus(['ESTATUS GUIÓN','Estatus Guión','estatus guion','ESTATUS GUION']);
-  const contenidoCounts = countStatus(['ESTATUS CONTENIDO','Estatus Contenido','estatus contenido','ESTATUS CONTENIDO']);
+  const guionCounts = countStatus(['ESTATUS GUIÓN','ESTATUS GUION','Estatus Guión']);
+  const contenidoCounts = countStatus(['ESTATUS CONTENIDO','Estatus Contenido']);
+  const creativaCounts = countStatus(['PLATAFORMA CREATIVA','Plataforma Creativa','LINEA','LÍNEA','CREATIVIDAD']);
+
+  // Headline totals
+  const totalRows = rows.length;
+  const totalPublicado = rows.filter(r=>{
+    const v = String(gst(r,'ESTATUS CONTENIDO','Estatus Contenido')||'').toLowerCase();
+    return v.includes('publicad');
+  }).length;
+  const totalRevInt = rows.filter(r=>{
+    const v = String(gst(r,'ESTATUS CONTENIDO','Estatus Contenido','ESTATUS GUIÓN','Estatus Guión')||'').toLowerCase();
+    return v.includes('revisión int') || v.includes('revision int');
+  }).length;
+  const totalAprobado = rows.filter(r=>{
+    const v = String(gst(r,'ESTATUS CONTENIDO','Estatus Contenido')||'').toLowerCase();
+    return v.includes('aprobad') && !v.includes('publicad');
+  }).length;
+  const totalPorPublicar = rows.filter(r=>{
+    const v = String(gst(r,'ESTATUS CONTENIDO','Estatus Contenido')||'').toLowerCase();
+    return v.includes('por publicar') || v.includes('pendiente');
+  }).length;
 
   // Apply status filter to table rows
   let tableRows = rows;
   if(_trackerStatusFilter) {
     const {field, value} = _trackerStatusFilter;
     const keys = field==='guion'
-      ? ['ESTATUS GUIÓN','Estatus Guión','estatus guion','ESTATUS GUION']
-      : ['ESTATUS CONTENIDO','Estatus Contenido','estatus contenido','ESTATUS CONTENIDO'];
+      ? ['ESTATUS GUIÓN','ESTATUS GUION','Estatus Guión']
+      : (field==='creativa'
+        ? ['PLATAFORMA CREATIVA','Plataforma Creativa','LINEA','LÍNEA','CREATIVIDAD']
+        : ['ESTATUS CONTENIDO','Estatus Contenido']);
     tableRows = rows.filter(r => gst(r,...keys) === value);
   }
 
-  const LINK_COLS = ['GUIÓN','ASSET','LINK TO POST','TESTIGO','Presentación Usada ABD','SS DÍA BOOST'];
-  const STATUS_COLS = ['ESTATUS GUIÓN','ESTATUS CONTENIDO'];
-  const DATE_COLS = ['FECHA DE POST'];
-  const COLS = ['Nombre','COMUNIDAD','COHORT','TIPO DE CONTENIDO','PLATAFORMA','GOODWILL','RÉPLICA','BRIEF','GUIÓN','ESTATUS GUIÓN','ASSET','COPY','FECHA DE POST','ESTATUS CONTENIDO','LINK TO POST','TESTIGO','Presentación Usada ABD','BOOST','CÓDIGO DE BOOST','SS DÍA BOOST','METRICAS','TRACKING','SENTIMENT'];
+  const COLS = TRACKER_COL_DEFS.map(d=>d.label);
 
   const makeSummaryCard = (status, count, field) =>
-    `<button onclick="filterTrackerByStatus('${field}','${status.replace(/'/g,"&#39;")}')"
+    `<button onclick="filterTrackerByStatus('${field}','${String(status).replace(/'/g,"&#39;")}')"
       style="border:1.5px solid var(--border);background:var(--white);border-radius:12px;padding:10px 14px;cursor:pointer;text-align:left;transition:border-color .15s;${_trackerStatusFilter&&_trackerStatusFilter.value===status?'border-color:var(--pink);':''}"
       onmouseover="this.style.borderColor='var(--pink)'" onmouseout="this.style.borderColor='${_trackerStatusFilter&&_trackerStatusFilter.value===status?'var(--pink)':'var(--border)'}'">
       <div style="font-size:24px;font-weight:800;color:var(--text);line-height:1;">${count}</div>
       <div style="margin-top:6px;">${trackerStatusBadge(status)}</div>
     </button>`;
 
+  // Creativa color palette (deterministic per name)
+  const _palette = ['#ec4899','#8b5cf6','#06b6d4','#10b981','#f59e0b','#ef4444','#3b82f6','#84cc16','#a855f7','#f97316'];
+  const _hash = s => { let h=0; for(let i=0;i<s.length;i++) h=(h*31+s.charCodeAt(i))|0; return Math.abs(h); };
+  const creativaColor = name => _palette[_hash(String(name))%_palette.length];
+
+  const makeCreativaCard = (name, count) =>
+    `<button onclick="filterTrackerByStatus('creativa','${String(name).replace(/'/g,"&#39;")}')"
+      style="border:1.5px solid var(--border);background:var(--white);border-radius:12px;padding:10px 14px;cursor:pointer;text-align:left;min-width:140px;${_trackerStatusFilter&&_trackerStatusFilter.value===name?'border-color:var(--pink);':''}">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+        <span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${creativaColor(name)};"></span>
+        <span style="font-size:11px;font-weight:700;color:var(--text);white-space:nowrap;">${name}</span>
+      </div>
+      <div style="font-size:22px;font-weight:800;color:var(--text);line-height:1;">${count}</div>
+      <div style="font-size:10px;color:var(--text-muted);margin-top:2px;">contenidos</div>
+    </button>`;
+
+  // Timeline: count by week × creativa
+  const weekKey = iso => {
+    if(!iso) return '';
+    const d = new Date(iso+'T12:00:00');
+    if(isNaN(d)) return '';
+    const onejan = new Date(d.getFullYear(),0,1);
+    const w = Math.ceil((((d - onejan)/86400000) + onejan.getDay()+1)/7);
+    return `${d.getFullYear()}-W${String(w).padStart(2,'0')}`;
+  };
+  const weekLabel = wk => {
+    if(!wk) return '';
+    const [y,w] = wk.split('-W').map(Number);
+    const simple = new Date(y,0,1+(w-1)*7);
+    const dow = simple.getDay();
+    const monday = new Date(simple); monday.setDate(simple.getDate() - ((dow+6)%7));
+    return monday.toLocaleDateString('es-MX',{day:'numeric',month:'short'});
+  };
+  const timelineMap = {}; // week → {creativa → count}
+  rows.forEach(r => {
+    const iso = _trackerRowDate(r);
+    const wk = weekKey(iso);
+    if(!wk) return;
+    const cv = gst(r,'PLATAFORMA CREATIVA','Plataforma Creativa','LINEA','LÍNEA','CREATIVIDAD') || 'Sin clasificar';
+    if(!timelineMap[wk]) timelineMap[wk] = {};
+    timelineMap[wk][cv] = (timelineMap[wk][cv]||0) + 1;
+  });
+  const weeks = Object.keys(timelineMap).sort();
+  const creativas = Object.keys(creativaCounts);
+  let maxWeekTotal = 0;
+  weeks.forEach(w => { const t = Object.values(timelineMap[w]).reduce((a,b)=>a+b,0); if(t>maxWeekTotal) maxWeekTotal=t; });
+
+  const chartHtml = weeks.length===0 ? '' : `
+    <div style="background:var(--bg);border:1px solid var(--border);border-radius:14px;padding:14px 16px;">
+      <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:12px;">📈 Publicaciones por semana × Plataforma Creativa</div>
+      <div style="display:flex;align-items:flex-end;gap:6px;height:160px;overflow-x:auto;padding-bottom:4px;">
+        ${weeks.map(w => {
+          const total = Object.values(timelineMap[w]).reduce((a,b)=>a+b,0);
+          const heightPct = maxWeekTotal? (total/maxWeekTotal)*100 : 0;
+          const segs = Object.entries(timelineMap[w]).map(([cv,n])=>
+            `<div title="${cv}: ${n}" style="background:${creativaColor(cv)};flex:${n};min-height:2px;"></div>`).join('');
+          return `<div style="display:flex;flex-direction:column;align-items:center;gap:4px;min-width:46px;">
+            <div style="font-size:10px;font-weight:700;color:var(--text);">${total}</div>
+            <div style="height:${heightPct}%;min-height:6px;width:28px;display:flex;flex-direction:column-reverse;border-radius:4px;overflow:hidden;border:1px solid var(--border);">${segs}</div>
+            <div style="font-size:10px;color:var(--text-muted);white-space:nowrap;">${weekLabel(w)}</div>
+          </div>`;
+        }).join('')}
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:10px;">
+        ${creativas.map(cv=>`<div style="display:flex;align-items:center;gap:5px;font-size:10px;color:var(--text);"><span style="width:9px;height:9px;border-radius:2px;background:${creativaColor(cv)};display:inline-block;"></span>${cv}</div>`).join('')}
+      </div>
+    </div>`;
+
   const filterBar = _trackerStatusFilter
     ? `<div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-muted);margin-bottom:10px;">
-        Filtrando por: ${trackerStatusBadge(_trackerStatusFilter.value)}
+        Filtrando por: <strong style="color:var(--text);">${_trackerStatusFilter.value}</strong>
         <button onclick="clearTrackerFilter()" style="background:none;border:none;cursor:pointer;color:var(--pink);font-size:12px;font-weight:700;">✕ Limpiar</button>
         <span style="color:var(--text-muted);">${tableRows.length} resultado${tableRows.length!==1?'s':''}</span>
        </div>`
     : '';
 
+  // Headline summary
+  const headlineCard = (label, value, color) =>
+    `<div style="background:var(--white);border:1px solid var(--border);border-radius:12px;padding:12px 14px;min-width:120px;">
+      <div style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;">${label}</div>
+      <div style="font-size:28px;font-weight:800;color:${color};line-height:1.1;margin-top:4px;">${value}</div>
+    </div>`;
+
   wrap.innerHTML = `
     <div style="display:flex;flex-direction:column;gap:16px;">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        ${headlineCard('Total','&Sigma; '+totalRows,'var(--text)')}
+        ${headlineCard('Publicados',totalPublicado,'#166534')}
+        ${headlineCard('Aprobados',totalAprobado,'#1d4ed8')}
+        ${headlineCard('Por publicar',totalPorPublicar,'#b45309')}
+        ${headlineCard('Revisión interna',totalRevInt,'#854d0e')}
+      </div>
+      <div style="background:var(--bg);border:1px solid var(--border);border-radius:14px;padding:14px 16px;">
+        <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;">🎨 Desglose por Plataforma Creativa</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;">
+          ${Object.entries(creativaCounts).sort((a,b)=>b[1]-a[1]).map(([s,c])=>makeCreativaCard(s,c)).join('')||'<span style="font-size:12px;color:var(--text-muted);">Sin datos en columna "PLATAFORMA CREATIVA"</span>'}
+        </div>
+      </div>
+      ${chartHtml}
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
         <div style="background:var(--bg);border:1px solid var(--border);border-radius:14px;padding:14px 16px;">
-          <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;">📝 Guión</div>
+          <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;">📝 Estatus Guión</div>
           <div style="display:flex;flex-wrap:wrap;gap:8px;">
             ${Object.entries(guionCounts).map(([s,c])=>makeSummaryCard(s,c,'guion')).join('')||'<span style="font-size:12px;color:var(--text-muted);">Sin datos</span>'}
           </div>
         </div>
         <div style="background:var(--bg);border:1px solid var(--border);border-radius:14px;padding:14px 16px;">
-          <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;">🎬 Contenido / Asset</div>
+          <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;">🎬 Estatus Contenido</div>
           <div style="display:flex;flex-wrap:wrap;gap:8px;">
             ${Object.entries(contenidoCounts).map(([s,c])=>makeSummaryCard(s,c,'contenido')).join('')||'<span style="font-size:12px;color:var(--text-muted);">Sin datos</span>'}
           </div>
@@ -3673,21 +3838,24 @@ function _renderTrackerSummaryAndTable() {
       ${filterBar}
       <div class="table-wrap">
         <table class="table">
-          <thead><tr>${COLS.map(c=>`<th style="white-space:nowrap;font-size:11px;">${c}</th>`).join('')}</tr></thead>
+          <thead><tr>${TRACKER_COL_DEFS.map(d=>`<th style="white-space:nowrap;font-size:11px;">${d.label}</th>`).join('')}</tr></thead>
           <tbody>
             ${tableRows.length===0
               ? `<tr><td colspan="${COLS.length}" style="text-align:center;color:var(--text-muted);padding:24px;">Sin resultados</td></tr>`
               : tableRows.map(r=>`<tr>
-                ${COLS.map(col=>{
-                  const val = gst(r,col,col.toLowerCase(),col.toUpperCase());
-                  if(LINK_COLS.includes(col)) {
-                    return val&&(val.startsWith('http')||val.startsWith('www'))
-                      ? `<td><a href="${val}" target="_blank" rel="noopener" style="color:var(--blue);font-size:11px;white-space:nowrap;">Ver →</a></td>`
-                      : `<td style="font-size:12px;">${val||'—'}</td>`;
+                ${TRACKER_COL_DEFS.map(def=>{
+                  const val = _trackerGet(r, def.keys);
+                  if(def.link) {
+                    const sv = String(val||'');
+                    return sv && (sv.startsWith('http')||sv.startsWith('www'))
+                      ? `<td><a href="${sv.startsWith('www')?'https://'+sv:sv}" target="_blank" rel="noopener" style="color:var(--blue);font-size:11px;white-space:nowrap;">Ver →</a></td>`
+                      : (sv && sv.toUpperCase()==='LINK'
+                          ? `<td style="font-size:11px;color:var(--text-muted);">LINK</td>`
+                          : `<td style="font-size:12px;">${sv||'—'}</td>`);
                   }
-                  if(STATUS_COLS.includes(col)) return `<td>${val?trackerStatusBadge(val):'—'}</td>`;
-                  if(DATE_COLS.includes(col)) return `<td style="font-size:12px;white-space:nowrap;">${val?formatDateShort(val):'—'}</td>`;
-                  return `<td style="font-size:12px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${(val||'').replace(/"/g,'&quot;')}">${val||'—'}</td>`;
+                  if(def.status) return `<td>${val?trackerStatusBadge(val):'—'}</td>`;
+                  if(def.date) { const iso = _trackerParseDate(val); return `<td style="font-size:12px;white-space:nowrap;">${iso?formatDateShort(iso):'—'}</td>`; }
+                  return `<td style="font-size:12px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${String(val||'').replace(/"/g,'&quot;')}">${val||'—'}</td>`;
                 }).join('')}
               </tr>`).join('')}
           </tbody>
@@ -3755,27 +3923,32 @@ async function _autoFetchTracker(url, campaign) {
           const allRows = [];
           for(const t of tabs) {
             const tabRows = await _fetchTabRows(sid, t.gid);
-            const tname = (t.name||'').toLowerCase();
+            const tname = (t.title||t.name||'').toLowerCase();
             const isNano = nanoTabName && (tname.includes(nanoTabName) || tname.includes('nano') || tname.includes('cgc') || tname.includes('ugc'));
             const batch = isNano ? 'nano' : 'aon';
             // Only include if: no tab filter set (include all), or matches filter
             if(!aonTabName && !nanoTabName) {
-              allRows.push(...tabRows.map(r=>({...r, _batch:batch, _tabName:t.name})));
+              allRows.push(...tabRows.map(r=>({...r, _batch:batch, _tabName:t.title||t.name})));
             } else {
               const isAon = aonTabName && tname.includes(aonTabName);
-              if(isAon || isNano) allRows.push(...tabRows.map(r=>({...r, _batch:batch, _tabName:t.name})));
+              if(isAon || isNano) allRows.push(...tabRows.map(r=>({...r, _batch:batch, _tabName:t.title||t.name})));
             }
           }
           if(allRows.length) campaign.trackerRows = allRows;
         }
-      } catch(e) { /* single tab fallback */ }
+      } catch(e) { /* single tab fallback — use CSV from URL gid */ }
     }
     campaign.trackerLastSync = Date.now();
     _renderTrackerTable(campaign.trackerRows);
     _startTrackerAutoRefresh(campaign);
     const campaigns = getData('campaigns');
     const idx = campaigns.findIndex(x=>x.id===campaign.id);
-    if(idx!==-1) { campaigns[idx].trackerSheetUrl = url; setData('campaigns',campaigns); }
+    if(idx!==-1) {
+      campaigns[idx].trackerSheetUrl = url;
+      campaigns[idx].trackerRows = campaign.trackerRows;
+      campaigns[idx].trackerLastSync = campaign.trackerLastSync;
+      setData('campaigns',campaigns);
+    }
     showToast('Tracker sincronizado','success');
   } catch(e) {
     const wrap = document.getElementById('trackerTableWrap');
@@ -4122,14 +4295,24 @@ function _extractSheetId(url) {
 }
 
 async function _fetchSheetTabs(sheetId) {
-  const url = `https://spreadsheets.google.com/feeds/worksheets/${sheetId}/public/full?alt=json`;
+  // Old Sheets v3 feeds API is deprecated/dead. Discover tabs by scraping
+  // public HTML for {name,gid} pairs. Falls back gracefully if blocked.
+  const url = `https://docs.google.com/spreadsheets/d/${sheetId}/htmlview`;
   const res = await fetch(url);
   if(!res.ok) throw new Error(`tabs HTTP ${res.status}`);
-  const data = await res.json();
-  return (data.feed.entry || []).map(e => ({
-    title: e.title.$t,
-    gid:   e['gs$sheetId'].$t,
-  }));
+  const html = await res.text();
+  if(html.trim().startsWith('<!DOCTYPE') === false && !html.includes('sheet-button')) throw new Error('tabs not public');
+  const tabs = [];
+  const seen = new Set();
+  // Pattern: <li ... id="sheet-button-XXXX" ...>NAME</li>
+  const re = /id="sheet-button-(\d+)"[^>]*>([^<]+)</g;
+  let m;
+  while((m = re.exec(html)) !== null) {
+    const gid = m[1], title = m[2].trim();
+    if(!seen.has(gid)) { seen.add(gid); tabs.push({title, gid}); }
+  }
+  if(!tabs.length) throw new Error('no tabs parsed');
+  return tabs;
 }
 
 async function _fetchTabRows(sheetId, gid) {
@@ -4272,31 +4455,37 @@ async function loadMetrics() {
 }
 
 function parseCSV(text) {
-  const lines = text.trim().split(/\r?\n/);
-  if(lines.length < 2) return [];
-  // RFC 4180-aware split: handle quoted fields with commas
-  function splitLine(line) {
-    const result=[]; let cur='', inQ=false;
-    for(let i=0;i<line.length;i++){
-      const ch=line[i];
-      if(ch==='"') { inQ=!inQ; }
-      else if(ch===','&&!inQ) { result.push(cur.trim()); cur=''; }
-      else cur+=ch;
+  // Full RFC 4180 parser: walks char-by-char so quoted fields can contain
+  // commas, embedded newlines, and "" escapes without breaking row alignment.
+  const rows = [];
+  let cur = '', row = [], inQ = false;
+  const t = text.replace(/\r\n?/g, '\n');
+  for(let i=0; i<t.length; i++) {
+    const ch = t[i];
+    if(inQ) {
+      if(ch === '"') {
+        if(t[i+1] === '"') { cur += '"'; i++; }
+        else inQ = false;
+      } else cur += ch;
+    } else {
+      if(ch === '"') inQ = true;
+      else if(ch === ',') { row.push(cur); cur = ''; }
+      else if(ch === '\n') { row.push(cur); rows.push(row); row = []; cur = ''; }
+      else cur += ch;
     }
-    result.push(cur.trim()); return result;
   }
-  // Smart header detection: if first row has ≤3 unique non-empty values and many columns,
-  // it's a category/meta row (e.g. "Must Have, Must Have, ...") → skip it, use row 2 as headers
-  let headerLine = 0;
-  const firstRow = splitLine(lines[0]);
-  const uniqueFirst = new Set(firstRow.filter(Boolean));
-  if(uniqueFirst.size <= 4 && firstRow.length > 5) headerLine = 1;
-  if(lines.length <= headerLine + 1) return [];
-  const headers = splitLine(lines[headerLine]);
-  return lines.slice(headerLine + 1).filter(l=>l.trim()).map(line=>{
-    const vals = splitLine(line);
-    const obj={};
-    headers.forEach((h,i)=>obj[h]=vals[i]||'');
+  if(cur.length || row.length) { row.push(cur); rows.push(row); }
+  while(rows.length && rows[rows.length-1].every(v => !v || !v.trim())) rows.pop();
+  if(rows.length < 2) return [];
+  // Skip meta/category row if it has ≤4 unique values across many cols
+  let headerIdx = 0;
+  const uniqueFirst = new Set(rows[0].map(v=>v.trim()).filter(Boolean));
+  if(uniqueFirst.size <= 4 && rows[0].length > 5) headerIdx = 1;
+  if(rows.length <= headerIdx + 1) return [];
+  const headers = rows[headerIdx].map(h => h.trim());
+  return rows.slice(headerIdx + 1).filter(r => r.some(v => v && v.trim())).map(vals => {
+    const obj = {};
+    headers.forEach((h,i) => { obj[h] = (vals[i]||'').trim(); });
     return obj;
   });
 }
@@ -6495,6 +6684,15 @@ function renderCalendar() {
     // Publications
     (c.influencers||[]).forEach(inf => {
       if(inf.publishDate) add(inf.publishDate, {type:'pub', label:inf.name||inf.handle, color:'var(--pink)', text:'#fff'});
+    });
+    // Tracker publications (Master Tracker / Social Calendar)
+    (c.trackerRows||[]).forEach(row => {
+      const iso = (typeof _trackerRowDate==='function') ? _trackerRowDate(row) : '';
+      if(!iso) return;
+      const name = row['NOMBRE']||row['Nombre']||'';
+      const creativa = row['PLATAFORMA CREATIVA']||row['Plataforma Creativa']||'';
+      const label = (creativa? creativa+' · ':'') + (name || 'Publicación');
+      add(iso, {type:'pub', label:'📅 '+label, color:'var(--pink)', text:'#fff'});
     });
     // Campaign tasks
     (c.tasks||[]).filter(t=>!t.done&&t.dueDate).forEach(t => {
