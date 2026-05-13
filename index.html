@@ -1578,6 +1578,13 @@ html.light {
             <input type="text" id="campaignSheetsUrl" class="form-input" placeholder="Pega URL del Sheet de esta campaña..." oninput="saveCampaignSheetsUrl()">
             <button class="btn btn-ghost btn-sm" onclick="syncInfluencersFromSheets()" style="white-space:nowrap;">Sincronizar creadores</button>
           </div>
+          <div style="background:var(--bg);border:1px solid var(--border);border-radius:14px;padding:12px 14px;margin-bottom:16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <span style="font-size:12px;font-weight:700;color:#3a7a5e;white-space:nowrap;">🎯 Escenario</span>
+            <input type="text" id="escenarioSheetsUrl" class="form-input" style="flex:1;min-width:180px;font-size:12px;" placeholder="URL del escenario (con #gid=... de la pestaña Escenario Final)" oninput="saveEscenarioUrl()">
+            <button class="btn btn-ghost btn-sm" onclick="syncEscenario()" style="white-space:nowrap;">🔄 Sincronizar</button>
+            <span id="escenarioLastSync" style="font-size:11px;color:var(--text-muted);"></span>
+          </div>
+          <div id="escenarioBlock" style="margin-bottom:20px;"></div>
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
             <h4 style="font-size:13px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;">Influencers en esta campaña</h4>
             <button class="btn btn-primary btn-sm" onclick="openAddInfluencerModal()">+ Agregar influencer</button>
@@ -3265,6 +3272,8 @@ function navigateToMetrics(cid) {
 function renderCampaignInfluencers(c) {
   const sheetsInput = document.getElementById('campaignSheetsUrl');
   if(sheetsInput) sheetsInput.value = c.sheetsUrl || '';
+  // Render escenario block (estimated vs real per creator)
+  try { renderEscenarioBlock(c); } catch(e){ console.warn('escenario render error', e); }
   const infStatusBadge = (s) => {
     const map={Publicado:'badge-green',Aprobado:'badge-blue','En producción':'badge-purple',Pendiente:'badge-gray'};
     return `<span class="badge ${map[s]||'badge-gray'}">${s}</span>`;
@@ -4114,6 +4123,381 @@ function syncTracker() {
   if(wrap) wrap.innerHTML = `<div class="empty-state"><p>Cargando...</p></div>`;
   showToast('Sincronizando tracker...','success');
   _autoFetchTracker(url, c);
+}
+
+// ============================================================
+// ESCENARIO (planning sheet: estimated views/cost per creator)
+// ============================================================
+function saveEscenarioUrl() {
+  const url = document.getElementById('escenarioSheetsUrl')?.value?.trim();
+  if(!currentCampaignId || !url) return;
+  const campaigns = getData('campaigns');
+  const c = campaigns.find(x=>x.id===currentCampaignId);
+  if(c) { c.escenarioSheetUrl = url; setData('campaigns', campaigns); }
+}
+
+function syncEscenario() {
+  const url = document.getElementById('escenarioSheetsUrl')?.value?.trim();
+  if(!url) { showToast('Pega el URL del escenario primero','error'); return; }
+  const campaigns = getData('campaigns');
+  const c = campaigns.find(x=>x.id===currentCampaignId);
+  if(!c) return;
+  c.escenarioSheetUrl = url;
+  setData('campaigns', campaigns);
+  const wrap = document.getElementById('escenarioBlock');
+  if(wrap) wrap.innerHTML = `<div class="empty-state"><p>Cargando escenario...</p></div>`;
+  showToast('Sincronizando escenario...','success');
+  _autoFetchEscenario(url, c);
+}
+
+async function _autoFetchEscenario(url, campaign) {
+  const csvUrl = normalizeCsvUrl(url);
+  if(!csvUrl) return;
+  try {
+    const res = await fetch(csvUrl);
+    if(!res.ok) throw new Error(`HTTP ${res.status}`);
+    const text = await res.text();
+    if(text.trim().startsWith('<!')) throw new Error('Sheet no público');
+    const rows = parseCSV(text);
+    campaign.escenarioRows = rows;
+    campaign.escenarioLastSync = Date.now();
+    const campaigns = getData('campaigns');
+    const idx = campaigns.findIndex(x=>x.id===campaign.id);
+    if(idx!==-1) {
+      campaigns[idx].escenarioSheetUrl = url;
+      campaigns[idx].escenarioRows = rows;
+      campaigns[idx].escenarioLastSync = campaign.escenarioLastSync;
+      setData('campaigns', campaigns);
+    }
+    renderEscenarioBlock(campaign);
+    showToast('Escenario sincronizado','success');
+  } catch(e) {
+    const wrap = document.getElementById('escenarioBlock');
+    if(wrap) wrap.innerHTML = `<div class="empty-state"><p>Error cargando escenario: ${e.message}</p></div>`;
+  }
+}
+
+// Heuristics that decide which rows are real creators vs banners / totals / UGC
+const ESCENARIO_BANNER_RE = /^(big numbers|budget|aurora|resumen|total|subtotal|fase|fee)/i;
+const ESCENARIO_GOAL_RE   = /^big numbers/i;
+function _escenarioIsCreatorName(raw) {
+  const v = String(raw||'').trim();
+  if(!v) return false;
+  if(/^\d+([.,]\d+)?$/.test(v)) return false;             // pure number
+  if(/^fee$/i.test(v)) return false;
+  if(ESCENARIO_BANNER_RE.test(v)) return false;
+  return true;
+}
+
+// Parse escenario rows into structured creators + ugc + campaign goal
+function parseEscenarioRows(rows) {
+  if(!rows || !rows.length) return { creators: [], ugc: null, goal: null };
+  const num = v => { const n = parseFloat(String(v||'').replace(/[,$\s]/g,'')); return isFinite(n)?n:0; };
+  const get = (r, ...keys) => {
+    const n = s => String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[_\s]+/g,' ').trim();
+    for(const k of keys){ const kn=n(k); for(const rk of Object.keys(r)){ if(n(rk)===kn && r[rk]!=null && r[rk]!=='') return r[rk]; } }
+    return '';
+  };
+
+  const COMUNIDAD_K = ['COMUNIDADES','Comunidades','Comunidad'];
+  const COHORTS_K   = ['COHORTS','COHORT','Cohorts','Cohort'];
+  const NOMBRE_K    = ['NOMBRE','Nombre','Creador','Influencer'];
+  const PLATFORM_K  = ['PLATAFORMA','Platform','PLATFORM','Red Social'];
+  const TIER_K      = ['TIER','Tier'];
+  const SEG_K       = ['SEGUIDORES','Seguidores'];
+  const CONT_K      = ['CONTENIDO','Contenido'];
+  const CANT_K      = ['CANTIDAD DE CONTENIDO','Cantidad de Contenido','Cantidad'];
+  const VIEWS_EST_K = ['VIEWS ESTIMADAS TOTALES','Views Estimadas Totales','Views Estimadas'];
+  const REACH_EST_K = ['ALCANCE X POSTEO ESTIMADO','Alcance x Posteo Estimado'];
+  const ENG_EST_K   = ['INTERACCIONES ESTIMADAS TOTALES','Interacciones Estimadas Totales'];
+  const ENG_RATE_K  = ['ENGAGEMENT RATE PROMEDIO','Engagement Rate Promedio','ER'];
+  const COSTO_K     = ['COSTO','Costo'];
+  const COSTO_PAUTA_K = ['Costo pauta','COSTO PAUTA'];
+  const COSTO_CONT_K  = ['Costo contenidos','COSTO CONTENIDOS'];
+
+  // Forward-fill creator identity across rows where NOMBRE / COMUNIDADES /
+  // COHORTS are blank (merged cells). But STOP forward-fill when we hit a
+  // banner / UGC / goal row — those are terminal markers, not creators that
+  // continue across blank rows.
+  let lastNombre = '', lastComunidad = '', lastCohorts = '';
+  const filled = rows.map(r => {
+    let nm = String(get(r, ...NOMBRE_K)||'').trim();
+    const cm = String(get(r, ...COMUNIDAD_K)||'').trim();
+    const ch = String(get(r, ...COHORTS_K)||'').trim();
+    // Some summary rows put the label in COMUNIDADES instead of NOMBRE
+    // (e.g. "BIG NUMBERS ABD"). Promote it to nm so the row gets classified.
+    if(!nm && cm && (ESCENARIO_BANNER_RE.test(cm) || /^ugc$/i.test(cm) || ESCENARIO_GOAL_RE.test(cm))) {
+      nm = cm;
+    }
+    if(nm) {
+      const isTerminal = /^ugc$/i.test(nm) || ESCENARIO_BANNER_RE.test(nm);
+      if(isTerminal) { lastNombre = ''; lastComunidad = ''; lastCohorts = ''; }
+      else { lastNombre = nm; }
+      // Return THIS row's own NOMBRE so banners/UGC are detected on their own row
+      return { _raw:r, _nombre:nm, _comunidad:cm||lastComunidad, _cohorts:ch||lastCohorts };
+    }
+    if(cm) lastComunidad = cm;
+    if(ch) lastCohorts = ch;
+    return { _raw:r, _nombre:lastNombre, _comunidad:lastComunidad, _cohorts:lastCohorts };
+  });
+
+  let goal = null, ugc = null;
+  const byCreator = new Map(); // key: nombre → creator obj
+
+  filled.forEach(f => {
+    const r = f._raw;
+    const nm = f._nombre;
+    if(!nm) return;
+
+    // Goal row (BIG NUMBERS ABD) → campaign target totals
+    if(ESCENARIO_GOAL_RE.test(nm)) {
+      goal = {
+        name: nm,
+        totalContenidos: num(get(r, ...CANT_K)),
+        totalSeguidores: num(get(r, 'TOTAL DE SEGUIDORES','Total de Seguidores')),
+        viewsEstTotal:   num(get(r, ...VIEWS_EST_K)),
+        engagementEst:   num(get(r, ...ENG_EST_K)),
+        engagementRate:  parseFloat(get(r, ...ENG_RATE_K))||0,
+        costoTotal:      num(get(r, ...COSTO_K)),
+      };
+      return;
+    }
+
+    // UGC special bucket
+    if(/^ugc$/i.test(nm)) {
+      const cost = num(get(r, ...COSTO_K)) || (num(get(r, ...COSTO_PAUTA_K)) + num(get(r, ...COSTO_CONT_K)));
+      ugc = {
+        cantidadCreadores: parseInt(String(get(r, 'PERFILES','LINK','perfiles')||'').replace(/[^0-9]/g,''))||0,
+        cantidadContenidos: num(get(r, ...CANT_K)),
+        tier: get(r, ...TIER_K) || 'NANO',
+        costo: cost,
+      };
+      // If LINK column had "300 PERFILES", parse perfil count
+      const linkCell = get(r, 'LINK','Link');
+      const pm = String(linkCell||'').match(/(\d+)\s*perfil/i);
+      if(pm) ugc.cantidadCreadores = parseInt(pm[1]);
+      return;
+    }
+
+    // Drop banners (BUDGET / AURORA / RESUMEN / TOTAL etc.)
+    if(!_escenarioIsCreatorName(nm)) return;
+
+    // Real creator row
+    if(!byCreator.has(nm)) {
+      byCreator.set(nm, {
+        nombre: nm,
+        comunidad: f._comunidad,
+        cohorts: f._cohorts,
+        tier: get(r, ...TIER_K) || '',
+        seguidoresMax: num(get(r, ...SEG_K)),
+        platforms: [],   // [{platform, contenido, cantidad, viewsEst, reachEst, engEst, engRate, costo}]
+        viewsEstTotal: 0,
+        reachEstTotal: 0,
+        engagementEstTotal: 0,
+        contenidosTotal: 0,
+        costoTotal: 0,
+      });
+    }
+    const cr = byCreator.get(nm);
+    const plat = get(r, ...PLATFORM_K);
+    const cont = get(r, ...CONT_K);
+    const cantidad = num(get(r, ...CANT_K));
+    const viewsEst = num(get(r, ...VIEWS_EST_K));
+    const reachEst = num(get(r, ...REACH_EST_K));
+    const engEst   = num(get(r, ...ENG_EST_K));
+    const engRate  = parseFloat(get(r, ...ENG_RATE_K))||0;
+    const costoRow = num(get(r, ...COSTO_K)) || (num(get(r, ...COSTO_PAUTA_K)) + num(get(r, ...COSTO_CONT_K)));
+    if(plat || cont || cantidad || viewsEst) {
+      cr.platforms.push({
+        platform: String(plat||'').trim(),
+        contenido: String(cont||'').trim(),
+        cantidad, viewsEst, reachEst, engEst, engRate, costo: costoRow,
+      });
+      cr.viewsEstTotal       += viewsEst;
+      cr.reachEstTotal       += reachEst;
+      cr.engagementEstTotal  += engEst;
+      cr.contenidosTotal     += cantidad;
+      cr.costoTotal          += costoRow;
+    }
+    if(!cr.seguidoresMax) cr.seguidoresMax = num(get(r, ...SEG_K));
+    if(!cr.tier) cr.tier = get(r, ...TIER_K);
+  });
+
+  return { creators: Array.from(byCreator.values()), ugc, goal };
+}
+
+// Extract per-creator real metrics from previously loaded cachedMetrics rows
+function _escenarioRealMetricsByCreator(campaign) {
+  const out = new Map();
+  const rows = (campaign && campaign.cachedMetrics) || [];
+  if(!rows.length) return out;
+  const norm = s => String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[_\s@]+/g,' ').trim();
+  const get = (r, ...keys) => { for(const k of keys){ const kn=norm(k); for(const rk of Object.keys(r)){ if(norm(rk)===kn && r[rk]) return r[rk]; } } return ''; };
+  const num = v => { const n = parseFloat(String(v||'').replace(/[,$\s]/g,'')); return isFinite(n)?n:0; };
+  rows.forEach(r => {
+    const name = String(get(r,'Influencer Name','Influencer','Creator','Creador','Cuenta','NOMBRE','Nombre','Handle','Perfil')||'').trim();
+    if(!name) return;
+    const key = norm(name);
+    if(!out.has(key)) out.set(key, { views:0, engagement:0, posts:0, name });
+    const o = out.get(key);
+    o.views      += num(get(r,'Views','Vistas','organic views','Total Views','Impresiones','Impressions','Reproducciones','Plays','Visualizaciones','Video Views'));
+    const bd = num(get(r,'Likes','Me gusta','organic likes'))
+             + num(get(r,'Comments','Comentarios','organic comments'))
+             + num(get(r,'Shares','Compartidos','organic shares','Retweets','Reposts'))
+             + num(get(r,'Saves','Guardados','Saved','organic saves'));
+    o.engagement += bd>0 ? bd : num(get(r,'Engagement','Interacciones','Interactions','Total Engagement','Engagements'));
+    o.posts      += 1;
+  });
+  return out;
+}
+
+// Color helper: green / yellow / red by completion %
+function _semaforo(pct) {
+  if(pct >= 80) return { color:'#166534', bg:'#bbf7d0', label:'≥80%' };
+  if(pct >= 40) return { color:'#854d0e', bg:'#fef08a', label:'40-80%' };
+  return { color:'#991b1b', bg:'#fecaca', label:'<40%' };
+}
+
+function renderEscenarioBlock(c) {
+  const wrap = document.getElementById('escenarioBlock');
+  if(!wrap) return;
+  // Restore input + sync time
+  const urlInp = document.getElementById('escenarioSheetsUrl');
+  if(urlInp) urlInp.value = c.escenarioSheetUrl || '';
+  const syncEl = document.getElementById('escenarioLastSync');
+  if(syncEl && c.escenarioLastSync) {
+    syncEl.textContent = 'Última sync: ' + new Date(c.escenarioLastSync).toLocaleString('es-MX',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+  }
+  if(!c.escenarioRows || !c.escenarioRows.length) {
+    wrap.innerHTML = c.escenarioSheetUrl
+      ? `<div class="empty-state"><p>Cargando escenario...</p></div>`
+      : `<div class="empty-state" style="padding:14px;"><p style="font-size:12px;">Vincula el escenario para ver views estimadas, contenidos cerrados y costos por creador</p></div>`;
+    if(c.escenarioSheetUrl && !c._escenarioFetching) { c._escenarioFetching=true; _autoFetchEscenario(c.escenarioSheetUrl, c).finally(()=>{c._escenarioFetching=false;}); }
+    return;
+  }
+
+  const { creators, ugc, goal } = parseEscenarioRows(c.escenarioRows);
+  const real = _escenarioRealMetricsByCreator(c);
+  const norm = s => String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[_\s@]+/g,' ').trim();
+
+  // Augment creators with real metrics + published content count from tracker
+  const trackerByCreator = new Map();
+  (c.trackerRows||[]).forEach(row => {
+    const nm = (row['NOMBRE']||row['Nombre']||'').trim();
+    if(!nm) return;
+    const key = norm(nm);
+    if(!trackerByCreator.has(key)) trackerByCreator.set(key, { published:0, total:0 });
+    const t = trackerByCreator.get(key);
+    t.total += 1;
+    if(/publicad/i.test(row['ESTATUS CONTENIDO']||row['Estatus Contenido']||'')) t.published += 1;
+  });
+
+  const enriched = creators.map(cr => {
+    const r = real.get(norm(cr.nombre)) || { views:0, engagement:0, posts:0 };
+    const t = trackerByCreator.get(norm(cr.nombre)) || { published:0, total:0 };
+    const viewsPct = cr.viewsEstTotal>0 ? (r.views/cr.viewsEstTotal)*100 : 0;
+    const engPct = cr.engagementEstTotal>0 ? (r.engagement/cr.engagementEstTotal)*100 : 0;
+    const contPct = cr.contenidosTotal>0 ? (t.published/cr.contenidosTotal)*100 : 0;
+    return { ...cr, real:r, tracker:t, viewsPct, engPct, contPct };
+  });
+
+  // Aggregate totals across creators (excluding goal/ugc which are tracked separately)
+  const agg = enriched.reduce((a,cr) => ({
+    viewsEst: a.viewsEst + cr.viewsEstTotal,
+    viewsReal: a.viewsReal + cr.real.views,
+    engEst: a.engEst + cr.engagementEstTotal,
+    engReal: a.engReal + cr.real.engagement,
+    contEst: a.contEst + cr.contenidosTotal,
+    contReal: a.contReal + cr.tracker.published,
+    costo: a.costo + cr.costoTotal,
+  }), { viewsEst:0,viewsReal:0,engEst:0,engReal:0,contEst:0,contReal:0,costo:0 });
+
+  const totalViewsEstForPct = (goal && goal.viewsEstTotal) || agg.viewsEst;
+  const totalEngEstForPct = (goal && goal.engagementEst) || agg.engEst;
+  const totalContEstForPct = (goal && goal.totalContenidos) || agg.contEst;
+  const viewsPctAll = totalViewsEstForPct>0 ? (agg.viewsReal/totalViewsEstForPct)*100 : 0;
+  const engPctAll = totalEngEstForPct>0 ? (agg.engReal/totalEngEstForPct)*100 : 0;
+  const contPctAll = totalContEstForPct>0 ? (agg.contReal/totalContEstForPct)*100 : 0;
+
+  const fmt = n => formatNum(Math.round(n));
+  const fmtMoney = n => n>0 ? '$'+Math.round(n).toLocaleString('es-MX') : '—';
+  const pctCell = (pct) => {
+    const s = _semaforo(pct);
+    return `<span style="display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;background:${s.bg};color:${s.color};">${pct.toFixed(0)}%</span>`;
+  };
+
+  const headlineHtml = `
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:14px;">
+      <div style="background:var(--white);border:1px solid var(--border);border-radius:12px;padding:12px 14px;">
+        <div style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;">Views</div>
+        <div style="font-size:22px;font-weight:800;line-height:1.1;margin-top:4px;">${fmt(agg.viewsReal)} <span style="font-size:12px;color:var(--text-muted);font-weight:600;">/ ${fmt(totalViewsEstForPct)}</span></div>
+        <div style="margin-top:6px;">${pctCell(viewsPctAll)}</div>
+      </div>
+      <div style="background:var(--white);border:1px solid var(--border);border-radius:12px;padding:12px 14px;">
+        <div style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;">Engagement</div>
+        <div style="font-size:22px;font-weight:800;line-height:1.1;margin-top:4px;">${fmt(agg.engReal)} <span style="font-size:12px;color:var(--text-muted);font-weight:600;">/ ${fmt(totalEngEstForPct)}</span></div>
+        <div style="margin-top:6px;">${pctCell(engPctAll)}</div>
+      </div>
+      <div style="background:var(--white);border:1px solid var(--border);border-radius:12px;padding:12px 14px;">
+        <div style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;">Contenidos</div>
+        <div style="font-size:22px;font-weight:800;line-height:1.1;margin-top:4px;">${agg.contReal} <span style="font-size:12px;color:var(--text-muted);font-weight:600;">/ ${totalContEstForPct}</span></div>
+        <div style="margin-top:6px;">${pctCell(contPctAll)}</div>
+      </div>
+      <div style="background:var(--white);border:1px solid var(--border);border-radius:12px;padding:12px 14px;">
+        <div style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;">Costo total</div>
+        <div style="font-size:22px;font-weight:800;line-height:1.1;margin-top:4px;">${fmtMoney(agg.costo + (ugc?ugc.costo:0))}</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">${enriched.length} creadores${ugc?` · UGC: ${ugc.cantidadCreadores||'—'} perfiles`:''}</div>
+      </div>
+    </div>`;
+
+  const tableHtml = `
+    <div class="card" style="overflow:visible;">
+      <div class="card-header"><span class="card-title">Creadores · Escenario vs Real</span></div>
+      <div class="table-wrap">
+        <table class="table" style="font-size:12px;">
+          <thead><tr>
+            <th>Creador</th><th>Tier</th><th>Cerrado</th>
+            <th>Views est.</th><th>Views real</th><th>%</th>
+            <th>Eng. est.</th><th>Eng. real</th><th>%</th>
+            <th>Pubs</th><th>%</th>
+            <th>Costo</th>
+          </tr></thead>
+          <tbody>
+            ${enriched.sort((a,b)=>b.viewsEstTotal-a.viewsEstTotal).map(cr => {
+              const breakdown = cr.platforms.map(p => `${p.cantidad||1} ${p.contenido||p.platform}`).join(' · ');
+              return `<tr>
+                <td><div style="font-weight:600;">${cr.nombre}</div><div style="font-size:10px;color:var(--text-muted);">${cr.comunidad||''}</div></td>
+                <td><span style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:6px;background:var(--bg);">${cr.tier||'—'}</span></td>
+                <td style="font-size:11px;">${breakdown||'—'}</td>
+                <td style="text-align:right;">${fmt(cr.viewsEstTotal)}</td>
+                <td style="text-align:right;font-weight:700;">${fmt(cr.real.views)}</td>
+                <td>${pctCell(cr.viewsPct)}</td>
+                <td style="text-align:right;">${fmt(cr.engagementEstTotal)}</td>
+                <td style="text-align:right;font-weight:700;">${fmt(cr.real.engagement)}</td>
+                <td>${pctCell(cr.engPct)}</td>
+                <td style="text-align:right;">${cr.tracker.published}/${cr.contenidosTotal}</td>
+                <td>${pctCell(cr.contPct)}</td>
+                <td style="text-align:right;">${fmtMoney(cr.costoTotal)}</td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+
+  const ugcHtml = ugc ? `
+    <div class="card" style="margin-top:14px;background:var(--pink-pale);border:1px solid var(--pink);">
+      <div class="card-header"><span class="card-title">UGC (Nano / Micro)</span></div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;padding:6px 14px 14px;">
+        <div><div style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;">Perfiles</div><div style="font-size:20px;font-weight:800;">${ugc.cantidadCreadores||'—'}</div></div>
+        <div><div style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;">Contenidos cerrados</div><div style="font-size:20px;font-weight:800;">${ugc.cantidadContenidos||'—'}</div></div>
+        <div><div style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;">Tier</div><div style="font-size:20px;font-weight:800;">${ugc.tier||'—'}</div></div>
+        <div><div style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;">Costo</div><div style="font-size:20px;font-weight:800;">${fmtMoney(ugc.costo)}</div></div>
+      </div>
+      <div style="font-size:11px;color:var(--text-muted);padding:0 14px 12px;">Los resultados de UGC los entrega la agencia externa y se cargan aparte.</div>
+    </div>` : '';
+
+  wrap.innerHTML = headlineHtml + tableHtml + ugcHtml;
 }
 
 function renderCampaignDocs(c) {
