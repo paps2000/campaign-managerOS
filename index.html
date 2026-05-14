@@ -2592,7 +2592,7 @@ html.light {
 <!-- MODAL: INFLUENCER DETAIL -->
 <div class="modal-overlay" id="infDetailModal">
   <div class="modal" style="max-width:580px;max-height:85vh;overflow-y:auto;">
-    <div class="modal-header" style="position:sticky;top:0;background:#fff;z-index:1;border-bottom:1px solid var(--border);padding-bottom:16px;">
+    <div class="modal-header" style="position:sticky;top:0;background:var(--white);z-index:1;border-bottom:1px solid var(--border);padding-bottom:16px;">
       <div>
         <div class="modal-title" id="infDetailName"></div>
         <div style="font-size:12px;color:var(--text-muted);margin-top:2px;" id="infDetailHandle"></div>
@@ -3614,6 +3614,10 @@ function openClientContactModal(cid, idx) {
         </div>
       </div>`;
     document.body.insertAdjacentHTML('beforeend', html);
+    // Attach overlay-click-to-close: this modal is lazy-mounted after the
+    // boot listener pass at line 7249 already ran.
+    const ov = document.getElementById('clientContactModal');
+    if(ov) ov.addEventListener('click', e => { if(e.target === ov) ov.classList.remove('open'); });
   }
   document.getElementById('clientContactTitle').textContent = typeof idx==='number' ? 'Editar contacto' : 'Nuevo contacto cliente';
   document.getElementById('fClientName').value     = ct.name || '';
@@ -4031,7 +4035,7 @@ async function _createNotification({toUid, type, text}) {
       read: false,
       createdAt: firebase.firestore.FieldValue.serverTimestamp(),
     });
-  } catch(e) {}
+  } catch(e) { console.warn('notification create failed:', e.message); }
 }
 
 // ============================================================
@@ -5098,8 +5102,9 @@ function _escenarioRealMetricsByCreator(campaign) {
 
 // Color helper: green / yellow / red by completion %
 function _semaforo(pct) {
-  if(pct >= 80) return { color:'#166534', bg:'#bbf7d0', label:'≥80%' };
-  if(pct >= 40) return { color:'#854d0e', bg:'#fef08a', label:'40-80%' };
+  const n = (typeof pct === 'number' && isFinite(pct)) ? pct : 0;
+  if(n >= 80) return { color:'#166534', bg:'#bbf7d0', label:'≥80%' };
+  if(n >= 40) return { color:'#854d0e', bg:'#fef08a', label:'40-80%' };
   return { color:'#991b1b', bg:'#fecaca', label:'<40%' };
 }
 
@@ -5198,8 +5203,9 @@ function renderEscenarioBlock(c) {
   const fmt = n => formatNum(Math.round(n));
   const fmtMoney = n => n>0 ? '$'+Math.round(n).toLocaleString('es-MX') : '—';
   const pctCell = (pct) => {
-    const s = _semaforo(pct);
-    return `<span style="display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;background:${s.bg};color:${s.color};">${pct.toFixed(0)}%</span>`;
+    const n = (typeof pct === 'number' && isFinite(pct)) ? pct : 0;
+    const s = _semaforo(n);
+    return `<span style="display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;background:${s.bg};color:${s.color};">${n.toFixed(0)}%</span>`;
   };
 
   // UGC contribution (real metrics live in ugcRes; estimate only for contenidos)
