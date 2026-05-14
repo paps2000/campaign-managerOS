@@ -5011,6 +5011,7 @@ function parseEscenarioRows(rows) {
   });
 
   let goal = null, ugc = null;
+  let _expectGoalValuesNextRow = false; // true after a label-only goal banner
   const byCreator = new Map(); // key: nombre → creator obj
   const skipped = [];           // diagnostic: rows that did not become creators
 
@@ -5018,6 +5019,23 @@ function parseEscenarioRows(rows) {
     const r = f._raw;
     const nm = f._nombre;
     if(!nm) {
+      // If the previous row was a label-only goal banner (e.g. just
+      // "BIG NUMBERS ABD" with no numbers), this row likely carries the
+      // actual totals — try to read them as the goal.
+      if(_expectGoalValuesNextRow) {
+        _expectGoalValuesNextRow = false;
+        const candidate = {
+          name: 'Totales',
+          totalContenidos: num(get(r, ...CANT_K)),
+          totalSeguidores: num(get(r, 'TOTAL DE SEGUIDORES','Total de Seguidores')),
+          viewsEstTotal:   num(get(r, ...VIEWS_EST_K)),
+          engagementEst:   num(get(r, ...ENG_EST_K)),
+          engagementRate:  parseFloat(get(r, ...ENG_RATE_K))||0,
+          costoTotal:      num(get(r, ...COSTO_K)),
+        };
+        const score = (candidate.totalContenidos + candidate.viewsEstTotal + candidate.engagementEst + candidate.costoTotal);
+        if(score > 0) { goal = candidate; return; }
+      }
       // Row has no resolvable creator. Skip silently unless it carries data —
       // surface as a diagnostic so the user can spot merged-cell gaps.
       const looksLikeData = ['PLATAFORMA','PLATFORM','CONTENIDO','CANTIDAD DE CONTENIDO','VIEWS ESTIMADAS TOTALES']
@@ -5027,9 +5045,11 @@ function parseEscenarioRows(rows) {
     }
 
     // Goal row → campaign target totals. Multiple candidates can match
-    // ("BIG NUMBERS ABD" and a later "TOTAL CAMPAÑA"). Keep the most
-    // populated one (max sum of numeric values) so empty banner rows
-    // don't overwrite a real totals row.
+    // ("BIG NUMBERS ABD" header + a later "TOTAL CAMPAÑA" with the actual
+    // numbers). Per user spec, we want the LAST populated row — i.e.
+    // whichever totals row appears furthest down, ignoring empty header
+    // banners. We also skip candidates with zero values so an empty
+    // trailing banner doesn't wipe out an earlier real totals row.
     if(ESCENARIO_GOAL_RE.test(nm)) {
       const candidate = {
         name: nm,
@@ -5041,7 +5061,11 @@ function parseEscenarioRows(rows) {
         costoTotal:      num(get(r, ...COSTO_K)),
       };
       const score = g => g ? (g.totalContenidos + g.viewsEstTotal + g.engagementEst + g.costoTotal) : 0;
-      if(!goal || score(candidate) > score(goal)) goal = candidate;
+      // Replace only when the new candidate is populated. Last populated
+      // candidate wins so trailing TOTAL rows take precedence over earlier
+      // BIG NUMBERS rows when both exist.
+      if(score(candidate) > 0) { goal = candidate; _expectGoalValuesNextRow = false; }
+      else { _expectGoalValuesNextRow = true; } // label-only header, read next row
       return;
     }
 
