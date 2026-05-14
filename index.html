@@ -1400,7 +1400,7 @@ html.light {
         <span class="notif-badge" id="notifBadge"></span>
       </button>
       <button class="theme-toggle-btn" id="themeToggleBtn" onclick="cycleTheme()" title="Cambiar modo"></button>
-      <button class="btn btn-primary" id="mainActionBtn" onclick="openNewCampaignModal()">+ Nueva campaña</button>
+      <button class="btn btn-primary" id="mainActionBtn" onclick="openAddGlobalTaskModal()">+ Nueva tarea</button>
       <button class="logout-btn" onclick="logout()" title="Cerrar sesión">⎋ Salir</button>
     </div>
     <!-- NOTIFICATION PANEL -->
@@ -1572,7 +1572,7 @@ html.light {
           </div>
           <div class="detail-tabs">
             <div class="detail-tab active" data-tab="resumen">Resumen</div>
-            <div class="detail-tab" data-tab="influencers">Influencers</div>
+            <div class="detail-tab" data-tab="influencers">Escenario</div>
             <div class="detail-tab" data-tab="pendientes">Pendientes</div>
             <div class="detail-tab" data-tab="documentos">Documentos</div>
             <div class="detail-tab" data-tab="flujo">Flujo</div>
@@ -2831,14 +2831,14 @@ function navigate(page) {
   currentPage = page;
 
   const titles = {
-    dashboard: ['Resumen','Lo que necesita tu atención hoy.','+ Nueva campaña'],
+    dashboard: ['Resumen','Lo que necesita tu atención hoy.','+ Nueva tarea'],
     campannas: ['Campañas','Gestiona todas tus campañas activas.','+ Nueva campaña'],
     pendientes: ['Pendientes','Todas tus tareas y pendientes.','+ Nueva tarea'],
     metricas: ['Métricas','Resultados en tiempo real.',''],
     generador: ['Generador de textos','Plantillas con IA para tus campañas.',''],
-    influencers: ['Influencers','Base de talento.',''],
-    documentos: ['Documentos','Repositorio de archivos.',''],
-    calendario: ['Calendario','Vista de publicaciones.',''],
+    influencers: ['Influencers','Base de talento.','+ Nueva tarea'],
+    documentos: ['Documentos','Repositorio de archivos.','+ Nueva tarea'],
+    calendario: ['Calendario','Vista de publicaciones.','+ Nueva tarea'],
     ajustes: ['Ajustes','Configuración de la app.',''],
   };
   const name = getSettings().name || 'Génesis';
@@ -2849,7 +2849,7 @@ function navigate(page) {
   if(t[2]) {
     btn.style.display='inline-flex';
     btn.textContent=t[2];
-    btn.onclick = (page === 'pendientes') ? openAddGlobalTaskModal : openNewCampaignModal;
+    btn.onclick = (page === 'campannas') ? openNewCampaignModal : openAddGlobalTaskModal;
   } else { btn.style.display='none'; }
 
   if(page==='dashboard') renderDashboard();
@@ -4527,11 +4527,19 @@ function parseEscenarioRows(rows) {
 
   let goal = null, ugc = null;
   const byCreator = new Map(); // key: nombre → creator obj
+  const skipped = [];           // diagnostic: rows that did not become creators
 
-  filled.forEach(f => {
+  filled.forEach((f, idx) => {
     const r = f._raw;
     const nm = f._nombre;
-    if(!nm) return;
+    if(!nm) {
+      // Row has no resolvable creator. Skip silently unless it carries data —
+      // surface as a diagnostic so the user can spot merged-cell gaps.
+      const looksLikeData = ['PLATAFORMA','PLATFORM','CONTENIDO','CANTIDAD DE CONTENIDO','VIEWS ESTIMADAS TOTALES']
+        .some(k => Object.keys(r).some(rk => rk.toUpperCase().includes(k) && String(r[rk]||'').trim()));
+      if(looksLikeData) skipped.push({reason:'sin nombre', idx, sample: Object.values(r).slice(0,6).join(' | ')});
+      return;
+    }
 
     // Goal row (BIG NUMBERS ABD) → campaign target totals
     if(ESCENARIO_GOAL_RE.test(nm)) {
@@ -4564,7 +4572,7 @@ function parseEscenarioRows(rows) {
     }
 
     // Drop banners (BUDGET / AURORA / RESUMEN / TOTAL etc.)
-    if(!_escenarioIsCreatorName(nm)) return;
+    if(!_escenarioIsCreatorName(nm)) { skipped.push({reason:'banner', nombre:nm}); return; }
 
     // Real creator row
     if(!byCreator.has(nm)) {
@@ -4607,7 +4615,7 @@ function parseEscenarioRows(rows) {
     if(!cr.tier) cr.tier = get(r, ...TIER_K);
   });
 
-  return { creators: Array.from(byCreator.values()), ugc, goal };
+  return { creators: Array.from(byCreator.values()), ugc, goal, skipped, totalRows: rows.length };
 }
 
 // Extract per-creator real metrics from previously loaded cachedMetrics rows
@@ -4660,7 +4668,8 @@ function renderEscenarioBlock(c) {
     return;
   }
 
-  const { creators, ugc, goal } = parseEscenarioRows(c.escenarioRows);
+  const parsed = parseEscenarioRows(c.escenarioRows);
+  const { creators, ugc, goal, skipped, totalRows } = parsed;
   const real = _escenarioRealMetricsByCreator(c);
   const norm = s => String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[_\s@]+/g,' ').trim();
 
@@ -4736,7 +4745,10 @@ function renderEscenarioBlock(c) {
 
   const tableHtml = `
     <div class="card" style="overflow:visible;">
-      <div class="card-header"><span class="card-title">Creadores · Escenario vs Real</span></div>
+      <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
+        <span class="card-title">Escenario · ${creators.length} creadores</span>
+        <span style="font-size:11px;color:var(--text-muted);">${totalRows} filas leídas${skipped&&skipped.length?` · ${skipped.length} omitidas`:''}</span>
+      </div>
       <div class="table-wrap">
         <table class="table" style="font-size:12px;">
           <thead><tr>
@@ -4781,7 +4793,18 @@ function renderEscenarioBlock(c) {
       <div style="font-size:11px;color:var(--text-muted);padding:0 14px 12px;">Los resultados de UGC los entrega la agencia externa y se cargan aparte.</div>
     </div>` : '';
 
-  wrap.innerHTML = headlineHtml + tableHtml + ugcHtml;
+  const dataIssues = (skipped||[]).filter(s => s.reason === 'sin nombre');
+  const diagHtml = dataIssues.length ? `
+    <details style="margin-top:12px;background:rgba(234,179,8,.08);border:1px solid rgba(234,179,8,.25);border-radius:10px;padding:8px 12px;">
+      <summary style="font-size:12px;font-weight:700;color:#854d0e;cursor:pointer;">⚠️ ${dataIssues.length} fila(s) con datos pero sin nombre de creador</summary>
+      <div style="font-size:11px;color:var(--text-muted);margin-top:6px;line-height:1.5;">
+        Estas filas tienen datos pero el parser no pudo asignarlas a un creador. Suele pasar cuando hay celdas combinadas mal cerradas o filas separadoras vacías. Mantén las celdas unidas en el sheet — el parser hace el "forward-fill" automático, no hace falta separar.
+        <ul style="margin:8px 0 0 16px;padding:0;">
+          ${dataIssues.slice(0,8).map(s => `<li><code style="font-size:10px;background:var(--bg);padding:2px 6px;border-radius:4px;">fila ${s.idx+1}</code> · ${(s.sample||'').replace(/</g,'&lt;').slice(0,120)}</li>`).join('')}
+        </ul>
+      </div>
+    </details>` : '';
+  wrap.innerHTML = headlineHtml + tableHtml + ugcHtml + diagHtml;
 }
 
 function renderCampaignDocs(c) {
