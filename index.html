@@ -7668,6 +7668,16 @@ function canSeeCosts() {
   if(isAdmin()) return true;
   return currentUserProfile && COST_ACCESS_PUESTOS.has(currentUserProfile.puesto);
 }
+// Operaciones gate — controls access to private creator info
+// (phone / agency / contact email / ops notes).
+function isOperaciones() {
+  if(!currentUserProfile) return false;
+  const a = String(currentUserProfile.area||'').toLowerCase();
+  return a === 'operaciones' || a.includes('operaciones');
+}
+function canSeeCreatorPrivateInfo() {
+  return isAdmin() || isOperaciones();
+}
 function isSubscribed(cid) {
   if(isAdmin()) return true;
   return (currentUserProfile.subscribedCampaigns || []).includes(cid);
@@ -8281,6 +8291,48 @@ function openInfluencerDetail(key) {
   openModal('infDetailModal');
 }
 
+// In-memory cache of private creator info, keyed by infKey
+const _creatorPrivateCache = new Map();
+async function _loadInfluencerPrivateInfo(key) {
+  if(_creatorPrivateCache.has(key)) return _creatorPrivateCache.get(key);
+  try {
+    const doc = await db.collection('workspaces').doc(WORKSPACE)
+      .collection('creatorPrivateInfo').doc(key).get();
+    const data = doc.exists ? doc.data() : null;
+    _creatorPrivateCache.set(key, data);
+    return data;
+  } catch(e) { console.warn('private info load failed', e.message); return null; }
+}
+async function saveInfluencerPrivateInfo(key) {
+  if(!canSeeCreatorPrivateInfo()) { showToast('Sin permisos','error'); return; }
+  const telefono = (document.getElementById('infPrivPhone')?.value||'').trim();
+  const agencia  = (document.getElementById('infPrivAgency')?.value||'').trim();
+  const email    = (document.getElementById('infPrivEmail')?.value||'').trim();
+  const notas    = (document.getElementById('infPrivNotes')?.value||'').trim();
+  const data = {
+    telefono, agencia, email, notas,
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    updatedBy: currentUser?.uid || ''
+  };
+  try {
+    await db.collection('workspaces').doc(WORKSPACE)
+      .collection('creatorPrivateInfo').doc(key).set(data, {merge:true});
+    _creatorPrivateCache.set(key, {...data, updatedAt: new Date()});
+    showToast('Datos guardados','success');
+  } catch(e) {
+    showToast('Error: '+e.message,'error');
+  }
+}
+async function _hydrateInfluencerPrivateInfo(key) {
+  const data = await _loadInfluencerPrivateInfo(key);
+  if(_infDetailKey !== key) return; // user closed / switched
+  const inp = (id, v) => { const el=document.getElementById(id); if(el) el.value = v||''; };
+  inp('infPrivPhone',  data?.telefono);
+  inp('infPrivAgency', data?.agencia);
+  inp('infPrivEmail',  data?.email);
+  inp('infPrivNotes',  data?.notas);
+}
+
 function renderInfluencerDetailContent(inf) {
   const ratings = infRatingsFor(inf.key);
   const avg = avgStars(ratings);
@@ -8339,7 +8391,50 @@ function renderInfluencerDetailContent(inf) {
       <div style="margin-bottom:12px;">${starSelector}</div>
       <textarea id="infRatingComment" class="form-input" rows="2" style="font-size:13px;margin-bottom:10px;" placeholder="Comentario (opcional)...">${myRating ? myRating.comment||'' : ''}</textarea>
       <button class="btn btn-pink btn-sm" onclick="submitInfluencerRating('${inf.key}')">${myRating ? 'Actualizar calificación' : 'Guardar calificación'}</button>
+    </div>
+
+    <!-- Datos privados (Operaciones) -->
+    <div style="margin-top:24px;border:1.5px solid var(--border);border-radius:14px;padding:16px 18px;background:var(--bg);">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+        <span style="font-size:14px;">🔒</span>
+        <h4 style="font-size:13px;font-weight:700;margin:0;text-transform:uppercase;letter-spacing:.5px;">Datos privados · Operaciones</h4>
+      </div>
+      ${canSeeCreatorPrivateInfo() ? `
+        <div class="form-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+          <div class="form-group" style="margin:0;">
+            <label class="form-label" style="font-size:11px;">Teléfono</label>
+            <input type="tel" id="infPrivPhone" class="form-input" placeholder="+52 55 1234 5678">
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label class="form-label" style="font-size:11px;">Agencia</label>
+            <input type="text" id="infPrivAgency" class="form-input" placeholder="Ej: Talent Hub">
+          </div>
+        </div>
+        <div class="form-group" style="margin-bottom:10px;">
+          <label class="form-label" style="font-size:11px;">Email de contacto</label>
+          <input type="email" id="infPrivEmail" class="form-input" placeholder="manager@agencia.com">
+        </div>
+        <div class="form-group" style="margin-bottom:12px;">
+          <label class="form-label" style="font-size:11px;">Notas operativas</label>
+          <textarea id="infPrivNotes" class="form-input" rows="2" placeholder="Disponibilidad, condiciones, contexto..."></textarea>
+        </div>
+        <button class="btn btn-pink btn-sm" onclick="saveInfluencerPrivateInfo('${inf.key}')">Guardar datos privados</button>
+        <div style="font-size:10px;color:var(--text-muted);margin-top:8px;">Solo el equipo de Operaciones (y Admin) ve esta sección.</div>
+      ` : `
+        <div style="display:flex;align-items:center;gap:10px;padding:12px;background:var(--white);border-radius:10px;border:1px dashed var(--border);">
+          <span style="font-size:20px;opacity:.5;">🔐</span>
+          <div>
+            <div style="font-size:13px;font-weight:600;">Restringido a Operaciones</div>
+            <div style="font-size:11px;color:var(--text-muted);">Teléfono, agencia y datos de contacto solo visibles para el área de Operaciones.</div>
+          </div>
+        </div>
+      `}
     </div>`;
+
+  // Hydrate the inputs from Firestore after the DOM is in place
+  if(canSeeCreatorPrivateInfo()) {
+    try { _hydrateInfluencerPrivateInfo(inf.key); } catch(e){}
+  }
 }
 
 function selectStar(n) {
