@@ -2784,7 +2784,22 @@ function attachListeners() {
   const ws = db.collection('workspaces').doc(WORKSPACE);
 
   unsubscribers.push(ws.collection('campaigns').onSnapshot(snap => {
-    _cache.campaigns = snap.docs.map(d => d.data());
+    // Firestore docs no longer hold the large fetched-sheet arrays (we strip
+    // them in persistCampaigns). When a snapshot arrives, preserve those
+    // fields from the in-memory cache so the UI doesn't loop:
+    //   strip → persist → snapshot → empty rows → re-fetch → write → snapshot...
+    const prev = new Map((_cache.campaigns||[]).map(c => [c.id, c]));
+    _cache.campaigns = snap.docs.map(d => {
+      const incoming = d.data();
+      const existing = prev.get(incoming.id);
+      if(!existing) return incoming;
+      const merged = {...incoming};
+      ['trackerRows','escenarioRows','ugcRows','cachedMetrics',
+       'trackerLastSync','escenarioLastSync','ugcLastSync'].forEach(k => {
+        if(existing[k] !== undefined && incoming[k] === undefined) merged[k] = existing[k];
+      });
+      return merged;
+    });
     rerenderCurrent();
   }, err => console.error('campaigns listener',err)));
 
@@ -4206,7 +4221,7 @@ function _startTrackerAutoRefresh(campaign) {
   if(_trackerAutoRefreshTimer) clearInterval(_trackerAutoRefreshTimer);
   _trackerAutoRefreshTimer = setInterval(() => {
     if(currentCampaignId === campaign.id && document.getElementById('tab-tracker')?.classList.contains('active')) {
-      _autoFetchTracker(campaign.trackerSheetUrl, campaign);
+      _autoFetchTracker(campaign.trackerSheetUrl, campaign, {silent:true});
     }
   }, 2 * 60 * 60 * 1000); // 2 hours
 }
@@ -4608,26 +4623,17 @@ function renderCampaignTracker(c) {
   if(syncEl && c.trackerLastSync) syncEl.textContent = 'Última sync: ' + new Date(c.trackerLastSync).toLocaleString('es-MX',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
   const wrap = document.getElementById('trackerTableWrap');
   if(!wrap) return;
-  // Detect a corrupted cache (rows where PLATAFORMA CREATIVA / ESTATUS leaked
-  // content from neighbour columns under the old parser) and force a resync.
-  const looksCorrupted = (rows) => rows.some(r => {
-    const pc = String(r['PLATAFORMA CREATIVA']||r['Plataforma Creativa']||'');
-    const ec = String(r['ESTATUS CONTENIDO']||r['Estatus Contenido']||'');
-    return pc.length > 50 || ec.length > 40 || pc.includes(',') || ec.includes(',');
-  });
-  if(c.trackerRows && c.trackerRows.length && looksCorrupted(c.trackerRows) && c.trackerSheetUrl) {
-    c.trackerRows = [];
-    const campaigns = getData('campaigns');
-    const idx = campaigns.findIndex(x=>x.id===c.id);
-    if(idx!==-1) { campaigns[idx].trackerRows = []; setData('campaigns',campaigns); }
-  }
+  // Older builds shipped a CSV parser that could leak content between cells.
+  // The auto-resync that detected those leaks now loops with the Firestore
+  // listener merge (trackerRows live only in-memory), so it has been retired
+  // — if a user ever needs to discard cached rows they can click Sincronizar.
   if(c.trackerRows && c.trackerRows.length) {
     _trackerAllRows = c.trackerRows;
     _renderTrackerSummaryAndTable();
     _startTrackerAutoRefresh(c);
   } else if(c.trackerSheetUrl) {
     wrap.innerHTML = `<div class="empty-state"><p>Cargando datos del tracker...</p></div>`;
-    _autoFetchTracker(c.trackerSheetUrl, c);
+    _autoFetchTracker(c.trackerSheetUrl, c, {silent:true});
   } else {
     wrap.innerHTML = `<div class="empty-state"><p>Vincula el master tracker para ver las publicaciones</p></div>`;
   }
@@ -4638,7 +4644,7 @@ function _renderTrackerTable(rows) {
   _renderTrackerSummaryAndTable();
 }
 
-async function _autoFetchTracker(url, campaign) {
+async function _autoFetchTracker(url, campaign, opts = {}) {
   const csvUrl = normalizeCsvUrl(url);
   if(!csvUrl) return;
   try {
@@ -4691,7 +4697,7 @@ async function _autoFetchTracker(url, campaign) {
       campaigns[idx].trackerLastSync = campaign.trackerLastSync;
       setData('campaigns',campaigns);
     } // else: campaign was deleted while we were fetching — drop the write
-    showToast('Tracker sincronizado','success');
+    if(opts.silent !== true) showToast('Tracker sincronizado','success');
   } catch(e) {
     // Clear stale rows so the UI can't show data from a previous successful sync
     campaign.trackerRows = [];
@@ -8205,7 +8211,7 @@ function renderCalendar() {
   visibleCampaigns().forEach(c => {
     if(c.trackerSheetUrl && (!c.trackerRows || !c.trackerRows.length) && !c._trackerFetching) {
       c._trackerFetching = true;
-      _autoFetchTracker(c.trackerSheetUrl, c).finally(()=>{
+      _autoFetchTracker(c.trackerSheetUrl, c, {silent:true}).finally(()=>{
         c._trackerFetching = false;
         _calNeedsRefresh = true;
       });
