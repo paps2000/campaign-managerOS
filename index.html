@@ -3814,9 +3814,10 @@ function renderCampaignInfluencers(c) {
     return `<span class="badge ${map[s]||'badge-gray'}">${s}</span>`;
   };
   const pfIcon = {Instagram:ICN_insta,TikTok:ICN_tiktok,YouTube:ICN_youtube,'Twitter/X':ICN_twitter};
-  document.getElementById('campaignInfluencerTable').innerHTML = c.influencers.length===0
+  const visibleInfs = (c.influencers||[]).filter(inf => (typeof _isRealCreatorName==='function') ? _isRealCreatorName(inf.name) : true);
+  document.getElementById('campaignInfluencerTable').innerHTML = visibleInfs.length===0
     ? `<tr><td colspan="10"><div class="empty-state"><p>Sin influencers. Agrega el primero.</p></div></td></tr>`
-    : c.influencers.map(inf=>`
+    : visibleInfs.map(inf=>`
     <tr>
       <td><div style="display:flex;align-items:center;gap:8px"><div class="inf-avatar" style="width:28px;height:28px;font-size:11px">${inf.name[0]}</div><div><div style="font-weight:600;font-size:13px">${_esc(inf.name)}</div><div style="font-size:11px;color:var(--text-muted)">${_esc(inf.handle)}</div></div></div></td>
       <td>${inf.format}</td>
@@ -7963,10 +7964,24 @@ function infKey(inf) {
   return (inf.handle || inf.name || 'unknown').toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9\-@_]/g, '');
 }
 
+// Reject names that look like fees / IDs / placeholders rather than creators.
+// Rules: must exist, must not contain any digit, must be ≥2 chars, not in a
+// banned-word list, not a single emoji.
+function _isRealCreatorName(raw) {
+  const v = String(raw || '').trim();
+  if(!v) return false;
+  if(v.length < 2) return false;
+  if(/\d/.test(v)) return false;                  // any digit disqualifies
+  if(/^(fee|ugc|tbd|na|n\/a|—|-)$/i.test(v)) return false;
+  if(/^[\p{Emoji}\s]+$/u.test(v)) return false;   // only emoji
+  return true;
+}
+
 function getAllInfluencers() {
   const map = {};
   _cache.campaigns.forEach(c => {
     (c.influencers || []).forEach(inf => {
+      if(!_isRealCreatorName(inf.name)) return;   // skip non-creators
       const k = infKey(inf);
       if (!map[k]) map[k] = { key: k, name: inf.name, handle: inf.handle || '', platform: inf.platform || '', campaigns: [] };
       if (!map[k].campaigns.find(x => x.id === c.id)) {
