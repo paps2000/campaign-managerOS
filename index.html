@@ -869,6 +869,18 @@ html.light {
 .status-emoji-opt:hover { background:var(--pink-pale); }
 .char-counter { font-size:10px; color:var(--text-muted); text-align:right; margin-top:3px; }
 
+/* ---- Pronoun chips ---- */
+.pronoun-chip {
+  padding:6px 14px; border-radius:20px; border:1.5px solid var(--border);
+  background:var(--white); font-size:12px; font-weight:600; cursor:pointer;
+  transition:all .18s; color:var(--text-muted); font-family:inherit;
+}
+.pronoun-chip:hover { border-color:var(--pink); color:var(--pink-deep); }
+.pronoun-chip.selected { background:var(--pink-pale); border-color:var(--pink); color:var(--pink-deep); }
+.pronoun-chip.disabled { opacity:.45; cursor:not-allowed; }
+html.dark .pronoun-chip { background:var(--bg); }
+html.dark .pronoun-chip.selected { background:var(--pink-pale); color:#fff; }
+
 /* ---- Avatar shape selector ---- */
 .shape-options { display:flex; gap:8px; }
 .shape-opt {
@@ -2393,14 +2405,13 @@ html.light {
       </div>
 
         <div class="form-group" style="margin-top:16px;">
-          <label class="form-label">Pronombres</label>
-          <select class="form-input" id="profilePronounsInput">
-            <option value="">— No especificar —</option>
-            <option value="ella/sus">ella/sus</option>
-            <option value="él/sus">él/sus</option>
-            <option value="elle/sus">elle/sus</option>
-            <option value="they/them">they/them</option>
-          </select>
+          <label class="form-label">Pronombres <span style="font-weight:400;color:var(--text-muted);font-size:11px;">(máximo 2)</span></label>
+          <div id="profilePronounsChips" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px;">
+            <button type="button" class="pronoun-chip" data-val="él/ellos" onclick="togglePronoun(this)">Él, ellos</button>
+            <button type="button" class="pronoun-chip" data-val="ella/ellas" onclick="togglePronoun(this)">Ella, ellas</button>
+            <button type="button" class="pronoun-chip" data-val="elle/elles" onclick="togglePronoun(this)">Elle, elles</button>
+          </div>
+          <input type="hidden" id="profilePronounsInput">
         </div>
         <div class="form-group">
           <label class="form-label">Tagline personal</label>
@@ -3244,6 +3255,28 @@ function renderCampaignGrid() {
   grid.innerHTML = campaigns.map(c=>{
     const done = c.flowSteps.filter(f=>f.status==='Completado'||f.status==='Aprobado').length;
     const pct = Math.round((done/c.flowSteps.length)*100);
+    // Content completitud: published contenidos in master tracker / goal
+    // (campaign.goal.contenidos > BIG NUMBERS row > sum of escenario creators)
+    let goalCont = (c.goal && c.goal.contenidos) || 0;
+    let escSum = 0;
+    if(!goalCont && c.escenarioRows && c.escenarioRows.length) {
+      try {
+        const p = parseEscenarioRows(c.escenarioRows);
+        if(p.goal && p.goal.totalContenidos) goalCont = p.goal.totalContenidos;
+        else escSum = p.creators.reduce((a,cr)=>a+cr.contenidosTotal,0);
+      } catch(e){}
+    }
+    if(!goalCont) goalCont = escSum;
+    let trackerPub = 0;
+    (c.trackerRows||[]).forEach(row => {
+      const ec = String(row['ESTATUS CONTENIDO']||row['Estatus Contenido']||'');
+      if(/publicad/i.test(ec)) trackerPub++;
+    });
+    const ugcPub = (typeof _parseUgcResults==='function' && c.ugcRows) ? (_parseUgcResults(c.ugcRows)?.contenidosPublicados||0) : 0;
+    const ugcCommitted = (c.escenarioRows && (()=>{ try{return parseEscenarioRows(c.escenarioRows).ugc?.cantidadContenidos||0;}catch(e){return 0;} })()) || 0;
+    const totalPub = trackerPub + ugcPub;
+    const totalCerrado = goalCont + ugcCommitted;
+    const contPct = totalCerrado > 0 ? Math.round((totalPub / totalCerrado) * 100) : 0;
     const sub = isSubscribed(c.id);
     const subBtn = !isAdmin() ? `<button class="sub-btn ${sub?'sub-active':''}" onclick="toggleSubscribeCampaign('${c.id}',event)" title="${sub?'Dejar de seguir':'Seguir campaña'}">${sub?'✓ Siguiendo':'+ Seguir'}</button>` : '';
     return `<div class="campaign-card" onclick="openCampaignDetail('${c.id}')">
@@ -3262,6 +3295,10 @@ function renderCampaignGrid() {
       <div class="campaign-progress">
         <div class="progress-label"><span>Flujo</span><span>${pct}%</span></div>
         <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+      </div>
+      <div class="campaign-progress" style="margin-top:8px;">
+        <div class="progress-label"><span>Contenidos publicados</span><span>${totalPub}/${totalCerrado||'—'} · ${contPct}%</span></div>
+        <div class="progress-bar"><div class="progress-fill" style="width:${contPct}%;background:linear-gradient(90deg,#bbf7d0,#166534);"></div></div>
       </div>
     </div>`;
   }).join('');
@@ -7182,6 +7219,27 @@ function parseLocaleNumber(v) {
   return isFinite(n)?n:0;
 }
 
+// Pronoun chip toggle: multi-select, max 2.
+function togglePronoun(btn) {
+  if(!btn) return;
+  const selected = document.querySelectorAll('#profilePronounsChips .pronoun-chip.selected');
+  const isSel = btn.classList.contains('selected');
+  if(!isSel && selected.length >= 2) return; // cap at 2
+  btn.classList.toggle('selected');
+  _refreshPronounChipState();
+  // Update hidden input (comma-separated)
+  const vals = Array.from(document.querySelectorAll('#profilePronounsChips .pronoun-chip.selected')).map(c => c.dataset.val);
+  const inp = document.getElementById('profilePronounsInput');
+  if(inp) inp.value = vals.join(', ');
+}
+function _refreshPronounChipState() {
+  const selected = document.querySelectorAll('#profilePronounsChips .pronoun-chip.selected').length;
+  document.querySelectorAll('#profilePronounsChips .pronoun-chip').forEach(c => {
+    if(c.classList.contains('selected')) c.classList.remove('disabled');
+    else c.classList.toggle('disabled', selected >= 2);
+  });
+}
+
 // HTML-escape strings before injecting into innerHTML / attribute values.
 // Use everywhere user-typed content (campaign / client / contact names,
 // notes, sheet cells) flows into a template literal.
@@ -8648,6 +8706,14 @@ function openEditProfileModal() {
   if(statusInput) statusInput.value = currentUserProfile.statusText || '';
   const pronounsInput = document.getElementById('profilePronounsInput');
   if(pronounsInput) pronounsInput.value = currentUserProfile.pronouns || '';
+  // Sync the chip UI from the saved value (comma-separated, max 2)
+  try {
+    const saved = String(currentUserProfile.pronouns||'').split(',').map(s=>s.trim()).filter(Boolean);
+    document.querySelectorAll('#profilePronounsChips .pronoun-chip').forEach(c => {
+      c.classList.toggle('selected', saved.includes(c.dataset.val));
+    });
+    _refreshPronounChipState();
+  } catch(e){}
   const taglineInput = document.getElementById('profileTaglineInput');
   if(taglineInput) taglineInput.value = currentUserProfile.tagline || '';
   // Mark active theme swatch
