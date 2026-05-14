@@ -1583,6 +1583,7 @@ html.light {
         <!-- TAB: RESUMEN -->
         <div class="tab-content active card" id="tab-resumen">
           <div class="info-grid" id="campaignInfoGrid"></div>
+          <div id="campaignClientsSection" style="margin-top:20px;padding-top:20px;border-top:1px solid var(--border);"></div>
           <div id="campaignProgressSection" style="margin-top:20px;padding-top:20px;border-top:1px solid var(--border);"></div>
           <div id="campaignCoherenceSection" style="margin-top:20px;"></div>
           <div id="campaignMetricsSection" style="margin-top:20px;padding-top:20px;border-top:1px solid var(--border);"></div>
@@ -1590,11 +1591,6 @@ html.light {
 
         <!-- TAB: INFLUENCERS -->
         <div class="tab-content" id="tab-influencers">
-          <div class="sheets-sync-bar">
-            <span style="font-size:12px;font-weight:600;color:#3a7a5e;white-space:nowrap;">📊 Google Sheets</span>
-            <input type="text" id="campaignSheetsUrl" class="form-input" placeholder="Pega URL del Sheet de esta campaña..." oninput="saveCampaignSheetsUrl()">
-            <button class="btn btn-ghost btn-sm" onclick="syncInfluencersFromSheets()" style="white-space:nowrap;">Sincronizar creadores</button>
-          </div>
           <div style="background:var(--bg);border:1px solid var(--border);border-radius:14px;padding:12px 14px;margin-bottom:16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
             <span style="font-size:12px;font-weight:700;color:#3a7a5e;white-space:nowrap;">🎯 Escenario</span>
             <input type="text" id="escenarioSheetsUrl" class="form-input" style="flex:1;min-width:180px;font-size:12px;" placeholder="URL del escenario (con #gid=... de la pestaña Escenario Final)" oninput="saveEscenarioUrl()">
@@ -3214,6 +3210,7 @@ function openCampaignDetail(cid) {
   renderCampaignFlow(c);
   renderCampaignTracker(c);
   renderCampaignMetricsSection(c);
+  try { renderCampaignClients(c); } catch(e){ console.warn('clients render', e); }
   try { renderCampaignProgress(c); } catch(e){ console.warn('progress render', e); }
   try { renderCampaignCoherence(c); } catch(e){ console.warn('coherence render', e); }
 
@@ -3378,6 +3375,104 @@ function _campaignCoherenceData(c) {
 function _switchCampaignTab(tabName) {
   document.querySelectorAll('.detail-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tabName));
   document.querySelectorAll('.tab-content').forEach(t => t.classList.toggle('active', t.id === 'tab-'+tabName));
+}
+
+// ============================================================
+// CAMPAIGN CLIENT CONTACTS
+// ============================================================
+function renderCampaignClients(c) {
+  const el = document.getElementById('campaignClientsSection');
+  if(!el) return;
+  const contacts = Array.isArray(c.clientContacts) ? c.clientContacts : [];
+  const canEdit = (typeof isAdmin === 'function' && isAdmin()) || c.createdBy === currentUser?.uid || (Array.isArray(c.assignedTo) && c.assignedTo.includes(currentUser?.uid));
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+      <h4 style="font-size:13px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin:0;">👥 Clientes · Puntos de contacto</h4>
+      ${canEdit ? `<button class="btn btn-ghost btn-sm" onclick="openClientContactModal('${c.id}')" style="font-size:11px;">+ Agregar contacto</button>` : ''}
+    </div>
+    ${contacts.length === 0
+      ? `<div class="empty-state" style="padding:14px;"><p style="font-size:12px;">Sin contactos. Agrega al primer punto de contacto del cliente para esta campaña.</p></div>`
+      : `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;">
+          ${contacts.map((ct, idx) => `
+            <div style="background:var(--white);border:1px solid var(--border);border-radius:12px;padding:12px 14px;position:relative;">
+              ${canEdit ? `
+                <div style="position:absolute;top:8px;right:8px;display:flex;gap:4px;">
+                  <button onclick="openClientContactModal('${c.id}', ${idx})" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:12px;padding:2px 4px;" title="Editar">✎</button>
+                  <button onclick="deleteClientContact('${c.id}', ${idx})" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:12px;padding:2px 4px;" title="Eliminar">✕</button>
+                </div>` : ''}
+              <div style="font-size:14px;font-weight:700;color:var(--text);">${ct.name||'Sin nombre'}</div>
+              ${ct.cargo ? `<div style="font-size:11px;color:var(--text-muted);margin-top:2px;">${ct.cargo}</div>` : ''}
+              ${ct.email ? `<a href="mailto:${ct.email}" style="font-size:12px;color:var(--pink);display:inline-block;margin-top:6px;text-decoration:none;">${ct.email}</a>` : ''}
+              ${ct.notes ? `<div style="font-size:11px;color:var(--text-muted);margin-top:8px;background:var(--bg);padding:6px 8px;border-radius:8px;line-height:1.4;white-space:pre-wrap;">${ct.notes.replace(/</g,'&lt;')}</div>` : ''}
+            </div>`).join('')}
+        </div>`}`;
+}
+
+let _editingClientContact = { campaignId:null, idx:null };
+function openClientContactModal(cid, idx) {
+  const campaigns = getData('campaigns');
+  const c = campaigns.find(x => x.id === cid);
+  if(!c) return;
+  _editingClientContact = { campaignId:cid, idx: typeof idx==='number'?idx:null };
+  const ct = (typeof idx==='number' && c.clientContacts && c.clientContacts[idx]) || {name:'',email:'',cargo:'',notes:''};
+  // Ensure modal exists; create on demand
+  if(!document.getElementById('clientContactModal')) {
+    const html = `
+      <div class="modal-overlay" id="clientContactModal">
+        <div class="modal" style="max-width:480px;">
+          <div class="modal-header">
+            <div class="modal-title" id="clientContactTitle">Contacto cliente</div>
+            <button class="modal-close" onclick="closeModal('clientContactModal')"><span class="icn-close"></span></button>
+          </div>
+          <div class="form-group"><label class="form-label">Nombre</label><input type="text" id="fClientName" class="form-input" placeholder="Nombre completo"></div>
+          <div class="form-group"><label class="form-label">Cargo</label><input type="text" id="fClientCargo" class="form-input" placeholder="Brand Manager, Director, ..."></div>
+          <div class="form-group"><label class="form-label">Correo</label><input type="email" id="fClientEmail" class="form-input" placeholder="nombre@cliente.com"></div>
+          <div class="form-group"><label class="form-label">Notas</label><textarea id="fClientNotes" class="form-input" rows="3" placeholder="Preferencias, horarios, contexto..."></textarea></div>
+          <div class="modal-footer">
+            <button class="btn btn-ghost" onclick="closeModal('clientContactModal')">Cancelar</button>
+            <button class="btn btn-pink" onclick="saveClientContact()">Guardar</button>
+          </div>
+        </div>
+      </div>`;
+    document.body.insertAdjacentHTML('beforeend', html);
+  }
+  document.getElementById('clientContactTitle').textContent = typeof idx==='number' ? 'Editar contacto' : 'Nuevo contacto cliente';
+  document.getElementById('fClientName').value  = ct.name || '';
+  document.getElementById('fClientCargo').value = ct.cargo || '';
+  document.getElementById('fClientEmail').value = ct.email || '';
+  document.getElementById('fClientNotes').value = ct.notes || '';
+  openModal('clientContactModal');
+}
+
+function saveClientContact() {
+  const {campaignId, idx} = _editingClientContact;
+  if(!campaignId) return;
+  const name  = document.getElementById('fClientName').value.trim();
+  if(!name) { showToast('Nombre requerido','error'); return; }
+  const cargo = document.getElementById('fClientCargo').value.trim();
+  const email = document.getElementById('fClientEmail').value.trim();
+  const notes = document.getElementById('fClientNotes').value.trim();
+  const campaigns = getData('campaigns');
+  const c = campaigns.find(x => x.id === campaignId);
+  if(!c) return;
+  if(!Array.isArray(c.clientContacts)) c.clientContacts = [];
+  const obj = { name, cargo, email, notes };
+  if(typeof idx === 'number') c.clientContacts[idx] = obj;
+  else c.clientContacts.push(obj);
+  setData('campaigns', campaigns);
+  closeModal('clientContactModal');
+  showToast('Contacto guardado','success');
+  if(currentCampaignId === campaignId) renderCampaignClients(c);
+}
+
+function deleteClientContact(cid, idx) {
+  if(!confirm('¿Eliminar este contacto?')) return;
+  const campaigns = getData('campaigns');
+  const c = campaigns.find(x => x.id === cid);
+  if(!c || !Array.isArray(c.clientContacts)) return;
+  c.clientContacts.splice(idx, 1);
+  setData('campaigns', campaigns);
+  if(currentCampaignId === cid) renderCampaignClients(c);
 }
 
 function renderCampaignProgress(c) {
@@ -4584,9 +4679,13 @@ const ESCENARIO_GOAL_RE   = /^big numbers/i;
 function _escenarioIsCreatorName(raw) {
   const v = String(raw||'').trim();
   if(!v) return false;
-  if(/^\d+([.,]\d+)?$/.test(v)) return false;             // pure number
+  // Any digit disqualifies — creators don't have numbers in their names
+  // (catches pure numbers like "1.0", "300" and alphanumeric junk like
+  // "FB1", "ABC123", "TT2", etc.)
+  if(/\d/.test(v)) return false;
   if(/^fee$/i.test(v)) return false;
   if(ESCENARIO_BANNER_RE.test(v)) return false;
+  if(v.length < 2) return false;
   return true;
 }
 
@@ -4794,7 +4893,28 @@ function renderEscenarioBlock(c) {
   const { creators, ugc, goal, skipped, totalRows } = parsed;
   const ugcRes = (typeof _parseUgcResults==='function') ? _parseUgcResults(c.ugcRows) : null;
   const real = _escenarioRealMetricsByCreator(c);
-  const norm = s => String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[_\s@]+/g,' ').trim();
+  const norm = s => String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[_\s@.]+/g,' ').trim();
+
+  // Tolerant lookup: tries exact, then drops leading articles (el/la/los),
+  // then falls back to substring containment so "El Crilon" matches
+  // "crilon" / "@elcrilon" / "El crilón" / "El Crilon Oficial".
+  const stripArticle = s => s.replace(/^(el|la|los|las|the)\s+/, '').trim();
+  const _matchCreator = (map, name) => {
+    if(!map || !map.size) return null;
+    const k = norm(name);
+    if(map.has(k)) return map.get(k);
+    const k2 = stripArticle(k);
+    if(k2 && map.has(k2)) return map.get(k2);
+    // First-name token (longest word)
+    const tok = k2.split(' ').filter(w => w.length >= 4).sort((a,b)=>b.length-a.length)[0];
+    if(tok && map.has(tok)) return map.get(tok);
+    // Substring match (both ways), require >=4 chars
+    for(const [mk, mv] of map) {
+      if(mk.length < 4 || k.length < 4) continue;
+      if(mk.includes(k2) || k2.includes(mk) || mk.includes(k) || k.includes(mk)) return mv;
+    }
+    return null;
+  };
 
   // Augment creators with real metrics + published content count from tracker
   const trackerByCreator = new Map();
@@ -4809,8 +4929,8 @@ function renderEscenarioBlock(c) {
   });
 
   const enriched = creators.map(cr => {
-    const r = real.get(norm(cr.nombre)) || { views:0, engagement:0, posts:0 };
-    const t = trackerByCreator.get(norm(cr.nombre)) || { published:0, total:0 };
+    const r = _matchCreator(real, cr.nombre) || { views:0, engagement:0, posts:0 };
+    const t = _matchCreator(trackerByCreator, cr.nombre) || { published:0, total:0 };
     const viewsPct = cr.viewsEstTotal>0 ? (r.views/cr.viewsEstTotal)*100 : 0;
     const engPct = cr.engagementEstTotal>0 ? (r.engagement/cr.engagementEstTotal)*100 : 0;
     const contPct = cr.contenidosTotal>0 ? (t.published/cr.contenidosTotal)*100 : 0;
