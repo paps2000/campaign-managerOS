@@ -4287,11 +4287,6 @@ function _trackerRowDate(row){
 function _renderTrackerSummaryAndTable() {
   const wrap = document.getElementById('trackerTableWrap');
   if(!wrap || !_trackerAllRows.length) return;
-  // Don't run heavy DOM build if the tracker tab isn't visible — saves the
-  // browser from rendering thousands of rows + a wide SVG chart while the
-  // user is on Calendar / Resumen / Influencers. We re-run on tab activation.
-  const tabEl = document.getElementById('tab-tracker');
-  if(tabEl && !tabEl.classList.contains('active')) return;
 
   const gst = (r, ...keys) => _trackerGet(r, keys);
 
@@ -4681,10 +4676,10 @@ async function _autoFetchTracker(url, campaign) {
       } catch(e) { /* single tab fallback — use CSV from URL gid */ }
     }
     campaign.trackerLastSync = Date.now();
-    // Only render if the user is currently on this campaign's tracker tab.
-    // Otherwise the rows are cached for later — saves a heavy DOM build.
-    const trackerTabActive = document.getElementById('tab-tracker')?.classList.contains('active');
-    if(currentCampaignId === campaign.id && trackerTabActive) {
+    // Render only when the user is looking at this campaign. If they're on
+    // another page (e.g. Calendar lazy-fetching) we just cache for later —
+    // the table cap (300 rows) + chart cap (26 weeks) keep this cheap.
+    if(currentCampaignId === campaign.id) {
       _renderTrackerTable(campaign.trackerRows);
       _startTrackerAutoRefresh(campaign);
     }
@@ -7221,6 +7216,17 @@ document.querySelectorAll('.detail-tab').forEach(tab=>{
     tab.classList.add('active');
     document.getElementById('tab-'+tab.dataset.tab).classList.add('active');
     try { localStorage.setItem('cmos:lastCampaignTab', tab.dataset.tab); } catch(e){}
+    // If we land on tracker or escenario and rows were already fetched while
+    // the tab was hidden, force a render so the user sees them.
+    if(currentCampaignId) {
+      const c = (_cache.campaigns||[]).find(x => x.id === currentCampaignId);
+      if(!c) return;
+      if(tab.dataset.tab === 'tracker' && c.trackerRows && c.trackerRows.length) {
+        try { renderCampaignTracker(c); } catch(e){}
+      } else if(tab.dataset.tab === 'influencers') {
+        try { renderEscenarioBlock(c); } catch(e){}
+      }
+    }
   });
 });
 
