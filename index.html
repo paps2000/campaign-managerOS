@@ -4287,6 +4287,11 @@ function _trackerRowDate(row){
 function _renderTrackerSummaryAndTable() {
   const wrap = document.getElementById('trackerTableWrap');
   if(!wrap || !_trackerAllRows.length) return;
+  // Don't run heavy DOM build if the tracker tab isn't visible — saves the
+  // browser from rendering thousands of rows + a wide SVG chart while the
+  // user is on Calendar / Resumen / Influencers. We re-run on tab activation.
+  const tabEl = document.getElementById('tab-tracker');
+  if(tabEl && !tabEl.classList.contains('active')) return;
 
   const gst = (r, ...keys) => _trackerGet(r, keys);
 
@@ -4429,7 +4434,10 @@ function _renderTrackerSummaryAndTable() {
     if(!timelineMap[wk]) timelineMap[wk] = {};
     timelineMap[wk][cv] = (timelineMap[wk][cv]||0) + 1;
   });
-  const weeks = Object.keys(timelineMap).sort();
+  // Cap to most recent 26 weeks so the SVG chart doesn't render thousands
+  // of pixels wide for trackers spanning multiple years.
+  const allWeeks = Object.keys(timelineMap).sort();
+  const weeks = allWeeks.slice(-26);
   const creativas = Object.keys(creativaCounts);
   let maxWeekTotal = 0;
   weeks.forEach(w => { const t = Object.values(timelineMap[w]).reduce((a,b)=>a+b,0); if(t>maxWeekTotal) maxWeekTotal=t; });
@@ -4553,9 +4561,16 @@ function _renderTrackerSummaryAndTable() {
         <table class="table">
           <thead><tr>${TRACKER_COL_DEFS.map(d=>`<th style="white-space:nowrap;font-size:11px;">${d.label}</th>`).join('')}</tr></thead>
           <tbody>
-            ${tableRows.length===0
-              ? `<tr><td colspan="${COLS.length}" style="text-align:center;color:var(--text-muted);padding:24px;">Sin resultados</td></tr>`
-              : tableRows.map(r=>`<tr>
+            ${(()=>{
+              if(tableRows.length===0) return `<tr><td colspan="${COLS.length}" style="text-align:center;color:var(--text-muted);padding:24px;">Sin resultados</td></tr>`;
+              // Cap rendered rows to prevent the browser from freezing on
+              // very long master trackers (1000+ rows × 22 cols = 22k cells).
+              const CAP = 300;
+              const visible = tableRows.slice(0, CAP);
+              const footer = tableRows.length > CAP
+                ? `<tr><td colspan="${COLS.length}" style="text-align:center;color:var(--text-muted);padding:14px;font-size:11px;background:var(--bg);">Mostrando ${CAP} de ${tableRows.length} filas. Usa los filtros de estatus arriba para ver el resto.</td></tr>`
+                : '';
+              return visible.map(r=>`<tr>
                 ${TRACKER_COL_DEFS.map(def=>{
                   const val = _trackerGet(r, def.keys);
                   if(def.link) {
@@ -4570,7 +4585,8 @@ function _renderTrackerSummaryAndTable() {
                   if(def.date) { const iso = _trackerParseDate(val); return `<td style="font-size:12px;white-space:nowrap;">${iso?formatDateShort(iso):'—'}</td>`; }
                   return `<td style="font-size:12px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${String(val||'').replace(/"/g,'&quot;')}">${val||'—'}</td>`;
                 }).join('')}
-              </tr>`).join('')}
+              </tr>`).join('') + footer;
+            })()}
           </tbody>
         </table>
       </div>
@@ -4665,8 +4681,13 @@ async function _autoFetchTracker(url, campaign) {
       } catch(e) { /* single tab fallback — use CSV from URL gid */ }
     }
     campaign.trackerLastSync = Date.now();
-    _renderTrackerTable(campaign.trackerRows);
-    _startTrackerAutoRefresh(campaign);
+    // Only render if the user is currently on this campaign's tracker tab.
+    // Otherwise the rows are cached for later — saves a heavy DOM build.
+    const trackerTabActive = document.getElementById('tab-tracker')?.classList.contains('active');
+    if(currentCampaignId === campaign.id && trackerTabActive) {
+      _renderTrackerTable(campaign.trackerRows);
+      _startTrackerAutoRefresh(campaign);
+    }
     const campaigns = getData('campaigns');
     const idx = campaigns.findIndex(x=>x.id===campaign.id);
     if(idx!==-1) {
@@ -8172,15 +8193,27 @@ function renderCalendar() {
 
   // Lazy: for any visible campaign with a tracker URL but no cached rows,
   // fetch in the background so events appear on the next render. Idempotent.
+  // Debounced: schedule a single calendar re-render once any fetch settles
+  // so we don't cascade N re-renders for N campaigns.
+  let _calNeedsRefresh = false;
   visibleCampaigns().forEach(c => {
     if(c.trackerSheetUrl && (!c.trackerRows || !c.trackerRows.length) && !c._trackerFetching) {
       c._trackerFetching = true;
-      _autoFetchTracker(c.trackerSheetUrl, c).then(()=>{
+      _autoFetchTracker(c.trackerSheetUrl, c).finally(()=>{
         c._trackerFetching = false;
-        try { renderCalendar(); } catch(e){}
-      }).catch(()=>{ c._trackerFetching = false; });
+        _calNeedsRefresh = true;
+      });
     }
   });
+  // Single deferred re-render after current event loop drains
+  if(typeof window._calRefreshTimer === 'undefined') window._calRefreshTimer = null;
+  if(window._calRefreshTimer) clearTimeout(window._calRefreshTimer);
+  window._calRefreshTimer = setTimeout(() => {
+    window._calRefreshTimer = null;
+    if(_calNeedsRefresh && currentPage === 'calendario') {
+      try { renderCalendar(); } catch(e){}
+    }
+  }, 800);
 
   // Build event map: date string → [{type,label,color,campName}]
   const events = {};
