@@ -1881,8 +1881,9 @@ html.dark .pronoun-chip.selected { background:var(--pink-pale); color:#fff; }
           <div class="metrics-grid" id="metricsCards">
             <div class="metric-card"><div class="metric-label">Vistas</div><div class="metric-value" id="mViews">—</div></div>
             <div class="metric-card"><div class="metric-label">Engagement</div><div class="metric-value" id="mEngagement">—</div></div>
-            <div class="metric-card"><div class="metric-label">Engagement Rate</div><div class="metric-value" id="mER">—</div></div>
-            <div class="metric-card"><div class="metric-label">View Rate</div><div class="metric-value" id="mVR">—</div></div>
+            <div class="metric-card"><div class="metric-label" style="display:flex;align-items:center;gap:4px;">ER <span style="font-size:10px;color:var(--text-muted);font-weight:400;">(views/eng.)</span></div><div class="metric-value" id="mER">—</div></div>
+            <div class="metric-card"><div class="metric-label" style="display:flex;align-items:center;gap:4px;">VR <span style="font-size:10px;color:var(--text-muted);font-weight:400;">(views/followers)</span></div><div class="metric-value" id="mVR">—</div></div>
+            <div class="metric-card"><div class="metric-label" style="display:flex;align-items:center;gap:4px;">Q/E.R <span style="font-size:10px;color:var(--text-muted);font-weight:400;">(eng. de calidad)</span></div><div class="metric-value" id="mQER">—</div></div>
             <div class="metric-card"><div class="metric-label" style="display:flex;align-items:center;gap:4px;">CPV <span style="font-size:10px;color:var(--text-muted);font-weight:400;">(costo/vista)</span></div><div class="metric-value" id="mCPV">—</div></div>
             <div class="metric-card"><div class="metric-label" style="display:flex;align-items:center;gap:4px;">CPE <span style="font-size:10px;color:var(--text-muted);font-weight:400;">(costo/engagement)</span></div><div class="metric-value" id="mCPE">—</div></div>
           </div>
@@ -5964,7 +5965,7 @@ function displayMetrics(rows, campaign) {
     return '—';
   };
 
-  let totalViews=0, totalReach=0, totalEngagement=0;
+  let totalViews=0, totalReach=0, totalEngagement=0, totalFollowers=0;
   let totalLikes=0, totalComments=0, totalShares=0, totalSaves=0;
   rows.forEach(r=>{
     totalViews    += gi(r,'Views','Vistas','organic views','Total Views','Impresiones','Impressions','Reproducciones','Plays','Visualizaciones','Video Views');
@@ -5974,12 +5975,23 @@ function displayMetrics(rows, campaign) {
     totalShares   += gi(r,'Shares','Compartidos','organic shares','Retweets','Reposts');
     totalSaves    += gi(r,'Saves','Guardados','Saved','organic saves');
     totalEngagement += gi(r,'Engagement','Interacciones','Interactions','Total Engagement','Engagements');
+    totalFollowers += gi(r,'Followers','Seguidores','Audience','Audiencia','Suscriptores','Subscribers');
   });
-  // Individual breakdown overrides aggregate column if available
+  // Sum of the four breakdown columns — used as the engagement total
+  // when the sheet has per-row likes / comments / shares / saves but no
+  // aggregate "Engagement" column.
   const breakdownSum = totalLikes + totalComments + totalShares + totalSaves;
   if(breakdownSum > 0) totalEngagement = breakdownSum;
+  // "Engagement de calidad" = comments + shares + saves (no likes)
+  const qualityEng = totalComments + totalShares + totalSaves;
 
-  const er  = totalReach>0   ? ((totalEngagement/totalReach)*100).toFixed(2)+'%' : '—';
+  // Formulas per user spec:
+  //   ER    = views ÷ total interactions (likes+shares+saves+comments)
+  //   VR    = views ÷ followers
+  //   Q/E.R = (shares + saves + comments) ÷ total interactions × 100%
+  const er  = totalEngagement>0 ? (totalViews/totalEngagement).toFixed(2) : '—';
+  const vr  = totalFollowers>0  ? ((totalViews/totalFollowers)*100).toFixed(2)+'%' : '—';
+  const qer = totalEngagement>0 ? ((qualityEng/totalEngagement)*100).toFixed(2)+'%' : '—';
   const budget = campaign ? (campaign.budgetClient||campaign.budget||0) : 0;
   const fmtMXN = n => n>0 ? '$'+Number(n).toFixed(2) : '—';
   const cpv = (budget>0 && totalViews>0)      ? fmtMXN(budget/totalViews)      : '—';
@@ -5988,7 +6000,8 @@ function displayMetrics(rows, campaign) {
   document.getElementById('mViews').textContent      = formatNum(totalViews);
   document.getElementById('mEngagement').textContent = formatNum(totalEngagement);
   document.getElementById('mER').textContent         = er;
-  document.getElementById('mVR').textContent         = '—';
+  document.getElementById('mVR').textContent         = vr;
+  const qerEl = document.getElementById('mQER'); if(qerEl) qerEl.textContent = qer;
   document.getElementById('mCPV').textContent        = cpv;
   document.getElementById('mCPE').textContent        = cpe;
 
