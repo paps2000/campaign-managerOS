@@ -2614,6 +2614,14 @@ function saveSettingsData(s) {
 function id() { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
 
 // --- Firestore persistence helpers ---
+// Keys that hold large fetched sheet data — kept in memory but stripped
+// from Firestore writes because they can blow past the 1MB doc limit.
+const _CAMPAIGN_LARGE_KEYS = ['trackerRows','escenarioRows','ugcRows','cachedMetrics'];
+function _stripLargeFields(c) {
+  const out = {...c};
+  _CAMPAIGN_LARGE_KEYS.forEach(k => { delete out[k]; });
+  return out;
+}
 async function persistCampaigns(campaigns) {
   if(!currentUser) return;
   const col = db.collection('workspaces').doc(WORKSPACE).collection('campaigns');
@@ -2623,7 +2631,7 @@ async function persistCampaigns(campaigns) {
   const newIds = new Set(campaigns.map(c=>c.id));
   const batch = db.batch();
   campaigns.forEach(c => {
-    batch.set(col.doc(c.id), {...c, _updatedAt: firebase.firestore.FieldValue.serverTimestamp(), _updatedBy: currentUser.uid});
+    batch.set(col.doc(c.id), {..._stripLargeFields(c), _updatedAt: firebase.firestore.FieldValue.serverTimestamp(), _updatedBy: currentUser.uid});
   });
   existingIds.forEach(eid => { if(!newIds.has(eid)) batch.delete(col.doc(eid)); });
   try { await batch.commit(); } catch(e) { console.error('persistCampaigns error',e); }
@@ -3435,11 +3443,11 @@ function renderCampaignClients(c) {
                   <button onclick="openClientContactModal('${c.id}', ${idx})" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:12px;padding:2px 4px;" title="Editar">✎</button>
                   <button onclick="deleteClientContact('${c.id}', ${idx})" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:12px;padding:2px 4px;" title="Eliminar">✕</button>
                 </div>` : ''}
-              <div style="font-size:14px;font-weight:700;color:var(--text);">${ct.name||'Sin nombre'}</div>
-              ${ct.cargo ? `<div style="font-size:11px;color:var(--text-muted);margin-top:2px;">${ct.cargo}</div>` : ''}
-              ${ct.email ? `<a href="mailto:${ct.email}" style="font-size:12px;color:var(--pink);display:block;margin-top:6px;text-decoration:none;">${ct.email}</a>` : ''}
-              ${ct.linkedin ? `<a href="${ct.linkedin}" target="_blank" rel="noopener" style="font-size:12px;color:#0a66c2;display:inline-flex;align-items:center;gap:4px;margin-top:4px;text-decoration:none;font-weight:600;"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M19 0H5a5 5 0 0 0-5 5v14a5 5 0 0 0 5 5h14a5 5 0 0 0 5-5V5a5 5 0 0 0-5-5zM8 19H5V8h3v11zM6.5 6.7a1.8 1.8 0 1 1 0-3.6 1.8 1.8 0 0 1 0 3.6zM20 19h-3v-5.6c0-3.4-4-3.1-4 0V19h-3V8h3v1.8c1.4-2.6 7-2.8 7 2.5V19z"/></svg> LinkedIn</a>` : ''}
-              ${ct.notes ? `<div style="font-size:11px;color:var(--text-muted);margin-top:8px;background:var(--bg);padding:6px 8px;border-radius:8px;line-height:1.4;white-space:pre-wrap;">${ct.notes.replace(/</g,'&lt;')}</div>` : ''}
+              <div style="font-size:14px;font-weight:700;color:var(--text);">${_esc(ct.name)||'Sin nombre'}</div>
+              ${ct.cargo ? `<div style="font-size:11px;color:var(--text-muted);margin-top:2px;">${_esc(ct.cargo)}</div>` : ''}
+              ${ct.email ? `<a href="mailto:${_esc(ct.email)}" style="font-size:12px;color:var(--pink);display:block;margin-top:6px;text-decoration:none;">${_esc(ct.email)}</a>` : ''}
+              ${ct.linkedin ? `<a href="${_esc(ct.linkedin)}" target="_blank" rel="noopener" style="font-size:12px;color:#0a66c2;display:inline-flex;align-items:center;gap:4px;margin-top:4px;text-decoration:none;font-weight:600;"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M19 0H5a5 5 0 0 0-5 5v14a5 5 0 0 0 5 5h14a5 5 0 0 0 5-5V5a5 5 0 0 0-5-5zM8 19H5V8h3v11zM6.5 6.7a1.8 1.8 0 1 1 0-3.6 1.8 1.8 0 0 1 0 3.6zM20 19h-3v-5.6c0-3.4-4-3.1-4 0V19h-3V8h3v1.8c1.4-2.6 7-2.8 7 2.5V19z"/></svg> LinkedIn</a>` : ''}
+              ${ct.notes ? `<div style="font-size:11px;color:var(--text-muted);margin-top:8px;background:var(--bg);padding:6px 8px;border-radius:8px;line-height:1.4;white-space:pre-wrap;">${_esc(ct.notes)}</div>` : ''}
             </div>`).join('')}
         </div>`}`;
 }
@@ -4546,11 +4554,21 @@ async function _autoFetchTracker(url, campaign) {
       campaigns[idx].trackerRows = campaign.trackerRows;
       campaigns[idx].trackerLastSync = campaign.trackerLastSync;
       setData('campaigns',campaigns);
-    }
+    } // else: campaign was deleted while we were fetching — drop the write
     showToast('Tracker sincronizado','success');
   } catch(e) {
+    // Clear stale rows so the UI can't show data from a previous successful sync
+    campaign.trackerRows = [];
     const wrap = document.getElementById('trackerTableWrap');
-    if(wrap) wrap.innerHTML=`<div class="empty-state"><p>Error cargando tracker: ${e.message}</p></div>`;
+    if(wrap) wrap.textContent = '';
+    if(wrap) {
+      const div = document.createElement('div');
+      div.className = 'empty-state';
+      const p = document.createElement('p');
+      p.textContent = 'Error cargando tracker: ' + e.message;
+      div.appendChild(p);
+      wrap.appendChild(div);
+    }
   }
 }
 
@@ -7021,6 +7039,14 @@ function parseLocaleNumber(v) {
   return isFinite(n)?n:0;
 }
 
+// HTML-escape strings before injecting into innerHTML / attribute values.
+// Use everywhere user-typed content (campaign / client / contact names,
+// notes, sheet cells) flows into a template literal.
+function _esc(s) {
+  if(s == null) return '';
+  return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
 function formatNum(n) {
   const num=parseInt(n)||0;
   if(num>=1000000) return (num/1000000).toFixed(1)+'M';
@@ -7272,6 +7298,7 @@ auth.onAuthStateChanged(async (user) => {
     const lastCid  = localStorage.getItem('cmos:lastCampaignId');
     const lastCtab = localStorage.getItem('cmos:lastCampaignTab');
     const validPages = new Set(['dashboard','campannas','metricas','influencers','documentos','calendario','generador','pendientes','equipo','ajustes']);
+    const validTabs  = new Set(['resumen','influencers','tracker','pendientes','documentos','flujo']);
     if(lastPage && validPages.has(lastPage) && lastPage !== 'dashboard') {
       navigate(lastPage);
     }
@@ -7280,7 +7307,10 @@ auth.onAuthStateChanged(async (user) => {
       if(c && (typeof canSeeCampaign !== 'function' || canSeeCampaign(c))) {
         navigate('campannas');
         openCampaignDetail(lastCid);
-        if(lastCtab) setTimeout(() => { try { _switchCampaignTab(lastCtab); } catch(e){} }, 50);
+        if(lastCtab && validTabs.has(lastCtab)) setTimeout(() => { try { _switchCampaignTab(lastCtab); } catch(e){} }, 50);
+      } else {
+        // Stale id (deleted / lost access) — clear so we don't loop next reload
+        try { localStorage.removeItem('cmos:lastCampaignId'); localStorage.removeItem('cmos:lastCampaignTab'); } catch(e){}
       }
     }
   } catch(e){ console.warn('restore last view failed', e); }
