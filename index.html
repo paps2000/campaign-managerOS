@@ -1573,10 +1573,10 @@ html.light {
           <div class="detail-tabs">
             <div class="detail-tab active" data-tab="resumen">Resumen</div>
             <div class="detail-tab" data-tab="influencers">Escenario</div>
+            <div class="detail-tab" data-tab="tracker">Tracker</div>
             <div class="detail-tab" data-tab="pendientes">Pendientes</div>
             <div class="detail-tab" data-tab="documentos">Documentos</div>
-            <div class="detail-tab" data-tab="flujo">Flujo</div>
-            <div class="detail-tab" data-tab="tracker">Tracker</div>
+            <div class="detail-tab" data-tab="flujo" style="margin-left:auto;">Flujo</div>
           </div>
         </div>
 
@@ -2028,6 +2028,30 @@ html.light {
       <div class="form-group">
         <label class="form-label">Fecha de cierre</label>
         <input type="date" class="form-input" id="fCampEndDate">
+      </div>
+    </div>
+    <div style="border:1.5px solid var(--border);border-radius:12px;padding:14px;margin-bottom:14px;">
+      <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;">🎯 Goal del escenario (totales vendidos)</div>
+      <div style="font-size:11px;color:var(--text-muted);margin-bottom:10px;line-height:1.4;">Estos totales se usan para calcular el CPV y CPE de la campaña. La lista de creadores se sigue tomando del Google Sheet de escenario.</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Contenidos cerrados</label>
+          <input type="number" class="form-input" id="fCampGoalContenidos" placeholder="ej: 350" min="0">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Views estimadas</label>
+          <input type="number" class="form-input" id="fCampGoalViews" placeholder="ej: 11500000" min="0">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Engagement estimado</label>
+          <input type="number" class="form-input" id="fCampGoalEngagement" placeholder="ej: 1083000" min="0">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Alcance estimado</label>
+          <input type="number" class="form-input" id="fCampGoalReach" placeholder="ej: 6620000" min="0">
+        </div>
       </div>
     </div>
     <div style="border:1.5px solid var(--border);border-radius:12px;padding:14px;margin-bottom:4px;">
@@ -3256,12 +3280,18 @@ function _campaignCoherenceData(c) {
   }
   const escenarioCreators = escenario ? escenario.creators : [];
   const escenarioCreatorNames = new Map(escenarioCreators.map(cr => [norm(cr.nombre), cr]));
-  const escenarioContTotal = escenario && escenario.goal && escenario.goal.totalContenidos
-    ? escenario.goal.totalContenidos
-    : escenarioCreators.reduce((a,cr)=>a+cr.contenidosTotal, 0);
-  const escenarioViewsEst = escenario && escenario.goal && escenario.goal.viewsEstTotal
-    ? escenario.goal.viewsEstTotal
-    : escenarioCreators.reduce((a,cr)=>a+cr.viewsEstTotal, 0);
+  // Campaign-form goal takes priority (source of truth for CPV/CPE),
+  // falls back to BIG NUMBERS sheet row, then sum of creators.
+  const cGoal = c.goal || {};
+  const escenarioContTotal = cGoal.contenidos
+    || (escenario && escenario.goal && escenario.goal.totalContenidos)
+    || escenarioCreators.reduce((a,cr)=>a+cr.contenidosTotal, 0);
+  const escenarioViewsEst = cGoal.views
+    || (escenario && escenario.goal && escenario.goal.viewsEstTotal)
+    || escenarioCreators.reduce((a,cr)=>a+cr.viewsEstTotal, 0);
+  const escenarioEngEst = cGoal.engagement
+    || (escenario && escenario.goal && escenario.goal.engagementEst)
+    || escenarioCreators.reduce((a,cr)=>a+cr.engagementEstTotal, 0);
 
   // UGC parsed results (separate sheet, agency-reported)
   const ugcResults = (typeof _parseUgcResults === 'function') ? _parseUgcResults(c.ugcRows) : null;
@@ -3362,7 +3392,7 @@ function _campaignCoherenceData(c) {
 
   return {
     trackerPublicado, trackerTotal,
-    escenarioContTotal, escenarioViewsEst,
+    escenarioContTotal, escenarioViewsEst, escenarioEngEst,
     metricsRowsCount,
     issues,
     escenario,
@@ -3483,6 +3513,11 @@ function renderCampaignProgress(c) {
   const pubs = d.totalPublicado || 0;
   const pct = total > 0 ? Math.round((pubs/total) * 100) : 0;
   const splitLine = d.ugcResults ? `AON ${d.trackerPublicado}/${d.escenarioContTotal||'—'} · UGC ${d.ugcPublicado}/${d.ugcCommitted||'—'}` : '';
+  // CPV / CPE from campaign-registered goal (the totals "vendidos")
+  const budget = c.budgetClient || c.budget || 0;
+  const fmtMXN = n => n>0 ? '$'+Number(n).toLocaleString('es-MX',{maximumFractionDigits:2}) : '—';
+  const cpv = (budget>0 && d.escenarioViewsEst>0) ? fmtMXN(budget/d.escenarioViewsEst) : '—';
+  const cpe = (budget>0 && d.escenarioEngEst>0)   ? fmtMXN(budget/d.escenarioEngEst)   : '—';
   const s = (typeof _semaforo === 'function') ? _semaforo(pct) : { color:'#0a0a0c', bg:'#e8e6ec' };
   const pctLabel = total > 0 ? `${pct}%` : '—';
 
@@ -3516,6 +3551,23 @@ function renderCampaignProgress(c) {
         <div style="font-size:12px;color:var(--text-muted);margin-top:6px;">${d.metricsRowsCount === d.trackerPublicado && d.trackerPublicado > 0 ? '✅ Coincide con tracker' : (d.metricsRowsCount===0 ? 'Sin métricas cargadas' : '⚠ Difiere del tracker')}</div>
         <div style="font-size:10px;color:var(--text-muted);margin-top:6px;">Click para ver métricas →</div>
       </button>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:14px;margin-top:14px;">
+      <div style="flex:1;min-width:160px;background:var(--white);border:1.5px solid var(--border);border-radius:14px;padding:14px 16px;">
+        <div style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;">CPV (vendido)</div>
+        <div style="font-size:22px;font-weight:800;line-height:1;margin-top:6px;">${cpv}</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">Budget / ${d.escenarioViewsEst?formatNum(d.escenarioViewsEst)+' views est.':'—'}</div>
+      </div>
+      <div style="flex:1;min-width:160px;background:var(--white);border:1.5px solid var(--border);border-radius:14px;padding:14px 16px;">
+        <div style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;">CPE (vendido)</div>
+        <div style="font-size:22px;font-weight:800;line-height:1;margin-top:6px;">${cpe}</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">Budget / ${d.escenarioEngEst?formatNum(d.escenarioEngEst)+' eng. est.':'—'}</div>
+      </div>
+      <div style="flex:1;min-width:160px;background:var(--white);border:1.5px solid var(--border);border-radius:14px;padding:14px 16px;">
+        <div style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;">Budget cliente</div>
+        <div style="font-size:22px;font-weight:800;line-height:1;margin-top:6px;">${fmtMXN(budget)}</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">${budget?'Source of truth para CPV/CPE':'Sin presupuesto registrado'}</div>
+      </div>
     </div>`;
 }
 
@@ -4948,9 +5000,12 @@ function renderEscenarioBlock(c) {
     costo: a.costo + cr.costoTotal,
   }), { viewsEst:0,viewsReal:0,engEst:0,engReal:0,contEst:0,contReal:0,costo:0 });
 
-  const totalViewsEstForPct = (goal && goal.viewsEstTotal) || agg.viewsEst;
-  const totalEngEstForPct = (goal && goal.engagementEst) || agg.engEst;
-  const totalContEstForPct = (goal && goal.totalContenidos) || agg.contEst;
+  // Campaign-level totals (used for CPV/CPE) prefer campaign.goal (set when
+  // the campaign was registered) over BIG NUMBERS row or per-creator sum.
+  const cGoal = c.goal || {};
+  const totalViewsEstForPct = cGoal.views || (goal && goal.viewsEstTotal) || agg.viewsEst;
+  const totalEngEstForPct = cGoal.engagement || (goal && goal.engagementEst) || agg.engEst;
+  const totalContEstForPct = cGoal.contenidos || (goal && goal.totalContenidos) || agg.contEst;
   const viewsPctAll = totalViewsEstForPct>0 ? (agg.viewsReal/totalViewsEstForPct)*100 : 0;
   const engPctAll = totalEngEstForPct>0 ? (agg.engReal/totalEngEstForPct)*100 : 0;
   const contPctAll = totalContEstForPct>0 ? (agg.contReal/totalContEstForPct)*100 : 0;
@@ -5979,7 +6034,7 @@ function toggleNanoSection() {
 function openNewCampaignModal() {
   editingCampaignId = null;
   document.getElementById('campaignModalTitle').textContent='Nueva campaña';
-  ['fCampName','fCampClient','fCampSeason','fCampObjective','fCampCore','fCampBudgetClient','fCampMargin','fCampStartDate','fCampEndDate'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  ['fCampName','fCampClient','fCampSeason','fCampObjective','fCampCore','fCampBudgetClient','fCampMargin','fCampStartDate','fCampEndDate','fCampGoalContenidos','fCampGoalViews','fCampGoalEngagement','fCampGoalReach'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
   document.getElementById('fCampBudgetOpsResult').textContent='—';
   document.getElementById('fCampStatus').value='En proceso';
   const nanoChk = document.getElementById('fCampHasNano');
@@ -6011,6 +6066,11 @@ function openEditCampaignModal() {
   document.getElementById('fCampCore').value=c.coreMessage||'';
   document.getElementById('fCampBudgetClient').value=c.budgetClient||'';
   document.getElementById('fCampMargin').value=c.budgetMargin||'';
+  const goal = c.goal || {};
+  const gC = document.getElementById('fCampGoalContenidos'); if(gC) gC.value = goal.contenidos||'';
+  const gV = document.getElementById('fCampGoalViews');      if(gV) gV.value = goal.views||'';
+  const gE = document.getElementById('fCampGoalEngagement'); if(gE) gE.value = goal.engagement||'';
+  const gR = document.getElementById('fCampGoalReach');      if(gR) gR.value = goal.reach||'';
   calcBudgetOps();
   populateCampResponsibles(c.responsables||{});
   document.getElementById('fCampStartDate').value=c.startDate||'';
@@ -6280,6 +6340,12 @@ function saveCampaign() {
   const name = document.getElementById('fCampName').value.trim();
   if(!name) { showToast('El nombre es requerido','error'); return; }
   const campaigns = getData('campaigns');
+  const _goal = {
+    contenidos: parseFloat(document.getElementById('fCampGoalContenidos')?.value)||0,
+    views:      parseFloat(document.getElementById('fCampGoalViews')?.value)||0,
+    engagement: parseFloat(document.getElementById('fCampGoalEngagement')?.value)||0,
+    reach:      parseFloat(document.getElementById('fCampGoalReach')?.value)||0,
+  };
   if(editingCampaignId) {
     const idx = campaigns.findIndex(x=>x.id===editingCampaignId);
     if(idx!==-1) {
@@ -6304,6 +6370,7 @@ function saveCampaign() {
         hasNano: !!document.getElementById('fCampHasNano')?.checked,
         trackerAonTab: document.getElementById('fCampAonTab')?.value?.trim()||'',
         trackerNanoTab: document.getElementById('fCampNanoTab')?.value?.trim()||'',
+        goal: _goal,
       };
     }
   } else {
@@ -6328,6 +6395,7 @@ function saveCampaign() {
       hasNano: !!document.getElementById('fCampHasNano')?.checked,
       trackerAonTab: document.getElementById('fCampAonTab')?.value?.trim()||'',
       trackerNanoTab: document.getElementById('fCampNanoTab')?.value?.trim()||'',
+      goal: _goal,
       createdBy: currentUser.uid,
       assignedTo: [currentUser.uid],
       flowSteps:FLOW_STEPS.map(s=>({step:s,status:'Pendiente'})),
