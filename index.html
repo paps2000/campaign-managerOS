@@ -5220,6 +5220,13 @@ function renderEscenarioBlock(c) {
     c._ugcFetching = true;
     _autoFetchUgc(c.ugcSheetUrl, c).finally(()=>{ c._ugcFetching = false; });
   }
+  // Lazy auto-fetch metrics sheet so per-creator real views/engagement
+  // show up in the Escenario tab without requiring the user to visit the
+  // Métricas tab first.
+  if(c.metricsSheetUrl && (!c.cachedMetrics || !c.cachedMetrics.length) && !c._metricsFetching) {
+    c._metricsFetching = true;
+    _autoFetchMetrics(c.metricsSheetUrl, c).finally(()=>{ c._metricsFetching = false; });
+  }
 
   const parsed = parseEscenarioRows(c.escenarioRows);
   const { creators, ugc, goal, skipped, totalRows } = parsed;
@@ -5848,7 +5855,11 @@ async function _autoFetchMetrics(url, campaign) {
       // Fetch all tabs and merge
       const all = await Promise.all(_metricsSheetTabs.map(t => _fetchTabRows(sheetId, t.gid)));
       const rows = all.flat();
-      if(rows.length) { displayMetrics(rows, campaign); return; }
+      if(rows.length) {
+        _cacheMetricsOnCampaign(campaign, rows);
+        displayMetrics(rows, campaign);
+        return;
+      }
     } catch(e) {
       console.warn('Multi-tab fetch failed, falling back to single:', e.message);
       _metricsSheetTabs = [];
@@ -5865,10 +5876,36 @@ async function _autoFetchMetrics(url, campaign) {
     const text = await res.text();
     if(text.trim().startsWith('<!')) throw new Error('not public');
     const rows = parseCSV(text);
-    if(rows.length) displayMetrics(rows, campaign);
+    if(rows.length) {
+      _cacheMetricsOnCampaign(campaign, rows);
+      displayMetrics(rows, campaign);
+    }
   } catch(e) {
     console.warn('Auto-fetch metrics failed:', e.message);
   }
+}
+
+// Persist parsed metric rows on the campaign so the Escenario block,
+// Resumen coherence panel and per-creator real-views lookup can read
+// them without re-hitting the sheet.
+function _cacheMetricsOnCampaign(campaign, rows) {
+  if(!campaign || !rows || !rows.length) return;
+  campaign.cachedMetrics = rows;
+  try {
+    const campaigns = getData('campaigns');
+    const idx = campaigns.findIndex(x => x.id === campaign.id);
+    if(idx !== -1) {
+      campaigns[idx].cachedMetrics = rows;
+      setData('campaigns', campaigns);
+    }
+  } catch(e) {}
+  // If the Escenario tab is currently rendered, refresh it so the new
+  // views/engagement reales appear without a manual reload.
+  try {
+    if(currentCampaignId === campaign.id && typeof renderEscenarioBlock === 'function') {
+      renderEscenarioBlock(campaign);
+    }
+  } catch(e){}
 }
 
 function normalizeCsvUrl(raw) {
