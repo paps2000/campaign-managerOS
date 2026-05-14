@@ -2849,6 +2849,8 @@ function navigate(page) {
   document.getElementById('mainSidebar')?.classList.remove('mobile-open');
   document.getElementById('sidebarOverlay')?.classList.remove('open');
   currentPage = page;
+  // Persist current page so reload restores it
+  try { localStorage.setItem('cmos:lastPage', page); } catch(e){}
 
   const titles = {
     dashboard: ['Resumen','Lo que necesita tu atención hoy.','+ Nueva tarea'],
@@ -3129,6 +3131,7 @@ function renderCampaignGrid() {
 }
 
 function showCampaignList() {
+  try { localStorage.removeItem('cmos:lastCampaignId'); localStorage.removeItem('cmos:lastCampaignTab'); } catch(e){}
   document.getElementById('campaignList').style.display='block';
   document.getElementById('campaignDetailView').classList.remove('active');
   currentCampaignId = null;
@@ -3137,6 +3140,7 @@ function showCampaignList() {
 
 function openCampaignDetail(cid) {
   currentCampaignId = cid;
+  try { localStorage.setItem('cmos:lastCampaignId', cid); } catch(e){}
   const campaigns = getData('campaigns');
   const c = campaigns.find(x=>x.id===cid);
   if(!c) return;
@@ -3405,6 +3409,7 @@ function _campaignCoherenceData(c) {
 function _switchCampaignTab(tabName) {
   document.querySelectorAll('.detail-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tabName));
   document.querySelectorAll('.tab-content').forEach(t => t.classList.toggle('active', t.id === 'tab-'+tabName));
+  try { localStorage.setItem('cmos:lastCampaignTab', tabName); } catch(e){}
 }
 
 // ============================================================
@@ -7048,6 +7053,7 @@ document.querySelectorAll('.detail-tab').forEach(tab=>{
     document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
     tab.classList.add('active');
     document.getElementById('tab-'+tab.dataset.tab).classList.add('active');
+    try { localStorage.setItem('cmos:lastCampaignTab', tab.dataset.tab); } catch(e){}
   });
 });
 
@@ -7259,6 +7265,25 @@ auth.onAuthStateChanged(async (user) => {
   // Load calendar and Gmail if token already stored (returning user)
   if(calendarAccessToken) { loadCalendarEvents(); loadGmailMessages(); }
   else { renderCalendarWidget(); renderGmailWidget(); }
+
+  // Restore last page + campaign detail across reload
+  try {
+    const lastPage = localStorage.getItem('cmos:lastPage');
+    const lastCid  = localStorage.getItem('cmos:lastCampaignId');
+    const lastCtab = localStorage.getItem('cmos:lastCampaignTab');
+    const validPages = new Set(['dashboard','campannas','metricas','influencers','documentos','calendario','generador','pendientes','equipo','ajustes']);
+    if(lastPage && validPages.has(lastPage) && lastPage !== 'dashboard') {
+      navigate(lastPage);
+    }
+    if(lastCid && (lastPage === 'campannas' || !lastPage)) {
+      const c = (_cache.campaigns||[]).find(x => x.id === lastCid);
+      if(c && (typeof canSeeCampaign !== 'function' || canSeeCampaign(c))) {
+        navigate('campannas');
+        openCampaignDetail(lastCid);
+        if(lastCtab) setTimeout(() => { try { _switchCampaignTab(lastCtab); } catch(e){} }, 50);
+      }
+    }
+  } catch(e){ console.warn('restore last view failed', e); }
 });
 
 function isAdmin() { return currentUserProfile && currentUserProfile.role === 'admin'; }
