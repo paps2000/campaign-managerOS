@@ -3266,6 +3266,11 @@ function _campaignCoherenceData(c) {
     ? escenario.goal.viewsEstTotal
     : escenarioCreators.reduce((a,cr)=>a+cr.viewsEstTotal, 0);
 
+  // UGC parsed results (separate sheet, agency-reported)
+  const ugcResults = (typeof _parseUgcResults === 'function') ? _parseUgcResults(c.ugcRows) : null;
+  const ugcCommitted = (escenario && escenario.ugc) ? (escenario.ugc.cantidadContenidos || 0) : 0;
+  const ugcPublicado = ugcResults ? ugcResults.contenidosPublicados : 0;
+
   // Metrics counts (rows registered in the metrics / ROI sheet)
   const metricsRows = c.cachedMetrics || [];
   const metricsByCreator = new Map();
@@ -3364,6 +3369,9 @@ function _campaignCoherenceData(c) {
     metricsRowsCount,
     issues,
     escenario,
+    ugcCommitted, ugcPublicado, ugcResults,
+    totalPublicado: trackerPublicado + ugcPublicado,
+    totalCerrado: escenarioContTotal + ugcCommitted,
   };
 }
 
@@ -3376,9 +3384,10 @@ function renderCampaignProgress(c) {
   const el = document.getElementById('campaignProgressSection');
   if(!el) return;
   const d = _campaignCoherenceData(c);
-  const total = d.escenarioContTotal || 0;
-  const pubs = d.trackerPublicado || 0;
+  const total = d.totalCerrado || 0;
+  const pubs = d.totalPublicado || 0;
   const pct = total > 0 ? Math.round((pubs/total) * 100) : 0;
+  const splitLine = d.ugcResults ? `AON ${d.trackerPublicado}/${d.escenarioContTotal||'—'} · UGC ${d.ugcPublicado}/${d.ugcCommitted||'—'}` : '';
   const s = (typeof _semaforo === 'function') ? _semaforo(pct) : { color:'#0a0a0c', bg:'#e8e6ec' };
   const pctLabel = total > 0 ? `${pct}%` : '—';
 
@@ -3397,6 +3406,7 @@ function renderCampaignProgress(c) {
           <span style="font-size:11px;color:var(--text-muted);">% Completitud</span>
           <span style="font-size:13px;font-weight:800;color:${s.color};">${pctLabel}</span>
         </div>
+        ${splitLine?`<div style="font-size:10px;color:var(--text-muted);margin-top:4px;">${splitLine}</div>`:''}
         <div style="font-size:10px;color:var(--text-muted);margin-top:6px;">Click para ver el tracker →</div>
       </button>
       <button onclick="_switchCampaignTab('influencers')" style="flex:1;min-width:200px;background:var(--white);border:1.5px solid var(--border);border-radius:14px;padding:16px 18px;cursor:pointer;text-align:left;transition:all .18s;font-family:inherit;" onmouseover="this.style.borderColor='var(--pink)'" onmouseout="this.style.borderColor='var(--border)'">
@@ -4461,6 +4471,113 @@ async function _autoFetchEscenario(url, campaign) {
   }
 }
 
+// --- UGC results (separate sheet/tab, parsed flexibly) ---
+function saveUgcUrl() {
+  const url = document.getElementById('ugcSheetsUrl')?.value?.trim();
+  if(!currentCampaignId) return;
+  const campaigns = getData('campaigns');
+  const c = campaigns.find(x=>x.id===currentCampaignId);
+  if(c) { c.ugcSheetUrl = url||''; setData('campaigns', campaigns); }
+}
+
+function syncUgcResults() {
+  const url = document.getElementById('ugcSheetsUrl')?.value?.trim();
+  if(!url) { showToast('Pega el URL del sheet de resultados UGC primero','error'); return; }
+  const campaigns = getData('campaigns');
+  const c = campaigns.find(x=>x.id===currentCampaignId);
+  if(!c) return;
+  c.ugcSheetUrl = url;
+  setData('campaigns', campaigns);
+  showToast('Sincronizando UGC...','success');
+  _autoFetchUgc(url, c);
+}
+
+async function _autoFetchUgc(url, campaign) {
+  const csvUrl = normalizeCsvUrl(url);
+  if(!csvUrl) return;
+  try {
+    const res = await fetch(csvUrl);
+    if(!res.ok) throw new Error(`HTTP ${res.status}`);
+    const text = await res.text();
+    if(text.trim().startsWith('<!')) throw new Error('Sheet no público');
+    const rows = parseCSV(text);
+    campaign.ugcRows = rows;
+    campaign.ugcLastSync = Date.now();
+    const campaigns = getData('campaigns');
+    const idx = campaigns.findIndex(x=>x.id===campaign.id);
+    if(idx!==-1) {
+      campaigns[idx].ugcSheetUrl = url;
+      campaigns[idx].ugcRows = rows;
+      campaigns[idx].ugcLastSync = campaign.ugcLastSync;
+      setData('campaigns', campaigns);
+    }
+    renderEscenarioBlock(campaign);
+    try { renderCampaignProgress(campaign); renderCampaignCoherence(campaign); } catch(e){}
+    showToast('Resultados UGC sincronizados','success');
+  } catch(e) {
+    showToast('Error UGC: '+e.message,'error');
+  }
+}
+
+// Parse a UGC results sheet — flexible aliases for the columns the
+// external nano/micro agency typically reports.
+function _parseUgcResults(rows) {
+  if(!rows || !rows.length) return null;
+  const norm = s => String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[_\s@]+/g,' ').trim();
+  const get = (r, ...keys) => { for(const k of keys){ const kn=norm(k); for(const rk of Object.keys(r)){ if(norm(rk)===kn && r[rk]!=null && r[rk]!=='') return r[rk]; } } return ''; };
+  const num = v => { const n = parseFloat(String(v||'').replace(/[,$\s%]/g,'')); return isFinite(n)?n:0; };
+
+  const NAME_K = ['NOMBRE','Nombre','PERFIL','Perfil','USERNAME','Username','Handle','HANDLE','Creator','Creador','Influencer'];
+  const PLAT_K = ['PLATAFORMA','Plataforma','PLATFORM','Platform','Red Social','Red'];
+  const VIEWS_K = ['VIEWS','Views','Vistas','Reproducciones','Plays','Visualizaciones','Video Views','Impresiones','Impressions','Reach','Alcance'];
+  const LIKES_K = ['LIKES','Likes','Me gusta'];
+  const COMMENTS_K = ['COMMENTS','Comments','Comentarios'];
+  const SHARES_K = ['SHARES','Shares','Compartidos'];
+  const SAVES_K = ['SAVES','Saves','Guardados'];
+  const ENG_K = ['ENGAGEMENT','Engagement','Interacciones','Interactions','Total Engagement'];
+  const LINK_K = ['LINK','Link','URL','Post','Post URL','LINK TO POST'];
+  const STATUS_K = ['ESTATUS','Estatus','Status','ESTATUS CONTENIDO'];
+
+  let views = 0, engagement = 0, contenidosPublicados = 0;
+  const creatorsSet = new Set();
+  const byPlatform = {};
+
+  rows.forEach(r => {
+    const name = String(get(r, ...NAME_K)||'').trim();
+    const link = String(get(r, ...LINK_K)||'').trim();
+    const status = String(get(r, ...STATUS_K)||'').trim();
+    const v = num(get(r, ...VIEWS_K));
+    const e_agg = num(get(r, ...ENG_K));
+    const e_bd  = num(get(r, ...LIKES_K)) + num(get(r, ...COMMENTS_K)) + num(get(r, ...SHARES_K)) + num(get(r, ...SAVES_K));
+    const e = e_bd > 0 ? e_bd : e_agg;
+    const plat = String(get(r, ...PLAT_K)||'').trim();
+
+    // Treat row as a published piece if it has either a link, views, or an explicit Publicado status
+    const counts = !!link || v > 0 || /publicad/i.test(status);
+    if(!counts) return;
+
+    contenidosPublicados++;
+    views += v;
+    engagement += e;
+    if(name) creatorsSet.add(norm(name));
+    if(plat) {
+      if(!byPlatform[plat]) byPlatform[plat] = { posts:0, views:0, engagement:0 };
+      byPlatform[plat].posts += 1;
+      byPlatform[plat].views += v;
+      byPlatform[plat].engagement += e;
+    }
+  });
+
+  return {
+    contenidosPublicados,
+    views,
+    engagement,
+    creadoresUnicos: creatorsSet.size,
+    byPlatform,
+    rowCount: rows.length,
+  };
+}
+
 // Heuristics that decide which rows are real creators vs banners / totals / UGC
 const ESCENARIO_BANNER_RE = /^(big numbers|budget|aurora|resumen|total|subtotal|fase|fee)/i;
 const ESCENARIO_GOAL_RE   = /^big numbers/i;
@@ -4667,9 +4784,15 @@ function renderEscenarioBlock(c) {
     if(c.escenarioSheetUrl && !c._escenarioFetching) { c._escenarioFetching=true; _autoFetchEscenario(c.escenarioSheetUrl, c).finally(()=>{c._escenarioFetching=false;}); }
     return;
   }
+  // Lazy auto-fetch UGC results sheet if linked but uncached
+  if(c.ugcSheetUrl && (!c.ugcRows || !c.ugcRows.length) && !c._ugcFetching) {
+    c._ugcFetching = true;
+    _autoFetchUgc(c.ugcSheetUrl, c).finally(()=>{ c._ugcFetching = false; });
+  }
 
   const parsed = parseEscenarioRows(c.escenarioRows);
   const { creators, ugc, goal, skipped, totalRows } = parsed;
+  const ugcRes = (typeof _parseUgcResults==='function') ? _parseUgcResults(c.ugcRows) : null;
   const real = _escenarioRealMetricsByCreator(c);
   const norm = s => String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[_\s@]+/g,' ').trim();
 
@@ -4719,22 +4842,41 @@ function renderEscenarioBlock(c) {
     return `<span style="display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;background:${s.bg};color:${s.color};">${pct.toFixed(0)}%</span>`;
   };
 
+  // UGC contribution (real metrics live in ugcRes; estimate only for contenidos)
+  const ugcViewsReal = ugcRes ? ugcRes.views : 0;
+  const ugcEngReal   = ugcRes ? ugcRes.engagement : 0;
+  const ugcContReal  = ugcRes ? ugcRes.contenidosPublicados : 0;
+  const ugcContCerrados = ugc ? (ugc.cantidadContenidos||0) : 0;
+
+  // Combined totals (campaign-wide): AON + UGC
+  const totalViewsReal = agg.viewsReal + ugcViewsReal;
+  const totalEngReal   = agg.engReal + ugcEngReal;
+  const totalContReal  = agg.contReal + ugcContReal;
+  const totalContGoal  = totalContEstForPct + ugcContCerrados;
+  const totalContPct   = totalContGoal>0 ? (totalContReal/totalContGoal)*100 : 0;
+
+  const subSplit = (aonVal, ugcVal) => ugcRes
+    ? `<div style="font-size:10px;color:var(--text-muted);margin-top:4px;">AON ${fmt(aonVal)} · UGC ${fmt(ugcVal)}</div>` : '';
+
   const headlineHtml = `
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:14px;">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:14px;">
       <div style="background:var(--white);border:1px solid var(--border);border-radius:12px;padding:12px 14px;">
-        <div style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;">Views</div>
-        <div style="font-size:22px;font-weight:800;line-height:1.1;margin-top:4px;">${fmt(agg.viewsReal)} <span style="font-size:12px;color:var(--text-muted);font-weight:600;">/ ${fmt(totalViewsEstForPct)}</span></div>
+        <div style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;">Views ${ugcRes?'(AON+UGC)':''}</div>
+        <div style="font-size:22px;font-weight:800;line-height:1.1;margin-top:4px;">${fmt(totalViewsReal)} <span style="font-size:12px;color:var(--text-muted);font-weight:600;">/ ${fmt(totalViewsEstForPct)} est.</span></div>
         <div style="margin-top:6px;">${pctCell(viewsPctAll)}</div>
+        ${subSplit(agg.viewsReal, ugcViewsReal)}
       </div>
       <div style="background:var(--white);border:1px solid var(--border);border-radius:12px;padding:12px 14px;">
-        <div style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;">Engagement</div>
-        <div style="font-size:22px;font-weight:800;line-height:1.1;margin-top:4px;">${fmt(agg.engReal)} <span style="font-size:12px;color:var(--text-muted);font-weight:600;">/ ${fmt(totalEngEstForPct)}</span></div>
+        <div style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;">Engagement ${ugcRes?'(AON+UGC)':''}</div>
+        <div style="font-size:22px;font-weight:800;line-height:1.1;margin-top:4px;">${fmt(totalEngReal)} <span style="font-size:12px;color:var(--text-muted);font-weight:600;">/ ${fmt(totalEngEstForPct)} est.</span></div>
         <div style="margin-top:6px;">${pctCell(engPctAll)}</div>
+        ${subSplit(agg.engReal, ugcEngReal)}
       </div>
       <div style="background:var(--white);border:1px solid var(--border);border-radius:12px;padding:12px 14px;">
-        <div style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;">Contenidos</div>
-        <div style="font-size:22px;font-weight:800;line-height:1.1;margin-top:4px;">${agg.contReal} <span style="font-size:12px;color:var(--text-muted);font-weight:600;">/ ${totalContEstForPct}</span></div>
-        <div style="margin-top:6px;">${pctCell(contPctAll)}</div>
+        <div style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;">Contenidos ${ugcRes?'(AON+UGC)':''}</div>
+        <div style="font-size:22px;font-weight:800;line-height:1.1;margin-top:4px;">${totalContReal} <span style="font-size:12px;color:var(--text-muted);font-weight:600;">/ ${totalContGoal}</span></div>
+        <div style="margin-top:6px;">${pctCell(totalContPct)}</div>
+        ${subSplit(agg.contReal, ugcContReal)}
       </div>
       <div style="background:var(--white);border:1px solid var(--border);border-radius:12px;padding:12px 14px;">
         <div style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;">Costo total</div>
@@ -4781,16 +4923,60 @@ function renderEscenarioBlock(c) {
       </div>
     </div>`;
 
-  const ugcHtml = ugc ? `
+  const ugcHtml = (ugc || c.ugcSheetUrl || c.ugcRows) ? `
     <div class="card" style="margin-top:14px;background:var(--pink-pale);border:1px solid var(--pink);">
       <div class="card-header"><span class="card-title">UGC (Nano / Micro)</span></div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;padding:6px 14px 14px;">
-        <div><div style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;">Perfiles</div><div style="font-size:20px;font-weight:800;">${ugc.cantidadCreadores||'—'}</div></div>
-        <div><div style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;">Contenidos cerrados</div><div style="font-size:20px;font-weight:800;">${ugc.cantidadContenidos||'—'}</div></div>
-        <div><div style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;">Tier</div><div style="font-size:20px;font-weight:800;">${ugc.tier||'—'}</div></div>
-        <div><div style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;">Costo</div><div style="font-size:20px;font-weight:800;">${fmtMoney(ugc.costo)}</div></div>
+        <div><div style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;">Perfiles cerrados</div><div style="font-size:20px;font-weight:800;">${ugc?(ugc.cantidadCreadores||'—'):'—'}</div></div>
+        <div><div style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;">Contenidos cerrados</div><div style="font-size:20px;font-weight:800;">${ugc?(ugc.cantidadContenidos||'—'):'—'}</div></div>
+        <div><div style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;">Tier</div><div style="font-size:20px;font-weight:800;">${ugc?(ugc.tier||'—'):'—'}</div></div>
+        <div><div style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;">Costo</div><div style="font-size:20px;font-weight:800;">${ugc?fmtMoney(ugc.costo):'—'}</div></div>
       </div>
-      <div style="font-size:11px;color:var(--text-muted);padding:0 14px 12px;">Los resultados de UGC los entrega la agencia externa y se cargan aparte.</div>
+
+      <!-- UGC results sheet sync -->
+      <div style="background:var(--white);border-top:1px solid var(--pink);padding:12px 14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <span style="font-size:12px;font-weight:700;color:var(--pink-deep);white-space:nowrap;">📊 Resultados UGC</span>
+        <input type="text" id="ugcSheetsUrl" class="form-input" style="flex:1;min-width:180px;font-size:12px;" placeholder="URL del Google Sheet de resultados UGC (incluye #gid=... si es una pestaña)" value="${c.ugcSheetUrl||''}" oninput="saveUgcUrl()">
+        <button class="btn btn-ghost btn-sm" onclick="syncUgcResults()" style="white-space:nowrap;">🔄 Sincronizar</button>
+        <span id="ugcLastSync" style="font-size:11px;color:var(--text-muted);">${c.ugcLastSync?'Última sync: '+new Date(c.ugcLastSync).toLocaleString('es-MX',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):''}</span>
+      </div>
+
+      ${ugcRes ? `
+      <div style="padding:14px;">
+        <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;">Resultados reales UGC</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;">
+          <div style="background:var(--white);border-radius:10px;padding:10px 12px;">
+            <div style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;">Publicados</div>
+            <div style="font-size:22px;font-weight:800;">${ugcRes.contenidosPublicados} <span style="font-size:11px;color:var(--text-muted);font-weight:600;">/ ${ugc?ugc.cantidadContenidos||'—':'—'}</span></div>
+            <div style="margin-top:4px;">${pctCell(ugc&&ugc.cantidadContenidos?(ugcRes.contenidosPublicados/ugc.cantidadContenidos)*100:0)}</div>
+          </div>
+          <div style="background:var(--white);border-radius:10px;padding:10px 12px;">
+            <div style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;">Views</div>
+            <div style="font-size:22px;font-weight:800;">${fmt(ugcRes.views)}</div>
+          </div>
+          <div style="background:var(--white);border-radius:10px;padding:10px 12px;">
+            <div style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;">Engagement</div>
+            <div style="font-size:22px;font-weight:800;">${fmt(ugcRes.engagement)}</div>
+          </div>
+          <div style="background:var(--white);border-radius:10px;padding:10px 12px;">
+            <div style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;">Creadores activos</div>
+            <div style="font-size:22px;font-weight:800;">${ugcRes.creadoresUnicos} <span style="font-size:11px;color:var(--text-muted);font-weight:600;">/ ${ugc?ugc.cantidadCreadores||'—':'—'}</span></div>
+          </div>
+        </div>
+        ${ugcRes.byPlatform && Object.keys(ugcRes.byPlatform).length ? `
+        <div style="margin-top:12px;">
+          <div style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px;">Desglose por plataforma</div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;">
+            ${Object.entries(ugcRes.byPlatform).sort((a,b)=>b[1].posts-a[1].posts).map(([pf,v]) => `
+              <div style="background:var(--white);border:1px solid var(--border);border-radius:10px;padding:8px 12px;font-size:11px;">
+                <strong>${pf||'—'}</strong> · ${v.posts} posts · ${fmt(v.views)} views
+              </div>`).join('')}
+          </div>
+        </div>` : ''}
+      </div>` : `
+      <div style="padding:12px 14px;font-size:11px;color:var(--text-muted);">
+        ${c.ugcSheetUrl ? 'Cargando resultados UGC...' : 'Los resultados de UGC los entrega la agencia externa. Vincula el sheet arriba para que el OS los lea y los sume al total de la campaña.'}
+      </div>`}
     </div>` : '';
 
   const dataIssues = (skipped||[]).filter(s => s.reason === 'sin nombre');
