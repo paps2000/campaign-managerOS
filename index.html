@@ -5696,9 +5696,13 @@ let lineChartInst = null, donutChartInst = null;
 let currentMetricsCampaignId = null;
 
 function renderMetrics() {
-  document.getElementById('metricsCampList').style.display = '';
-  document.getElementById('metricsCampDetail').style.display = 'none';
-  currentMetricsCampaignId = null;
+  // If the user is currently viewing a campaign's metrics detail,
+  // don't tear it down when this function is called via the realtime
+  // listener — just re-render the campaign grid in the background.
+  if(!currentMetricsCampaignId) {
+    document.getElementById('metricsCampList').style.display = '';
+    document.getElementById('metricsCampDetail').style.display = 'none';
+  }
   const grid = document.getElementById('metricsCampGrid');
   const camps = visibleCampaigns().filter(c => c.status !== 'Completado');
   if(!camps.length) { grid.innerHTML='<div class="empty-state"><p>Sin campañas activas.</p></div>'; return; }
@@ -5885,24 +5889,30 @@ async function _autoFetchMetrics(url, campaign) {
   }
 }
 
-// Persist parsed metric rows on the campaign so the Escenario block,
-// Resumen coherence panel and per-creator real-views lookup can read
-// them without re-hitting the sheet.
+// Cache parsed metric rows on the campaign IN MEMORY ONLY. We never
+// call setData here because:
+//  (a) persistCampaigns strips cachedMetrics before writing to Firestore
+//      anyway, so the write is wasted work, AND
+//  (b) the round-trip fires the campaigns onSnapshot listener, which
+//      calls rerenderCurrent(), which on the Métricas page calls
+//      renderMetrics() — that function resets the detail view back to
+//      the campaign grid, kicking the user out mid-load.
 function _cacheMetricsOnCampaign(campaign, rows) {
   if(!campaign || !rows || !rows.length) return;
   campaign.cachedMetrics = rows;
+  // Mirror into _cache.campaigns so other code paths see the rows
+  // without going through setData/persist.
   try {
-    const campaigns = getData('campaigns');
-    const idx = campaigns.findIndex(x => x.id === campaign.id);
-    if(idx !== -1) {
-      campaigns[idx].cachedMetrics = rows;
-      setData('campaigns', campaigns);
-    }
+    const arr = _cache.campaigns || [];
+    const idx = arr.findIndex(x => x.id === campaign.id);
+    if(idx !== -1) arr[idx].cachedMetrics = rows;
   } catch(e) {}
   // If the Escenario tab is currently rendered, refresh it so the new
   // views/engagement reales appear without a manual reload.
   try {
-    if(currentCampaignId === campaign.id && typeof renderEscenarioBlock === 'function') {
+    if(currentCampaignId === campaign.id
+       && currentPage !== 'metricas'
+       && typeof renderEscenarioBlock === 'function') {
       renderEscenarioBlock(campaign);
     }
   } catch(e){}
