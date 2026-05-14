@@ -8344,9 +8344,11 @@ function renderCalendar() {
       const creativa = row['PLATAFORMA CREATIVA']||row['Plataforma Creativa']||'';
       const estatusRaw = String(row['ESTATUS CONTENIDO']||row['Estatus Contenido']||'').trim();
       const sty = _trackerStatusEventStyle(estatusRaw);
+      // Skip cancelled rows — user request: not shown on calendar
+      if(sty.statusKey === 'cancelado') return;
       const icon = sty.icon;
       const label = icon + (creativa? creativa+' · ':'') + (name || 'Publicación');
-      add(iso, {type:'pub', status: sty.statusKey, statusLabel: estatusRaw || 'Sin estatus', label, color: sty.bg, text: sty.color, campaignId:c.id, campaignName:c.name});
+      add(iso, {type:'pub', status: sty.statusKey, statusLabel: sty.label, statusIcon: sty.icon, label, color: sty.bg, text: sty.color, campaignId:c.id, campaignName:c.name});
     });
     // Campaign tasks
     (c.tasks||[]).filter(t=>!t.done&&t.dueDate).forEach(t => {
@@ -8390,19 +8392,22 @@ function renderCalendar() {
   // Build dynamic legend from the statuses actually present in this view
   const legend = document.getElementById('calLegend');
   if(legend) {
-    const seen = new Map(); // statusKey → {bg, color, label}
+    const seen = new Map(); // statusKey → {bg, color, label, icon}
     Object.values(events).forEach(arr => arr.forEach(ev => {
-      if(ev.type === 'pub' && ev.status) {
-        if(!seen.has(ev.status)) seen.set(ev.status, { bg: ev.color, color: ev.text, label: ev.statusLabel || ev.status });
+      if(ev.type === 'pub' && ev.status && ev.status !== 'cancelado') {
+        if(!seen.has(ev.status)) seen.set(ev.status, { bg: ev.color, color: ev.text, label: ev.statusLabel || ev.status, icon: (ev.statusIcon||'').trim() });
       }
     }));
     const fixed = [
-      { bg:'var(--lavender)', color:'#fff', label:'Tarea', show: Object.values(events).some(a => a.some(e => e.type==='task')) },
-      { bg:'var(--mint)',     color:'#3a6b28', label:'Inicio campaña', show: Object.values(events).some(a => a.some(e => e.type==='start')) },
-      { bg:'var(--yellow)',   color:'#7a5a00', label:'Cierre campaña', show: Object.values(events).some(a => a.some(e => e.type==='end')) },
+      { bg:'var(--lavender)', color:'#fff',    icon:'📋', label:'Tarea',           show: Object.values(events).some(a => a.some(e => e.type==='task')) },
+      { bg:'var(--mint)',     color:'#3a6b28', icon:'▶',  label:'Inicio campaña',  show: Object.values(events).some(a => a.some(e => e.type==='start')) },
+      { bg:'var(--yellow)',   color:'#7a5a00', icon:'■',  label:'Cierre campaña',  show: Object.values(events).some(a => a.some(e => e.type==='end')) },
     ].filter(x => x.show);
     // Order: tracker statuses (defined order), then task/campaign markers
-    const orderedStatuses = TRACKER_STATUS_STYLES.map(s => s.key).filter(k => seen.has(k));
+    const orderedStatuses = TRACKER_STATUS_STYLES
+      .filter(s => s.key !== 'cancelado')
+      .map(s => s.key)
+      .filter(k => seen.has(k));
     if(seen.has('unknown')) orderedStatuses.push('unknown');
     const chips = [
       ...orderedStatuses.map(k => seen.get(k)),
@@ -8410,7 +8415,7 @@ function renderCalendar() {
     ];
     legend.innerHTML = chips.length === 0
       ? '<span style="font-size:11px;color:var(--text-muted);">Sin publicaciones en este mes.</span>'
-      : chips.map(c => `<span style="display:flex;align-items:center;gap:5px;"><span style="width:10px;height:10px;border-radius:3px;background:${c.bg};display:inline-block;"></span>${c.label}</span>`).join('');
+      : chips.map(c => `<span style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:14px;background:${c.bg};color:${c.color};font-size:11px;font-weight:700;">${c.icon||''} ${c.label}</span>`).join('');
   }
 }
 
