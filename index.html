@@ -2983,7 +2983,7 @@ function renderDashboard() {
       <div class="task-check ${t.done?'done':''}" onclick="toggleTask('${t.id}','${t.campaignId||''}')"></div>
       <div class="priority-dot priority-${t.priority}"></div>
       <div class="task-info">
-        <div class="task-title ${t.done?'done-text':''}">${t.title}</div>
+        <div class="task-title ${t.done?'done-text':''}">${_esc(t.title)}</div>
         <div class="task-meta">${t.campaignName||'General'}${showDate && t.dueDate ? ' · ' + formatDate(t.dueDate) : ''}</div>
       </div>
       <button class="task-edit-btn" onclick="openEditTaskModal('${t.id}','${t.campaignId||''}')" title="Editar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></svg></button>
@@ -3034,8 +3034,8 @@ function renderDashboard() {
   dct.innerHTML = campaigns.map(c => {
     const nextStep = c.flowSteps.find(f=>f.status!=='Completado'&&f.status!=='Aprobado')?.step || 'Completado';
     return `<tr onclick="openCampaignDetail('${c.id}')" style="cursor:pointer">
-      <td><strong>${c.name}</strong></td>
-      <td>${c.client}</td>
+      <td><strong>${_esc(c.name)}</strong></td>
+      <td>${_esc(c.client)}</td>
       <td>${statusBadge(c.status)}</td>
       <td style="color:var(--text-muted);font-size:12px">${nextStep}</td>
       <td style="font-size:12px">${c.startDate?formatDateShort(c.startDate):'—'}${c.endDate?' → '+formatDateShort(c.endDate):''}</td>
@@ -3066,7 +3066,7 @@ function renderDashboard() {
     <div class="influencer-row" style="gap:8px;">
       <div class="inf-avatar">${initial}</div>
       <div class="inf-info" style="min-width:0;">
-        <div class="inf-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.name}</div>
+        <div class="inf-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_esc(p.name)}</div>
         <div class="inf-handle" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${sub}</div>
       </div>
       ${p.format?`<span style="font-size:11px;color:var(--text-muted);white-space:nowrap;">${p.format}</span>`:''}
@@ -3120,8 +3120,8 @@ function renderCampaignGrid() {
     return `<div class="campaign-card" onclick="openCampaignDetail('${c.id}')">
       <div class="campaign-card-header">
         <div>
-          <div class="campaign-name">${c.name}</div>
-          <div class="campaign-client">${c.client}</div>
+          <div class="campaign-name">${_esc(c.name)}</div>
+          <div class="campaign-client">${_esc(c.client)}</div>
         </div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">${statusBadge(c.status)}${subBtn}</div>
       </div>
@@ -3203,12 +3203,12 @@ function openCampaignDetail(cid) {
     : assignedUsers.map(u => `
         <span class="badge" style="background:var(--lavender-pale);color:var(--lavender);display:inline-flex;align-items:center;gap:6px;">
           ${memberAvatarHtml(u, 18)}
-          ${u.name||u.email}
+          ${_esc(u.name||u.email)}
           ${(isAdmin() || c.createdBy===currentUser.uid) ? `<button onclick="removeAssignee('${c.id}','${u.uid}')" style="background:none;border:none;cursor:pointer;color:var(--lavender);font-size:11px;padding:0 0 0 4px;">✕</button>` : ''}
         </span>`).join(' ');
 
   document.getElementById('campaignInfoGrid').innerHTML = `
-    <div class="info-field"><div class="info-label">Cliente</div><div class="info-value">${c.client}</div></div>
+    <div class="info-field"><div class="info-label">Cliente</div><div class="info-value">${_esc(c.client)}</div></div>
     <div class="info-field"><div class="info-label">Temporada</div><div class="info-value">${c.season||'—'}</div></div>
     <div class="info-field"><div class="info-label">Objetivo</div><div class="info-value">${c.objective||'—'}</div></div>
     <div class="info-field"><div class="info-label">Core Message</div><div class="info-value">${c.coreMessage||'—'}</div></div>
@@ -3699,7 +3699,7 @@ function renderCampaignInfluencers(c) {
     ? `<tr><td colspan="10"><div class="empty-state"><p>Sin influencers. Agrega el primero.</p></div></td></tr>`
     : c.influencers.map(inf=>`
     <tr>
-      <td><div style="display:flex;align-items:center;gap:8px"><div class="inf-avatar" style="width:28px;height:28px;font-size:11px">${inf.name[0]}</div><div><div style="font-weight:600;font-size:13px">${inf.name}</div><div style="font-size:11px;color:var(--text-muted)">${inf.handle}</div></div></div></td>
+      <td><div style="display:flex;align-items:center;gap:8px"><div class="inf-avatar" style="width:28px;height:28px;font-size:11px">${inf.name[0]}</div><div><div style="font-weight:600;font-size:13px">${_esc(inf.name)}</div><div style="font-size:11px;color:var(--text-muted)">${_esc(inf.handle)}</div></div></div></td>
       <td>${inf.format}</td>
       <td>${formatDateShort(inf.publishDate)||'—'}</td>
       <td><span style="display:inline-flex;align-items:center;gap:6px"><span style="width:14px;height:14px;display:inline-flex;color:var(--text-muted)">${pfIcon[inf.platform]||''}</span>${inf.platform}</span></td>
@@ -3723,7 +3723,7 @@ function _taskItemHtml(t, cid) {
     <div class="task-check ${t.done?'done':''}" onclick="toggleTask('${t.id}','${cid}')"></div>
     <div class="priority-dot priority-${t.priority}"></div>
     <div class="task-info" onclick="openTaskDetail('${t.id}','${cid}')" style="cursor:pointer;">
-      <div class="task-title ${t.done?'done-text':''}">${t.title}</div>
+      <div class="task-title ${t.done?'done-text':''}">${_esc(t.title)}</div>
       <div class="task-meta" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">${assigneeHtml}${t.dueDate?`<span>${formatDate(t.dueDate)}</span>`:''}</div>
     </div>
     <button class="task-edit-btn" onclick="openEditTaskModal('${t.id}','${cid}')" title="Editar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></svg></button>
@@ -5122,7 +5122,7 @@ function renderEscenarioBlock(c) {
             ${enriched.sort((a,b)=>b.viewsEstTotal-a.viewsEstTotal).map(cr => {
               const breakdown = cr.platforms.map(p => `${p.cantidad||1} ${p.contenido||p.platform}`).join(' · ');
               return `<tr>
-                <td><div style="font-weight:600;">${cr.nombre}</div><div style="font-size:10px;color:var(--text-muted);">${cr.comunidad||''}</div></td>
+                <td><div style="font-weight:600;">${_esc(cr.nombre)}</div><div style="font-size:10px;color:var(--text-muted);">${_esc(cr.comunidad)||""}</div></td>
                 <td><span style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:6px;background:var(--bg);">${cr.tier||'—'}</span></td>
                 <td style="font-size:11px;">${breakdown||'—'}</td>
                 <td style="text-align:right;">${fmt(cr.viewsEstTotal)}</td>
@@ -5337,7 +5337,7 @@ function renderPendientes() {
       <div class="task-check ${t.done?'done':''}" onclick="toggleTask('${t.id}','${t.campaignId||''}')"></div>
       <div class="priority-dot priority-${t.priority}"></div>
       <div class="task-info">
-        <div class="task-title ${t.done?'done-text':''}">${t.title}${t._isRecurring?` <span style="font-size:10px;color:var(--text-muted);">🔄 Semanal</span>`:''}${t.done&&t._isRecurring?` <span style="font-size:10px;color:var(--text-muted);">· listo esta semana</span>`:''}</div>
+        <div class="task-title ${t.done?'done-text':''}">${_esc(t.title)}${t._isRecurring?` <span style="font-size:10px;color:var(--text-muted);">🔄 Semanal</span>`:''}${t.done&&t._isRecurring?` <span style="font-size:10px;color:var(--text-muted);">· listo esta semana</span>`:''}</div>
         <div class="task-meta" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
           ${t.campaignName?`<a onclick="openCampaignDetail('${t.campaignId}')" style="color:var(--pink);cursor:pointer;font-weight:600">${t.campaignName}</a>`:''}
           ${t.campaignName?'·':''}
@@ -5457,7 +5457,7 @@ function renderMetrics() {
     <div class="campaign-card" onclick="openMetricsCampaign('${c.id}')">
       <div class="campaign-card-header">
         <div>
-          <div class="campaign-name">${c.name}</div>
+          <div class="campaign-name">${_esc(c.name)}</div>
           <div class="campaign-client">${c.client||''}</div>
         </div>
         <span class="badge ${statusBadgeClass(c.status)}">${c.status}</span>
@@ -5567,7 +5567,7 @@ function _renderMetricsTabs() {
   sel.innerHTML = [
     `<button class="metrics-tab-pill ${_selectedMetricsTab==='all'?'active':''}" onclick="selectMetricsTab('all')">Todas las pestañas</button>`,
     ..._metricsSheetTabs.map(t =>
-      `<button class="metrics-tab-pill ${_selectedMetricsTab===t.gid?'active':''}" onclick="selectMetricsTab('${t.gid}')">${t.title}</button>`)
+      `<button class="metrics-tab-pill ${_selectedMetricsTab===t.gid?'active':''}" onclick="selectMetricsTab('${t.gid}')">${_esc(t.title)}</button>`)
   ].join('');
 }
 
@@ -5867,7 +5867,7 @@ function displayMetrics(rows, campaign) {
 // ============================================================
 function populateCampaignSelects() {
   const campaigns = visibleCampaigns();
-  const opts = campaigns.map(c=>`<option value="${c.id}">${c.name} (${c.client})</option>`).join('');
+  const opts = campaigns.map(c=>`<option value="${c.id}">${_esc(c.name)} (${_esc(c.client)})</option>`).join('');
   ['dashGenCampaign','fullGenCampaign','fTaskCampaign'].forEach(id=>{
     const el=document.getElementById(id);
     if(el) el.innerHTML = `<option value="">— Sin campaña —</option>` + opts;
@@ -5895,7 +5895,7 @@ async function generateText(scope) {
 
   const campaigns = getData('campaigns');
   const c = campaigns.find(x=>x.id===campId);
-  const campInfo = c ? `Campaña: ${c.name}, Cliente: ${c.client}, Objetivo: ${c.objective||'—'}, Core message: ${c.coreMessage||'—'}` : 'Sin campaña específica';
+  const campInfo = c ? `Campaña: ${_esc(c.name)}, Cliente: ${c.client}, Objetivo: ${c.objective||'—'}, Core message: ${c.coreMessage||'—'}` : 'Sin campaña específica';
 
   const prompts = {
     'Follow up cliente':   `Escribe un email corto y profesional de follow up para el cliente de esta campaña de influencer marketing. Tono: amable, ejecutivo, en español. ${campInfo}. Contexto adicional: ${ctx||'ninguno'}. Firma con el nombre del responsable.`,
@@ -6820,7 +6820,7 @@ function openAddDocModalGlobal() {
   const sel = document.getElementById('fDocCampaign');
   const camps = visibleCampaigns();
   if(camps.length === 0) { showToast('Crea una campaña primero','error'); return; }
-  sel.innerHTML = camps.map(c=>`<option value="${c.id}">${c.name} (${c.client})</option>`).join('');
+  sel.innerHTML = camps.map(c=>`<option value="${c.id}">${_esc(c.name)} (${_esc(c.client)})</option>`).join('');
   // Pre-select selected page campaign if any
   const pageSel = document.getElementById('docPageCampaign');
   if(pageSel && pageSel.value) sel.value = pageSel.value;
@@ -6867,7 +6867,7 @@ function renderDocumentosPage() {
   const sel = document.getElementById('docPageCampaign');
   const prev = sel.value;
   sel.innerHTML = '<option value="">— Selecciona una campaña —</option>' +
-    camps.map(c=>`<option value="${c.id}">${c.name} (${c.client})</option>`).join('');
+    camps.map(c=>`<option value="${c.id}">${_esc(c.name)} (${_esc(c.client)})</option>`).join('');
   if(prev && camps.find(c=>c.id===prev)) sel.value = prev;
 
   const list = document.getElementById('docPageList');
@@ -7885,13 +7885,13 @@ function renderInfluencers() {
   grid.innerHTML = infs.map(inf => {
     const ratings = infRatingsFor(inf.key);
     const avg = avgStars(ratings);
-    const campList = inf.campaigns.map(c => `<span style="font-size:11px;padding:2px 7px;border-radius:12px;background:var(--bg);color:var(--text-muted);border:1px solid var(--border);">${c.name}</span>`).join(' ');
+    const campList = inf.campaigns.map(c => `<span style="font-size:11px;padding:2px 7px;border-radius:12px;background:var(--bg);color:var(--text-muted);border:1px solid var(--border);">${_esc(c.name)}</span>`).join(' ');
     return `<div class="campaign-card" onclick="openInfluencerDetail('${inf.key}')" style="cursor:pointer;">
       <div class="campaign-card-header">
         <div style="display:flex;align-items:center;gap:10px;">
           <div class="inf-avatar" style="width:40px;height:40px;font-size:15px;flex-shrink:0;">${(inf.name||'?')[0].toUpperCase()}</div>
           <div>
-            <div class="campaign-name">${inf.name}</div>
+            <div class="campaign-name">${_esc(inf.name)}</div>
             <div class="campaign-client">${inf.handle ? '@'+inf.handle : ''} ${inf.platform ? '· '+inf.platform : ''}</div>
           </div>
         </div>
@@ -7928,8 +7928,8 @@ function renderInfluencerDetailContent(inf) {
   const campRows = inf.campaigns.map(c => `
     <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);">
       <div>
-        <div style="font-size:13px;font-weight:600;">${c.name}</div>
-        <div style="font-size:11px;color:var(--text-muted);">${c.client}</div>
+        <div style="font-size:13px;font-weight:600;">${_esc(c.name)}</div>
+        <div style="font-size:11px;color:var(--text-muted);">${_esc(c.client)}</div>
       </div>
       <span class="badge ${statusBadgeClass(c.status)}">${c.status}</span>
     </div>`).join('');
@@ -8148,7 +8148,7 @@ function openProfileModal(uid) {
     <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);">
       <div style="width:8px;height:8px;border-radius:50%;margin-top:5px;flex-shrink:0;background:${t.priority==='high'?'var(--red)':t.priority==='medium'?'var(--yellow)':'var(--border)'}"></div>
       <div style="flex:1;min-width:0;">
-        <div style="font-size:13px;font-weight:600;${isDone?'text-decoration:line-through;color:var(--text-muted);':''}">${t.title}</div>
+        <div style="font-size:13px;font-weight:600;${isDone?'text-decoration:line-through;color:var(--text-muted);':''}">${_esc(t.title)}</div>
         <div style="font-size:11px;color:var(--text-muted);margin-top:2px;display:flex;gap:8px;flex-wrap:wrap;">
           <span>${t.campaignName}</span>
           ${t.dueDate?`<span>${formatDate(t.dueDate)}</span>`:''}
@@ -8159,7 +8159,7 @@ function openProfileModal(uid) {
   const campCard = c => `
     <div onclick="openCampaignDetail('${c.id}');closeModal('profileModal');" style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;cursor:pointer;transition:all .15s;" onmouseover="this.style.borderColor='var(--pink)'" onmouseout="this.style.borderColor='var(--border)'">
       <div style="flex:1;min-width:0;">
-        <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${c.name}</div>
+        <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_esc(c.name)}</div>
         <div style="font-size:11px;color:var(--text-muted);">${c.client||''}</div>
       </div>
       <span class="badge ${statusBadgeClass(c.status)}" style="font-size:10px;">${c.status}</span>
