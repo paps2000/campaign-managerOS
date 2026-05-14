@@ -3261,10 +3261,11 @@ function renderCampaignGrid() {
     // (campaign.goal.contenidos > BIG NUMBERS row > sum of escenario creators)
     let goalCont = (c.goal && c.goal.contenidos) || 0;
     let escSum = 0;
+    let goalFromSheet = false;
     if(!goalCont && c.escenarioRows && c.escenarioRows.length) {
       try {
         const p = parseEscenarioRows(c.escenarioRows);
-        if(p.goal && p.goal.totalContenidos) goalCont = p.goal.totalContenidos;
+        if(p.goal && p.goal.totalContenidos) { goalCont = p.goal.totalContenidos; goalFromSheet = true; }
         else escSum = p.creators.reduce((a,cr)=>a+cr.contenidosTotal,0);
       } catch(e){}
     }
@@ -3277,7 +3278,12 @@ function renderCampaignGrid() {
     const ugcPub = (typeof _parseUgcResults==='function' && c.ugcRows) ? (_parseUgcResults(c.ugcRows)?.contenidosPublicados||0) : 0;
     const ugcCommitted = (c.escenarioRows && (()=>{ try{return parseEscenarioRows(c.escenarioRows).ugc?.cantidadContenidos||0;}catch(e){return 0;} })()) || 0;
     const totalPub = trackerPub + ugcPub;
-    const totalCerrado = goalCont + ugcCommitted;
+    // Don't add UGC committed when the goal already comes from the sheet's
+    // BIG NUMBERS / TOTAL row — it already encompasses both AON and UGC.
+    // Also don't add UGC when goal came from the campaign-creation form
+    // (user enters the final total there too).
+    const goalHasUgcBuiltIn = goalFromSheet || (c.goal && c.goal.contenidos > 0);
+    const totalCerrado = goalHasUgcBuiltIn ? goalCont : (goalCont + ugcCommitted);
     const contPct = totalCerrado > 0 ? Math.round((totalPub / totalCerrado) * 100) : 0;
     const sub = isSubscribed(c.id);
     const subBtn = !isAdmin() ? `<button class="sub-btn ${sub?'sub-active':''}" onclick="toggleSubscribeCampaign('${c.id}',event)" title="${sub?'Dejar de seguir':'Seguir campaña'}">${sub?'✓ Siguiendo':'+ Seguir'}</button>` : '';
@@ -3570,6 +3576,16 @@ function _campaignCoherenceData(c) {
     });
   }
 
+  // When the escenario sheet provides a goal/totals row (BIG NUMBERS /
+  // TOTAL) we treat that number as the definitive cerrado total — it
+  // already encompasses both AON and UGC commitments and adding the UGC
+  // row again would double-count. Only when no goal row exists do we
+  // fall back to summing AON creators + UGC commitments.
+  const goalProvided = escenario && escenario.goal && (escenario.goal.totalContenidos > 0);
+  const totalCerrado = goalProvided
+    ? escenarioContTotal
+    : (escenarioContTotal + ugcCommitted);
+
   return {
     trackerPublicado, trackerTotal,
     escenarioContTotal, escenarioViewsEst, escenarioEngEst,
@@ -3578,7 +3594,8 @@ function _campaignCoherenceData(c) {
     escenario,
     ugcCommitted, ugcPublicado, ugcResults,
     totalPublicado: trackerPublicado + ugcPublicado,
-    totalCerrado: escenarioContTotal + ugcCommitted,
+    totalCerrado,
+    goalProvided,
   };
 }
 
@@ -5046,11 +5063,10 @@ function parseEscenarioRows(rows) {
     }
 
     // Goal row → campaign target totals. Multiple candidates can match
-    // ("BIG NUMBERS ABD" header + a later "TOTAL CAMPAÑA" with the actual
-    // numbers). Per user spec, we want the LAST populated row — i.e.
-    // whichever totals row appears furthest down, ignoring empty header
-    // banners. We also skip candidates with zero values so an empty
-    // trailing banner doesn't wipe out an earlier real totals row.
+    // (header banner + a separate populated totals row). Per user spec,
+    // we want the row with the LARGEST single existing total — never the
+    // sum of multiple rows. We pick per-metric max across all matching
+    // rows so the goal carries the bigger of any duplicate values found.
     if(ESCENARIO_GOAL_RE.test(nm)) {
       const candidate = {
         name: nm,
@@ -5062,11 +5078,27 @@ function parseEscenarioRows(rows) {
         costoTotal:      num(get(r, ...COSTO_K)),
       };
       const score = g => g ? (g.totalContenidos + g.viewsEstTotal + g.engagementEst + g.costoTotal) : 0;
-      // Replace only when the new candidate is populated. Last populated
-      // candidate wins so trailing TOTAL rows take precedence over earlier
-      // BIG NUMBERS rows when both exist.
-      if(score(candidate) > 0) { goal = candidate; _expectGoalValuesNextRow = false; }
-      else { _expectGoalValuesNextRow = true; } // label-only header, read next row
+      if(score(candidate) > 0) {
+        if(!goal) goal = candidate;
+        else {
+          // Take the larger value PER FIELD, not the sum. This handles
+          // sheets where one banner has totals and a later row repeats
+          // (or extends) them: we never double-count, we just keep the
+          // bigger reference for each KPI.
+          goal = {
+            name: candidate.name || goal.name,
+            totalContenidos: Math.max(goal.totalContenidos, candidate.totalContenidos),
+            totalSeguidores: Math.max(goal.totalSeguidores, candidate.totalSeguidores),
+            viewsEstTotal:   Math.max(goal.viewsEstTotal,   candidate.viewsEstTotal),
+            engagementEst:   Math.max(goal.engagementEst,   candidate.engagementEst),
+            engagementRate:  Math.max(goal.engagementRate,  candidate.engagementRate),
+            costoTotal:      Math.max(goal.costoTotal,      candidate.costoTotal),
+          };
+        }
+        _expectGoalValuesNextRow = false;
+      } else {
+        _expectGoalValuesNextRow = true; // label-only header, read next row
+      }
       return;
     }
 
@@ -5272,11 +5304,15 @@ function renderEscenarioBlock(c) {
   const ugcContReal  = ugcRes ? ugcRes.contenidosPublicados : 0;
   const ugcContCerrados = ugc ? (ugc.cantidadContenidos||0) : 0;
 
-  // Combined totals (campaign-wide): AON + UGC
+  // Combined totals (campaign-wide): AON + UGC.
+  // Goal/cerrado side: if the sheet has a populated TOTAL/BIG NUMBERS
+  // row, that number is taken as final — it already includes UGC, so
+  // we don't add ugcContCerrados (avoids the 350 → 650 double-count).
+  const goalPresent = !!(goal && goal.totalContenidos > 0);
   const totalViewsReal = agg.viewsReal + ugcViewsReal;
   const totalEngReal   = agg.engReal + ugcEngReal;
   const totalContReal  = agg.contReal + ugcContReal;
-  const totalContGoal  = totalContEstForPct + ugcContCerrados;
+  const totalContGoal  = goalPresent ? totalContEstForPct : (totalContEstForPct + ugcContCerrados);
   const totalContPct   = totalContGoal>0 ? (totalContReal/totalContGoal)*100 : 0;
 
   const subSplit = (aonVal, ugcVal) => ugcRes
@@ -5285,19 +5321,19 @@ function renderEscenarioBlock(c) {
   const headlineHtml = `
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:14px;">
       <div style="background:var(--white);border:1px solid var(--border);border-radius:12px;padding:12px 14px;">
-        <div style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;">Views ${ugcRes?'(AON+UGC)':''}</div>
+        <div style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;">Views${ugcRes?' (AON+UGC)':''}</div>
         <div style="font-size:22px;font-weight:800;line-height:1.1;margin-top:4px;">${fmt(totalViewsReal)} <span style="font-size:12px;color:var(--text-muted);font-weight:600;">/ ${fmt(totalViewsEstForPct)} est.</span></div>
         <div style="margin-top:6px;">${pctCell(viewsPctAll)}</div>
         ${subSplit(agg.viewsReal, ugcViewsReal)}
       </div>
       <div style="background:var(--white);border:1px solid var(--border);border-radius:12px;padding:12px 14px;">
-        <div style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;">Engagement ${ugcRes?'(AON+UGC)':''}</div>
+        <div style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;">Engagement${ugcRes?' (AON+UGC)':''}</div>
         <div style="font-size:22px;font-weight:800;line-height:1.1;margin-top:4px;">${fmt(totalEngReal)} <span style="font-size:12px;color:var(--text-muted);font-weight:600;">/ ${fmt(totalEngEstForPct)} est.</span></div>
         <div style="margin-top:6px;">${pctCell(engPctAll)}</div>
         ${subSplit(agg.engReal, ugcEngReal)}
       </div>
       <div style="background:var(--white);border:1px solid var(--border);border-radius:12px;padding:12px 14px;">
-        <div style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;">Contenidos ${ugcRes?'(AON+UGC)':''}</div>
+        <div style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;">Contenidos${ugcRes?' (AON+UGC)':''}</div>
         <div style="font-size:22px;font-weight:800;line-height:1.1;margin-top:4px;">${totalContReal} <span style="font-size:12px;color:var(--text-muted);font-weight:600;">/ ${totalContGoal}</span></div>
         <div style="margin-top:6px;">${pctCell(totalContPct)}</div>
         ${subSplit(agg.contReal, ugcContReal)}
