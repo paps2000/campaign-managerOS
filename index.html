@@ -4726,8 +4726,11 @@ function _parseUgcResults(rows) {
 }
 
 // Heuristics that decide which rows are real creators vs banners / totals / UGC
-const ESCENARIO_BANNER_RE = /^(big numbers|budget|aurora|resumen|total|subtotal|fase|fee)/i;
-const ESCENARIO_GOAL_RE   = /^big numbers/i;
+const ESCENARIO_BANNER_RE = /^(big numbers|budget|aurora|resumen|total|subtotal|fase|fee|suma|gran total)/i;
+// Rows that should be treated as the CAMPAIGN GOAL (totals).
+// Covers "BIG NUMBERS X", "TOTAL", "TOTALES", "TOTAL CAMPAÑA", "SUMA",
+// "GRAN TOTAL", "TOTAL GENERAL", "TOTAL ESCENARIO", etc.
+const ESCENARIO_GOAL_RE   = /^(big numbers|totales?|gran total|total general|total campaña|total escenario|suma total|total final)\b/i;
 function _escenarioIsCreatorName(raw) {
   const v = String(raw||'').trim();
   if(!v) return false;
@@ -4776,10 +4779,17 @@ function parseEscenarioRows(rows) {
     let nm = String(get(r, ...NOMBRE_K)||'').trim();
     const cm = String(get(r, ...COMUNIDAD_K)||'').trim();
     const ch = String(get(r, ...COHORTS_K)||'').trim();
-    // Some summary rows put the label in COMUNIDADES instead of NOMBRE
-    // (e.g. "BIG NUMBERS ABD"). Promote it to nm so the row gets classified.
-    if(!nm && cm && (ESCENARIO_BANNER_RE.test(cm) || /^ugc$/i.test(cm) || ESCENARIO_GOAL_RE.test(cm))) {
-      nm = cm;
+    // Some summary rows put the label in COMUNIDADES / COHORTS instead of
+    // NOMBRE (e.g. "BIG NUMBERS ABD", "TOTAL", "TOTALES"). Also scan the
+    // first ~4 cells of the row for a totals keyword so the goal row is
+    // detected no matter which column the label landed in.
+    if(!nm) {
+      const candidates = [cm, ch].filter(Boolean);
+      // Walk first 4 raw values too (header-agnostic — for unmerged totals rows)
+      const firstCells = Object.values(r).slice(0,4).map(v => String(v||'').trim()).filter(Boolean);
+      candidates.push(...firstCells);
+      const hit = candidates.find(v => ESCENARIO_BANNER_RE.test(v) || /^ugc$/i.test(v) || ESCENARIO_GOAL_RE.test(v));
+      if(hit) nm = hit;
     }
     if(nm) {
       const isTerminal = /^ugc$/i.test(nm) || ESCENARIO_BANNER_RE.test(nm);
@@ -4809,9 +4819,12 @@ function parseEscenarioRows(rows) {
       return;
     }
 
-    // Goal row (BIG NUMBERS ABD) → campaign target totals
+    // Goal row → campaign target totals. Multiple candidates can match
+    // ("BIG NUMBERS ABD" and a later "TOTAL CAMPAÑA"). Keep the most
+    // populated one (max sum of numeric values) so empty banner rows
+    // don't overwrite a real totals row.
     if(ESCENARIO_GOAL_RE.test(nm)) {
-      goal = {
+      const candidate = {
         name: nm,
         totalContenidos: num(get(r, ...CANT_K)),
         totalSeguidores: num(get(r, 'TOTAL DE SEGUIDORES','Total de Seguidores')),
@@ -4820,6 +4833,8 @@ function parseEscenarioRows(rows) {
         engagementRate:  parseFloat(get(r, ...ENG_RATE_K))||0,
         costoTotal:      num(get(r, ...COSTO_K)),
       };
+      const score = g => g ? (g.totalContenidos + g.viewsEstTotal + g.engagementEst + g.costoTotal) : 0;
+      if(!goal || score(candidate) > score(goal)) goal = candidate;
       return;
     }
 
