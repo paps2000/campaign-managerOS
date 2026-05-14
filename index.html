@@ -2320,12 +2320,12 @@ html.dark .pronoun-chip.selected { background:var(--pink-pale); color:#fff; }
 
     <!-- Tab bar -->
     <div class="profile-tab-bar">
-      <button class="profile-tab-btn active" data-ptab="apariencia" onclick="switchProfileTab('apariencia')">✦ Apariencia</button>
-      <button class="profile-tab-btn" data-ptab="info" onclick="switchProfileTab('info')">👤 Info</button>
+      <button class="profile-tab-btn active" data-ptab="info" onclick="switchProfileTab('info')">👤 Info</button>
+      <button class="profile-tab-btn" data-ptab="apariencia" onclick="switchProfileTab('apariencia')">✦ Apariencia</button>
     </div>
 
     <!-- Tab: Apariencia -->
-    <div class="profile-tab-pane active" id="ptab-apariencia">
+    <div class="profile-tab-pane" id="ptab-apariencia">
       <div class="form-group" style="margin-bottom:18px;">
         <label class="form-label" style="margin-bottom:8px;">Avatar</label>
         <!-- Categorías -->
@@ -2372,7 +2372,7 @@ html.dark .pronoun-chip.selected { background:var(--pink-pale); color:#fff; }
     </div>
 
     <!-- Tab: Info -->
-    <div class="profile-tab-pane" id="ptab-info">
+    <div class="profile-tab-pane active" id="ptab-info">
       <!-- Estado -->
       <div class="form-group">
         <label class="form-label">Estado</label>
@@ -7232,6 +7232,17 @@ function parseLocaleNumber(v) {
   return isFinite(n)?n:0;
 }
 
+// Render the short form of a comma-separated pronouns value.
+// Examples: "él/ellos"        -> "(él)"
+//           "él/ellos, elle/elles" -> "(él, elle)"
+// Returns "" if no value or no first-tokens parsed.
+function _shortPronouns(raw) {
+  if(!raw) return '';
+  const parts = String(raw).split(',').map(s => s.trim()).filter(Boolean);
+  const firsts = parts.map(p => p.split('/')[0].trim()).filter(Boolean);
+  return firsts.length ? '(' + firsts.join(', ') + ')' : '';
+}
+
 // Pronoun chip toggle: multi-select, max 2.
 function togglePronoun(btn) {
   if(!btn) return;
@@ -7244,6 +7255,7 @@ function togglePronoun(btn) {
   const vals = Array.from(document.querySelectorAll('#profilePronounsChips .pronoun-chip.selected')).map(c => c.dataset.val);
   const inp = document.getElementById('profilePronounsInput');
   if(inp) inp.value = vals.join(', ');
+  try { _syncProfilePreview(); } catch(e){}
 }
 function _refreshPronounChipState() {
   const selected = document.querySelectorAll('#profilePronounsChips .pronoun-chip.selected').length;
@@ -7498,7 +7510,9 @@ auth.onAuthStateChanged(async (user) => {
 
   // Update UI with user info
   const displayName = currentUserProfile.name || user.email.split('@')[0];
-  document.getElementById('userNameSidebar').textContent = displayName;
+  const shortPron = (typeof _shortPronouns==='function') ? _shortPronouns(currentUserProfile.pronouns) : '';
+  const sidebarNameEl = document.getElementById('userNameSidebar');
+  sidebarNameEl.textContent = displayName + (shortPron ? ' ' + shortPron : '');
   updateSidebarAvatar();
   loadTheme(currentUserProfile);
   initNotifications();
@@ -8484,7 +8498,7 @@ function openProfileModal(uid) {
         <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">${u.email}</div>
         ${(u.statusText) ? `<div style="display:inline-flex;align-items:center;gap:5px;padding:3px 10px;background:var(--pink-pale);border-radius:20px;font-size:12px;color:var(--text-muted);margin-top:6px;">${u.statusEmoji||'💬'} ${u.statusText}</div>` : ''}
         ${u.tagline ? `<div style="font-size:12px;color:var(--text-muted);margin-top:4px;font-style:italic;">${u.tagline}</div>` : ''}
-        ${u.pronouns ? `<div style="font-size:11px;color:var(--text-muted);margin-top:2px;">${u.pronouns}</div>` : ''}
+        ${u.pronouns ? `<div style="font-size:11px;color:var(--text-muted);margin-top:2px;">${_esc(_shortPronouns(u.pronouns)||u.pronouns)}</div>` : ''}
         ${u.bio ? `<div style="font-size:13px;color:var(--text-muted);margin-top:8px;font-style:italic;">"${u.bio}"</div>` : ''}
         <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
           ${u.puesto?`<span class="badge" style="background:var(--lavender-pale);color:var(--blue);">${u.puesto}</span>`:''}
@@ -8752,7 +8766,7 @@ function openEditProfileModal() {
   _syncProfilePreview();
 
   // Reset to apariencia tab
-  switchProfileTab('apariencia');
+  switchProfileTab('info');
   openModal('editProfileModal');
 }
 
@@ -8795,7 +8809,11 @@ function _syncProfilePreview() {
 
   const area   = document.getElementById('profileAreaInput')?.value   || currentUserProfile.area   || '';
   const puesto = document.getElementById('profilePuestoInput')?.value || currentUserProfile.puesto || '';
-  if(nameEl) nameEl.textContent = currentUserProfile.name || currentUserProfile.email;
+  if(nameEl) {
+    const pron = (document.getElementById('profilePronounsInput')?.value)||currentUserProfile.pronouns||'';
+    const sp = _shortPronouns(pron);
+    nameEl.textContent = (currentUserProfile.name || currentUserProfile.email) + (sp ? ' ' + sp : '');
+  }
   if(subEl)  subEl.textContent  = [puesto, area].filter(Boolean).join(' · ') || 'Think Y.';
 
   // Status preview
@@ -8866,6 +8884,12 @@ async function saveMyProfile() {
     ]);
     Object.assign(currentUserProfile, updates);
     updateSidebarAvatar();
+    // Refresh sidebar name + short pronouns
+    const sidebarNameEl = document.getElementById('userNameSidebar');
+    if(sidebarNameEl) {
+      const sp = _shortPronouns(pronouns);
+      sidebarNameEl.textContent = (currentUserProfile.name || currentUser.email.split('@')[0]) + (sp ? ' ' + sp : '');
+    }
     const roleBadge = document.getElementById('userRoleSidebar');
     if(roleBadge) roleBadge.textContent = puesto || (currentUserProfile.role==='admin'?'Admin':'Miembro');
     showToast('Perfil actualizado ✓','success');
