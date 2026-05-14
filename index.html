@@ -4525,7 +4525,7 @@ function _parseUgcResults(rows) {
   if(!rows || !rows.length) return null;
   const norm = s => String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[_\s@]+/g,' ').trim();
   const get = (r, ...keys) => { for(const k of keys){ const kn=norm(k); for(const rk of Object.keys(r)){ if(norm(rk)===kn && r[rk]!=null && r[rk]!=='') return r[rk]; } } return ''; };
-  const num = v => { const n = parseFloat(String(v||'').replace(/[,$\s%]/g,'')); return isFinite(n)?n:0; };
+  const num = parseLocaleNumber;
 
   const NAME_K = ['NOMBRE','Nombre','PERFIL','Perfil','USERNAME','Username','Handle','HANDLE','Creator','Creador','Influencer'];
   const PLAT_K = ['PLATAFORMA','Plataforma','PLATFORM','Platform','Red Social','Red'];
@@ -4593,7 +4593,7 @@ function _escenarioIsCreatorName(raw) {
 // Parse escenario rows into structured creators + ugc + campaign goal
 function parseEscenarioRows(rows) {
   if(!rows || !rows.length) return { creators: [], ugc: null, goal: null };
-  const num = v => { const n = parseFloat(String(v||'').replace(/[,$\s]/g,'')); return isFinite(n)?n:0; };
+  const num = parseLocaleNumber;
   const get = (r, ...keys) => {
     const n = s => String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[_\s]+/g,' ').trim();
     for(const k of keys){ const kn=n(k); for(const rk of Object.keys(r)){ if(n(rk)===kn && r[rk]!=null && r[rk]!=='') return r[rk]; } }
@@ -4742,7 +4742,7 @@ function _escenarioRealMetricsByCreator(campaign) {
   if(!rows.length) return out;
   const norm = s => String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[_\s@]+/g,' ').trim();
   const get = (r, ...keys) => { for(const k of keys){ const kn=norm(k); for(const rk of Object.keys(r)){ if(norm(rk)===kn && r[rk]) return r[rk]; } } return ''; };
-  const num = v => { const n = parseFloat(String(v||'').replace(/[,$\s]/g,'')); return isFinite(n)?n:0; };
+  const num = parseLocaleNumber;
   rows.forEach(r => {
     const name = String(get(r,'Influencer Name','Influencer','Creator','Creador','Cuenta','NOMBRE','Nombre','Handle','Perfil')||'').trim();
     if(!name) return;
@@ -5548,7 +5548,7 @@ function displayMetrics(rows, campaign) {
       const kn = k.toLowerCase().replace(/_/g,' ');
       for(const rk of Object.keys(r)) {
         if(rk.toLowerCase().replace(/_/g,' ') === kn) {
-          const v = parseInt((r[rk]||'').toString().replace(/[,$\s]/g,''));
+          const v = Math.round(parseLocaleNumber(r[rk]));
           if(v) return v;
         }
       }
@@ -6767,6 +6767,47 @@ function formatDateShort(str) {
     return d.toLocaleDateString('es-MX',{day:'numeric',month:'short'});
   } catch { return str; }
 }
+// Locale-aware number parser. Handles:
+//  - "1,180,000"  (en/US thousands)            -> 1180000
+//  - "1.180.000"  (es-MX/EU thousands as dots) -> 1180000
+//  - "1,234.56"   (en decimal w/ thousands)    -> 1234.56
+//  - "1.234,56"   (es decimal w/ thousands)    -> 1234.56
+//  - "1.18E6"     (scientific)                 -> 1180000
+//  - "$ 1,234"    ($, %, spaces stripped)
+//  - empty / NaN / formula errors              -> 0
+function parseLocaleNumber(v) {
+  if(v == null) return 0;
+  let s = String(v).trim();
+  if(!s) return 0;
+  // Strip currency / unit chars but keep digits, dots, commas, minus, e/E
+  s = s.replace(/[$%\s ]/g, '');
+  if(!s || /^(#REF!|#N\/A|#DIV\/0!|#VALUE!|—|-)$/i.test(s)) return 0;
+  // Pure scientific notation
+  if(/^-?\d+(\.\d+)?e-?\d+$/i.test(s)) { const n=parseFloat(s); return isFinite(n)?n:0; }
+  // "0.YYY" or "0,YYY" → always a decimal between 0 and 1
+  if(/^-?0[.,]\d+$/.test(s)) { const n=parseFloat(s.replace(',','.')); return isFinite(n)?n:0; }
+  const lastDot = s.lastIndexOf('.');
+  const lastComma = s.lastIndexOf(',');
+  const lastSep = Math.max(lastDot, lastComma);
+  if(lastSep === -1) { const n = parseFloat(s); return isFinite(n)?n:0; }
+  const tail = s.slice(lastSep+1);
+  // If tail is 1-2 digits → decimal separator. If exactly 3 digits AND there
+  // are other separators of the same kind → still thousands (e.g. "1.234.567").
+  const decSep = s[lastSep];
+  const isThousandsBlock = /^\d{3}$/.test(tail) && (s.split(decSep).length-1 > 1 || (decSep === '.' && lastComma === -1) || (decSep === ',' && lastDot === -1));
+  let normalized;
+  if(/^\d{1,2}$/.test(tail) || (/^\d{3}$/.test(tail) && !isThousandsBlock && lastDot !== -1 && lastComma !== -1)) {
+    // Decimal present
+    const thouSep = decSep === '.' ? ',' : '.';
+    normalized = s.split(thouSep).join('').replace(decSep, '.');
+  } else {
+    // All separators are thousands
+    normalized = s.replace(/[.,]/g, '');
+  }
+  const n = parseFloat(normalized);
+  return isFinite(n)?n:0;
+}
+
 function formatNum(n) {
   const num=parseInt(n)||0;
   if(num>=1000000) return (num/1000000).toFixed(1)+'M';
