@@ -664,7 +664,29 @@ html.dark .login-btn-google { background:var(--white); border-color:var(--border
 html.dark .mobile-nav { background:var(--white); border-color:var(--border); }
 html.dark .task-area-group summary { background:var(--bg); }
 html.dark .profile-modal-hero { background:linear-gradient(160deg,#0d0d11 0%,rgba(255,45,135,.14) 100%); }
+html.dark .profile-modal-hero-close { background:rgba(255,255,255,.08); color:var(--text); }
+html.dark .profile-modal-hero-close:hover { background:rgba(255,255,255,.16); color:#fff; }
+html.dark .profile-status-preview { background:rgba(255,255,255,.06); color:var(--text-muted); }
 html.dark .profile-tab-bar { background:var(--white); }
+html.dark .profile-tab-pane { background:var(--white); color:var(--text); }
+html.dark .emoji-grid { background:var(--bg); border-radius:12px; padding:6px; }
+html.dark .emoji-item.letter { color:var(--text); }
+html.dark .emoji-item:hover { background:rgba(255,255,255,.06); }
+html.dark .emoji-item.selected { background:var(--pink-pale); border-color:var(--pink); }
+html.dark .emoji-cat-btn:hover, html.dark .emoji-cat-btn.active { background:var(--pink-pale); border-color:var(--pink); color:#fff; }
+html.dark .emoji-custom-wrap input { background:var(--bg); color:var(--text); }
+html.dark .color-row-label { color:var(--text-muted); }
+html.dark .color-swatch { box-shadow:0 0 0 1px rgba(255,255,255,.08); }
+html.dark .status-emoji-picker { background:var(--bg); border-color:var(--border); color:var(--text); }
+html.dark .status-emoji-picker:hover { background:var(--pink-pale); }
+html.dark .status-input-wrap input { background:var(--bg); color:var(--text); }
+html.dark #statusEmojiDropdown { background:var(--white) !important; border-color:var(--border) !important; }
+html.dark .shape-opt.selected { background:var(--pink-pale); border-color:var(--pink); color:#fff; }
+html.dark .theme-swatch { box-shadow:0 0 0 1px rgba(255,255,255,.08); }
+html.dark .char-counter { color:var(--text-muted); }
+html.dark .profile-modal-name { color:var(--text); }
+html.dark .profile-modal-sub { color:var(--text-muted); }
+html.dark .modal-footer { background:var(--white); border-top-color:var(--border); }
 html.dark .cal-tooltip-box { background:#1a1a26; }
 html.dark .badge-green { background:rgba(78,195,138,.15); color:#4ec38a; }
 html.dark .badge-yellow { background:rgba(240,200,74,.12); color:#d4a800; }
@@ -1322,16 +1344,9 @@ html.light {
     <div class="nav-item" data-page="metricas">
       <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V9M9 21V3M15 21v-9M21 21V6"/></svg></span> Métricas
     </div>
-    <div class="nav-item" data-page="reportes">
-      <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg></span> Reportes
-    </div>
     <div class="nav-item" data-page="generador">
       <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.5L18 9l-4.2 1.5L12 15l-1.8-4.5L6 9l4.2-1.5z"/><path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9z"/></svg></span> Generador
     </div>
-  </div>
-  <div class="sidebar-team-strip" id="sidebarTeamStrip" style="display:none;">
-    <span class="sidebar-team-label">Equipo</span>
-    <div class="sidebar-team-avatars" id="sidebarTeamAvatars"></div>
   </div>
   <div style="margin-top:auto; padding:12px 0; border-top:1px solid rgba(255,255,255,.08);">
     <div class="nav-item" data-page="ajustes">
@@ -1872,15 +1887,6 @@ html.light {
           <div style="padding:10px 0;text-align:center;font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:.5px;">Dom</div>
         </div>
         <div id="calGrid" style="display:grid;grid-template-columns:repeat(7,1fr);border-left:1px solid var(--border);border-top:1px solid var(--border);"></div>
-      </div>
-    </div>
-
-    <!-- REPORTES PLACEHOLDER -->
-    <div class="page" id="page-reportes">
-      <div class="placeholder-page">
-        <div class="ph-icon" data-ic="reportes"></div>
-        <h2>Reportes</h2>
-        <p>Próximamente: reportes automáticos por campaña con exportación a PDF.</p>
       </div>
     </div>
 
@@ -2464,8 +2470,7 @@ html.light {
 const SIDEBAR_ICN = {
   influencers: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="9" r="2.5"/><path d="M15 16c2-1 5-1 6 1"/></svg>',
   documentos:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/></svg>',
-  calendario:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>',
-  reportes:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg>'
+  calendario:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>'
 };
 
 const ICN_chart = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg>';
@@ -2832,7 +2837,6 @@ function navigate(page) {
     influencers: ['Influencers','Base de talento.',''],
     documentos: ['Documentos','Repositorio de archivos.',''],
     calendario: ['Calendario','Vista de publicaciones.',''],
-    reportes: ['Reportes','Análisis y reportes.',''],
     ajustes: ['Ajustes','Configuración de la app.',''],
   };
   const name = getSettings().name || 'Génesis';
@@ -3190,7 +3194,13 @@ function openCampaignDetail(cid) {
     <div class="info-field" style="grid-column:1/-1;">
       <div class="info-label" style="display:flex;justify-content:space-between;align-items:center;">
         <span>Participantes</span>
-        ${(isAdmin() || c.createdBy===currentUser.uid) ? `<button class="btn btn-ghost btn-sm" onclick="openAssignModal()" style="font-size:11px;">+ Asignar</button>` : ''}
+        <span style="display:flex;gap:6px;">
+          ${(()=>{
+            const subbed = Array.isArray(c.subscribers) && c.subscribers.includes(currentUser?.uid);
+            return `<button class="btn btn-ghost btn-sm" onclick="toggleCampaignSubscription('${c.id}')" style="font-size:11px;" title="Recibe notificaciones cuando esta campaña cambie">${subbed?'🔕 Dejar de seguir':'🔔 Suscribirme'}</button>`;
+          })()}
+          ${(isAdmin() || c.createdBy===currentUser.uid) ? `<button class="btn btn-ghost btn-sm" onclick="openAssignModal()" style="font-size:11px;">+ Asignar</button>` : ''}
+        </span>
       </div>
       <div class="info-value" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;">${assigneeChips}</div>
     </div>
@@ -3486,6 +3496,49 @@ async function _createNotification({toUid, type, text}) {
 // ============================================================
 // KUDOS
 // ============================================================
+function _notifyTaskAssigned(uid, title, campaignId) {
+  if(!uid) return;
+  let extra = '';
+  if(campaignId) {
+    const c = (getData('campaigns')||[]).find(x => x.id === campaignId);
+    if(c) extra = ` en ${c.name}`;
+  }
+  const who = currentUserProfile?.name || currentUser?.email || 'Alguien';
+  _createNotification({
+    toUid: uid,
+    type: 'task_assigned',
+    text: `✅ ${who} te asignó una tarea${extra}: "${title}"`
+  });
+}
+
+function _notifyCampaignSubscribers(campaign, summary) {
+  if(!campaign) return;
+  const subs = Array.isArray(campaign.subscribers) ? campaign.subscribers : [];
+  // Auto-subscribers: anyone with an active task in this campaign
+  const taskUids = (campaign.tasks||[]).map(t => t.assigneeUid).filter(Boolean);
+  const all = Array.from(new Set([...subs, ...taskUids])).filter(uid => uid && uid !== currentUser?.uid);
+  const who = currentUserProfile?.name || currentUser?.email || 'Alguien';
+  all.forEach(uid => _createNotification({
+    toUid: uid,
+    type: 'campaign_update',
+    text: `📣 ${who} actualizó ${campaign.name}: ${summary}`
+  }));
+}
+
+function toggleCampaignSubscription(campaignId) {
+  if(!currentUser) return;
+  const campaigns = getData('campaigns');
+  const c = campaigns.find(x => x.id === campaignId);
+  if(!c) return;
+  c.subscribers = Array.isArray(c.subscribers) ? c.subscribers : [];
+  const uid = currentUser.uid;
+  const idx = c.subscribers.indexOf(uid);
+  if(idx >= 0) { c.subscribers.splice(idx,1); showToast('Suscripción desactivada'); }
+  else { c.subscribers.push(uid); showToast('Te suscribiste a esta campaña','success'); }
+  setData('campaigns', campaigns);
+  if(currentCampaignId === campaignId) openCampaignDetail(campaignId);
+}
+
 async function sendKudos(toUid, e) {
   if(e) e.stopPropagation();
   const toUser = allUsers.find(u=>u.uid===toUid);
@@ -4536,8 +4589,10 @@ function updateFlowStep(cid, idx, status) {
   const campaigns = getData('campaigns');
   const c = campaigns.find(x=>x.id===cid);
   if(!c) return;
+  const stepName = c.flowSteps[idx]?.step || 'paso';
   c.flowSteps[idx].status = status;
   setData('campaigns', campaigns);
+  _notifyCampaignSubscribers(c, `${stepName} → ${status}`);
 }
 
 // ============================================================
@@ -5854,6 +5909,7 @@ function saveTask() {
   const recurring = document.getElementById('fTaskRecurring').checked;
   const recurringDay = recurring ? parseInt(document.getElementById('fTaskRecurringDay').value) : undefined;
 
+  let prevAssigneeUid = '';
   if(editingTaskId) {
     const cid = editingTaskCampaignId;
     if(cid) {
@@ -5861,14 +5917,18 @@ function saveTask() {
       const c = campaigns.find(x=>x.id===cid);
       if(c) {
         const t = c.tasks.find(x=>x.id===editingTaskId);
-        if(t) { t.title=title; t.dueDate=dueDate; t.priority=priority; t.assigneeUid=assigneeUid; t.assignee=assigneeName; t.docLink=docLink; t.notes=notes; t.recurring=recurring; t.recurringDay=recurringDay; }
+        if(t) { prevAssigneeUid = t.assigneeUid||''; t.title=title; t.dueDate=dueDate; t.priority=priority; t.assigneeUid=assigneeUid; t.assignee=assigneeName; t.docLink=docLink; t.notes=notes; t.recurring=recurring; t.recurringDay=recurringDay; }
         setData('campaigns', campaigns);
       }
     } else {
       const tasks = getData('globalTasks');
       const t = tasks.find(x=>x.id===editingTaskId);
-      if(t) { t.title=title; t.dueDate=dueDate; t.priority=priority; t.assigneeUid=assigneeUid; t.assignee=assigneeName; t.docLink=docLink; t.notes=notes; t.recurring=recurring; t.recurringDay=recurringDay; }
+      if(t) { prevAssigneeUid = t.assigneeUid||''; t.title=title; t.dueDate=dueDate; t.priority=priority; t.assigneeUid=assigneeUid; t.assignee=assigneeName; t.docLink=docLink; t.notes=notes; t.recurring=recurring; t.recurringDay=recurringDay; }
       setData('globalTasks', tasks);
+    }
+    // Notify newly-assigned user if changed
+    if(assigneeUid && assigneeUid !== prevAssigneeUid && assigneeUid !== currentUser?.uid) {
+      _notifyTaskAssigned(assigneeUid, title, campId);
     }
     closeModal('taskModal');
     showToast('Tarea actualizada','success');
@@ -5888,6 +5948,9 @@ function saveTask() {
       const tasks=getData('globalTasks');
       tasks.push({...task,campaignName:'General',campaignId:''});
       setData('globalTasks',tasks);
+    }
+    if(assigneeUid && assigneeUid !== currentUser?.uid) {
+      _notifyTaskAssigned(assigneeUid, title, campId);
     }
     closeModal('taskModal');
     showToast('Tarea agregada','success');
@@ -7499,25 +7562,7 @@ function updateSidebarAvatar() {
   renderSidebarTeam();
 }
 
-function renderSidebarTeam() {
-  const strip   = document.getElementById('sidebarTeamStrip');
-  const avatars = document.getElementById('sidebarTeamAvatars');
-  if(!strip || !avatars || !currentUser) return;
-  const others = allUsers.filter(u => u.uid !== currentUser.uid);
-  if(others.length === 0) { strip.style.display = 'none'; return; }
-  strip.style.display = '';
-  avatars.innerHTML = others.slice(0, 10).map(u => {
-    const bg      = u.profileGradient || 'var(--lavender)';
-    const content = u.profileEmoji || (u.name||u.email||'?')[0].toUpperCase();
-    const hasStatus = !!u.statusText;
-    const tooltipText = hasStatus ? `${u.statusEmoji||'💬'} ${u.statusText}` : (u.name||u.email||'');
-    return `<div class="sidebar-team-avatar" style="background:${bg};" onclick="openProfileModal('${u.uid}')">
-      ${content}
-      ${hasStatus ? '<div class="team-status-dot"></div>' : ''}
-      <div class="sidebar-avatar-tooltip">${tooltipText}</div>
-    </div>`;
-  }).join('');
-}
+function renderSidebarTeam() { /* sidebar team strip removed */ }
 
 function clearMyStatus(e) {
   e.stopPropagation();
