@@ -3432,7 +3432,8 @@ function renderCampaignClients(c) {
                 </div>` : ''}
               <div style="font-size:14px;font-weight:700;color:var(--text);">${ct.name||'Sin nombre'}</div>
               ${ct.cargo ? `<div style="font-size:11px;color:var(--text-muted);margin-top:2px;">${ct.cargo}</div>` : ''}
-              ${ct.email ? `<a href="mailto:${ct.email}" style="font-size:12px;color:var(--pink);display:inline-block;margin-top:6px;text-decoration:none;">${ct.email}</a>` : ''}
+              ${ct.email ? `<a href="mailto:${ct.email}" style="font-size:12px;color:var(--pink);display:block;margin-top:6px;text-decoration:none;">${ct.email}</a>` : ''}
+              ${ct.linkedin ? `<a href="${ct.linkedin}" target="_blank" rel="noopener" style="font-size:12px;color:#0a66c2;display:inline-flex;align-items:center;gap:4px;margin-top:4px;text-decoration:none;font-weight:600;"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M19 0H5a5 5 0 0 0-5 5v14a5 5 0 0 0 5 5h14a5 5 0 0 0 5-5V5a5 5 0 0 0-5-5zM8 19H5V8h3v11zM6.5 6.7a1.8 1.8 0 1 1 0-3.6 1.8 1.8 0 0 1 0 3.6zM20 19h-3v-5.6c0-3.4-4-3.1-4 0V19h-3V8h3v1.8c1.4-2.6 7-2.8 7 2.5V19z"/></svg> LinkedIn</a>` : ''}
               ${ct.notes ? `<div style="font-size:11px;color:var(--text-muted);margin-top:8px;background:var(--bg);padding:6px 8px;border-radius:8px;line-height:1.4;white-space:pre-wrap;">${ct.notes.replace(/</g,'&lt;')}</div>` : ''}
             </div>`).join('')}
         </div>`}`;
@@ -3444,7 +3445,7 @@ function openClientContactModal(cid, idx) {
   const c = campaigns.find(x => x.id === cid);
   if(!c) return;
   _editingClientContact = { campaignId:cid, idx: typeof idx==='number'?idx:null };
-  const ct = (typeof idx==='number' && c.clientContacts && c.clientContacts[idx]) || {name:'',email:'',cargo:'',notes:''};
+  const ct = (typeof idx==='number' && c.clientContacts && c.clientContacts[idx]) || {name:'',email:'',cargo:'',linkedin:'',notes:''};
   // Ensure modal exists; create on demand
   if(!document.getElementById('clientContactModal')) {
     const html = `
@@ -3457,6 +3458,7 @@ function openClientContactModal(cid, idx) {
           <div class="form-group"><label class="form-label">Nombre</label><input type="text" id="fClientName" class="form-input" placeholder="Nombre completo"></div>
           <div class="form-group"><label class="form-label">Cargo</label><input type="text" id="fClientCargo" class="form-input" placeholder="Brand Manager, Director, ..."></div>
           <div class="form-group"><label class="form-label">Correo</label><input type="email" id="fClientEmail" class="form-input" placeholder="nombre@cliente.com"></div>
+          <div class="form-group"><label class="form-label">LinkedIn</label><input type="url" id="fClientLinkedin" class="form-input" placeholder="https://www.linkedin.com/in/..."></div>
           <div class="form-group"><label class="form-label">Notas</label><textarea id="fClientNotes" class="form-input" rows="3" placeholder="Preferencias, horarios, contexto..."></textarea></div>
           <div class="modal-footer">
             <button class="btn btn-ghost" onclick="closeModal('clientContactModal')">Cancelar</button>
@@ -3467,10 +3469,11 @@ function openClientContactModal(cid, idx) {
     document.body.insertAdjacentHTML('beforeend', html);
   }
   document.getElementById('clientContactTitle').textContent = typeof idx==='number' ? 'Editar contacto' : 'Nuevo contacto cliente';
-  document.getElementById('fClientName').value  = ct.name || '';
-  document.getElementById('fClientCargo').value = ct.cargo || '';
-  document.getElementById('fClientEmail').value = ct.email || '';
-  document.getElementById('fClientNotes').value = ct.notes || '';
+  document.getElementById('fClientName').value     = ct.name || '';
+  document.getElementById('fClientCargo').value    = ct.cargo || '';
+  document.getElementById('fClientEmail').value    = ct.email || '';
+  document.getElementById('fClientLinkedin').value = ct.linkedin || '';
+  document.getElementById('fClientNotes').value    = ct.notes || '';
   openModal('clientContactModal');
 }
 
@@ -3481,12 +3484,14 @@ function saveClientContact() {
   if(!name) { showToast('Nombre requerido','error'); return; }
   const cargo = document.getElementById('fClientCargo').value.trim();
   const email = document.getElementById('fClientEmail').value.trim();
+  let linkedin = document.getElementById('fClientLinkedin').value.trim();
+  if(linkedin && !/^https?:\/\//i.test(linkedin)) linkedin = 'https://' + linkedin;
   const notes = document.getElementById('fClientNotes').value.trim();
   const campaigns = getData('campaigns');
   const c = campaigns.find(x => x.id === campaignId);
   if(!c) return;
   if(!Array.isArray(c.clientContacts)) c.clientContacts = [];
-  const obj = { name, cargo, email, notes };
+  const obj = { name, cargo, email, linkedin, notes };
   if(typeof idx === 'number') c.clientContacts[idx] = obj;
   else c.clientContacts.push(obj);
   setData('campaigns', campaigns);
