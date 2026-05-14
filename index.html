@@ -1583,6 +1583,8 @@ html.light {
         <!-- TAB: RESUMEN -->
         <div class="tab-content active card" id="tab-resumen">
           <div class="info-grid" id="campaignInfoGrid"></div>
+          <div id="campaignProgressSection" style="margin-top:20px;padding-top:20px;border-top:1px solid var(--border);"></div>
+          <div id="campaignCoherenceSection" style="margin-top:20px;"></div>
           <div id="campaignMetricsSection" style="margin-top:20px;padding-top:20px;border-top:1px solid var(--border);"></div>
         </div>
 
@@ -3212,12 +3214,241 @@ function openCampaignDetail(cid) {
   renderCampaignFlow(c);
   renderCampaignTracker(c);
   renderCampaignMetricsSection(c);
+  try { renderCampaignProgress(c); } catch(e){ console.warn('progress render', e); }
+  try { renderCampaignCoherence(c); } catch(e){ console.warn('coherence render', e); }
 
   // Reset tabs
   document.querySelectorAll('.detail-tab').forEach(t=>t.classList.remove('active'));
   document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
   document.querySelector('[data-tab="resumen"]').classList.add('active');
   document.getElementById('tab-resumen').classList.add('active');
+}
+
+// ============================================================
+// CAMPAIGN COHERENCE — pull stats from Tracker + Escenario + Metrics
+// so Resumen shows the same numbers everywhere and any drift is
+// surfaced in a "Necesita atención" panel.
+// ============================================================
+function _campaignCoherenceData(c) {
+  const norm = s => String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[_\s@]+/g,' ').trim();
+
+  // Tracker counts
+  const trackerRows = c.trackerRows || [];
+  let trackerPublicado = 0, trackerTotal = 0;
+  const trackerByCreator = new Map();
+  const trackerPubByCreator = new Map();
+  const trackerPubsList = []; // {creator, fecha, hasLink, raw}
+  trackerRows.forEach(row => {
+    const nm = (row['NOMBRE']||row['Nombre']||'').trim();
+    const ec = String(row['ESTATUS CONTENIDO']||row['Estatus Contenido']||'').trim();
+    const link = String(row['LINK TO POST']||row['Link to Post']||'').trim();
+    const fecha = String(row['FECHA DE POST']||row['Fecha de Post']||'').trim();
+    if(nm || ec) trackerTotal++;
+    if(/publicad/i.test(ec)) {
+      trackerPublicado++;
+      trackerPubsList.push({ creator:nm, fecha, hasLink: !!(link && /http|link/i.test(link)), raw: row });
+      if(nm) trackerPubByCreator.set(norm(nm), (trackerPubByCreator.get(norm(nm))||0) + 1);
+    }
+    if(nm) trackerByCreator.set(norm(nm), nm);
+  });
+
+  // Escenario parsed
+  let escenario = null;
+  if(c.escenarioRows && c.escenarioRows.length && typeof parseEscenarioRows === 'function') {
+    try { escenario = parseEscenarioRows(c.escenarioRows); } catch(e){}
+  }
+  const escenarioCreators = escenario ? escenario.creators : [];
+  const escenarioCreatorNames = new Map(escenarioCreators.map(cr => [norm(cr.nombre), cr]));
+  const escenarioContTotal = escenario && escenario.goal && escenario.goal.totalContenidos
+    ? escenario.goal.totalContenidos
+    : escenarioCreators.reduce((a,cr)=>a+cr.contenidosTotal, 0);
+  const escenarioViewsEst = escenario && escenario.goal && escenario.goal.viewsEstTotal
+    ? escenario.goal.viewsEstTotal
+    : escenarioCreators.reduce((a,cr)=>a+cr.viewsEstTotal, 0);
+
+  // Metrics counts (rows registered in the metrics / ROI sheet)
+  const metricsRows = c.cachedMetrics || [];
+  const metricsByCreator = new Map();
+  metricsRows.forEach(r => {
+    const name = String(r['Influencer Name']||r['Influencer']||r['Creator']||r['Creador']||r['Cuenta']||r['NOMBRE']||r['Nombre']||r['Handle']||r['Perfil']||'').trim();
+    if(!name) return;
+    metricsByCreator.set(norm(name), (metricsByCreator.get(norm(name))||0) + 1);
+  });
+  const metricsRowsCount = metricsRows.length;
+
+  // Detect issues
+  const issues = [];
+
+  // 1. Tracker Publicado vs Metrics row count
+  if(trackerPublicado > 0 && metricsRowsCount > 0 && trackerPublicado !== metricsRowsCount) {
+    issues.push({
+      severity: trackerPublicado > metricsRowsCount ? 'error' : 'warn',
+      title: `Tracker reporta ${trackerPublicado} publicaciones, métricas solo tiene ${metricsRowsCount} filas`,
+      detail: trackerPublicado > metricsRowsCount
+        ? `Faltan ${trackerPublicado - metricsRowsCount} publicaciones en el sheet de métricas / ROI.`
+        : `Hay ${metricsRowsCount - trackerPublicado} filas en métricas sin reflejarse como Publicado en el tracker.`,
+      action: { label:'Abrir tracker', tab:'tracker' }
+    });
+  }
+
+  // 2. Publicados en tracker sin métricas registradas (por creador)
+  const trackerPubsSinMetricas = [];
+  trackerPubByCreator.forEach((count, k) => {
+    const m = metricsByCreator.get(k) || 0;
+    if(metricsRowsCount > 0 && m < count) {
+      trackerPubsSinMetricas.push({ creator: trackerByCreator.get(k), pubs: count, metricas: m });
+    }
+  });
+  if(trackerPubsSinMetricas.length) {
+    issues.push({
+      severity: 'warn',
+      title: `${trackerPubsSinMetricas.length} creador(es) con publicaciones sin métricas`,
+      detail: trackerPubsSinMetricas.slice(0,5).map(x => `${x.creator} (${x.metricas}/${x.pubs})`).join(', ') + (trackerPubsSinMetricas.length > 5 ? '…' : ''),
+      action: { label:'Ver métricas', tab:'metricas' }
+    });
+  }
+
+  // 3. Creadores del escenario que no aparecen en el tracker (no se les ha posteado)
+  if(escenarioCreators.length && trackerRows.length) {
+    const noAparecen = escenarioCreators.filter(cr => !trackerByCreator.has(norm(cr.nombre)));
+    if(noAparecen.length) {
+      issues.push({
+        severity: 'info',
+        title: `${noAparecen.length} creador(es) del escenario sin actividad en el tracker`,
+        detail: noAparecen.slice(0,5).map(c=>c.nombre).join(', ') + (noAparecen.length > 5 ? '…' : ''),
+        action: { label:'Abrir tracker', tab:'tracker' }
+      });
+    }
+  }
+
+  // 4. Tracker con creadores que no están en el escenario
+  if(escenarioCreators.length) {
+    const extra = [];
+    trackerByCreator.forEach((nm, k) => {
+      if(!escenarioCreatorNames.has(k)) extra.push(nm);
+    });
+    if(extra.length) {
+      issues.push({
+        severity: 'info',
+        title: `${extra.length} creador(es) en tracker no están en el escenario`,
+        detail: extra.slice(0,5).join(', ') + (extra.length > 5 ? '…' : ''),
+        action: { label:'Abrir influencers', tab:'influencers' }
+      });
+    }
+  }
+
+  // 5. Publicados sin FECHA DE POST o sin LINK
+  const sinFecha = trackerPubsList.filter(p => !p.fecha).length;
+  const sinLink  = trackerPubsList.filter(p => !p.hasLink).length;
+  if(sinFecha) issues.push({ severity:'warn', title:`${sinFecha} publicación(es) sin fecha`, detail:'Falta FECHA DE POST en el master tracker.', action:{label:'Abrir tracker',tab:'tracker'} });
+  if(sinLink)  issues.push({ severity:'warn', title:`${sinLink} publicación(es) sin LINK TO POST`, detail:'Sin link no se puede verificar en plataforma.', action:{label:'Abrir tracker',tab:'tracker'} });
+
+  // 6. Excede compromiso (publicaron más de lo cerrado por creador)
+  const excedido = [];
+  escenarioCreators.forEach(cr => {
+    const pubs = trackerPubByCreator.get(norm(cr.nombre)) || 0;
+    if(cr.contenidosTotal > 0 && pubs > cr.contenidosTotal) excedido.push({ creator:cr.nombre, pubs, cerrado:cr.contenidosTotal });
+  });
+  if(excedido.length) {
+    issues.push({
+      severity:'info',
+      title:`${excedido.length} creador(es) superaron el contenido cerrado`,
+      detail: excedido.slice(0,5).map(x=>`${x.creator} (${x.pubs}/${x.cerrado})`).join(', '),
+      action:{label:'Abrir influencers',tab:'influencers'}
+    });
+  }
+
+  return {
+    trackerPublicado, trackerTotal,
+    escenarioContTotal, escenarioViewsEst,
+    metricsRowsCount,
+    issues,
+    escenario,
+  };
+}
+
+function _switchCampaignTab(tabName) {
+  document.querySelectorAll('.detail-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tabName));
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.toggle('active', t.id === 'tab-'+tabName));
+}
+
+function renderCampaignProgress(c) {
+  const el = document.getElementById('campaignProgressSection');
+  if(!el) return;
+  const d = _campaignCoherenceData(c);
+  const total = d.escenarioContTotal || 0;
+  const pubs = d.trackerPublicado || 0;
+  const pct = total > 0 ? Math.round((pubs/total) * 100) : 0;
+  const s = (typeof _semaforo === 'function') ? _semaforo(pct) : { color:'#0a0a0c', bg:'#e8e6ec' };
+  const pctLabel = total > 0 ? `${pct}%` : '—';
+
+  el.innerHTML = `
+    <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:stretch;">
+      <button onclick="_switchCampaignTab('tracker')" style="flex:1;min-width:240px;background:var(--white);border:1.5px solid var(--border);border-radius:14px;padding:16px 18px;cursor:pointer;text-align:left;transition:all .18s;font-family:inherit;" onmouseover="this.style.borderColor='var(--pink)'" onmouseout="this.style.borderColor='var(--border)'">
+        <div style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;">Publicaciones</div>
+        <div style="display:flex;align-items:baseline;gap:8px;margin-top:6px;">
+          <div style="font-size:32px;font-weight:800;line-height:1;">${pubs}</div>
+          <div style="font-size:14px;color:var(--text-muted);">/ ${total||'—'} cerradas</div>
+        </div>
+        <div style="margin-top:10px;height:8px;background:var(--bg);border-radius:6px;overflow:hidden;">
+          <div style="height:100%;width:${Math.min(100,pct)}%;background:${s.bg};border-right:2px solid ${s.color};transition:width .3s;"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
+          <span style="font-size:11px;color:var(--text-muted);">% Completitud</span>
+          <span style="font-size:13px;font-weight:800;color:${s.color};">${pctLabel}</span>
+        </div>
+        <div style="font-size:10px;color:var(--text-muted);margin-top:6px;">Click para ver el tracker →</div>
+      </button>
+      <button onclick="_switchCampaignTab('influencers')" style="flex:1;min-width:200px;background:var(--white);border:1.5px solid var(--border);border-radius:14px;padding:16px 18px;cursor:pointer;text-align:left;transition:all .18s;font-family:inherit;" onmouseover="this.style.borderColor='var(--pink)'" onmouseout="this.style.borderColor='var(--border)'">
+        <div style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;">Escenario · Goal</div>
+        <div style="font-size:24px;font-weight:800;line-height:1;margin-top:6px;">${total || '—'} <span style="font-size:12px;color:var(--text-muted);font-weight:600;">contenidos</span></div>
+        <div style="font-size:12px;color:var(--text-muted);margin-top:6px;">${d.escenarioViewsEst ? formatNum(d.escenarioViewsEst)+' views est.' : 'Sin escenario vinculado'}</div>
+        <div style="font-size:10px;color:var(--text-muted);margin-top:6px;">Click para ver escenario →</div>
+      </button>
+      <button onclick="_switchCampaignTab('metricas')" style="flex:1;min-width:200px;background:var(--white);border:1.5px solid var(--border);border-radius:14px;padding:16px 18px;cursor:pointer;text-align:left;transition:all .18s;font-family:inherit;" onmouseover="this.style.borderColor='var(--pink)'" onmouseout="this.style.borderColor='var(--border)'">
+        <div style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;">Métricas / ROI</div>
+        <div style="font-size:24px;font-weight:800;line-height:1;margin-top:6px;">${d.metricsRowsCount} <span style="font-size:12px;color:var(--text-muted);font-weight:600;">filas registradas</span></div>
+        <div style="font-size:12px;color:var(--text-muted);margin-top:6px;">${d.metricsRowsCount === d.trackerPublicado && d.trackerPublicado > 0 ? '✅ Coincide con tracker' : (d.metricsRowsCount===0 ? 'Sin métricas cargadas' : '⚠ Difiere del tracker')}</div>
+        <div style="font-size:10px;color:var(--text-muted);margin-top:6px;">Click para ver métricas →</div>
+      </button>
+    </div>`;
+}
+
+function renderCampaignCoherence(c) {
+  const el = document.getElementById('campaignCoherenceSection');
+  if(!el) return;
+  const d = _campaignCoherenceData(c);
+  if(!d.issues.length) {
+    el.innerHTML = `
+      <div style="background:rgba(85,196,98,.08);border:1px solid rgba(85,196,98,.25);border-radius:12px;padding:12px 14px;display:flex;align-items:center;gap:10px;font-size:13px;color:#166534;">
+        <span style="font-size:18px;">✅</span>
+        <span>Tracker · Escenario · Métricas en coherencia.</span>
+      </div>`;
+    return;
+  }
+  const sevColor = { error:'#991b1b', warn:'#854d0e', info:'#1d4ed8' };
+  const sevBg    = { error:'rgba(220,38,38,.08)', warn:'rgba(234,179,8,.1)', info:'rgba(59,130,246,.08)' };
+  const sevBorder= { error:'rgba(220,38,38,.3)', warn:'rgba(234,179,8,.35)', info:'rgba(59,130,246,.3)' };
+  const sevIcon  = { error:'🚨', warn:'⚠️', info:'ℹ️' };
+  el.innerHTML = `
+    <div style="background:var(--white);border:1.5px solid var(--border);border-radius:14px;padding:16px 18px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+        <span style="font-size:16px;">🔍</span>
+        <h4 style="font-size:14px;font-weight:700;margin:0;">Necesita atención</h4>
+        <span style="font-size:11px;color:var(--text-muted);">${d.issues.length} pendiente${d.issues.length>1?'s':''}</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        ${d.issues.map(i => `
+          <div style="background:${sevBg[i.severity]};border:1px solid ${sevBorder[i.severity]};border-radius:10px;padding:10px 12px;display:flex;align-items:flex-start;gap:10px;">
+            <span style="font-size:14px;flex-shrink:0;">${sevIcon[i.severity]}</span>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:13px;font-weight:700;color:${sevColor[i.severity]};">${i.title}</div>
+              <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">${i.detail}</div>
+            </div>
+            ${i.action ? `<button class="btn btn-ghost btn-sm" onclick="_switchCampaignTab('${i.action.tab}')" style="font-size:11px;flex-shrink:0;">${i.action.label} →</button>` : ''}
+          </div>`).join('')}
+      </div>
+    </div>`;
 }
 
 function renderCampaignMetricsSection(c) {
