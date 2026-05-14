@@ -528,8 +528,8 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
   background:var(--white); border:1px solid var(--border); color:var(--text-muted); transition:all .15s;
 }
 .filter-tab { transition:all .25s var(--ease); }
-.filter-tab.active { background:var(--text); color:#fff; border-color:var(--text); transform:scale(1.03); }
-.filter-tab:hover:not(.active) { border-color:var(--text); color:var(--text); background:var(--bg); }
+.filter-tab.active { background:var(--pink); color:#fff !important; border-color:var(--pink); transform:scale(1.03); }
+.filter-tab:hover:not(.active) { border-color:var(--pink); color:var(--pink); background:var(--pink-pale); }
 
 /* MODAL */
 .modal-overlay {
@@ -604,7 +604,7 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
   .gen-output { background:var(--bg); }
   .gen-select, .form-input, .flow-step-select { background:var(--white); border-color:var(--border); color:var(--text); }
   .filter-tab { background:var(--white); border-color:var(--border); }
-  .filter-tab.active { background:var(--text); color:#0d0d11; }
+  .filter-tab.active { background:var(--pink); color:#fff; border-color:var(--pink); }
   .mobile-nav { background:var(--white); border-color:var(--border); }
   .task-area-group summary { background:var(--bg); }
   .profile-modal-hero { background:linear-gradient(160deg, #1a1a22 0%, #12121a 100%); }
@@ -3010,6 +3010,7 @@ function navigate(page) {
     influencers: ['Influencers','Base de talento.','+ Nueva tarea'],
     documentos: ['Documentos','Repositorio de archivos.','+ Nueva tarea'],
     calendario: ['Calendario','Vista de publicaciones.','+ Nueva tarea'],
+    equipo: ['Equipo','Miembros del equipo Think Y.',''],
     ajustes: ['Ajustes','Configuración de la app.',''],
   };
   const name = getSettings().name || 'Génesis';
