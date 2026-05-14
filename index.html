@@ -2,7 +2,11 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#ff2d87">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Campaign OS · Think Y.</title>
 <link rel="icon" href="assets/y-pink-transparent.png" type="image/png">
 <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400&display=swap" rel="stylesheet">
@@ -1099,6 +1103,8 @@ html.light {
   display:none; position:fixed; bottom:0; left:0; right:0; height:60px; z-index:200;
   background:var(--white); border-top:1px solid var(--border);
   justify-content:space-around; align-items:center; padding:0 4px;
+  padding-bottom:env(safe-area-inset-bottom);
+  height:calc(60px + env(safe-area-inset-bottom));
 }
 .mobile-nav-item {
   display:flex; flex-direction:column; align-items:center; gap:3px; padding:6px 10px;
@@ -1195,6 +1201,110 @@ html.light {
   .stat-card .stat-value { font-size:24px; }
   .form-row { grid-template-columns:1fr; }
   .metrics-grid { grid-template-columns:1fr; }
+}
+
+/* ============ MOBILE: NEW WIDGETS (escenario / headline / coherence) ============ */
+@media (max-width:768px) {
+  /* Topbar action button: shorter label */
+  #mainActionBtn { padding:6px 10px; font-size:11px; }
+  .topbar-left h2 { font-size:16px; line-height:1.2; }
+
+  /* Campaign detail header buttons wrap */
+  .detail-header-actions { flex-wrap:wrap; gap:6px; }
+
+  /* Cards on Resumen: stack and shrink */
+  #campaignProgressSection > div,
+  #campaignClientsSection > div { gap:10px !important; }
+  #campaignProgressSection button { min-width:0 !important; flex:1 1 100% !important; }
+  #campaignProgressSection .stat-value { font-size:22px !important; }
+
+  /* Coherence panel: tighter padding */
+  #campaignCoherenceSection .card { padding:12px; }
+  #campaignCoherenceSection button { font-size:10px; padding:4px 8px; }
+
+  /* Escenario headline cards: 2-col then 1-col */
+  #escenarioBlock > div[style*="grid-template-columns"] {
+    grid-template-columns:1fr 1fr !important;
+  }
+  /* Escenario creator card breakdown chips */
+  #escenarioBlock .table { min-width:760px; }
+
+  /* Sheet-sync bars: stack input + button */
+  .sheets-sync-bar { flex-wrap:wrap; gap:6px; padding:10px; }
+  .sheets-sync-bar input { width:100%; min-width:0; }
+  .sheets-sync-bar button { width:100%; }
+
+  /* Tracker / Escenario sheet sync bars (the custom ones) */
+  #tab-tracker > div:first-child,
+  #tab-influencers > div:first-child {
+    flex-wrap:wrap !important; gap:8px !important;
+  }
+  #trackerSheetsUrl, #escenarioSheetsUrl, #ugcSheetsUrl,
+  #campaignSheetsUrl, #campaignMetricsSheetInput { width:100%; min-width:0 !important; }
+
+  /* Tracker weekly chart SVG: allow horizontal scroll already in container */
+  #trackerTableWrap svg { max-width:none; }
+
+  /* Client contact cards: full-width */
+  #campaignClientsSection > div[style*="grid-template-columns"] {
+    grid-template-columns:1fr !important;
+  }
+
+  /* Modals: full-screen with safe scroll */
+  .modal { padding:18px 18px 0; }
+  .modal-header { margin-bottom:12px; }
+  .modal-title { font-size:17px; }
+  .modal-footer { padding:14px 0 18px !important; flex-wrap:wrap; gap:8px; }
+  .modal-footer .btn { flex:1 1 auto; }
+
+  /* Forms inside modals */
+  .form-input { font-size:16px; }   /* avoid iOS auto-zoom on focus */
+  .form-row { gap:10px; }
+
+  /* Tables in widgets: scroll hint */
+  .table-wrap { border-radius:10px; }
+
+  /* Pendientes filter person chips */
+  #pendientesPersonFilter { overflow-x:auto; flex-wrap:nowrap; padding-bottom:6px; }
+  #pendientesPersonFilter .metrics-tab-pill { flex-shrink:0; }
+
+  /* Dashboard cards full width */
+  .card { padding:14px; }
+  .card-header { padding:10px 12px; }
+
+  /* Topbar right buttons */
+  .theme-toggle-btn, #notifBellBtn { width:32px; height:32px; }
+
+  /* Notifications panel */
+  .notif-panel { width:calc(100vw - 24px); right:12px; max-height:70vh; }
+
+  /* Profile modal hero shrink */
+  .profile-modal-hero { padding:24px 18px 18px; }
+  .profile-modal-avatar { width:64px; height:64px; font-size:28px; border-radius:18px; }
+  .profile-modal-name { font-size:17px; }
+  .emoji-grid { grid-template-columns:repeat(7,1fr); }
+  .emoji-item { font-size:20px; }
+
+  /* Campaign card text overflow */
+  .campaign-card { padding:14px; }
+  .campaign-name { font-size:15px; word-break:break-word; }
+  .campaign-client { font-size:11px; }
+}
+
+/* Very small phones */
+@media (max-width:380px) {
+  .content { padding:12px; padding-bottom:72px; }
+  .stat-card { padding:12px; }
+  .stat-card .stat-value { font-size:22px; }
+  #escenarioBlock > div[style*="grid-template-columns"] { grid-template-columns:1fr !important; }
+  .detail-tab { font-size:12px; padding:8px 10px; }
+  .mobile-nav-item { font-size:9px; min-width:42px; padding:5px 6px; }
+}
+
+/* Mobile landscape: keep content visible above bottom nav */
+@media (max-width:768px) and (orientation:landscape) {
+  .mobile-nav { height:50px; }
+  .content { padding-bottom:60px; }
 }
 @media (max-width:768px) {
   /* No hover on touch — tooltip inaccessible; status visible via tap→profile */
@@ -1375,9 +1485,13 @@ html.light {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="9" r="2.5"/><path d="M15 16c2-1 5-1 6 1"/></svg>
     Influencers
   </button>
-  <button class="mobile-nav-item" data-page="ajustes" onclick="navigate('ajustes')">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1-.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 0 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
-    Ajustes
+  <button class="mobile-nav-item" data-page="metricas" onclick="navigate('metricas')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V9M9 21V3M15 21v-9M21 21V6"/></svg>
+    Métricas
+  </button>
+  <button class="mobile-nav-item" onclick="toggleMobileSidebar()" aria-label="Más">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg>
+    Más
   </button>
 </nav>
 
