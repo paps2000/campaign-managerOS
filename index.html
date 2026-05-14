@@ -1985,13 +1985,8 @@ html.light {
           <button class="btn btn-ghost btn-sm" onclick="calNav(1)">Siguiente →</button>
         </div>
       </div>
-      <!-- Legend -->
-      <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:16px;font-size:11px;font-weight:600;">
-        <span style="display:flex;align-items:center;gap:5px;"><span style="width:10px;height:10px;border-radius:3px;background:var(--pink);display:inline-block;"></span>Publicación</span>
-        <span style="display:flex;align-items:center;gap:5px;"><span style="width:10px;height:10px;border-radius:3px;background:var(--lavender);display:inline-block;"></span>Tarea</span>
-        <span style="display:flex;align-items:center;gap:5px;"><span style="width:10px;height:10px;border-radius:3px;background:var(--mint);display:inline-block;"></span>Inicio campaña</span>
-        <span style="display:flex;align-items:center;gap:5px;"><span style="width:10px;height:10px;border-radius:3px;background:var(--yellow);display:inline-block;"></span>Cierre campaña</span>
-      </div>
+      <!-- Legend (dynamic — built from statuses actually present this view) -->
+      <div id="calLegend" style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:16px;font-size:11px;font-weight:600;"></div>
       <div class="card" style="padding:0;overflow:hidden;">
         <!-- Day headers -->
         <div style="display:grid;grid-template-columns:repeat(7,1fr);background:var(--bg);border-bottom:1px solid var(--border);">
@@ -8203,6 +8198,30 @@ function calNav(dir) {
   renderCalendar();
 }
 
+// Map an ESTATUS CONTENIDO string to a calendar chip style (bg, text color,
+// emoji prefix, normalized status key). Mirrors trackerStatusBadge palette
+// so the calendar and the tracker tab share visual language.
+const TRACKER_STATUS_STYLES = [
+  { key:'publicado',    test:/^publicad/i,                           bg:'#166534', color:'#fff', icon:'✅ ', label:'Publicado' },
+  { key:'por_publicar', test:/^por\s*publicar/i,                     bg:'#fca5a5', color:'#991b1b', icon:'📅 ', label:'Por publicar' },
+  { key:'aprobado',     test:/^aprobad/i,                            bg:'#bbf7d0', color:'#166534', icon:'👍 ', label:'Aprobado' },
+  { key:'rev_int',      test:/revisi[oó]n\s*\(?\s*int/i,             bg:'#fef08a', color:'#854d0e', icon:'🔍 ', label:'Revisión interna' },
+  { key:'rev_ext',      test:/revisi[oó]n\s*\(?\s*ext/i,             bg:'#fde047', color:'#713f12', icon:'👀 ', label:'Revisión externa' },
+  { key:'grabacion',    test:/grabaci[oó]n/i,                        bg:'#ede9fe', color:'#5b21b6', icon:'🎬 ', label:'En grabación' },
+  { key:'corrigiendo',  test:/corrigiendo/i,                         bg:'#78350f', color:'#fff',    icon:'✏️ ', label:'Corrigiendo' },
+  { key:'guion',        test:/(trabajando\s*gui[oó]n|trab\.\s*gui)/i,bg:'#f3e8ff', color:'#7c3aed', icon:'📝 ', label:'Trabajando guión' },
+  { key:'pendiente',    test:/^pendiente/i,                          bg:'#991b1b', color:'#fff',    icon:'⏳ ', label:'Pendiente' },
+  { key:'cancelado',    test:/^cancelad/i,                           bg:'#475569', color:'#fff',    icon:'⛔ ', label:'Cancelado' },
+];
+function _trackerStatusEventStyle(estatusRaw) {
+  const s = String(estatusRaw||'').trim();
+  for(const entry of TRACKER_STATUS_STYLES) {
+    if(entry.test.test(s)) return { ...entry, statusKey: entry.key };
+  }
+  // Unknown / empty
+  return { key:'unknown', bg:'#e5e7eb', color:'#374151', icon:'📌 ', label:'Sin estatus', statusKey:'unknown' };
+}
+
 function renderCalendar() {
   const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
   document.getElementById('calMonthTitle').textContent = MONTHS[calMonth] + ' ' + calYear;
@@ -8246,6 +8265,9 @@ function renderCalendar() {
       if(inf.publishDate) add(inf.publishDate, {type:'pub', label:inf.name||inf.handle, color:'var(--pink)', text:'#fff'});
     });
     // Tracker publications (Master Tracker / Social Calendar)
+    // Color the chip based on ESTATUS CONTENIDO (Publicado, Por publicar, ...)
+    // using the same palette as trackerStatusBadge so the calendar legend
+    // matches the badges shown in the Tracker tab.
     const campYear = (c.startDate && parseInt(c.startDate.slice(0,4))) || calYear;
     (c.trackerRows||[]).forEach(row => {
       let raw = '';
@@ -8262,10 +8284,11 @@ function renderCalendar() {
       if(!iso) return;
       const name = row['NOMBRE']||row['Nombre']||'';
       const creativa = row['PLATAFORMA CREATIVA']||row['Plataforma Creativa']||'';
-      const estatus = String(row['ESTATUS CONTENIDO']||row['Estatus Contenido']||'').toLowerCase();
-      const published = estatus.includes('publicad');
-      const label = (creativa? creativa+' · ':'') + (name || 'Publicación');
-      add(iso, {type:'pub', label:(published?'✅ ':'📅 ')+label, color: published?'var(--mint)':'var(--pink)', text: published?'#3a6b28':'#fff', campaignId:c.id, campaignName:c.name});
+      const estatusRaw = String(row['ESTATUS CONTENIDO']||row['Estatus Contenido']||'').trim();
+      const sty = _trackerStatusEventStyle(estatusRaw);
+      const icon = sty.icon;
+      const label = icon + (creativa? creativa+' · ':'') + (name || 'Publicación');
+      add(iso, {type:'pub', status: sty.statusKey, statusLabel: estatusRaw || 'Sin estatus', label, color: sty.bg, text: sty.color, campaignId:c.id, campaignName:c.name});
     });
     // Campaign tasks
     (c.tasks||[]).filter(t=>!t.done&&t.dueDate).forEach(t => {
@@ -8305,6 +8328,32 @@ function renderCalendar() {
       + `</div>`;
   }
   grid.innerHTML = html;
+
+  // Build dynamic legend from the statuses actually present in this view
+  const legend = document.getElementById('calLegend');
+  if(legend) {
+    const seen = new Map(); // statusKey → {bg, color, label}
+    Object.values(events).forEach(arr => arr.forEach(ev => {
+      if(ev.type === 'pub' && ev.status) {
+        if(!seen.has(ev.status)) seen.set(ev.status, { bg: ev.color, color: ev.text, label: ev.statusLabel || ev.status });
+      }
+    }));
+    const fixed = [
+      { bg:'var(--lavender)', color:'#fff', label:'Tarea', show: Object.values(events).some(a => a.some(e => e.type==='task')) },
+      { bg:'var(--mint)',     color:'#3a6b28', label:'Inicio campaña', show: Object.values(events).some(a => a.some(e => e.type==='start')) },
+      { bg:'var(--yellow)',   color:'#7a5a00', label:'Cierre campaña', show: Object.values(events).some(a => a.some(e => e.type==='end')) },
+    ].filter(x => x.show);
+    // Order: tracker statuses (defined order), then task/campaign markers
+    const orderedStatuses = TRACKER_STATUS_STYLES.map(s => s.key).filter(k => seen.has(k));
+    if(seen.has('unknown')) orderedStatuses.push('unknown');
+    const chips = [
+      ...orderedStatuses.map(k => seen.get(k)),
+      ...fixed,
+    ];
+    legend.innerHTML = chips.length === 0
+      ? '<span style="font-size:11px;color:var(--text-muted);">Sin publicaciones en este mes.</span>'
+      : chips.map(c => `<span style="display:flex;align-items:center;gap:5px;"><span style="width:10px;height:10px;border-radius:3px;background:${c.bg};display:inline-block;"></span>${c.label}</span>`).join('');
+  }
 }
 
 // ============================================================
