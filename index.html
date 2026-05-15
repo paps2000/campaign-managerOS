@@ -3355,7 +3355,7 @@ function renderDashboard() {
       if(pubDate && pubDate >= today && pubDate <= weekEndStr) {
         const name = gst(row,'NOMBRE','Nombre','Influencer','Perfil','Creator','name');
         const guion = gst(row,'ESTATUS GUIÓN','ESTATUS GUION','Estatus Guión','Estatus Guion');
-        const contenido = gst(row,'ESTATUS CONTENIDO','Estatus Contenido');
+        const contenido = gst(row,'ESTATUS CONTENIDO','Estatus Contenido','ESTATUS','Estatus','STATUS','Status','ESTADO','Estado','ESTATUS POST','Estatus Post','STATUS POST');
         const creativa = gst(row,'PLATAFORMA CREATIVA','Plataforma Creativa');
         upcomingPubs.push({
           name: name || 'Publicación',
@@ -3550,8 +3550,10 @@ function renderCampaignGrid() {
     if(!goalCont) goalCont = escSum;
     let trackerPub = 0;
     (c.trackerRows||[]).forEach(row => {
-      const ec = String(row['ESTATUS CONTENIDO']||row['Estatus Contenido']||'');
-      if(/publicad/i.test(ec)) trackerPub++;
+      const ec = (typeof _trackerGet==='function')
+        ? _trackerGet(row, ['ESTATUS CONTENIDO','Estatus Contenido','ESTATUS','Estatus','STATUS','Status','ESTADO','Estado','ESTATUS POST'])
+        : (row['ESTATUS CONTENIDO']||row['Estatus Contenido']||'');
+      if(_isPublishedStatus(ec)) trackerPub++;
     });
     let ugcPub = 0;
     if(typeof _parseUgcResults==='function' && c.ugcRows) {
@@ -3731,12 +3733,14 @@ function _campaignCoherenceData(c) {
   const trackerPubByCreator = new Map();
   const trackerPubsList = []; // {creator, fecha, hasLink, raw}
   trackerRows.forEach(row => {
-    const nm = (row['NOMBRE']||row['Nombre']||'').trim();
-    const ec = String(row['ESTATUS CONTENIDO']||row['Estatus Contenido']||'').trim();
-    const link = String(row['LINK TO POST']||row['Link to Post']||'').trim();
-    const fecha = String(row['FECHA DE POST']||row['Fecha de Post']||'').trim();
+    const nm = (typeof _trackerGet==='function' ? _trackerGet(row,['NOMBRE','Nombre']) : (row['NOMBRE']||row['Nombre']||'')).trim();
+    const ec = String((typeof _trackerGet==='function'
+      ? _trackerGet(row,['ESTATUS CONTENIDO','Estatus Contenido','ESTATUS','Estatus','STATUS','Status','ESTADO','Estado','ESTATUS POST'])
+      : (row['ESTATUS CONTENIDO']||row['Estatus Contenido']||''))).trim();
+    const link = String((typeof _trackerGet==='function' ? _trackerGet(row,['LINK TO POST','Link to Post','Link','URL']) : (row['LINK TO POST']||row['Link to Post']||''))).trim();
+    const fecha = String((typeof _trackerGet==='function' ? _trackerGet(row,['FECHA DE POST','Fecha de Post','Fecha']) : (row['FECHA DE POST']||row['Fecha de Post']||''))).trim();
     if(nm || ec) trackerTotal++;
-    if(/publicad/i.test(ec)) {
+    if(_isPublishedStatus(ec)) {
       trackerPublicado++;
       trackerPubsList.push({ creator:nm, fecha, hasLink: !!(link && /http|link/i.test(link)), raw: row });
       if(nm) trackerPubByCreator.set(norm(nm), (trackerPubByCreator.get(norm(nm))||0) + 1);
@@ -4583,7 +4587,7 @@ const TRACKER_COL_DEFS = [
   {label:'Asset',              keys:['ASSET','Asset'], link:true},
   {label:'Copy',               keys:['COPY / TUIT','COPY/TUIT','COPY','Copy / Tuit','Copy']},
   {label:'Fecha de Post',      keys:['FECHA DE POST','Fecha de Post','Fecha publicación','Fecha de publicación','Fecha Pub','Fecha'], date:true},
-  {label:'Estatus Contenido',  keys:['ESTATUS CONTENIDO','Estatus Contenido'], status:true},
+  {label:'Estatus Contenido',  keys:['ESTATUS CONTENIDO','Estatus Contenido','ESTATUS','Estatus','STATUS','Status','ESTADO','Estado','ESTATUS POST','Estatus Post','STATUS POST'], status:true},
   {label:'Link to Post',       keys:['LINK TO POST','Link to Post','Link'], link:true},
   {label:'Testigo',            keys:['TESTIGO','Testigo'], link:true},
   {label:'Boost',              keys:['BOOST','Boost']},
@@ -4637,6 +4641,15 @@ function _trackerParseDate(val, defaultYear){
   if(!isNaN(d)) return d.toISOString().split('T')[0];
   return '';
 }
+// "Did this row actually get posted?" — covers Spanish + English variants
+// and tolerates trailing punctuation / inflection (publicado, publicada,
+// publicadas, posted, live, online, salió, salio, publishedinflated).
+function _isPublishedStatus(v) {
+  const s = String(v||'').toLowerCase().trim();
+  if(!s) return false;
+  return /publicad/.test(s) || /\bposted\b/.test(s) || /\blive\b/.test(s) || /\bonline\b/.test(s) || /\bsali[oó]\b/.test(s) || /\bpublished\b/.test(s);
+}
+
 function _trackerRowDate(row){
   return _trackerParseDate(_trackerGet(row, ['FECHA DE POST','Fecha de Post','Fecha publicación','Fecha de publicación','Fecha Pub','Fecha']));
 }
@@ -4660,13 +4673,15 @@ function _renderTrackerSummaryAndTable() {
     const nm = _trackerGet(r,['NOMBRE','Nombre']);
     const fp = _trackerRowDate(r);
     const pc = _trackerGet(r,['PLATAFORMA CREATIVA','Plataforma Creativa']);
-    const ec = _trackerGet(r,['ESTATUS CONTENIDO','Estatus Contenido']);
+    const ec = _trackerGet(r,['ESTATUS CONTENIDO','Estatus Contenido','ESTATUS','Estatus','STATUS','Status','ESTADO','Estado','ESTATUS POST','Estatus Post','STATUS POST']);
     const eg = _trackerGet(r,['ESTATUS GUIÓN','Estatus Guión']);
     // Need at least one strong signal of a real row
     const signals = [nm, fp, pc, ec, eg].filter(Boolean).length;
     if(signals === 0) return false;
-    // Drop banner rows
-    if(nm && (MONTHS_RE.test(String(nm).trim()) || BANNER_RE.test(String(nm).trim()))) return false;
+    // Drop banner rows — but never drop a row whose ESTATUS is actually
+    // "publicado". Better to keep a possibly mis-labelled creator than to
+    // under-count published content.
+    if(nm && !_isPublishedStatus(ec) && (MONTHS_RE.test(String(nm).trim()) || BANNER_RE.test(String(nm).trim()))) return false;
     // Drop rows where every populated cell shares the same value (separator)
     const populated = Object.values(r).filter(v => v && String(v).trim());
     if(populated.length > 3 && new Set(populated.map(v => String(v).trim().toLowerCase())).size === 1) return false;
@@ -4700,25 +4715,24 @@ function _renderTrackerSummaryAndTable() {
   };
 
   const guionCounts = countStatus(['ESTATUS GUIÓN','ESTATUS GUION','Estatus Guión'], {strict:true});
-  const contenidoCounts = countStatus(['ESTATUS CONTENIDO','Estatus Contenido'], {strict:true});
+  const contenidoCounts = countStatus(['ESTATUS CONTENIDO','Estatus Contenido','ESTATUS','Estatus','STATUS','Status','ESTADO','Estado','ESTATUS POST','Estatus Post','STATUS POST'], {strict:true});
   const creativaCounts = countStatus(['PLATAFORMA CREATIVA','Plataforma Creativa','LINEA','LÍNEA','CREATIVIDAD'], {strict:true});
 
   // Headline totals
   const totalRows = rows.length;
   const totalPublicado = rows.filter(r=>{
-    const v = String(gst(r,'ESTATUS CONTENIDO','Estatus Contenido')||'').toLowerCase();
-    return v.includes('publicad');
+    return _isPublishedStatus(gst(r,'ESTATUS CONTENIDO','Estatus Contenido','ESTATUS','Estatus','STATUS','Status','ESTADO','Estado','ESTATUS POST','Estatus Post','STATUS POST'));
   }).length;
   const totalRevInt = rows.filter(r=>{
-    const v = String(gst(r,'ESTATUS CONTENIDO','Estatus Contenido','ESTATUS GUIÓN','Estatus Guión')||'').toLowerCase();
+    const v = String(gst(r,'ESTATUS CONTENIDO','Estatus Contenido','ESTATUS','Estatus','STATUS','Status','ESTADO','Estado','ESTATUS POST','Estatus Post','STATUS POST','ESTATUS GUIÓN','Estatus Guión')||'').toLowerCase();
     return v.includes('revisión int') || v.includes('revision int');
   }).length;
   const totalAprobado = rows.filter(r=>{
-    const v = String(gst(r,'ESTATUS CONTENIDO','Estatus Contenido')||'').toLowerCase();
+    const v = String(gst(r,'ESTATUS CONTENIDO','Estatus Contenido','ESTATUS','Estatus','STATUS','Status','ESTADO','Estado','ESTATUS POST','Estatus Post','STATUS POST')||'').toLowerCase();
     return v.includes('aprobad') && !v.includes('publicad');
   }).length;
   const totalPorPublicar = rows.filter(r=>{
-    const v = String(gst(r,'ESTATUS CONTENIDO','Estatus Contenido')||'').toLowerCase();
+    const v = String(gst(r,'ESTATUS CONTENIDO','Estatus Contenido','ESTATUS','Estatus','STATUS','Status','ESTADO','Estado','ESTATUS POST','Estatus Post','STATUS POST')||'').toLowerCase();
     return v.includes('por publicar') || v.includes('pendiente');
   }).length;
 
@@ -4730,7 +4744,7 @@ function _renderTrackerSummaryAndTable() {
       ? ['ESTATUS GUIÓN','ESTATUS GUION','Estatus Guión']
       : (field==='creativa'
         ? ['PLATAFORMA CREATIVA','Plataforma Creativa','LINEA','LÍNEA','CREATIVIDAD']
-        : ['ESTATUS CONTENIDO','Estatus Contenido']);
+        : ['ESTATUS CONTENIDO','Estatus Contenido','ESTATUS','Estatus','STATUS','Status','ESTADO','Estado','ESTATUS POST','Estatus Post','STATUS POST']);
     tableRows = rows.filter(r => gst(r,...keys) === value);
   }
 
@@ -5551,7 +5565,8 @@ function renderEscenarioBlock(c) {
     if(!trackerByCreator.has(key)) trackerByCreator.set(key, { published:0, total:0 });
     const t = trackerByCreator.get(key);
     t.total += 1;
-    if(/publicad/i.test(row['ESTATUS CONTENIDO']||row['Estatus Contenido']||'')) t.published += 1;
+    const _ec = _trackerGet(row,['ESTATUS CONTENIDO','Estatus Contenido','ESTATUS','Estatus','STATUS','Status','ESTADO','Estado','ESTATUS POST']);
+    if(_isPublishedStatus(_ec)) t.published += 1;
   });
 
   const enriched = creators.map(cr => {
