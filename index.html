@@ -1265,7 +1265,7 @@ html.dark .pronoun-chip.selected { background:var(--pink-pale); color:#fff; }
   --revert-dur: 280ms;
 }
 .t-input { transition: border-color 150ms ease-out; will-change: transform; }
-.t-input.is-error { transition: border-color var(--revert-dur,280ms) ease-out; }
+.t-input.is-error { transition: border-color var(--revert-dur,280ms) ease-out; border-color:#e11d48 !important; box-shadow:0 0 0 3px rgba(225,29,72,.15) !important; }
 .t-error-msg {
   opacity:0; visibility:hidden;
   transition: opacity var(--revert-dur,280ms) ease-out,
@@ -1852,8 +1852,8 @@ html.dark .pronoun-chip.selected { background:var(--pink-pale); color:#fff; }
         <option value="Creativo">Creativo</option>
         <option value="Data">Data</option>
       </select>
-      <input type="email" class="login-input" id="loginEmail" placeholder="tu@thinkydigital.com" oninput="loginEmailEgg(this.value)">
-      <input type="password" class="login-input" id="loginPassword" placeholder="Contraseña" oninput="loginPasswordEgg(this.value)">
+      <input type="email" class="login-input t-input" id="loginEmail" placeholder="tu@thinkydigital.com" oninput="loginEmailEgg(this.value)">
+      <input type="password" class="login-input t-input" id="loginPassword" placeholder="Contraseña" oninput="loginPasswordEgg(this.value)">
       <div class="pw-easter" id="loginPwEaster"></div>
       <button class="login-btn login-btn-primary" id="loginSubmitBtn" onclick="loginSubmit()">Entrar</button>
       <div class="login-divider">o</div>
@@ -3461,6 +3461,69 @@ function _renderDigitPop(elOrId, value) {
   el.classList.add('is-animating');
 }
 
+// Spawn a transient success check icon with the .t-success-check
+// pack animation. Usage: showSuccessCheck() (centred overlay) or
+// showSuccessCheck(anchorEl) to position it over a given element.
+function showSuccessCheck(anchor) {
+  const el = document.createElement('span');
+  el.className = 't-success-check';
+  el.setAttribute('aria-hidden','true');
+  el.setAttribute('data-state','out');
+  el.style.position = 'fixed';
+  el.style.zIndex = '100001';
+  el.style.pointerEvents = 'none';
+  if(anchor && anchor.getBoundingClientRect) {
+    const r = anchor.getBoundingClientRect();
+    el.style.left = (r.left + r.width/2 - 28)+'px';
+    el.style.top  = (r.top + r.height/2 - 28)+'px';
+  } else {
+    el.style.left = 'calc(50% - 28px)';
+    el.style.top  = 'calc(50% - 28px)';
+  }
+  el.innerHTML = `
+    <svg width="56" height="56" viewBox="0 0 48 48" fill="none">
+      <circle cx="24" cy="24" r="22" stroke="var(--pink)" stroke-width="3"/>
+      <path d="M14 25 L21 32 L34 18" stroke="var(--pink)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    </svg>`;
+  document.body.appendChild(el);
+  // Compute path length for accurate stroke-draw
+  try {
+    const path = el.querySelector('path');
+    const len = path.getTotalLength ? Math.ceil(path.getTotalLength()) : 30;
+    path.style.strokeDasharray = String(len);
+    path.style.strokeDashoffset = String(len);
+  } catch(e){}
+  // Force reflow then trigger
+  void el.offsetWidth;
+  el.setAttribute('data-state','in');
+  setTimeout(() => {
+    el.style.transition = 'opacity .35s ease';
+    el.style.opacity = '0';
+    setTimeout(()=>el.remove(), 380);
+  }, 1100);
+}
+
+// Trigger a shake on a .t-input element. Optional revert timer flips
+// .is-error back off after --revert-hold ms.
+function shakeInput(el, opts = {}) {
+  if(!el) return;
+  const wrap = el.closest('.t-input-wrap');
+  el.classList.remove('is-shaking');
+  if(wrap) wrap.classList.add('is-error');
+  el.classList.add('is-error');
+  // Force reflow so the keyframe replays
+  void el.offsetWidth;
+  el.classList.add('is-shaking');
+  if(opts.revert !== false) {
+    const hold = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--revert-hold')) || 3000;
+    setTimeout(() => {
+      if(wrap) wrap.classList.remove('is-error');
+      el.classList.remove('is-error');
+      el.classList.remove('is-shaking');
+    }, hold);
+  }
+}
+
 // Drive a .t-badge element (open/close + dot text). Wraps the
 // transitions.dev badge pack so any badge in the app can use the
 // same slide-in + pop API.
@@ -4263,7 +4326,7 @@ function saveClientContact() {
   else c.clientContacts.push(obj);
   setData('campaigns', campaigns);
   closeModal('clientContactModal');
-  showToast('Contacto guardado','success');
+  showToast('Contacto guardado','success'); try { showSuccessCheck(); } catch(e){}
   if(currentCampaignId === campaignId) renderCampaignClients(c);
 }
 
@@ -7368,7 +7431,7 @@ function saveCampaign() {
   }
   setData('campaigns',campaigns);
   closeModal('campaignModal');
-  showToast(editingCampaignId?'Campaña actualizada':'Campaña creada','success');
+  showToast(editingCampaignId?'Campaña actualizada':'Campaña creada','success'); try { showSuccessCheck(); } catch(e){}
   if(editingCampaignId) openCampaignDetail(editingCampaignId);
   else renderCampaignGrid();
   populateCampaignSelects();
@@ -8110,16 +8173,22 @@ function toggleAuthMode() {
 }
 
 async function loginSubmit() {
-  const email = document.getElementById('loginEmail').value.trim();
-  const pw = document.getElementById('loginPassword').value;
-  const name = document.getElementById('loginNameInput').value.trim();
+  const emailEl = document.getElementById('loginEmail');
+  const pwEl    = document.getElementById('loginPassword');
+  const email = emailEl.value.trim();
+  const pw    = pwEl.value;
+  const name  = document.getElementById('loginNameInput').value.trim();
   const errEl = document.getElementById('loginError');
   errEl.textContent='';
-  if(!email || !pw) { errEl.textContent='Email y contraseña requeridos'; return; }
-  if(!isAllowedEmail(email)) { errEl.textContent='Solo se permiten correos @thinkydigital.com'; return; }
+  const _bad = (msg, fields) => {
+    errEl.textContent = msg;
+    (fields||[]).forEach(f => shakeInput(f));
+  };
+  if(!email || !pw) { _bad('Email y contraseña requeridos', [!email&&emailEl, !pw&&pwEl].filter(Boolean)); return; }
+  if(!isAllowedEmail(email)) { _bad('Solo se permiten correos @thinkydigital.com', [emailEl]); return; }
   const area = document.getElementById('loginAreaInput').value;
-  if(isSignupMode && !name) { errEl.textContent='Ingresa tu nombre'; return; }
-  if(isSignupMode && !area) { errEl.textContent='Selecciona tu área'; return; }
+  if(isSignupMode && !name) { _bad('Ingresa tu nombre', [document.getElementById('loginNameInput')]); return; }
+  if(isSignupMode && !area) { _bad('Selecciona tu área', []); return; }
   try {
     if(isSignupMode) {
       const cred = await auth.createUserWithEmailAndPassword(email, pw);
@@ -8131,7 +8200,7 @@ async function loginSubmit() {
       await auth.signInWithEmailAndPassword(email, pw);
     }
   } catch(e) {
-    errEl.textContent = traduceFirebaseError(e.code) || e.message;
+    _bad(traduceFirebaseError(e.code) || e.message, [emailEl, pwEl]);
   }
 }
 
@@ -8970,7 +9039,7 @@ async function saveInfluencerPrivateInfo(key) {
     await db.collection('workspaces').doc(WORKSPACE)
       .collection('creatorPrivateInfo').doc(key).set(data, {merge:true});
     _creatorPrivateCache.set(key, {...data, updatedAt: new Date()});
-    showToast('Datos guardados','success');
+    showToast('Datos guardados','success'); try { showSuccessCheck(); } catch(e){}
   } catch(e) {
     showToast('Error: '+e.message,'error');
   }
@@ -9750,7 +9819,7 @@ async function saveMyProfile() {
     }
     const roleBadge = document.getElementById('userRoleSidebar');
     if(roleBadge) roleBadge.textContent = puesto || (currentUserProfile.role==='admin'?'Admin':'Miembro');
-    showToast('Perfil actualizado ✓','success');
+    showToast('Perfil actualizado ✓','success'); try { showSuccessCheck(); } catch(e){}
     closeModal('editProfileModal');
   } catch(e) {
     showToast('Error guardando perfil: '+e.message,'error');
