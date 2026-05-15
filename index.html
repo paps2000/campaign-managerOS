@@ -672,7 +672,7 @@ html.dark .login-input:focus { background:var(--white); }
 html.dark .login-btn-google { background:var(--white); border-color:var(--border); color:var(--text); }
 html.dark .mobile-nav { background:var(--white); border-color:var(--border); }
 html.dark .task-area-group summary { background:var(--bg); }
-html.dark .profile-modal-hero { background:linear-gradient(160deg,#0d0d11 0%,rgba(255,45,135,.14) 100%); }
+html.dark .profile-modal-hero { background:linear-gradient(160deg,#0d0420 0%,#130a1e 60%,#060210 100%); }
 html.dark .profile-modal-hero-close { background:rgba(255,255,255,.08); color:var(--text); }
 html.dark .profile-modal-hero-close:hover { background:rgba(255,255,255,.16); color:#fff; }
 html.dark .profile-status-preview { background:rgba(255,255,255,.06); color:var(--text-muted); }
@@ -771,30 +771,42 @@ html.light {
 /* ============ PERFIL MODAL REDISEÑADO ============ */
 .profile-modal { padding:0; overflow:hidden; width:560px; }
 .profile-modal-hero {
-  position:relative; padding:32px 28px 24px;
-  background:linear-gradient(160deg,#f5f3ff 0%,#fff0f7 100%);
+  position:relative; padding:32px 28px 24px; overflow:hidden;
+  background:linear-gradient(160deg,#120720 0%, #1a0a1e 60%, #0d0420 100%);
   display:flex; flex-direction:column; align-items:center; gap:10px;
   text-align:center;
 }
-.profile-modal-hero-close {
-  position:absolute; top:14px; right:14px; background:rgba(0,0,0,.08);
-  border:none; border-radius:50%; width:30px; height:30px; cursor:pointer;
-  display:flex; align-items:center; justify-content:center; color:var(--text-muted);
-  font-size:16px; transition:all .2s; line-height:1;
+.profile-modal-hero::before {
+  content:''; position:absolute; bottom:-60px; left:50%; transform:translateX(-50%);
+  width:320px; height:180px; pointer-events:none;
+  background:radial-gradient(ellipse, rgba(255,45,135,.35) 0%, transparent 70%);
 }
-.profile-modal-hero-close:hover { background:rgba(0,0,0,.14); color:var(--text); }
-.profile-modal-avatar-wrap { position:relative; display:inline-block; }
+.profile-modal-hero::after {
+  content:''; position:absolute; top:-40px; right:-40px; width:160px; height:160px; pointer-events:none;
+  background:radial-gradient(ellipse, rgba(44,109,255,.18) 0%, transparent 70%);
+}
+.profile-modal-hero-close {
+  position:absolute; top:14px; right:14px; background:rgba(255,255,255,.12);
+  border:none; border-radius:50%; width:30px; height:30px; cursor:pointer;
+  display:flex; align-items:center; justify-content:center; color:rgba(255,255,255,.7);
+  font-size:16px; transition:all .2s; line-height:1; z-index:2;
+}
+.profile-modal-hero-close:hover { background:rgba(255,255,255,.22); color:#fff; }
+.profile-modal-avatar-wrap { position:relative; display:inline-block; z-index:2; }
 .profile-modal-avatar {
   width:80px; height:80px; border-radius:22px; display:flex; align-items:center;
   justify-content:center; font-size:34px; font-weight:700; color:#fff;
-  transition:all .35s cubic-bezier(.2,.8,.2,1); box-shadow:0 8px 28px rgba(0,0,0,.18);
+  transition:all .35s cubic-bezier(.2,.8,.2,1);
+  box-shadow:0 8px 32px rgba(255,45,135,.35), 0 2px 12px rgba(0,0,0,.4);
   cursor:default; user-select:none;
 }
-.profile-modal-name { font-size:20px; font-weight:700; color:var(--text); line-height:1.1; }
-.profile-modal-sub { font-size:12px; color:var(--text-muted); }
+.profile-modal-avatar:hover { transform:scale(1.06) rotate(-3deg); }
+.profile-modal-name { font-size:20px; font-weight:700; color:#fff; line-height:1.1; position:relative; z-index:2; }
+.profile-modal-sub { font-size:12px; color:rgba(255,255,255,.5); position:relative; z-index:2; }
 .profile-status-preview {
   display:inline-flex; align-items:center; gap:5px; padding:4px 10px;
-  background:rgba(0,0,0,.06); border-radius:20px; font-size:12px; color:var(--text-muted);
+  background:rgba(255,255,255,.1); border-radius:20px; font-size:12px;
+  color:rgba(255,255,255,.65); border:1px solid rgba(255,255,255,.1); position:relative; z-index:2;
   margin-top:2px; transition:all .2s;
 }
 .profile-tab-bar {
@@ -838,7 +850,9 @@ html.light {
 
 /* Color section */
 .color-picker { display:flex; flex-direction:column; gap:10px; }
-.color-row-label { font-size:10px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:1.2px; margin-bottom:2px; }
+.color-row-label { font-size:9px; font-weight:800; color:var(--pink); opacity:.8; text-transform:uppercase; letter-spacing:1.8px; margin-bottom:2px; }
+.color-swatch { width:38px !important; height:38px !important; border-radius:11px !important; }
+.color-swatches { gap:10px !important; }
 .color-swatches { display:flex; gap:8px; flex-wrap:wrap; }
 .color-swatch {
   width:36px; height:36px; border-radius:10px; cursor:pointer;
@@ -1008,6 +1022,66 @@ html.dark .pronoun-chip.selected { background:var(--pink-pale); color:#fff; }
   display:grid; grid-template-columns:1fr 1fr 1fr 1fr auto; gap:8px; align-items:end; margin-bottom:8px;
 }
 
+/* ============ MICRO-ANIMATIONS & EASTER EGGS ============ */
+.task-title { position:relative; }
+.task-title.done-text { text-decoration:none !important; color:var(--text-muted); }
+.task-title.done-text::after {
+  content:''; position:absolute; left:0; top:52%; height:1.5px; border-radius:2px;
+  background:var(--text-muted); animation:strikeThrough .38s cubic-bezier(.4,0,.2,1) forwards;
+}
+@keyframes strikeThrough { from{width:0} to{width:100%} }
+.task-check.done { animation:taskCheckBounce .45s cubic-bezier(.2,.8,.2,1) !important; }
+@keyframes taskCheckBounce {
+  0%{transform:scale(.5)} 55%{transform:scale(1.35)} 75%{transform:scale(.88)} 100%{transform:scale(1)}
+}
+.task-burst-piece {
+  position:fixed; pointer-events:none; z-index:99998; border-radius:50%;
+  animation:taskBurstFly var(--dur,.55s) ease-out forwards;
+}
+@keyframes taskBurstFly {
+  0%{transform:translate(0,0) scale(1); opacity:1}
+  100%{transform:translate(var(--dx),var(--dy)) scale(0); opacity:0}
+}
+.nav-item { overflow:hidden; }
+.nav-ripple {
+  position:absolute; border-radius:50%; background:rgba(255,255,255,.18);
+  pointer-events:none; transform:scale(0); animation:navRippleAnim .55s ease-out forwards;
+}
+@keyframes navRippleAnim { to{transform:scale(5); opacity:0} }
+.campaign-card { position:relative; overflow:hidden; }
+.campaign-card::before {
+  content:''; position:absolute; inset:0; border-radius:inherit;
+  background:linear-gradient(108deg, transparent 40%, rgba(255,255,255,.07) 50%, transparent 60%);
+  transform:translateX(-120%); pointer-events:none; z-index:0;
+}
+.campaign-card:hover::before { animation:cardShimmer .65s ease forwards; }
+@keyframes cardShimmer { to{transform:translateX(120%)} }
+#easterToast {
+  position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(16px);
+  background:#141418; color:#fff; padding:12px 22px; border-radius:18px;
+  border:1.5px solid var(--pink); box-shadow:0 10px 40px rgba(255,45,135,.45);
+  font-size:13px; font-weight:600; opacity:0; pointer-events:none;
+  z-index:100000; transition:opacity .25s ease, transform .35s cubic-bezier(.2,.8,.2,1);
+  max-width:90vw; text-align:center;
+}
+#easterToast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+.confetti-piece {
+  position:fixed; top:-20px; pointer-events:none; z-index:99999;
+  animation:confettiFall linear forwards;
+}
+@keyframes confettiFall {
+  to { transform:translateY(110vh) rotate(720deg); opacity:.5; }
+}
+@keyframes rainbowSpin {
+  0%{filter:hue-rotate(0); transform:rotate(0)}
+  100%{filter:hue-rotate(360deg); transform:rotate(360deg)}
+}
+.rainbow-mode { animation:rainbowSpin 1.2s linear; }
+@keyframes logo3spin {
+  0%{transform:rotate(0) scale(1)} 50%{transform:rotate(180deg) scale(1.3)} 100%{transform:rotate(360deg) scale(1)}
+}
+.logo-3spin { animation:logo3spin .9s cubic-bezier(.2,.8,.2,1); }
+
 /* LOGIN SCREEN */
 .login-screen {
   position:fixed; inset:0; background:var(--bg);
@@ -1021,20 +1095,49 @@ html.dark .pronoun-chip.selected { background:var(--pink-pale); color:#fff; }
 .login-hero::before {
   content:''; position:absolute; inset:0;
   background:radial-gradient(ellipse 80% 60% at 50% 120%, rgba(255,45,135,.25) 0%, transparent 60%);
+  pointer-events:none;
+}
+.login-hero-orb { position:absolute; border-radius:50%; pointer-events:none; animation:orbFloat 9s ease-in-out infinite; }
+.login-hero-orb.o1 { top:-120px; right:-100px; width:340px; height:340px; background:radial-gradient(circle, rgba(255,45,135,.22) 0%, transparent 70%); animation-duration:9s; }
+.login-hero-orb.o2 { bottom:-80px; left:-80px;   width:260px; height:260px; background:radial-gradient(circle, rgba(44,109,255,.18) 0%, transparent 70%); animation-duration:7s; animation-delay:1.2s; }
+.login-hero-orb.o3 { bottom:28%;   right:8%;      width:140px; height:140px; background:radial-gradient(circle, rgba(198,242,74,.20) 0%, transparent 70%); animation-duration:10s; animation-delay:.6s; }
+.login-hero-orb.o4 { top:28%;      left:6%;       width:90px;  height:90px;  background:radial-gradient(circle, rgba(255,45,135,.30) 0%, transparent 70%); animation-duration:6.5s; animation-delay:2s; }
+@keyframes orbFloat {
+  0%,100% { transform: translateY(0) rotate(0deg) scale(1); }
+  33%      { transform: translateY(-24px) rotate(6deg) scale(1.04); }
+  66%      { transform: translateY(14px) rotate(-4deg) scale(.97); }
 }
 .login-hero-ymark {
-  width:120px; height:120px; margin-bottom:32px; position:relative; z-index:1;
-  animation:float 3s ease-in-out infinite;
+  width:200px; margin-bottom:32px; position:relative; z-index:2;
+  animation:float 3.5s ease-in-out infinite;
+  cursor:pointer; filter:drop-shadow(0 10px 30px rgba(255,45,135,.55));
+  transition: filter .25s ease, transform .25s ease;
 }
-.login-hero-ymark img { width:100%; height:100%; object-fit:contain; }
+.login-hero-ymark:hover { filter:drop-shadow(0 14px 40px rgba(255,45,135,.8)) brightness(1.1); }
+.login-hero-ymark img { width:100%; height:auto; object-fit:contain; display:block; }
 .login-hero-title {
   font-family:'Quicksand',sans-serif; font-size:36px; font-weight:700; color:#fff;
-  letter-spacing:-1px; margin-bottom:10px; position:relative; z-index:1; text-align:center;
+  letter-spacing:-1px; margin-bottom:10px; position:relative; z-index:2; text-align:center;
 }
 .login-hero-title span { color:var(--pink); }
 .login-hero-sub {
-  font-style:italic; font-size:16px; color:#7a7884;
-  position:relative; z-index:1; text-align:center;
+  font-style:italic; font-size:15px; color:#8a8494; line-height:1.6;
+  position:relative; z-index:2; text-align:center;
+  min-height:52px; display:flex; align-items:center; justify-content:center;
+}
+.login-tagline { position:absolute; opacity:0; transition:opacity .8s ease; }
+.login-tagline.show { opacity:1; }
+.login-dot-grid {
+  position:absolute; bottom:32px; left:50%; transform:translateX(-50%);
+  display:grid; grid-template-columns:repeat(7, 5px); gap:5px;
+  opacity:.18; z-index:1; pointer-events:none;
+}
+.login-dot-grid span { width:5px; height:5px; background:#fff; border-radius:1px; display:block; }
+.login-sparkle { position:absolute; border-radius:50%; pointer-events:none; z-index:5; animation:sparkleAnim .65s ease-out forwards; }
+@keyframes sparkleAnim {
+  0%   { transform: scale(0) translate(0,0); opacity: 1; }
+  60%  { opacity: .8; }
+  100% { transform: scale(1) translate(var(--dx,0), var(--dy,0)); opacity: 0; }
 }
 .login-card {
   width:460px; flex-shrink:0; background:#fff; display:flex; flex-direction:column;
@@ -1044,6 +1147,20 @@ html.dark .pronoun-chip.selected { background:var(--pink-pale); color:#fff; }
   font-family:'Quicksand',sans-serif; font-size:22px; font-weight:700; margin-bottom:4px; color:var(--text);
 }
 .login-logo span { color:var(--pink); }
+.login-card-logo {
+  position:relative; display:inline-block; cursor:pointer; margin-bottom:8px;
+  transition:transform .2s ease;
+}
+.login-card-logo:hover { transform:scale(1.06); }
+.login-card-logo img { height:30px; width:auto; display:block; }
+.login-card-logo .logo-badge {
+  position:absolute; top:-6px; right:-12px; width:16px; height:16px; border-radius:50%;
+  background:var(--pink); color:#fff; font-size:9px; font-weight:800;
+  display:none; align-items:center; justify-content:center;
+}
+@keyframes logoWiggle { 0%,100%{transform:rotate(0)} 25%{transform:rotate(-10deg) scale(1.08)} 75%{transform:rotate(10deg) scale(1.08)} }
+.login-card-logo.wiggle { animation: logoWiggle .55s ease; }
+.pw-easter { font-size:11px; color:var(--pink); min-height:14px; margin:-4px 0 4px; }
 .login-tag { font-size:13px; color:var(--text-muted); margin-bottom:28px; }
 .login-title { font-size:14px; color:var(--text-muted); margin-bottom:20px; }
 .login-input {
@@ -1384,15 +1501,31 @@ html.dark .pronoun-chip.selected { background:var(--pink-pale); color:#fff; }
 
 <!-- LOGIN SCREEN -->
 <div class="login-screen" id="loginScreen">
-  <div class="login-hero">
-    <div class="login-hero-ymark">
-      <img src="assets/y-white-transparent.png" alt="Think Y.">
+  <div class="login-hero" id="loginHero">
+    <span class="login-hero-orb o1"></span>
+    <span class="login-hero-orb o2"></span>
+    <span class="login-hero-orb o3"></span>
+    <span class="login-hero-orb o4"></span>
+    <div class="login-hero-ymark" id="loginHeroLogo" onclick="loginHeroLogoClick()">
+      <img src="assets/thinky-rosa.png" alt="Thinky">
     </div>
     <div class="login-hero-title">Campaign <span>OS</span></div>
-    <div class="login-hero-sub">Tu centro de operaciones de campañas.</div>
+    <div class="login-hero-sub" id="loginTaglineWrap">
+      <span class="login-tagline show" data-i="0">Tu centro de operaciones de campañas.</span>
+      <span class="login-tagline" data-i="1">Donde las ideas se vuelven campañas. 🚀</span>
+      <span class="login-tagline" data-i="2">Menos caos, más creatividad. ✨</span>
+      <span class="login-tagline" data-i="3">Todo en un solo lugar. Por fin. 🙌</span>
+      <span class="login-tagline" data-i="4">¿Lista para hacer magia hoy? 🧠</span>
+      <span class="login-tagline" data-i="5">Hecha con amor (y mucho café). ☕</span>
+      <span class="login-tagline" data-i="6">Think big. Think Y. 💅</span>
+    </div>
+    <div class="login-dot-grid" id="loginDotGrid"></div>
   </div>
   <div class="login-card">
-    <div class="login-logo">Think <span>Y.</span></div>
+    <div class="login-card-logo" id="loginCardLogo" onclick="loginCardLogoClick()">
+      <img src="assets/thinky-negro.png" alt="Thinky">
+      <span class="logo-badge" id="loginCardLogoBadge">0</span>
+    </div>
     <div class="login-tag">Bienvenido de nuevo</div>
     <div class="login-title" id="loginTitle">Inicia sesión para continuar</div>
 
@@ -1405,8 +1538,9 @@ html.dark .pronoun-chip.selected { background:var(--pink-pale); color:#fff; }
         <option value="Creativo">Creativo</option>
         <option value="Data">Data</option>
       </select>
-      <input type="email" class="login-input" id="loginEmail" placeholder="tu@email.com">
-      <input type="password" class="login-input" id="loginPassword" placeholder="Contraseña">
+      <input type="email" class="login-input" id="loginEmail" placeholder="tu@thinkydigital.com" oninput="loginEmailEgg(this.value)">
+      <input type="password" class="login-input" id="loginPassword" placeholder="Contraseña" oninput="loginPasswordEgg(this.value)">
+      <div class="pw-easter" id="loginPwEaster"></div>
       <button class="login-btn login-btn-primary" id="loginSubmitBtn" onclick="loginSubmit()">Entrar</button>
       <div class="login-divider">o</div>
       <button class="login-btn login-btn-google" onclick="loginGoogle()">
@@ -5631,6 +5765,7 @@ function setPendientesUser(uid) {
 }
 
 function toggleTask(tid, cid) {
+  let wentDone = false;
   if(cid) {
     const campaigns = getData('campaigns');
     const c = campaigns.find(x=>x.id===cid);
@@ -5639,8 +5774,10 @@ function toggleTask(tid, cid) {
       if(t) {
         if(t.recurring) {
           const today=new Date().toISOString().split('T')[0];
-          t.lastDoneDate = t.lastDoneDate===today ? '' : today;
-        } else { t.done=!t.done; }
+          const wasDone = t.lastDoneDate===today;
+          t.lastDoneDate = wasDone ? '' : today;
+          wentDone = !wasDone;
+        } else { wentDone = !t.done; t.done=!t.done; }
       }
       setData('campaigns',campaigns);
     }
@@ -5650,11 +5787,14 @@ function toggleTask(tid, cid) {
     if(t) {
       if(t.recurring) {
         const today=new Date().toISOString().split('T')[0];
-        t.lastDoneDate = t.lastDoneDate===today ? '' : today;
-      } else { t.done=!t.done; }
+        const wasDone = t.lastDoneDate===today;
+        t.lastDoneDate = wasDone ? '' : today;
+        wentDone = !wasDone;
+      } else { wentDone = !t.done; t.done=!t.done; }
     }
     setData('globalTasks',tasks);
   }
+  if(wentDone) { try { _onTaskDone(tid); } catch(e){} }
   if(currentPage==='dashboard') renderDashboard();
   else if(currentPage==='pendientes') renderPendientes();
   else if(currentPage==='campannas' && currentCampaignId) {
@@ -9101,6 +9241,275 @@ async function saveMyProfile() {
     showToast('Error guardando perfil: '+e.message,'error');
   }
 }
+
+// ============================================================
+// IN-APP EASTER EGGS & MICRO-ANIMATIONS
+// ============================================================
+
+// ---- Shared helpers ----
+function showEasterToast(msg) {
+  let el = document.getElementById('easterToast');
+  if(!el) {
+    el = document.createElement('div');
+    el.id = 'easterToast';
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(el._timer);
+  el._timer = setTimeout(() => el.classList.remove('show'), 3800);
+}
+
+function spawnConfetti() {
+  const colors = ['#ff2d87','#2c6dff','#c6f24a','#ff7eb0','#fff','#ffd700'];
+  for(let i=0; i<90; i++) {
+    const p = document.createElement('div');
+    p.className = 'confetti-piece';
+    const size = 5 + Math.random()*9;
+    p.style.width = size+'px';
+    p.style.height = size+'px';
+    p.style.left = (Math.random()*100)+'vw';
+    p.style.background = colors[Math.floor(Math.random()*colors.length)];
+    p.style.borderRadius = Math.random()>.5 ? '50%' : '3px';
+    p.style.animationDuration = (1.2 + Math.random()*1.8)+'s';
+    p.style.animationDelay = (Math.random()*0.7)+'s';
+    document.body.appendChild(p);
+    setTimeout(()=>p.remove(), 3500);
+  }
+}
+
+// ---- Task completion: burst + messages ----
+let _taskDoneCount = 0;
+const _TASK_MSGS = ['¡Tarea completada! 🎉','¡Eso! Una menos 💪','¡Máquina! ✨','¡Dale! 🚀','¡Lo lograste! 🎯','¡Imparable! 💅','¡Pura energía! ⚡','¡Crack total! 🧠','¡Bien hecho! 🌟'];
+function _onTaskDone(tid) {
+  _taskDoneCount++;
+  // Burst from checkbox
+  const cb = document.querySelector(`[data-tid="${tid}"] .task-check, [data-task-id="${tid}"] .task-check`)
+          || document.querySelector(`.task-check[data-tid="${tid}"]`);
+  if(cb) _taskBurst(cb);
+  if(_taskDoneCount % 5 === 0) {
+    spawnConfetti();
+    showEasterToast(`🏆 ¡${_taskDoneCount} tareas! Eres una leyenda.`);
+  } else if(Math.random() < .6) {
+    showEasterToast(_TASK_MSGS[Math.floor(Math.random()*_TASK_MSGS.length)]);
+  }
+}
+function _taskBurst(anchor) {
+  try {
+    const r = anchor.getBoundingClientRect();
+    const cx = r.left + r.width/2, cy = r.top + r.height/2;
+    const colors = ['#ff2d87','#2c6dff','#c6f24a','#ffd700','#ff7eb0'];
+    for(let i=0;i<10;i++){
+      const piece = document.createElement('span');
+      piece.className = 'task-burst-piece';
+      const sz = 4 + Math.random()*4;
+      piece.style.width = sz+'px'; piece.style.height = sz+'px';
+      piece.style.left = cx+'px'; piece.style.top = cy+'px';
+      piece.style.background = colors[i%colors.length];
+      const ang = Math.random()*Math.PI*2;
+      const dist = 22 + Math.random()*28;
+      piece.style.setProperty('--dx', Math.cos(ang)*dist+'px');
+      piece.style.setProperty('--dy', Math.sin(ang)*dist+'px');
+      piece.style.setProperty('--dur', (.35 + Math.random()*.25)+'s');
+      document.body.appendChild(piece);
+      setTimeout(()=>piece.remove(), 700);
+    }
+  } catch(e){}
+}
+
+// ---- Nav ripple ----
+document.addEventListener('click', (e) => {
+  const item = e.target.closest('.nav-item');
+  if(!item) return;
+  const rect = item.getBoundingClientRect();
+  const size = Math.max(rect.width, rect.height);
+  const ripple = document.createElement('span');
+  ripple.className = 'nav-ripple';
+  ripple.style.width = size+'px'; ripple.style.height = size+'px';
+  ripple.style.left = (e.clientX - rect.left - size/2)+'px';
+  ripple.style.top  = (e.clientY - rect.top  - size/2)+'px';
+  item.appendChild(ripple);
+  setTimeout(()=>ripple.remove(), 600);
+});
+
+// ---- Stat value pulse on click ----
+document.addEventListener('click', (e) => {
+  const el = e.target.closest('.stat-value');
+  if(!el) return;
+  const prevT = el.style.transform, prevC = el.style.color;
+  el.style.transform = 'scale(1.18)';
+  el.style.color = 'var(--pink)';
+  setTimeout(() => { el.style.transform = prevT; el.style.color = prevC; }, 350);
+});
+
+// ---- Sidebar avatar rainbow (7 clicks in 1.8s) ----
+let _avatarClicks = [];
+document.addEventListener('click', (e) => {
+  const av = e.target.closest('#sidebarUserAvatar, .sidebar-user .avatar, #userAvatarSidebar');
+  if(!av) return;
+  const now = Date.now();
+  _avatarClicks = _avatarClicks.filter(t => now - t < 1800);
+  _avatarClicks.push(now);
+  if(_avatarClicks.length >= 7) {
+    _avatarClicks = [];
+    av.classList.add('rainbow-mode');
+    setTimeout(()=>av.classList.remove('rainbow-mode'), 1300);
+    showEasterToast('🌈 Modo arcoíris desbloqueado 💅');
+  }
+});
+
+// ---- Sidebar Y logo (3 clicks in 1.4s) ----
+let _sideLogoClicks = [];
+const _SIDE_LOGO_MSGS = ['🧠 Think Y., build campaigns.','✨ ¡Hola desde el sidebar!','🚀 ¡Sigamos haciendo magia!','💅 Tres clics. Ya sabías que estaba aquí.'];
+document.addEventListener('click', (e) => {
+  const logo = e.target.closest('.sidebar-logo, .sidebar-brand img, #sidebarLogo, .sidebar-y-mark');
+  if(!logo) return;
+  const now = Date.now();
+  _sideLogoClicks = _sideLogoClicks.filter(t => now - t < 1400);
+  _sideLogoClicks.push(now);
+  if(_sideLogoClicks.length >= 3) {
+    _sideLogoClicks = [];
+    logo.classList.add('logo-3spin');
+    setTimeout(()=>logo.classList.remove('logo-3spin'), 950);
+    showEasterToast(_SIDE_LOGO_MSGS[Math.floor(Math.random()*_SIDE_LOGO_MSGS.length)]);
+  }
+});
+
+// ---- Topbar date (4 clicks in 1.2s) ----
+let _dateClicks = [];
+document.addEventListener('click', (e) => {
+  const d = e.target.closest('#topbarDate, .topbar-date');
+  if(!d) return;
+  const now = Date.now();
+  _dateClicks = _dateClicks.filter(t => now - t < 1200);
+  _dateClicks.push(now);
+  if(_dateClicks.length >= 4) {
+    _dateClicks = [];
+    const h = new Date().getHours();
+    const greet = h < 12 ? '¡Buenos días! ☀️' : h < 19 ? '¡Buenas tardes! 🌤' : '¡Buenas noches! 🌙';
+    showEasterToast(greet + ' — hora de ser increíble.');
+  }
+});
+
+// ---- Konami code ----
+let _konami = [];
+const _KONAMI_SEQ = ['ArrowUp','ArrowUp','ArrowDown','ArrowDown','ArrowLeft','ArrowRight','ArrowLeft','ArrowRight','b','a'];
+document.addEventListener('keydown', (e) => {
+  _konami.push(e.key.length === 1 ? e.key.toLowerCase() : e.key);
+  if(_konami.length > 10) _konami.shift();
+  if(_konami.length === 10 && _konami.every((k,i) => k === _KONAMI_SEQ[i])) {
+    _konami = [];
+    spawnConfetti();
+    showEasterToast('🎮 ¡Modo campaña PRO activado! Bienvenide, genie ✨');
+  }
+});
+
+// ---- Login: rotating taglines ----
+let _loginTaglineIdx = 0, _loginTaglineTimer = null;
+function _startLoginTaglines() {
+  if(_loginTaglineTimer) clearInterval(_loginTaglineTimer);
+  const els = document.querySelectorAll('#loginTaglineWrap .login-tagline');
+  if(!els.length) return;
+  _loginTaglineTimer = setInterval(() => {
+    els.forEach(el => el.classList.remove('show'));
+    _loginTaglineIdx = (_loginTaglineIdx + 1) % els.length;
+    els[_loginTaglineIdx].classList.add('show');
+  }, 3200);
+}
+
+// ---- Login: dot grid build ----
+function _buildLoginDotGrid() {
+  const g = document.getElementById('loginDotGrid');
+  if(!g || g.childElementCount) return;
+  for(let i=0;i<21;i++) g.appendChild(document.createElement('span'));
+}
+
+// ---- Login: cursor sparkles ----
+let _lastSparkle = 0;
+function _initLoginSparkles() {
+  const hero = document.getElementById('loginHero');
+  if(!hero || hero._sparkInit) return;
+  hero._sparkInit = true;
+  hero.addEventListener('mousemove', (e) => {
+    if(Math.random() > .3) return;
+    const now = Date.now();
+    if(now - _lastSparkle < 80) return;
+    _lastSparkle = now;
+    const rect = hero.getBoundingClientRect();
+    const s = document.createElement('span');
+    s.className = 'login-sparkle';
+    const sz = 3 + Math.random()*5;
+    s.style.width = sz+'px'; s.style.height = sz+'px';
+    s.style.left = (e.clientX - rect.left)+'px';
+    s.style.top  = (e.clientY - rect.top)+'px';
+    s.style.background = Math.random() < .6 ? '#ff2d87' : '#c6f24a';
+    const ang = Math.random()*Math.PI*2;
+    const dist = 18 + Math.random()*32;
+    s.style.setProperty('--dx', Math.cos(ang)*dist+'px');
+    s.style.setProperty('--dy', Math.sin(ang)*dist+'px');
+    hero.appendChild(s);
+    setTimeout(()=>s.remove(), 700);
+  });
+}
+
+// ---- Login: hero logo (5 clicks) ----
+let _heroLogoClicks = 0;
+function loginHeroLogoClick() {
+  _heroLogoClicks++;
+  if(_heroLogoClicks >= 5) {
+    _heroLogoClicks = 0;
+    spawnConfetti();
+    showEasterToast('🧠 ¡5 veces! Energía de campaña desbloqueada 💥');
+  }
+}
+
+// ---- Login: card logo (7 clicks) ----
+let _cardLogoClicks = 0;
+function loginCardLogoClick() {
+  _cardLogoClicks++;
+  const badge = document.getElementById('loginCardLogoBadge');
+  const wrap = document.getElementById('loginCardLogo');
+  if(badge) { badge.textContent = _cardLogoClicks; badge.style.display = 'flex'; }
+  if(wrap) { wrap.classList.add('wiggle'); setTimeout(()=>wrap.classList.remove('wiggle'), 600); }
+  if(_cardLogoClicks >= 7) {
+    _cardLogoClicks = 0;
+    showEasterToast('💅 Siete clics. Talentos ocultos detectados.');
+    if(badge) badge.style.display = 'none';
+  }
+}
+
+// ---- Login: password & email field eggs ----
+function loginPasswordEgg(v) {
+  const el = document.getElementById('loginPwEaster');
+  if(!el) return;
+  const t = String(v||'').toLowerCase();
+  const map = {
+    'thinky':     '🧠 ¿"thinky" de contraseña? Creativa… pero no. 😏',
+    '123456':     '😬 En serio… ¿123456? No, amiga.',
+    'password':   '🙈 Eso no. Inténtalo de nuevo.',
+    'contraseña': '🙈 Eso no. Inténtalo de nuevo.',
+    'admin':      '🤖 Admin, ¿eh? Clásic@.'
+  };
+  el.textContent = map[t] || '';
+}
+function loginEmailEgg(v) {
+  if(String(v||'').toLowerCase() === 'thinky') {
+    showEasterToast('🤔 Eso no es un email… pero apreciamos el entusiasmo.');
+  }
+}
+
+// Boot login interactions when the screen is visible
+function _maybeBootLogin() {
+  const scr = document.getElementById('loginScreen');
+  if(!scr || scr.classList.contains('hidden')) return;
+  _buildLoginDotGrid();
+  _startLoginTaglines();
+  _initLoginSparkles();
+}
+_maybeBootLogin();
+// Re-check after potential auth flow
+setTimeout(_maybeBootLogin, 500);
+setTimeout(_maybeBootLogin, 1500);
 </script>
 </body>
 </html>
