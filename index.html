@@ -151,6 +151,7 @@ body.theme-rose {
 .theme-swatch {
   width:28px; height:28px; border-radius:50%; cursor:pointer;
   border:3px solid transparent; transition:all .15s; flex-shrink:0;
+  background-clip:padding-box;
 }
 .theme-swatch:hover { transform:scale(1.15); }
 .theme-swatch.selected { border-color:var(--text); transform:scale(1.15); }
@@ -216,6 +217,28 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
 .sidebar-inner {
   flex:1; background:#141418; border-radius:24px; padding:18px 12px; display:flex; flex-direction:column;
   border:1px solid rgba(255,255,255,.04); overflow-y:auto;
+  position:relative; isolation:isolate;
+}
+.sidebar-bg-orbs { position:absolute; inset:0; z-index:-1; pointer-events:none; overflow:hidden; border-radius:24px; }
+.sidebar-orb-a {
+  position:absolute; border-radius:50%; width:220px; height:220px;
+  background:radial-gradient(circle, rgba(255,45,135,.12) 0%, transparent 70%);
+  top:-80px; right:-70px; animation:sidebarOrbFloat 11s ease-in-out infinite;
+}
+.sidebar-orb-b {
+  position:absolute; border-radius:50%; width:180px; height:180px;
+  background:radial-gradient(circle, rgba(44,109,255,.09) 0%, transparent 70%);
+  bottom:-50px; left:-50px; animation:sidebarOrbFloat 9s ease-in-out infinite 2.1s;
+}
+.sidebar-orb-c {
+  position:absolute; border-radius:50%; width:80px; height:80px;
+  background:radial-gradient(circle, rgba(198,242,74,.08) 0%, transparent 70%);
+  top:50%; right:4%; animation:sidebarOrbFloat 14s ease-in-out infinite 1s;
+}
+@keyframes sidebarOrbFloat {
+  0%,100% { transform: translate(0,0) scale(1); }
+  33%      { transform: translate(-14px, 22px) scale(1.07); }
+  66%      { transform: translate(10px, -18px) scale(.94); }
 }
 .sidebar-logo {
   padding:6px 10px 18px; display:flex; align-items:center; gap:10px;
@@ -563,6 +586,39 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
 
 /* AJUSTES */
 .settings-section { background:var(--white); border-radius:var(--radius); padding:24px; margin-bottom:16px; border:1px solid var(--border); }
+.settings-theme-swatch {
+  width:38px; height:38px; border-radius:12px; cursor:pointer;
+  border:3px solid transparent; transition:all .18s;
+  box-shadow:0 2px 8px rgba(0,0,0,.15); background-clip:padding-box; flex-shrink:0;
+}
+.settings-theme-swatch:hover { transform:scale(1.12); }
+.settings-theme-swatch.selected { border-color:var(--text); transform:scale(1.12); box-shadow:0 4px 12px rgba(0,0,0,.25); }
+.settings-theme-label { font-size:10px; color:var(--text-muted); font-weight:600; letter-spacing:.3px; }
+.mode-btn {
+  padding:8px 18px; border-radius:10px; font-size:13px; font-weight:600;
+  border:1.5px solid var(--border); background:var(--bg); color:var(--text-muted);
+  cursor:pointer; font-family:inherit; transition:all .2s var(--ease);
+}
+.mode-btn:hover { border-color:var(--pink); color:var(--text); }
+.mode-btn.active { background:var(--pink); color:#fff; border-color:var(--pink); box-shadow:0 3px 10px rgba(255,45,135,.3); }
+.toggle-row { display:flex; align-items:center; justify-content:space-between; padding:2px 0; }
+.toggle-label { font-size:13px; font-weight:600; color:var(--text); }
+.toggle-hint  { font-size:11px; color:var(--text-muted); margin-top:2px; }
+.toggle-switch-wrap { position:relative; display:inline-block; width:44px; height:24px; flex-shrink:0; }
+.toggle-switch-wrap input { opacity:0; width:0; height:0; position:absolute; }
+.toggle-track { position:absolute; inset:0; border-radius:12px; background:var(--border); cursor:pointer; transition:background .25s var(--ease); }
+.toggle-switch-wrap input:checked + .toggle-track { background:var(--pink); }
+.toggle-thumb { position:absolute; top:2px; left:2px; width:20px; height:20px; border-radius:50%; background:#fff; box-shadow:0 1px 4px rgba(0,0,0,.22); transition:transform .25s var(--ease); }
+.toggle-switch-wrap input:checked ~ .toggle-thumb { transform:translateX(20px); }
+.sidebar.compact { width:72px; min-width:72px; }
+.sidebar.compact .logo-text,
+.sidebar.compact .user-info,
+.sidebar.compact .nav-badge,
+.sidebar.compact .nav-label { display:none !important; }
+.sidebar.compact .nav-item { justify-content:center; padding:10px; }
+.sidebar.compact .sidebar-user { justify-content:center; padding:10px 6px; }
+.sidebar.compact .sidebar-logo { justify-content:center; padding-bottom:14px; }
+.sidebar.compact .sidebar-logo img { margin:0 auto; }
 .settings-title { font-size:20px; font-weight:700; margin-bottom:4px; letter-spacing:-0.2px; }
 .settings-desc { font-size:13px; color:var(--text-muted); margin-bottom:16px; }
 
@@ -858,6 +914,7 @@ html.light {
   width:36px; height:36px; border-radius:10px; cursor:pointer;
   border:3px solid transparent; transition:all .18s;
   box-shadow:0 2px 6px rgba(0,0,0,.12);
+  background-clip:padding-box;
 }
 .color-swatch:hover { transform:scale(1.12); }
 .color-swatch.selected { border-color:var(--text); transform:scale(1.12); box-shadow:0 3px 10px rgba(0,0,0,.2); }
@@ -1121,12 +1178,17 @@ html.dark .pronoun-chip.selected { background:var(--pink-pale); color:#fff; }
 }
 .login-hero-title span { color:var(--pink); }
 .login-hero-sub {
-  font-style:italic; font-size:15px; color:#8a8494; line-height:1.6;
-  position:relative; z-index:2; text-align:center;
-  min-height:52px; display:flex; align-items:center; justify-content:center;
+  position:relative; z-index:2; min-height:88px; margin-top:20px; width:100%;
+  display:block; text-align:center;
 }
-.login-tagline { position:absolute; opacity:0; transition:opacity .8s ease; }
-.login-tagline.show { opacity:1; }
+.login-tagline {
+  position:absolute; left:0; right:0; text-align:center;
+  font-size:19px; color:rgba(255,255,255,.74); font-style:italic; font-weight:500;
+  opacity:0; transform:translateY(10px);
+  transition: opacity 1s var(--ease), transform 1s var(--ease);
+  line-height:1.65; letter-spacing:.015em; padding:0 28px;
+}
+.login-tagline.show { opacity:1; transform:translateY(0); }
 .login-dot-grid {
   position:absolute; bottom:32px; left:50%; transform:translateX(-50%);
   display:grid; grid-template-columns:repeat(7, 5px); gap:5px;
@@ -1448,6 +1510,7 @@ html.dark .pronoun-chip.selected { background:var(--pink-pale); color:#fff; }
 .profile-gradient-swatch {
   width:36px;height:36px;border-radius:10px;cursor:pointer;border:3px solid transparent;
   transition:transform .15s,border-color .15s;flex-shrink:0;
+  background-clip:padding-box;
 }
 .profile-gradient-swatch.selected,.profile-gradient-swatch:hover { border-color:var(--text); transform:scale(1.1); }
 .profile-emoji-btn {
@@ -1561,6 +1624,11 @@ html.dark .pronoun-chip.selected { background:var(--pink-pale); color:#fff; }
 <!-- SIDEBAR -->
 <nav class="sidebar" id="mainSidebar">
   <div class="sidebar-inner">
+  <div class="sidebar-bg-orbs" aria-hidden="true">
+    <div class="sidebar-orb-a"></div>
+    <div class="sidebar-orb-b"></div>
+    <div class="sidebar-orb-c"></div>
+  </div>
   <div class="sidebar-logo">
     <img src="assets/y-white-transparent.png" alt="Y" style="width:32px;height:32px;object-fit:contain;flex-shrink:0;">
     <div>
@@ -2152,6 +2220,48 @@ html.dark .pronoun-chip.selected { background:var(--pink-pale); color:#fff; }
     <!-- AJUSTES -->
     <div class="page" id="page-ajustes">
       <h3 style="font-size:28px;font-weight:700;letter-spacing:-0.4px;margin-bottom:20px;">Ajustes</h3>
+
+      <!-- APARIENCIA -->
+      <div class="settings-section">
+        <div class="settings-title">Apariencia</div>
+        <div class="settings-desc">Personaliza los colores, el modo de pantalla y la barra lateral.</div>
+
+        <div class="form-group" style="margin-bottom:20px;">
+          <label class="form-label">Tema de color</label>
+          <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;align-items:flex-end;">
+            <div style="display:flex;flex-direction:column;align-items:center;gap:5px;"><button class="settings-theme-swatch" id="stTheme-default" style="background:linear-gradient(135deg,#ff2d87,#e6126d);" onclick="applyTheme('default')" title="Think Y"></button><span class="settings-theme-label">Think Y</span></div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:5px;"><button class="settings-theme-swatch" id="stTheme-ocean"   style="background:linear-gradient(135deg,#2563eb,#1d4ed8);" onclick="applyTheme('ocean')"   title="Ocean"></button><span class="settings-theme-label">Ocean</span></div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:5px;"><button class="settings-theme-swatch" id="stTheme-forest"  style="background:linear-gradient(135deg,#16a34a,#15803d);" onclick="applyTheme('forest')"  title="Forest"></button><span class="settings-theme-label">Forest</span></div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:5px;"><button class="settings-theme-swatch" id="stTheme-royal"   style="background:linear-gradient(135deg,#7c3aed,#6d28d9);" onclick="applyTheme('royal')"   title="Royal"></button><span class="settings-theme-label">Royal</span></div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:5px;"><button class="settings-theme-swatch" id="stTheme-sunset"  style="background:linear-gradient(135deg,#ea580c,#c2410c);" onclick="applyTheme('sunset')"  title="Sunset"></button><span class="settings-theme-label">Sunset</span></div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:5px;"><button class="settings-theme-swatch" id="stTheme-rose"    style="background:linear-gradient(135deg,#e11d48,#be123c);" onclick="applyTheme('rose')"    title="Rose"></button><span class="settings-theme-label">Rose</span></div>
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-bottom:20px;">
+          <label class="form-label">Modo de pantalla</label>
+          <div style="display:flex;gap:8px;margin-top:8px;">
+            <button class="mode-btn" id="modeBtn-auto"  onclick="setModeBtn('auto')">Auto</button>
+            <button class="mode-btn" id="modeBtn-light" onclick="setModeBtn('light')">☀️ Claro</button>
+            <button class="mode-btn" id="modeBtn-dark"  onclick="setModeBtn('dark')">🌙 Oscuro</button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <div class="toggle-row">
+            <div>
+              <div class="toggle-label">Sidebar compacto</div>
+              <div class="toggle-hint">Muestra solo iconos en la barra lateral para ganar más espacio.</div>
+            </div>
+            <label class="toggle-switch-wrap">
+              <input type="checkbox" id="settingsSidebarCompact" onchange="toggleCompactSidebar(this.checked)">
+              <span class="toggle-track"></span>
+              <span class="toggle-thumb"></span>
+            </label>
+          </div>
+        </div>
+      </div>
+
       <div class="settings-section" id="teamSection">
         <div class="settings-title">Equipo</div>
         <div class="settings-desc">Miembros de Think Y. Los administradores pueden asignar roles y ver datos sensibles (presupuestos).</div>
@@ -2486,23 +2596,6 @@ html.dark .pronoun-chip.selected { background:var(--pink-pale); color:#fff; }
         </div>
       </div>
 
-      <div class="form-group" style="margin-top:18px;margin-bottom:4px;">
-        <label class="form-label" style="margin-bottom:8px;">Forma del avatar</label>
-        <div class="shape-options" id="shapeOptions">
-          <button class="shape-opt" data-shape="rounded" onclick="pickShape('rounded')">
-            <div class="shape-demo" id="shapeDemoRounded" style="border-radius:30%;"></div>
-            Redondeado
-          </button>
-          <button class="shape-opt" data-shape="circle" onclick="pickShape('circle')">
-            <div class="shape-demo" id="shapeDemoCircle" style="border-radius:50%;"></div>
-            Círculo
-          </button>
-          <button class="shape-opt" data-shape="square" onclick="pickShape('square')">
-            <div class="shape-demo" id="shapeDemoSquare" style="border-radius:10%;"></div>
-            Cuadrado
-          </button>
-        </div>
-      </div>
     </div>
 
     <!-- Tab: Info -->
@@ -3113,6 +3206,13 @@ function cycleTheme() {
 }
 
 applyThemePref(getThemePref());
+// Init compact sidebar from saved pref
+(function initCompactSidebar() {
+  if(localStorage.getItem('sidebarCompact') === '1') {
+    const sb = document.getElementById('mainSidebar');
+    if(sb) sb.classList.add('compact');
+  }
+})();
 
 function toggleMobileSidebar() {
   const sidebar = document.getElementById('mainSidebar');
@@ -4110,10 +4210,12 @@ const THEMES = ['default','ocean','forest','royal','sunset','rose'];
 function applyTheme(name) {
   THEMES.forEach(t => document.body.classList.remove('theme-'+t));
   if(name && name !== 'default') document.body.classList.add('theme-'+name);
-  // Update swatch selection UI
+  // Update swatch selection UI (profile modal + settings page)
   THEMES.forEach(t => {
-    const sw = document.getElementById('theme-'+t);
-    if(sw) sw.classList.toggle('selected', t === (name||'default'));
+    const sw  = document.getElementById('theme-'+t);
+    const sw2 = document.getElementById('stTheme-'+t);
+    if(sw)  sw.classList.toggle('selected',  t === (name||'default'));
+    if(sw2) sw2.classList.toggle('selected', t === (name||'default'));
   });
   // Persist
   if(currentUserProfile) {
@@ -7371,7 +7473,32 @@ function loadSettingsUI() {
   const provider = s.aiProvider||'anthropic';
   const radio = document.getElementById(provider==='openai'?'aiProviderOpenAI':'aiProviderAnthropic');
   if(radio) radio.checked=true;
+  // Sync Apariencia controls
+  const currentTheme = currentUserProfile?.theme || 'default';
+  THEMES.forEach(t => {
+    const sw = document.getElementById('stTheme-'+t);
+    if(sw) sw.classList.toggle('selected', t === currentTheme);
+  });
+  const currentMode = (typeof getThemePref==='function') ? getThemePref() : 'auto';
+  document.querySelectorAll('.mode-btn').forEach(b => {
+    b.classList.toggle('active', b.id === 'modeBtn-'+currentMode);
+  });
+  const compact = localStorage.getItem('sidebarCompact') === '1';
+  const cb = document.getElementById('settingsSidebarCompact');
+  if(cb) cb.checked = compact;
   renderTeam();
+}
+
+function setModeBtn(mode) {
+  applyThemePref(mode);
+  document.querySelectorAll('.mode-btn').forEach(b => {
+    b.classList.toggle('active', b.id === 'modeBtn-'+mode);
+  });
+}
+
+function toggleCompactSidebar(on) {
+  document.getElementById('mainSidebar').classList.toggle('compact', !!on);
+  localStorage.setItem('sidebarCompact', on ? '1' : '0');
 }
 
 function saveApiKeys() {
