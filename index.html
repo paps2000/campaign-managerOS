@@ -820,7 +820,8 @@ html.light {
   content:''; position:absolute; top:0; left:0; right:0; height:3px;
   background:var(--pink); opacity:0; transition:opacity .25s;
 }
-.team-card:hover { border-color:var(--pink); transform:translateY(-4px); box-shadow:var(--shadow-lg); }
+.team-card:hover { border-color:var(--pink); box-shadow:var(--shadow-lg); }
+.team-card:not(.t-avatar):hover { transform:translateY(-4px); }
 .team-card:hover::before { opacity:1; }
 .team-card:nth-child(1){animation-delay:.03s} .team-card:nth-child(2){animation-delay:.07s}
 .team-card:nth-child(3){animation-delay:.11s} .team-card:nth-child(4){animation-delay:.15s}
@@ -1165,6 +1166,152 @@ html.dark .pronoun-chip.selected { background:var(--pink-pale); color:#fff; }
 @media (prefers-reduced-motion: reduce) {
   .t-badge, .t-badge-dot { animation:none !important; transition:none !important; }
 }
+
+/* Pack 4 — Page side-by-side (.t-page-slide / .t-page) */
+:root {
+  --page-slide-dur: 200ms;
+  --page-fade-dur: 200ms;
+  --page-slide-distance: 8px;
+  --page-blur: 3px;
+  --page-stagger: 0ms;
+  --page-exit-enabled: 1;
+  --page-slide-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --page-fade-ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+.t-page-slide { position:relative; }
+.t-page-slide .t-page[data-page-id="1"] { --t-page-from-x: calc(var(--page-slide-distance) * -1); }
+.t-page-slide .t-page[data-page-id="2"] { --t-page-from-x: var(--page-slide-distance); }
+.t-page-slide .t-page {
+  position:absolute; inset:0; opacity:0; pointer-events:none;
+  transform: translateX(calc(var(--t-page-from-x, 0px) * var(--page-exit-enabled)));
+  filter: blur(calc(var(--page-blur) * var(--page-exit-enabled)));
+  transition: opacity var(--page-fade-dur) var(--page-fade-ease),
+              transform var(--page-slide-dur) var(--page-slide-ease),
+              filter var(--page-slide-dur) var(--page-slide-ease);
+  will-change: opacity, transform, filter;
+}
+.t-page-slide[data-page="1"] .t-page[data-page-id="1"],
+.t-page-slide[data-page="2"] .t-page[data-page-id="2"] {
+  opacity:1; pointer-events:auto; transform:translateX(0); filter:blur(0);
+  transition-delay: var(--page-stagger);
+}
+@media (prefers-reduced-motion: reduce) { .t-page-slide .t-page { transition:none !important; } }
+
+/* Pack 5 — Success check (.t-success-check) */
+:root {
+  --check-opacity-dur: 550ms;
+  --check-rotate-dur: 550ms;
+  --check-rotate-from: 80deg;
+  --check-bob-dur: 450ms;
+  --check-y-amount: 40px;
+  --check-blur-dur: 500ms;
+  --check-blur-from: 10px;
+  --check-path-dur: 550ms;
+  --check-path-delay: 80ms;
+  --check-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --check-ease-opacity: cubic-bezier(0.22, 1, 0.36, 1);
+  --check-ease-rotate: cubic-bezier(0.22, 1, 0.36, 1);
+  --check-ease-bob: cubic-bezier(0.34, 1.35, 0.64, 1);
+  --check-ease-path: cubic-bezier(0.22, 1, 0.36, 1);
+}
+.t-success-check { display:inline-block; transform-origin:center; opacity:0; will-change:transform,opacity,filter; }
+.t-success-check svg { display:block; overflow:visible; }
+.t-success-check svg path { stroke-dasharray:20; stroke-dashoffset:20; }
+.t-success-check[data-state="in"] {
+  animation:
+    t-check-fade   var(--check-opacity-dur) var(--check-ease-opacity) forwards,
+    t-check-rotate var(--check-rotate-dur)  var(--check-ease-rotate)  forwards,
+    t-check-blur   var(--check-blur-dur)    var(--check-ease-out)     forwards,
+    t-check-bob    var(--check-bob-dur)     var(--check-ease-bob)     forwards;
+}
+.t-success-check[data-state="in"] svg path {
+  animation: t-check-draw var(--check-path-dur) var(--check-ease-path) var(--check-path-delay,0ms) forwards;
+}
+@keyframes t-check-fade   { from{opacity:0} to{opacity:1} }
+@keyframes t-check-rotate { from{transform:rotate(var(--check-rotate-from))} to{transform:rotate(0)} }
+@keyframes t-check-blur   { from{filter:blur(var(--check-blur-from))} to{filter:blur(0)} }
+@keyframes t-check-bob    { from{translate:0 var(--check-y-amount)} to{translate:0 0} }
+@keyframes t-check-draw   { to{stroke-dashoffset:0} }
+@media (prefers-reduced-motion: reduce) {
+  .t-success-check { animation:none !important; opacity:1; }
+  .t-success-check svg path { animation:none !important; stroke-dashoffset:0 !important; }
+}
+
+/* Pack 6 — Avatar group hover (.t-avatar-group / .t-avatar) */
+:root {
+  --avatar-lift: -4px;
+  --avatar-dur: 320ms;
+  --avatar-scale: 1.05;
+  --avatar-falloff: 0.45;
+  --avatar-ease-in: cubic-bezier(0.22, 1, 0.36, 1);
+  --avatar-ease-out: cubic-bezier(0.34, 3.85, 0.64, 1);
+}
+.t-avatar {
+  transform-origin:center;
+  transform: translateY(var(--shift, 0px)) scale(var(--scale-active, 1));
+  transition: transform var(--avatar-dur) var(--avatar-ease-in);
+  will-change: transform;
+}
+@media (prefers-reduced-motion: reduce) { .t-avatar { transition:none !important; transform:none !important; } }
+
+/* Pack 7 — Error shake (.t-input-wrap / .t-input / .t-error-msg) */
+:root {
+  --shake-distance: 6px;
+  --shake-overshoot: 4px;
+  --shake-dur-a: 80ms;
+  --shake-dur-b: 60ms;
+  --shake-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --revert-hold: 3000ms;
+  --revert-dur: 280ms;
+}
+.t-input { transition: border-color 150ms ease-out; will-change: transform; }
+.t-input.is-error { transition: border-color var(--revert-dur,280ms) ease-out; }
+.t-error-msg {
+  opacity:0; visibility:hidden;
+  transition: opacity var(--revert-dur,280ms) ease-out,
+              visibility 0s linear var(--revert-dur,280ms);
+}
+.t-input-wrap.is-error .t-error-msg {
+  opacity:1; visibility:visible;
+  transition: opacity var(--revert-dur,280ms) ease-out,
+              visibility 0s linear 0s;
+}
+.t-input.is-shaking {
+  animation: t-input-shake calc(var(--shake-dur-a) * 2 + var(--shake-dur-b) * 2) linear;
+}
+@keyframes t-input-shake {
+  0%     { transform: translateX(0);                                animation-timing-function: var(--shake-ease); }
+  28.57% { transform: translateX(var(--shake-distance));            animation-timing-function: var(--shake-ease); }
+  57.14% { transform: translateX(calc(var(--shake-distance) * -1)); animation-timing-function: var(--shake-ease); }
+  78.57% { transform: translateX(var(--shake-overshoot));           animation-timing-function: var(--shake-ease); }
+  100%   { transform: translateX(0); }
+}
+@media (prefers-reduced-motion: reduce) { .t-input { animation:none !important; transform:none !important; } }
+
+/* Pack 8 — Icon swap (.t-icon-swap / .t-icon) */
+:root {
+  --icon-swap-dur: 200ms;
+  --icon-swap-blur: 2px;
+  --icon-swap-start-scale: 0.25;
+  --icon-swap-ease: ease-in-out;
+}
+.t-icon-swap { position:relative; display:inline-grid; }
+.t-icon-swap .t-icon {
+  grid-area: 1 / 1;
+  transition: opacity var(--icon-swap-dur) var(--icon-swap-ease),
+              filter  var(--icon-swap-dur) var(--icon-swap-ease),
+              transform var(--icon-swap-dur) var(--icon-swap-ease);
+  will-change: opacity, filter, transform;
+}
+.t-icon-swap[data-state="a"] .t-icon[data-icon="a"],
+.t-icon-swap[data-state="b"] .t-icon[data-icon="b"] {
+  opacity:1; filter:blur(0); transform:scale(1);
+}
+.t-icon-swap[data-state="a"] .t-icon[data-icon="b"],
+.t-icon-swap[data-state="b"] .t-icon[data-icon="a"] {
+  opacity:0; filter:blur(var(--icon-swap-blur)); transform:scale(var(--icon-swap-start-scale));
+}
+@media (prefers-reduced-motion: reduce) { .t-icon-swap .t-icon { transition:none !important; } }
 
 /* ============ LOGIN → APP TRANSITION ============ */
 .login-screen { transition: opacity .55s var(--ease), transform .55s var(--ease); }
@@ -1836,7 +1983,12 @@ html.dark .pronoun-chip.selected { background:var(--pink-pale); color:#fff; }
         🔔
         <span class="t-badge" id="notifBadge" data-open="false"><span class="t-badge-dot notif-badge">0</span></span>
       </button>
-      <button class="theme-toggle-btn" id="themeToggleBtn" onclick="cycleTheme()" title="Cambiar modo"></button>
+      <button class="theme-toggle-btn" id="themeToggleBtn" onclick="cycleTheme()" title="Cambiar modo">
+        <span class="t-icon-swap" id="themeToggleSwap" data-state="a">
+          <span class="t-icon" data-icon="a">✦</span>
+          <span class="t-icon" data-icon="b">🌙</span>
+        </span>
+      </button>
       <button class="btn btn-primary" id="mainActionBtn" onclick="openAddGlobalTaskModal()">+ Nueva tarea</button>
       <button class="logout-btn" onclick="logout()" title="Cerrar sesión">⎋ Salir</button>
     </div>
@@ -3335,8 +3487,21 @@ function applyThemePref(pref) {
   if(!btn) return;
   const icons  = { dark:'🌙', light:'☀️', auto:'✦' };
   const labels = { dark:'Modo oscuro', light:'Modo claro', auto:'Modo automático (sistema)' };
-  btn.textContent = icons[pref] || '✦';
   btn.title = labels[pref] || 'Modo automático';
+  // Use the t-icon-swap container if present (animates between two icons)
+  const swap = document.getElementById('themeToggleSwap');
+  if(swap) {
+    const a = swap.querySelector('[data-icon="a"]');
+    const b = swap.querySelector('[data-icon="b"]');
+    // Cycle between two visible states; load icon strings on the inactive one.
+    const cur = swap.getAttribute('data-state') || 'a';
+    const target = cur === 'a' ? 'b' : 'a';
+    const targetEl = target === 'a' ? a : b;
+    if(targetEl) targetEl.textContent = icons[pref] || '✦';
+    swap.setAttribute('data-state', target);
+  } else {
+    btn.textContent = icons[pref] || '✦';
+  }
 }
 
 function cycleTheme() {
@@ -5738,19 +5903,19 @@ function renderEscenarioBlock(c) {
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:14px;">
       <div style="background:var(--white);border:1px solid var(--border);border-radius:12px;padding:12px 14px;">
         <div style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;">Views${ugcRes?' (AON+UGC)':''}</div>
-        <div style="font-size:22px;font-weight:800;line-height:1.1;margin-top:4px;">${fmt(totalViewsReal)} <span style="font-size:12px;color:var(--text-muted);font-weight:600;">/ ${fmt(totalViewsEstForPct)} est.</span></div>
+        <div style="font-size:22px;font-weight:800;line-height:1.1;margin-top:4px;"><span id="escHeadViews" data-dpop="${fmt(totalViewsReal)}">${fmt(totalViewsReal)}</span> <span style="font-size:12px;color:var(--text-muted);font-weight:600;">/ ${fmt(totalViewsEstForPct)} est.</span></div>
         <div style="margin-top:6px;">${pctCell(viewsPctAll)}</div>
         ${subSplit(agg.viewsReal, ugcViewsReal)}
       </div>
       <div style="background:var(--white);border:1px solid var(--border);border-radius:12px;padding:12px 14px;">
         <div style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;">Engagement${ugcRes?' (AON+UGC)':''}</div>
-        <div style="font-size:22px;font-weight:800;line-height:1.1;margin-top:4px;">${fmt(totalEngReal)} <span style="font-size:12px;color:var(--text-muted);font-weight:600;">/ ${fmt(totalEngEstForPct)} est.</span></div>
+        <div style="font-size:22px;font-weight:800;line-height:1.1;margin-top:4px;"><span id="escHeadEng" data-dpop="${fmt(totalEngReal)}">${fmt(totalEngReal)}</span> <span style="font-size:12px;color:var(--text-muted);font-weight:600;">/ ${fmt(totalEngEstForPct)} est.</span></div>
         <div style="margin-top:6px;">${pctCell(engPctAll)}</div>
         ${subSplit(agg.engReal, ugcEngReal)}
       </div>
       <div style="background:var(--white);border:1px solid var(--border);border-radius:12px;padding:12px 14px;">
         <div style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;">Contenidos${ugcRes?' (AON+UGC)':''}</div>
-        <div style="font-size:22px;font-weight:800;line-height:1.1;margin-top:4px;">${totalContReal} <span style="font-size:12px;color:var(--text-muted);font-weight:600;">/ ${totalContGoal}</span></div>
+        <div style="font-size:22px;font-weight:800;line-height:1.1;margin-top:4px;"><span id="escHeadCont" data-dpop="${totalContReal}">${totalContReal}</span> <span style="font-size:12px;color:var(--text-muted);font-weight:600;">/ ${totalContGoal}</span></div>
         <div style="margin-top:6px;">${pctCell(totalContPct)}</div>
         ${subSplit(agg.contReal, ugcContReal)}
       </div>
@@ -5867,6 +6032,14 @@ function renderEscenarioBlock(c) {
       </div>
     </details>` : '';
   wrap.innerHTML = headlineHtml + tableHtml + ugcHtml + diagHtml;
+  // Replay digit-pop on headline numbers (idempotent — won't trigger if
+  // value hasn't changed since last render)
+  try {
+    ['escHeadViews','escHeadEng','escHeadCont'].forEach(id => {
+      const el = document.getElementById(id);
+      if(el) _renderDigitPop(el, el.dataset.dpop || el.textContent);
+    });
+  } catch(e){}
 }
 
 function renderCampaignDocs(c) {
@@ -6963,7 +7136,7 @@ function renderEquipo() {
     return;
   }
 
-  grid.innerHTML = `<div class="team-grid">${sorted.map(u => {
+  grid.innerHTML = `<div class="team-grid t-avatar-group" id="equipoAvatarGroup">${sorted.map(u => {
     const activeTasks = [
       ..._cache.campaigns.flatMap(c=>(c.tasks||[]).filter(t=>!t.done&&t.assigneeUid===u.uid)),
       ..._cache.globalTasks.filter(t=>!t.done&&t.assigneeUid===u.uid)
@@ -6971,7 +7144,7 @@ function renderEquipo() {
     const isMe = u.uid === currentUser?.uid;
     const hasStatus = !!u.statusText;
     return `
-    <div class="team-card" onclick="openProfileModal('${u.uid}')">
+    <div class="team-card t-avatar" onclick="openProfileModal('${u.uid}')">
       ${isMe ? '<div class="team-card-you">Tú</div>' : ''}
       <div class="team-card-avatar">${memberAvatarHtml(u, 56, '16px')}</div>
       <div class="team-card-name">${u.name||'—'}</div>
@@ -6985,6 +7158,38 @@ function renderEquipo() {
       ${!isMe ? `<button class="kudos-btn" onclick="sendKudos('${u.uid}',event)" style="margin-top:2px;">🏆 Kudos</button>` : ''}
     </div>`;
   }).join('')}</div>`;
+  try { _wireAvatarGroup(document.getElementById('equipoAvatarGroup')); } catch(e){}
+}
+
+// Hook .t-avatar items inside a .t-avatar-group: hovering one lifts
+// neighbours with an exponential falloff and pops the active one.
+function _wireAvatarGroup(root) {
+  if(!root || root._wired) return;
+  root._wired = true;
+  const items = Array.from(root.querySelectorAll('.t-avatar'));
+  if(!items.length) return;
+  const lift = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--avatar-lift')) || -4;
+  const scale = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--avatar-scale')) || 1.05;
+  const falloff = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--avatar-falloff')) || 0.45;
+  const easeIn  = getComputedStyle(document.documentElement).getPropertyValue('--avatar-ease-in')  || '';
+  const easeOut = getComputedStyle(document.documentElement).getPropertyValue('--avatar-ease-out') || '';
+  items.forEach((el, idx) => {
+    el.addEventListener('mouseenter', () => {
+      items.forEach((other, j) => {
+        other.style.transitionTimingFunction = easeIn;
+        const dist = Math.abs(j - idx);
+        other.style.setProperty('--shift',  (lift * Math.pow(falloff, dist)).toFixed(3) + 'px');
+        other.style.setProperty('--scale-active', j === idx ? scale : 1);
+      });
+    });
+  });
+  root.addEventListener('mouseleave', () => {
+    items.forEach(other => {
+      other.style.transitionTimingFunction = easeOut;
+      other.style.setProperty('--shift', '0px');
+      other.style.setProperty('--scale-active', 1);
+    });
+  });
 }
 
 function _setEquipoFilter(area) {
