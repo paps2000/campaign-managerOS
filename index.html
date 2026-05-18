@@ -1313,6 +1313,80 @@ html.dark .pronoun-chip.selected { background:var(--pink-pale); color:#fff; }
 }
 @media (prefers-reduced-motion: reduce) { .t-icon-swap .t-icon { transition:none !important; } }
 
+/* ============ TEAM PROFILE CARD MODAL ============ */
+.user-name-link { transition: color .15s var(--ease), background .15s var(--ease); border-radius:6px; }
+.user-name-link:hover { color: var(--pink-deep); }
+.user-name-link:hover * { color: inherit; }
+
+.profile-card-modal { border-radius:22px; }
+.profile-card-hero {
+  position:relative; padding:38px 28px 24px;
+  background: linear-gradient(160deg, #120720 0%, #1a0a1e 60%, #0d0420 100%);
+  color:#fff; overflow:hidden;
+}
+.profile-card-hero::before {
+  content:''; position:absolute; bottom:-60px; left:50%; transform:translateX(-50%);
+  width:320px; height:180px; pointer-events:none;
+  background: radial-gradient(ellipse, rgba(255,45,135,.35) 0%, transparent 70%);
+}
+.profile-card-hero::after {
+  content:''; position:absolute; top:-40px; right:-40px;
+  width:160px; height:160px; pointer-events:none;
+  background: radial-gradient(ellipse, rgba(44,109,255,.18) 0%, transparent 70%);
+}
+.profile-card-close {
+  position:absolute; top:14px; right:14px; z-index:2;
+  background:rgba(255,255,255,.14); color:rgba(255,255,255,.85); border:none;
+  width:32px; height:32px; border-radius:50%; cursor:pointer; font-size:14px; line-height:1;
+  display:flex; align-items:center; justify-content:center; transition:all .2s;
+}
+.profile-card-close:hover { background:rgba(255,255,255,.25); color:#fff; transform:scale(1.06); }
+.profile-card-hero-row { position:relative; z-index:1; display:flex; align-items:center; gap:18px; }
+.profile-card-avatar {
+  width:84px; height:84px; flex-shrink:0; border-radius:22px;
+  box-shadow:0 10px 32px rgba(255,45,135,.35), 0 2px 12px rgba(0,0,0,.4);
+}
+.profile-card-name { font-size:22px; font-weight:800; line-height:1.1; letter-spacing:-.3px; color:#fff; }
+.profile-card-sub { font-size:12px; color:rgba(255,255,255,.6); margin-top:3px; }
+.profile-card-status-chip {
+  display:inline-flex; align-items:center; gap:5px; padding:4px 10px;
+  background:rgba(255,255,255,.1); border:1px solid rgba(255,255,255,.12); border-radius:20px;
+  font-size:11px; color:rgba(255,255,255,.85); margin-top:8px;
+}
+.profile-card-tags { display:flex; flex-wrap:wrap; gap:5px; margin-top:10px; }
+.profile-card-tags .badge { font-size:10px; }
+.profile-card-section { padding:18px 24px; }
+.profile-card-section + .profile-card-section { border-top:1px solid var(--border); }
+.profile-card-section-label {
+  font-size:11px; font-weight:700; color:var(--text-muted);
+  text-transform:uppercase; letter-spacing:.8px; margin-bottom:10px;
+}
+.profile-card-stats { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+.profile-card-stat {
+  text-align:center; padding:14px 8px; border-radius:14px; border:1px solid var(--border);
+  background:var(--white); transition: transform .15s var(--ease), border-color .15s var(--ease);
+}
+.profile-card-stat:hover { transform:translateY(-2px); border-color:var(--pink); }
+.profile-card-stat-value { font-size:24px; font-weight:800; line-height:1; font-family:'Quicksand',sans-serif; }
+.profile-card-stat-label { font-size:10px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.5px; margin-top:4px; }
+.profile-card-bio {
+  font-size:13px; color:var(--text); line-height:1.55;
+  padding:14px 16px; border-left:3px solid var(--pink); background:var(--pink-pale);
+  border-radius:0 12px 12px 0; font-style:italic;
+}
+.profile-card-row {
+  display:flex; align-items:center; gap:10px;
+  padding:10px 12px; border:1px solid var(--border); border-radius:10px;
+  cursor:pointer; transition:all .15s var(--ease); margin-bottom:6px; background:var(--white);
+}
+.profile-card-row:hover { border-color:var(--pink); transform:translateX(2px); }
+.profile-card-row-title { font-size:13px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.profile-card-row-sub   { font-size:11px; color:var(--text-muted); }
+
+html.dark .profile-card-stat { background:var(--white); }
+html.dark .profile-card-row  { background:var(--white); }
+html.dark .profile-card-bio  { background:rgba(255,45,135,.1); color:var(--text); }
+
 /* ============ LOGIN → APP TRANSITION ============ */
 .login-screen { transition: opacity .55s var(--ease), transform .55s var(--ease); }
 .login-screen.fade-out { opacity:0; transform:scale(1.03); pointer-events:none; }
@@ -2795,12 +2869,9 @@ html.dark .pronoun-chip.selected { background:var(--pink-pale); color:#fff; }
 
 <!-- MODAL: PROFILE -->
 <div class="modal-overlay" id="profileModal">
-  <div class="modal" style="width:580px;max-height:80vh;">
-    <div class="modal-header">
-      <div class="modal-title">Perfil</div>
-      <button class="modal-close" onclick="closeModal('profileModal')"><span class="icn-close"></span></button>
-    </div>
-    <div id="profileModalContent" style="overflow-y:auto;max-height:60vh;"></div>
+  <div class="modal profile-card-modal" style="width:580px;max-height:85vh;padding:0;overflow:hidden;display:flex;flex-direction:column;">
+    <button class="profile-card-close" onclick="closeModal('profileModal')" aria-label="Cerrar">✕</button>
+    <div id="profileModalContent" style="overflow-y:auto;flex:1;"></div>
   </div>
 </div>
 
@@ -4534,7 +4605,9 @@ function _taskItemHtml(t, cid) {
   const u = allUsers.find(x=>x.uid===t.assigneeUid);
   const assigneeName = u ? (u.name||u.email.split('@')[0]) : (t.assignee||'');
   const assigneeHtml = assigneeName
-    ? `<span style="display:inline-flex;align-items:center;gap:3px;">${memberAvatarHtml(u||{name:assigneeName},14)} ${assigneeName}</span>`
+    ? (u && u.uid
+        ? `<span class="user-name-link" onclick="event.stopPropagation();openProfileModal('${u.uid}')" style="display:inline-flex;align-items:center;gap:3px;cursor:pointer;">${memberAvatarHtml(u,14)} ${_esc(assigneeName)}</span>`
+        : `<span style="display:inline-flex;align-items:center;gap:3px;">${memberAvatarHtml({name:assigneeName},14)} ${_esc(assigneeName)}</span>`)
     : '';
   return `
   <div class="task-item">
@@ -7014,9 +7087,10 @@ function userChip(uid, fallbackName) {
   const name = u ? (u.name || u.email.split('@')[0]) : fallbackName;
   const initial = name[0]?.toUpperCase() || '?';
   const area = u?.area || '';
-  return `<span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;background:var(--white);border:1px solid var(--border);border-radius:20px;padding:3px 10px 3px 4px;">
+  const clickAttr = u ? `class="user-name-link" onclick="event.stopPropagation();openProfileModal('${u.uid}')" style="cursor:pointer;display:inline-flex;align-items:center;gap:5px;font-size:12px;background:var(--white);border:1px solid var(--border);border-radius:20px;padding:3px 10px 3px 4px;"` : `style="display:inline-flex;align-items:center;gap:5px;font-size:12px;background:var(--white);border:1px solid var(--border);border-radius:20px;padding:3px 10px 3px 4px;"`;
+  return `<span ${clickAttr}>
     <span style="width:20px;height:20px;border-radius:50%;background:var(--pink-deep);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;">${initial}</span>
-    ${name}${area?` <span class="badge badge-area-${area}" style="font-size:9px;padding:1px 5px;">${area}</span>`:''}
+    ${_esc(name)}${area?` <span class="badge badge-area-${area}" style="font-size:9px;padding:1px 5px;">${area}</span>`:''}
   </span>`;
 }
 
@@ -7503,7 +7577,7 @@ function openTaskDetail(tid, cid) {
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
         <div>
           <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px;">Asignado a</div>
-          <div style="display:flex;align-items:center;gap:6px;">${memberAvatarHtml(u||{name:assigneeName},20)} <span style="font-size:14px;">${assigneeName}</span></div>
+          <div style="display:flex;align-items:center;gap:6px;">${u && u.uid ? `<span class="user-name-link" onclick="closeModal('taskDetailModal');openProfileModal('${u.uid}')" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;">${memberAvatarHtml(u,20)} <span style="font-size:14px;">${_esc(assigneeName)}</span></span>` : `${memberAvatarHtml({name:assigneeName},20)} <span style="font-size:14px;">${_esc(assigneeName)}</span>`}</div>
         </div>
         <div>
           <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px;">Fecha límite</div>
@@ -9416,51 +9490,78 @@ function openProfileModal(uid) {
       <span class="badge ${statusBadgeClass(c.status)}" style="font-size:10px;">${c.status}</span>
     </div>`;
 
-  document.getElementById('profileModalContent').innerHTML = `
-    <!-- Header -->
-    <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px;padding-bottom:20px;border-bottom:1px solid var(--border);">
-      ${memberAvatarHtml(u, 56, '16px')}
+  const isMe = u.uid === currentUser?.uid;
+  const editBtn = isMe
+    ? `<button onclick="closeModal('profileModal');openEditProfileModal()" class="btn btn-pink btn-sm" style="margin-top:10px;font-size:12px;">✎ Editar mi perfil</button>`
+    : '';
+
+  const _campCard = c => `
+    <div class="profile-card-row" onclick="openCampaignDetail('${c.id}');closeModal('profileModal');">
       <div style="flex:1;min-width:0;">
-        <div style="font-size:20px;font-weight:700;">${u.name||'—'}</div>
-        <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">${u.email}</div>
-        ${(u.statusText) ? `<div style="display:inline-flex;align-items:center;gap:5px;padding:3px 10px;background:var(--pink-pale);border-radius:20px;font-size:12px;color:var(--text-muted);margin-top:6px;">${u.statusEmoji||'💬'} ${u.statusText}</div>` : ''}
-        ${u.tagline ? `<div style="font-size:12px;color:var(--text-muted);margin-top:4px;font-style:italic;">${u.tagline}</div>` : ''}
-        ${u.pronouns ? `<div style="font-size:11px;color:var(--text-muted);margin-top:2px;">${_esc(_shortPronouns(u.pronouns)||u.pronouns)}</div>` : ''}
-        ${u.bio ? `<div style="font-size:13px;color:var(--text-muted);margin-top:8px;font-style:italic;">"${u.bio}"</div>` : ''}
-        <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
-          ${u.puesto?`<span class="badge" style="background:var(--lavender-pale);color:var(--blue);">${u.puesto}</span>`:''}
-          ${u.area?`<span class="badge badge-area-${u.area}">${u.area}</span>`:''}
-          ${u.role==='admin'?`<span class="badge" style="background:var(--pink-pale);color:var(--pink-deep);">Admin</span>`:''}
+        <div class="profile-card-row-title">${_esc(c.name)}</div>
+        <div class="profile-card-row-sub">${_esc(c.client||'')}</div>
+      </div>
+      <span class="badge ${statusBadgeClass(c.status)}" style="font-size:10px;">${c.status}</span>
+    </div>`;
+  const _taskRow = (t, isDone) => `
+    <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);">
+      <div style="width:8px;height:8px;border-radius:50%;margin-top:5px;flex-shrink:0;background:${t.priority==='high'?'var(--red)':t.priority==='medium'?'var(--yellow)':'var(--border)'}"></div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:13px;font-weight:600;${isDone?'text-decoration:line-through;color:var(--text-muted);':''}">${_esc(t.title)}</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:2px;display:flex;gap:8px;flex-wrap:wrap;">
+          <span>${_esc(t.campaignName)}</span>
+          ${t.dueDate?`<span>${formatDate(t.dueDate)}</span>`:''}
+        </div>
+      </div>
+    </div>`;
+
+  document.getElementById('profileModalContent').innerHTML = `
+    <div class="profile-card-hero">
+      <div class="profile-card-hero-row">
+        <div class="profile-card-avatar">${memberAvatarHtml(u, 84, '22px')}</div>
+        <div style="flex:1;min-width:0;">
+          <div class="profile-card-name">${_esc(u.name||'—')}${u.pronouns?` <span style="font-size:13px;font-weight:500;color:rgba(255,255,255,.55);">${_esc(_shortPronouns(u.pronouns)||u.pronouns)}</span>`:''}</div>
+          <div class="profile-card-sub">${_esc(u.email||'')}</div>
+          ${u.statusText ? `<div class="profile-card-status-chip">${u.statusEmoji||'💬'} ${_esc(u.statusText)}</div>` : ''}
+          <div class="profile-card-tags">
+            ${u.puesto?`<span class="badge" style="background:rgba(255,255,255,.14);color:#fff;">${_esc(u.puesto)}</span>`:''}
+            ${u.area?`<span class="badge badge-area-${u.area}">${_esc(u.area)}</span>`:''}
+            ${u.role==='admin'?`<span class="badge" style="background:var(--pink);color:#fff;">Admin</span>`:''}
+          </div>
         </div>
       </div>
     </div>
-    <!-- Stats row -->
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px;">
-      <div style="text-align:center;padding:12px;background:var(--pink-pale);border-radius:12px;">
-        <div style="font-size:26px;font-weight:700;color:var(--pink);">${active.length}</div>
-        <div style="font-size:11px;color:var(--text-muted);">Pendientes</div>
+
+    <div class="profile-card-section">
+      <div class="profile-card-stats">
+        <div class="profile-card-stat"><div class="profile-card-stat-value" style="color:var(--pink);">${active.length}</div><div class="profile-card-stat-label">Pendientes</div></div>
+        <div class="profile-card-stat"><div class="profile-card-stat-value" style="color:var(--blue,#2c6dff);">${userCampaigns.length}</div><div class="profile-card-stat-label">Campañas</div></div>
+        <div class="profile-card-stat"><div class="profile-card-stat-value" style="color:#3a7a5e;">${done.length}</div><div class="profile-card-stat-label">Completadas</div></div>
       </div>
-      <div style="text-align:center;padding:12px;background:var(--lavender-pale);border-radius:12px;">
-        <div style="font-size:26px;font-weight:700;color:var(--lavender);">${userCampaigns.length}</div>
-        <div style="font-size:11px;color:var(--text-muted);">Campañas</div>
-      </div>
-      <div style="text-align:center;padding:12px;background:var(--mint-pale);border-radius:12px;">
-        <div style="font-size:26px;font-weight:700;color:#3a7a5e;">${done.length}</div>
-        <div style="font-size:11px;color:var(--text-muted);">Completadas</div>
-      </div>
+      ${editBtn}
     </div>
-    <!-- Campaigns -->
+
+    ${u.bio || u.tagline ? `
+    <div class="profile-card-section">
+      <div class="profile-card-section-label">Bio</div>
+      ${u.tagline ? `<div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">${_esc(u.tagline)}</div>` : ''}
+      ${u.bio ? `<div class="profile-card-bio">"${_esc(u.bio)}"</div>` : ''}
+    </div>` : ''}
+
     ${userCampaigns.length ? `
-    <div style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">Campañas</div>
-    <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:20px;">${userCampaigns.map(campCard).join('')}</div>
-    ` : ''}
-    <!-- Active tasks -->
-    <div style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">Tareas activas</div>
-    ${active.length ? active.map(t=>taskRow(t,false)).join('') : '<div style="color:var(--text-muted);font-size:13px;padding:12px 0;">Sin tareas activas 🎉</div>'}
-    ${done.length ? `
-      <div style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin:20px 0 10px;">Completadas recientes</div>
-      ${done.map(t=>taskRow(t,true)).join('')}
-    ` : ''}`;
+    <div class="profile-card-section">
+      <div class="profile-card-section-label">Campañas (${userCampaigns.length})</div>
+      <div>${userCampaigns.map(_campCard).join('')}</div>
+    </div>` : ''}
+
+    <div class="profile-card-section">
+      <div class="profile-card-section-label">Tareas activas (${active.length})</div>
+      ${active.length ? active.map(t=>_taskRow(t,false)).join('') : '<div style="color:var(--text-muted);font-size:13px;padding:12px 0;">Sin tareas activas 🎉</div>'}
+      ${done.length ? `
+        <div class="profile-card-section-label" style="margin-top:18px;">Completadas recientes</div>
+        ${done.map(t=>_taskRow(t,true)).join('')}
+      ` : ''}
+    </div>`;
   openModal('profileModal');
 }
 
