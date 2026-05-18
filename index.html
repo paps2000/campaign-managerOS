@@ -2875,6 +2875,21 @@ html.dark .profile-card-bio  { background:rgba(255,45,135,.1); color:var(--text)
   </div>
 </div>
 
+<!-- MODAL: ELIMINAR PERFIL (admin) -->
+<div class="modal-overlay" id="deleteUserModal">
+  <div class="modal" style="width:520px;">
+    <div class="modal-header">
+      <div class="modal-title">Eliminar perfil</div>
+      <button class="modal-close" onclick="closeModal('deleteUserModal')"><span class="icn-close"></span></button>
+    </div>
+    <div id="deleteUserBody" style="padding:4px 0 8px;font-size:13px;"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('deleteUserModal')">Cancelar</button>
+      <button class="btn" id="deleteUserConfirmBtn" style="background:var(--red);color:#fff;">Eliminar perfil</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL: MI PERFIL (rediseñado) -->
 <div class="modal-overlay" id="editProfileModal">
   <div class="modal profile-modal" style="max-height:90vh;overflow:hidden;display:flex;flex-direction:column;">
@@ -7374,6 +7389,7 @@ function renderTeam() {
           <option value="member" ${u.role==='member'?'selected':''}>Miembro</option>
           <option value="admin" ${u.role==='admin'?'selected':''}>Admin</option>
         </select>
+        <button onclick="event.stopPropagation();openDeleteUserModal('${u.uid}')" style="width:100%;padding:5px 8px;border:1.5px solid var(--red);border-radius:8px;font-size:11px;font-weight:700;background:var(--white);color:var(--red);cursor:pointer;margin-top:2px;">Eliminar perfil</button>
       </div>` : '';
 
     return `
@@ -7421,6 +7437,148 @@ async function changeRole(uid, newRole) {
     showToast('Rol actualizado','success');
     renderTeam();
   } catch(e) { showToast('Error: '+e.message,'error'); }
+}
+
+// ---- Eliminar perfil (admin) ----
+function _countUserRefs(uid) {
+  let campCreated=0, campAssigned=0, campSubs=0, campResp=0, tasksCamp=0, tasksGlobal=0;
+  (_cache.campaigns||[]).forEach(c => {
+    if(c.createdBy === uid) campCreated++;
+    if(Array.isArray(c.assignedTo) && c.assignedTo.includes(uid)) campAssigned++;
+    if(Array.isArray(c.subscribers) && c.subscribers.includes(uid)) campSubs++;
+    if(c.responsables) {
+      ['operaciones','cuentas','creativo','data'].forEach(k => {
+        const v = c.responsables[k];
+        if(Array.isArray(v) ? v.includes(uid) : v === uid) campResp++;
+      });
+    }
+    (c.tasks||[]).forEach(t => { if(t.assigneeUid===uid) tasksCamp++; });
+  });
+  (_cache.globalTasks||[]).forEach(t => { if(t.assigneeUid===uid) tasksGlobal++; });
+  return { campCreated, campAssigned, campSubs, campResp, tasksCamp, tasksGlobal };
+}
+
+function openDeleteUserModal(uid) {
+  if(!isAdmin()) { showToast('Solo admin','error'); return; }
+  if(uid === currentUser?.uid) { showToast('No puedes eliminar tu propio perfil','error'); return; }
+  const target = allUsers.find(u=>u.uid===uid);
+  if(!target) { showToast('Usuario no encontrado','error'); return; }
+  const refs = _countUserRefs(uid);
+  const totalRefs = refs.campCreated+refs.campAssigned+refs.campSubs+refs.campResp+refs.tasksCamp+refs.tasksGlobal;
+  const others = allUsers.filter(u=>u.uid!==uid).sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+  const body = document.getElementById('deleteUserBody');
+  body.innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+      ${memberAvatarHtml(target, 44, '14px')}
+      <div>
+        <div style="font-weight:700;font-size:15px;">${_esc(target.name||target.email||'—')}</div>
+        <div style="font-size:11px;color:var(--text-muted);">${_esc(target.email||'')}</div>
+      </div>
+    </div>
+    <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:12px;line-height:1.6;">
+      <div style="font-weight:700;margin-bottom:4px;">Referencias actuales:</div>
+      <div>• Campañas creadas: <b>${refs.campCreated}</b></div>
+      <div>• Asignada a campañas: <b>${refs.campAssigned}</b></div>
+      <div>• Suscripciones: <b>${refs.campSubs}</b></div>
+      <div>• Responsable de área: <b>${refs.campResp}</b></div>
+      <div>• Tareas de campaña: <b>${refs.tasksCamp}</b></div>
+      <div>• Tareas globales: <b>${refs.tasksGlobal}</b></div>
+    </div>
+    ${totalRefs > 0 ? `
+      <label style="display:block;font-size:12px;font-weight:700;margin-bottom:6px;">Reasignar tareas y proyectos a:</label>
+      <select id="deleteUserReassignSelect" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;background:var(--white);color:var(--text);">
+        <option value="">— Dejar sin asignar —</option>
+        ${others.map(o=>`<option value="${o.uid}">${_esc(o.name||o.email||'—')}${o.puesto?' · '+_esc(o.puesto):''}</option>`).join('')}
+      </select>
+      <div style="font-size:11px;color:var(--text-muted);margin-top:6px;">Todo lo etiquetado a esta persona pasará al usuario elegido. Si dejas sin asignar, se removerá la referencia.</div>
+    ` : '<div style="font-size:12px;color:var(--text-muted);">Sin referencias — eliminación directa.</div>'}
+    <div style="margin-top:12px;padding:8px 10px;background:#fff4f4;border:1px solid #f5c2c2;border-radius:8px;font-size:11px;color:#a13a3a;">
+      <b>Atención:</b> esta acción borra el perfil del usuario y su membresía del workspace. Las credenciales de Firebase Auth deben revocarse por separado.
+    </div>
+  `;
+  const btn = document.getElementById('deleteUserConfirmBtn');
+  btn.onclick = () => {
+    const sel = document.getElementById('deleteUserReassignSelect');
+    const newUid = sel ? (sel.value||null) : null;
+    confirmDeleteUser(uid, newUid);
+  };
+  openModal('deleteUserModal');
+}
+
+async function confirmDeleteUser(uid, newUid) {
+  if(!isAdmin()) { showToast('Solo admin','error'); return; }
+  if(uid === currentUser?.uid) { showToast('No puedes eliminar tu propio perfil','error'); return; }
+  const btn = document.getElementById('deleteUserConfirmBtn');
+  if(btn) { btn.disabled = true; btn.textContent = 'Eliminando…'; }
+  try {
+    // 1) Reassign campaign-level fields
+    const campaigns = getData('campaigns');
+    campaigns.forEach(c => {
+      if(c.createdBy === uid) c.createdBy = newUid || null;
+      if(Array.isArray(c.assignedTo)) {
+        const set = new Set(c.assignedTo.filter(x=>x!==uid));
+        if(newUid) set.add(newUid);
+        c.assignedTo = [...set];
+      }
+      if(Array.isArray(c.subscribers)) {
+        const set = new Set(c.subscribers.filter(x=>x!==uid));
+        if(newUid) set.add(newUid);
+        c.subscribers = [...set];
+      }
+      if(c.responsables) {
+        ['operaciones','cuentas','creativo','data'].forEach(k => {
+          const v = c.responsables[k];
+          if(Array.isArray(v)) {
+            const set = new Set(v.filter(x=>x!==uid));
+            if(newUid) set.add(newUid);
+            c.responsables[k] = [...set];
+          } else if(v === uid) {
+            c.responsables[k] = newUid || '';
+          }
+        });
+      }
+      (c.tasks||[]).forEach(t => {
+        if(t.assigneeUid === uid) t.assigneeUid = newUid || '';
+        if(t.reactions) {
+          Object.keys(t.reactions).forEach(emo => {
+            t.reactions[emo] = (t.reactions[emo]||[]).filter(x=>x!==uid);
+          });
+        }
+      });
+    });
+    setData('campaigns', campaigns);
+
+    // 2) Global tasks
+    const gtasks = getData('globalTasks');
+    gtasks.forEach(t => {
+      if(t.assigneeUid === uid) t.assigneeUid = newUid || '';
+      if(t.reactions) {
+        Object.keys(t.reactions).forEach(emo => {
+          t.reactions[emo] = (t.reactions[emo]||[]).filter(x=>x!==uid);
+        });
+      }
+    });
+    setData('globalTasks', gtasks);
+
+    // 3) Delete workspace member + user doc
+    const ws = db.collection('workspaces').doc(WORKSPACE);
+    await Promise.all([
+      ws.collection('members').doc(uid).delete().catch(()=>{}),
+      db.collection('users').doc(uid).delete().catch(()=>{}),
+    ]);
+
+    allUsers = allUsers.filter(u=>u.uid!==uid);
+    closeModal('deleteUserModal');
+    showToast('Perfil eliminado'+(newUid?' y reasignado':''),'success');
+    if(typeof renderTeam==='function') renderTeam();
+    if(typeof renderCampaigns==='function') renderCampaigns();
+    if(typeof renderDashboard==='function') renderDashboard();
+  } catch(e) {
+    console.error('confirmDeleteUser', e);
+    showToast('Error: '+e.message,'error');
+  } finally {
+    if(btn) { btn.disabled = false; btn.textContent = 'Eliminar perfil'; }
+  }
 }
 
 async function changePuesto(uid, newPuesto) {
