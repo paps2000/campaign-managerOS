@@ -6829,13 +6829,13 @@ function displayMetrics(rows, campaign) {
   const cpv = (budget>0 && totalViews>0)      ? fmtMXN(budget/totalViews)      : '—';
   const cpe = (budget>0 && totalEngagement>0) ? fmtMXN(budget/totalEngagement) : '—';
 
-  document.getElementById('mViews').textContent      = formatNum(totalViews);
-  document.getElementById('mEngagement').textContent = formatNum(totalEngagement);
-  document.getElementById('mER').textContent         = er;
-  document.getElementById('mVR').textContent         = vr;
-  const qerEl = document.getElementById('mQER'); if(qerEl) qerEl.textContent = qer;
-  document.getElementById('mCPV').textContent        = cpv;
-  document.getElementById('mCPE').textContent        = cpe;
+  _renderDigitPop('mViews',      formatNum(totalViews));
+  _renderDigitPop('mEngagement', formatNum(totalEngagement));
+  _renderDigitPop('mER',         er);
+  _renderDigitPop('mVR',         vr);
+  if(document.getElementById('mQER')) _renderDigitPop('mQER', qer);
+  _renderDigitPop('mCPV',        cpv);
+  _renderDigitPop('mCPE',        cpe);
 
   const rowViews = r => gi(r,'Views','Vistas','organic views','Total Views','Impresiones','Impressions','Reproducciones','Plays','Visualizaciones','Video Views');
   const rowEng   = r => {
