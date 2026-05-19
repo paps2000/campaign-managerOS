@@ -2379,6 +2379,63 @@ html.dark .glass-orb-5 { background: radial-gradient(circle, rgba(122,61,240,.22
 /* app wrapper sits above the orb canvas */
 .sidebar, .main { position: relative; z-index: 1; }
 
+/* ─────────────────────── AI COMPANION ─────────────────────── */
+.ai-fab {
+  position:fixed; right:22px; bottom:22px; z-index:9000;
+  width:58px; height:58px; border-radius:50%; border:none; cursor:pointer;
+  background:linear-gradient(135deg,#ff2d87 0%,#9b8cff 100%);
+  color:#fff; font-size:24px; display:flex; align-items:center; justify-content:center;
+  box-shadow:0 12px 32px rgba(255,45,135,.35), 0 2px 8px rgba(0,0,0,.12);
+  transition:transform .2s var(--ease), box-shadow .2s var(--ease);
+}
+.ai-fab:hover { transform:translateY(-3px) scale(1.04); box-shadow:0 16px 40px rgba(255,45,135,.45); }
+.ai-fab.is-open { transform:rotate(45deg); }
+.ai-panel {
+  position:fixed; right:22px; bottom:92px; z-index:8999;
+  width:min(420px, calc(100vw - 44px)); height:min(620px, calc(100vh - 120px));
+  background:rgba(255,255,255,.86); backdrop-filter:blur(28px) saturate(180%); -webkit-backdrop-filter:blur(28px) saturate(180%);
+  border:1px solid rgba(255,255,255,.7); border-radius:22px;
+  box-shadow:0 24px 60px rgba(0,0,0,.18), inset 0 1.5px 0 rgba(255,255,255,.95);
+  display:none; flex-direction:column; overflow:hidden;
+  transform-origin:bottom right;
+}
+html.dark .ai-panel { background:rgba(30,30,38,.86); border-color:rgba(255,255,255,.08); color:var(--text); }
+.ai-panel.open { display:flex; animation:aiPanelIn .22s cubic-bezier(.34,1.45,.64,1); }
+@keyframes aiPanelIn { from { opacity:0; transform:translateY(10px) scale(.96); } to { opacity:1; transform:none; } }
+.ai-panel-header {
+  padding:14px 18px; display:flex; align-items:center; gap:10px;
+  border-bottom:1px solid rgba(0,0,0,.06);
+}
+.ai-panel-title { font-weight:700; font-size:14px; flex:1; display:flex; align-items:center; gap:8px; }
+.ai-panel-title-badge { background:linear-gradient(135deg,#ff2d87,#9b8cff); color:#fff; font-size:9px; font-weight:800; padding:2px 6px; border-radius:6px; letter-spacing:.5px; }
+.ai-panel-close { background:none; border:none; cursor:pointer; font-size:18px; color:var(--text-muted); padding:4px 8px; border-radius:8px; }
+.ai-panel-close:hover { background:rgba(0,0,0,.05); color:var(--text); }
+.ai-thread { flex:1; overflow-y:auto; padding:14px 16px; display:flex; flex-direction:column; gap:10px; }
+.ai-msg { max-width:88%; padding:9px 13px; border-radius:14px; font-size:13px; line-height:1.55; white-space:pre-wrap; word-wrap:break-word; }
+.ai-msg.user { align-self:flex-end; background:linear-gradient(135deg,#ff2d87,#ff5fa8); color:#fff; border-bottom-right-radius:4px; }
+.ai-msg.assistant { align-self:flex-start; background:rgba(0,0,0,.04); color:var(--text); border-bottom-left-radius:4px; }
+html.dark .ai-msg.assistant { background:rgba(255,255,255,.06); }
+.ai-msg.thinking { color:var(--text-muted); font-style:italic; }
+.ai-empty { padding:18px; text-align:center; color:var(--text-muted); font-size:12px; line-height:1.6; }
+.ai-suggestions { display:flex; flex-direction:column; gap:6px; margin-top:14px; }
+.ai-suggestion { background:rgba(255,45,135,.08); border:1px solid rgba(255,45,135,.18); color:var(--text); border-radius:12px; padding:8px 12px; font-size:12px; text-align:left; cursor:pointer; transition:background .15s; }
+.ai-suggestion:hover { background:rgba(255,45,135,.16); }
+.ai-input-row { padding:10px 12px; display:flex; gap:8px; align-items:flex-end; border-top:1px solid rgba(0,0,0,.06); }
+.ai-input-row textarea {
+  flex:1; resize:none; border:1px solid rgba(0,0,0,.1); border-radius:12px;
+  padding:9px 12px; font-size:13px; font-family:inherit; background:rgba(255,255,255,.7);
+  outline:none; min-height:38px; max-height:120px; line-height:1.4;
+}
+html.dark .ai-input-row textarea { background:rgba(255,255,255,.05); border-color:rgba(255,255,255,.1); color:var(--text); }
+.ai-input-row textarea:focus { border-color:var(--pink); }
+.ai-send-btn {
+  background:linear-gradient(135deg,#ff2d87,#9b8cff); color:#fff; border:none; cursor:pointer;
+  border-radius:50%; width:38px; height:38px; display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  transition:transform .15s, opacity .15s;
+}
+.ai-send-btn:hover:not(:disabled) { transform:scale(1.06); }
+.ai-send-btn:disabled { opacity:.4; cursor:not-allowed; }
+
 </style>
 </head>
 <body>
@@ -11000,6 +11057,279 @@ _maybeBootLogin();
 // Re-check after potential auth flow
 setTimeout(_maybeBootLogin, 500);
 setTimeout(_maybeBootLogin, 1500);
+
+// ============================================================
+// AI COMPANION
+// ============================================================
+let _agentHistory = []; // [{role:'user'|'assistant', content:string}, ...]
+
+function _agentEsc(s) { return String(s||'').replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c])); }
+
+function _agentRenderThread() {
+  const t = document.getElementById('aiThread');
+  if(!t) return;
+  if(_agentHistory.length === 0) {
+    t.innerHTML = `
+      <div class="ai-empty">
+        <div style="font-size:32px;margin-bottom:8px;">✨</div>
+        <div style="font-weight:700;font-size:14px;color:var(--text);margin-bottom:4px;">¿En qué te ayudo?</div>
+        <div>Pregúntame sobre campañas, contenidos, influencers, tareas o presupuestos.</div>
+        <div class="ai-suggestions">
+          <button class="ai-suggestion" onclick="_agentRunSuggestion('¿Cuántos contenidos tenemos planeados en total en el escenario?')">¿Cuántos contenidos tenemos planeados en el escenario?</button>
+          <button class="ai-suggestion" onclick="_agentRunSuggestion('¿Qué publicaciones nos quedan pendientes esta semana?')">¿Qué publicaciones nos quedan pendientes esta semana?</button>
+          <button class="ai-suggestion" onclick="_agentRunSuggestion('Resume el status de todas mis campañas activas')">Resume el status de todas mis campañas activas</button>
+          <button class="ai-suggestion" onclick="_agentRunSuggestion('¿Qué tareas tengo asignadas y para cuándo?')">¿Qué tareas tengo asignadas y para cuándo?</button>
+        </div>
+      </div>`;
+    return;
+  }
+  t.innerHTML = _agentHistory.map(m => `<div class="ai-msg ${m.role}">${_agentEsc(m.content)}</div>`).join('');
+  t.scrollTop = t.scrollHeight;
+}
+
+function toggleAgentPanel() {
+  const p = document.getElementById('aiPanel');
+  const b = document.getElementById('aiFab');
+  if(!p) return;
+  const willOpen = !p.classList.contains('open');
+  p.classList.toggle('open', willOpen);
+  b.classList.toggle('is-open', willOpen);
+  if(willOpen) {
+    _agentRenderThread();
+    setTimeout(() => document.getElementById('aiInput')?.focus(), 200);
+  }
+}
+
+function _agentRunSuggestion(q) {
+  const inp = document.getElementById('aiInput');
+  if(inp) inp.value = q;
+  askAgent();
+}
+
+// ---- Build compact context from cached data ----
+function _buildAgentContext() {
+  const trim = (s, n=200) => { const v = String(s||'').trim(); return v.length>n ? v.slice(0,n)+'…' : v; };
+  const fmt = (n) => Number.isFinite(n) ? n : 0;
+  const today = new Date().toISOString().split('T')[0];
+
+  const team = (allUsers||[]).map(u => ({
+    name: u.name||u.email||'—',
+    email: u.email,
+    area: u.area||null,
+    puesto: u.puesto||null,
+    role: u.role||'member',
+  }));
+
+  const me = currentUserProfile ? { name: currentUserProfile.name, email: currentUserProfile.email, area: currentUserProfile.area, puesto: currentUserProfile.puesto } : null;
+
+  const uidName = uid => { const u = (allUsers||[]).find(x=>x.uid===uid); return u ? (u.name||u.email) : uid; };
+
+  const campaigns = (_cache.campaigns||[]).map(c => {
+    // Escenario summary
+    let escenario = null;
+    try {
+      if(c.escenarioRows && c.escenarioRows.length && typeof parseEscenarioRows === 'function') {
+        const p = parseEscenarioRows(c.escenarioRows);
+        const creators = (p.creators||[]).slice(0,80).map(cr => ({
+          name: cr.name, platform: cr.platform, tier: cr.tier,
+          seguidores: fmt(cr.totalSeguidores||cr.seguidores),
+          contenidos: fmt(cr.totalContenidos||cr.cantidadContenido),
+          contenidoTipo: trim(cr.contenido, 80),
+          viewsEst: fmt(cr.viewsEstTotal),
+          engagementEst: fmt(cr.engagementEst),
+        }));
+        const totalContenidos = creators.reduce((a,b)=>a+(b.contenidos||0),0);
+        escenario = {
+          totalCreators: (p.creators||[]).length,
+          totalContenidos,
+          goal: p.goal||null,
+          creators,
+        };
+      }
+    } catch(e){}
+
+    // Tracker rows summary
+    let tracker = null;
+    if(c.trackerRows && c.trackerRows.length) {
+      const rows = c.trackerRows.slice(0,150).map(r => {
+        const pick = (...keys) => { for(const k of keys){ for(const rk of Object.keys(r)){ if(rk.toLowerCase().includes(k.toLowerCase())) return r[rk]; } } return ''; };
+        return {
+          influencer: pick('influencer','creador','creator','nombre'),
+          platform: pick('plataforma','platform','red'),
+          formato: pick('formato','format','tipo'),
+          fechaPublicacion: pick('fecha publicacion','publish date','fecha post','post date','fecha de publicacion'),
+          guion: pick('guion','script','guión'),
+          contenido: pick('contenido','asset','status contenido'),
+        };
+      });
+      const pending = rows.filter(r => !/aprobad/i.test(r.contenido) && !/public/i.test(r.contenido)).length;
+      const published = rows.length - pending;
+      tracker = { total: rows.length, pending, published, rows };
+    }
+
+    const tasks = (c.tasks||[]).map(t => ({
+      title: trim(t.title, 120),
+      done: !!t.done,
+      due: t.due||null,
+      assignee: t.assigneeUid ? uidName(t.assigneeUid) : (t.assignee||null),
+      priority: t.priority||null,
+    }));
+
+    return {
+      id: c.id,
+      name: c.name,
+      client: c.client,
+      status: c.status,
+      objective: trim(c.objective, 200),
+      coreMessage: trim(c.coreMessage, 200),
+      season: c.season,
+      startDate: c.startDate, endDate: c.endDate,
+      budgetClient: c.budgetClient || c.budget || null,
+      assignees: (c.assignedTo||[]).map(uidName),
+      createdBy: c.createdBy ? uidName(c.createdBy) : null,
+      goal: c.goal||null,
+      tasksSummary: {
+        total: tasks.length,
+        pending: tasks.filter(t=>!t.done).length,
+        done: tasks.filter(t=>t.done).length,
+      },
+      tasks,
+      escenario,
+      tracker,
+    };
+  });
+
+  const globalTasks = (_cache.globalTasks||[]).map(t => ({
+    title: trim(t.title, 120), done: !!t.done, due: t.due||null,
+    assignee: t.assigneeUid ? uidName(t.assigneeUid) : null,
+    priority: t.priority||null,
+  }));
+
+  return { today, me, team, campaigns, globalTasks };
+}
+
+async function askAgent() {
+  const inp = document.getElementById('aiInput');
+  const sendBtn = document.getElementById('aiSendBtn');
+  const question = (inp.value||'').trim();
+  if(!question) return;
+  const s = getSettings();
+  const provider = s.aiProvider || 'anthropic';
+  const apiKey = provider === 'openai' ? s.openaiApiKey : s.claudeApiKey;
+  if(!apiKey) {
+    showToast(`Agrega tu ${provider==='openai'?'OpenAI':'Claude'} API Key en Ajustes`, 'error');
+    return;
+  }
+
+  inp.value = '';
+  _agentHistory.push({ role:'user', content: question });
+  _agentHistory.push({ role:'assistant', content: '…' });
+  _agentRenderThread();
+  const lastIdx = _agentHistory.length - 1;
+  const t = document.getElementById('aiThread');
+  const lastNode = t.lastElementChild;
+  if(lastNode) lastNode.classList.add('thinking');
+  sendBtn.disabled = true;
+
+  try {
+    const ctx = _buildAgentContext();
+    const ctxJson = JSON.stringify(ctx);
+    const systemPrompt = [
+      'Eres un asistente analítico para Campaign Manager OS, una herramienta de gestión de campañas de influencer marketing.',
+      'Respondes preguntas del usuario usando ÚNICAMENTE los datos JSON que te paso en cada turno como "DATOS_ACTUALES". No inventes datos.',
+      'Si la información no está en los datos, dilo claramente.',
+      'Cuando cuentes contenidos o publicaciones, suma los valores explícitos del escenario (campo `escenario.creators[].contenidos` o `escenario.totalContenidos`) o del tracker (campo `tracker.rows`).',
+      'Identifica campañas por nombre o cliente de forma flexible (por ejemplo "ABD" = "All Body Deo", "Rexona Men", etc.). Coincide por substring case-insensitive contra `name` y `client`.',
+      'Responde en español, conciso, con bullets o números cuando aplique. No expliques el JSON ni cómo lo procesaste.',
+    ].join(' ');
+
+    // Trim message history (keep last 8 turns) to control token cost
+    const recent = _agentHistory.slice(0, lastIdx).slice(-8);
+    const userMessage = `DATOS_ACTUALES:\n\`\`\`json\n${ctxJson}\n\`\`\`\n\nPREGUNTA:\n${question}`;
+    const msgsForApi = [
+      ...recent.filter(m => m.role !== 'assistant' || m.content !== '…').map(m => ({ role: m.role, content: m.content })),
+      { role:'user', content: userMessage }
+    ];
+
+    let answer = '';
+    if(provider === 'openai') {
+      const res = await fetch('https://api.openai.com/v1/chat/completions', {
+        method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':'Bearer '+apiKey},
+        body: JSON.stringify({
+          model:'gpt-4o-mini',
+          max_tokens:900,
+          messages:[{role:'system',content:systemPrompt}, ...msgsForApi]
+        })
+      });
+      const data = await res.json();
+      if(data.error) throw new Error(data.error.message);
+      answer = data.choices[0].message.content;
+    } else {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method:'POST',
+        headers:{
+          'Content-Type':'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version':'2023-06-01',
+          'anthropic-dangerous-direct-browser-access':'true'
+        },
+        body: JSON.stringify({
+          model:'claude-haiku-4-5-20251001',
+          max_tokens:900,
+          system: systemPrompt,
+          messages: msgsForApi
+        })
+      });
+      const data = await res.json();
+      if(data.error) throw new Error(data.error.message);
+      answer = data.content[0].text;
+    }
+
+    _agentHistory[lastIdx] = { role:'assistant', content: answer };
+  } catch(e) {
+    _agentHistory[lastIdx] = { role:'assistant', content: 'Error: '+e.message };
+  } finally {
+    sendBtn.disabled = false;
+    _agentRenderThread();
+    inp.focus();
+  }
+}
+
+function _agentInputKey(e) {
+  if(e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); askAgent(); }
+}
+
+function clearAgentChat() {
+  _agentHistory = [];
+  _agentRenderThread();
+}
 </script>
+
+<!-- AI COMPANION -->
+<button class="ai-fab" id="aiFab" onclick="toggleAgentPanel()" aria-label="Asistente IA" title="Asistente IA">
+  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 2l1.6 4.4L18 8l-4.4 1.6L12 14l-1.6-4.4L6 8l4.4-1.6L12 2z"/>
+    <path d="M19 14l.9 2.5L22 17.5l-2.1 1L19 21l-.9-2.5L16 17.5l2.1-1L19 14z"/>
+  </svg>
+</button>
+<div class="ai-panel" id="aiPanel" role="dialog" aria-label="Asistente IA">
+  <div class="ai-panel-header">
+    <div class="ai-panel-title">
+      <span>Asistente</span>
+      <span class="ai-panel-title-badge">IA</span>
+    </div>
+    <button class="ai-panel-close" onclick="clearAgentChat()" title="Limpiar conversación" aria-label="Limpiar">↺</button>
+    <button class="ai-panel-close" onclick="toggleAgentPanel()" title="Cerrar" aria-label="Cerrar">✕</button>
+  </div>
+  <div class="ai-thread" id="aiThread"></div>
+  <div class="ai-input-row">
+    <textarea id="aiInput" placeholder="Pregúntame sobre tus campañas..." rows="1" onkeydown="_agentInputKey(event)"></textarea>
+    <button class="ai-send-btn" id="aiSendBtn" onclick="askAgent()" aria-label="Enviar">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l14-7-7 14-2-5-5-2z"/></svg>
+    </button>
+  </div>
+</div>
+
 </body>
 </html>
