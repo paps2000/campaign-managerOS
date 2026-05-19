@@ -2929,6 +2929,10 @@ html.dark .glass-orb-5 { background: radial-gradient(circle, rgba(122,61,240,.22
             <div class="card"><div class="card-header"><span class="card-title">Alcance e Interacciones</span></div><canvas id="lineChart" height="120"></canvas></div>
             <div class="card"><div class="card-header"><span class="card-title">Distribución de interacciones</span></div><canvas id="donutChart" height="180"></canvas></div>
           </div>
+          <div class="charts-grid">
+            <div class="card"><div class="card-header"><span class="card-title">Contenidos por plataforma</span></div><canvas id="platformChart" height="160"></canvas></div>
+            <div class="card"><div class="card-header"><span class="card-title">Share por plataforma</span></div><canvas id="platformShareChart" height="180"></canvas></div>
+          </div>
           <div class="card">
             <div class="card-header"><span class="card-title">Rendimiento por publicación</span></div>
             <div class="table-wrap">
@@ -6946,8 +6950,37 @@ function deleteDoc(docId) {
 // ============================================================
 // METRICS
 // ============================================================
-let lineChartInst = null, donutChartInst = null;
+let lineChartInst = null, donutChartInst = null, platformChartInst = null, platformShareChartInst = null;
 let currentMetricsCampaignId = null;
+
+// Brand colors per known platform; fallback rotates pastel palette.
+const PLATFORM_COLORS = {
+  instagram:'#e1306c', tiktok:'#000000', youtube:'#ff0000',
+  twitter:'#1da1f2', x:'#000000', facebook:'#1877f2',
+  linkedin:'#0a66c2', pinterest:'#bd081c', snapchat:'#fffc00',
+  twitch:'#9146ff', threads:'#000000', spotify:'#1db954',
+};
+const _PLATFORM_FALLBACK = ['#ff2d87','#2c6dff','#c6f24a','#ffb3d3','#9b8cff','#ffb86b','#5ed4b0','#f97373'];
+function _platformKey(p) {
+  return String(p||'').toLowerCase().replace(/[^a-z0-9]/g,'').trim();
+}
+function _platformLabel(p) {
+  const k = _platformKey(p);
+  if(!k) return 'Sin plataforma';
+  const map = {instagram:'Instagram', ig:'Instagram', tiktok:'TikTok', tt:'TikTok',
+    youtube:'YouTube', yt:'YouTube', shorts:'YouTube',
+    twitter:'X / Twitter', x:'X / Twitter',
+    facebook:'Facebook', fb:'Facebook',
+    linkedin:'LinkedIn', pinterest:'Pinterest', snapchat:'Snapchat',
+    twitch:'Twitch', threads:'Threads', spotify:'Spotify'};
+  return map[k] || (p.charAt(0).toUpperCase()+p.slice(1));
+}
+function _platformColor(p, idx) {
+  const k = _platformKey(p);
+  const aliases = {ig:'instagram', tt:'tiktok', yt:'youtube', shorts:'youtube', fb:'facebook'};
+  const root = aliases[k] || k;
+  return PLATFORM_COLORS[root] || _PLATFORM_FALLBACK[idx % _PLATFORM_FALLBACK.length];
+}
 
 function renderMetrics() {
   // If the user is currently viewing a campaign's metrics detail,
@@ -7020,10 +7053,16 @@ function closeMetricsCampDetail() {
 function initEmptyCharts() {
   if(lineChartInst) { lineChartInst.destroy(); lineChartInst=null; }
   if(donutChartInst) { donutChartInst.destroy(); donutChartInst=null; }
+  if(platformChartInst) { platformChartInst.destroy(); platformChartInst=null; }
+  if(platformShareChartInst) { platformShareChartInst.destroy(); platformShareChartInst=null; }
   const lc = document.getElementById('lineChart'); if(!lc) return;
   lineChartInst = new Chart(lc.getContext('2d'),{type:'line',data:{labels:[],datasets:[]},options:{responsive:true}});
   const dc = document.getElementById('donutChart'); if(!dc) return;
   donutChartInst = new Chart(dc.getContext('2d'),{type:'doughnut',data:{labels:['Likes','Comentarios','Shares','Guardados'],datasets:[{data:[45,25,15,15],backgroundColor:['#ff2d87','#2c6dff','#c6f24a','#ffb3d3'],borderWidth:0}]},options:{responsive:true,plugins:{legend:{position:'right'}},cutout:'65%'}});
+  const pc = document.getElementById('platformChart');
+  if(pc) platformChartInst = new Chart(pc.getContext('2d'),{type:'bar',data:{labels:[],datasets:[]},options:{responsive:true,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,ticks:{precision:0}}}}});
+  const psc = document.getElementById('platformShareChart');
+  if(psc) platformShareChartInst = new Chart(psc.getContext('2d'),{type:'doughnut',data:{labels:[],datasets:[]},options:{responsive:true,plugins:{legend:{position:'right'}},cutout:'60%'}});
 }
 
 // ---- Multi-tab metrics ----
@@ -7415,6 +7454,73 @@ function displayMetrics(rows, campaign) {
       borderWidth:0,hoverOffset:6
     }]
   },options:{responsive:true,plugins:{legend:{position:'right',labels:{font:{size:12}}}},cutout:'65%'}});
+
+  // ----- Platform distribution -----
+  const platformCounts = {};
+  rows.forEach(r => {
+    const raw = gs(r,'Platform','Plataforma','Red Social','Network','Canal');
+    const key = raw && raw !== '—' ? _platformLabel(raw) : 'Sin plataforma';
+    platformCounts[key] = (platformCounts[key]||0) + 1;
+  });
+  const pfEntries = Object.entries(platformCounts).sort((a,b)=>b[1]-a[1]);
+  const pfLabels  = pfEntries.map(e=>e[0]);
+  const pfData    = pfEntries.map(e=>e[1]);
+  const pfColors  = pfEntries.map((e,i)=>_platformColor(e[0], i));
+  const noPfData  = pfEntries.length === 0;
+
+  if(platformChartInst) platformChartInst.destroy();
+  const pc = document.getElementById('platformChart');
+  if(pc) {
+    platformChartInst = new Chart(pc.getContext('2d'),{
+      type:'bar',
+      data:{
+        labels: noPfData ? ['Sin datos'] : pfLabels,
+        datasets:[{
+          label:'Contenidos',
+          data: noPfData ? [0] : pfData,
+          backgroundColor: noPfData ? ['#e5e7eb'] : pfColors,
+          borderRadius:8, borderSkipped:false, barThickness:'flex', maxBarThickness:28,
+        }]
+      },
+      options:{
+        responsive:true,
+        indexAxis:'y',
+        plugins:{
+          legend:{display:false},
+          tooltip:{callbacks:{label:ctx=>` ${ctx.parsed.x} contenido${ctx.parsed.x===1?'':'s'}`}}
+        },
+        scales:{ x:{ beginAtZero:true, ticks:{ precision:0 } } }
+      }
+    });
+  }
+
+  if(platformShareChartInst) platformShareChartInst.destroy();
+  const psc = document.getElementById('platformShareChart');
+  if(psc) {
+    platformShareChartInst = new Chart(psc.getContext('2d'),{
+      type:'doughnut',
+      data:{
+        labels: noPfData ? ['Sin datos'] : pfLabels,
+        datasets:[{
+          data: noPfData ? [1] : pfData,
+          backgroundColor: noPfData ? ['#e5e7eb'] : pfColors,
+          borderWidth:0, hoverOffset:6
+        }]
+      },
+      options:{
+        responsive:true,
+        plugins:{
+          legend:{position:'right',labels:{font:{size:12}}},
+          tooltip:{ callbacks:{ label:ctx=>{
+            const total = pfData.reduce((a,b)=>a+b,0) || 1;
+            const pct = ((ctx.parsed/total)*100).toFixed(1);
+            return ` ${ctx.label}: ${ctx.parsed} (${pct}%)`;
+          }}}
+        },
+        cutout:'60%'
+      }
+    });
+  }
 }
 
 // ============================================================
