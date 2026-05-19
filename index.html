@@ -779,8 +779,10 @@ html.dark .notif-panel { background:var(--white); border-color:var(--border); }
 html.dark .area-dropdown { background:var(--white); border-color:var(--border); }
 html.dark select option { background:#1a1a24; color:var(--text); }
 html.dark table tr:hover td { background:rgba(255,45,135,.07) !important; }
-html.dark .stat-card.urgent { background:#1a0a14; }
-html.dark .stat-card.urgent .stat-label, html.dark .stat-card.urgent .stat-value, html.dark .stat-card.urgent .stat-sub { color:var(--pink); }
+html.dark .stat-card.urgent { background: rgba(255,77,109,0.15) !important; border: 1px solid rgba(255,77,109,0.28) !important; }
+html.dark .stat-card.urgent .stat-label { color: #ff8099 !important; }
+html.dark .stat-card.urgent .stat-value { color: #ff4d6d !important; }
+html.dark .stat-card.urgent .stat-sub   { color: #cc3d58 !important; }
 html.dark .gen-output { background:var(--bg); }
 html.dark .shape-opt { border-color:var(--border); color:var(--text-muted); background:var(--white); }
 html.dark .emoji-cat-btn { background:var(--bg); border-color:var(--border); color:var(--text-muted); }
@@ -1642,6 +1644,11 @@ html.dark .profile-card-bio  { background:rgba(255,45,135,.1); color:var(--text)
 
 /* ============ RESPONSIVE BREAKPOINTS ============ */
 @media (max-width: 768px) {
+  /* Dashboard two-col → single col */
+  #page-dashboard > div[style*="grid-template-columns"] {
+    display: flex !important;
+    flex-direction: column !important;
+  }
   body { overflow:auto; }
 
   /* Sidebar: hidden by default, slides in as overlay */
@@ -1883,9 +1890,507 @@ html.dark .profile-card-bio  { background:rgba(255,45,135,.1); color:var(--text)
   display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; flex-shrink:0;
 }
 .area-dropdown-empty { padding:10px 14px; font-size:12px; color:var(--text-muted); }
+
+/* ================================================================
+   LIQUID GLASS — Campaign OS
+   Apple-inspired translucent glass aesthetic
+   ================================================================ */
+
+/* ── 1. BACKGROUND CANVAS ── */
+body {
+  background:
+    radial-gradient(ellipse 70% 55% at 8% 12%,  rgba(255,45,135,.20) 0%, transparent 58%),
+    radial-gradient(ellipse 55% 65% at 88% 82%, rgba(44,109,255,.16) 0%, transparent 58%),
+    radial-gradient(ellipse 45% 45% at 62% 22%, rgba(198,242,74,.11) 0%, transparent 52%),
+    radial-gradient(ellipse 60% 40% at 28% 88%, rgba(255,126,176,.10) 0%, transparent 52%),
+    oklch(96% 0.008 300) !important;
+  background-attachment: fixed !important;
+}
+html.dark body {
+  background:
+    radial-gradient(ellipse 70% 55% at 8% 12%,  rgba(255,45,135,.30) 0%, transparent 58%),
+    radial-gradient(ellipse 55% 65% at 88% 82%, rgba(44,109,255,.24) 0%, transparent 58%),
+    radial-gradient(ellipse 45% 45% at 62% 22%, rgba(198,242,74,.09) 0%, transparent 52%),
+    radial-gradient(ellipse 60% 40% at 28% 88%, rgba(255,126,176,.14) 0%, transparent 52%),
+    oklch(9% 0.018 290) !important;
+  background-attachment: fixed !important;
+}
+
+/* ── 2. MAIN AREA — transparent so body canvas shows ── */
+.main { background: transparent !important; }
+.content { background: transparent !important; position: relative; z-index: 1; }
+
+/* ── 3. TOPBAR — frosted glass strip ── */
+.topbar {
+  background: rgba(248,246,252,0.72) !important;
+  backdrop-filter: blur(28px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(180%) !important;
+  border-bottom: 1px solid rgba(255,255,255,0.72) !important;
+  box-shadow: inset 0 -1px 0 rgba(255,255,255,0.5), 0 2px 16px rgba(10,10,12,0.06) !important;
+  position: relative; z-index: 2;
+  padding: 22px 36px 20px !important;
+  min-height: 80px !important;
+}
+html.dark .topbar {
+  background: rgba(10,8,20,0.68) !important;
+  border-bottom: 1px solid rgba(255,255,255,0.10) !important;
+  box-shadow: inset 0 -1px 0 rgba(255,255,255,0.06), 0 2px 20px rgba(0,0,0,0.38) !important;
+  padding: 22px 36px 20px !important;
+}
+
+/* topbar date pill */
+.topbar-date {
+  background: rgba(255,255,255,0.65) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  border: 1px solid rgba(255,255,255,0.88) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,1), 0 2px 8px rgba(10,10,12,0.05) !important;
+}
+html.dark .topbar-date {
+  background: rgba(255,255,255,0.08) !important;
+  border: 1px solid rgba(255,255,255,0.14) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.12) !important;
+}
+
+/* ── 4. SIDEBAR — dark layered glass ── */
+.sidebar {
+  background: rgba(5,4,14,0.78) !important;
+  backdrop-filter: blur(32px) saturate(140%) !important;
+  -webkit-backdrop-filter: blur(32px) saturate(140%) !important;
+}
+.sidebar-inner {
+  background: rgba(12,10,26,0.70) !important;
+  backdrop-filter: blur(40px) saturate(160%) !important;
+  -webkit-backdrop-filter: blur(40px) saturate(160%) !important;
+  border: 1px solid rgba(255,255,255,0.09) !important;
+  box-shadow:
+    inset 0 1.5px 0 rgba(255,255,255,0.14),
+    inset 1px 0 0 rgba(255,255,255,0.06),
+    4px 0 28px rgba(0,0,0,0.28) !important;
+}
+.sidebar-user {
+  background: rgba(255,255,255,0.07) !important;
+  border: 1px solid rgba(255,255,255,0.10) !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+}
+
+/* ── 5. CARDS — light glass panels ── */
+.card, .stat-card, .campaign-card, .metric-card,
+.detail-header, .settings-section {
+  background: rgba(255,255,255,0.86) !important;
+  backdrop-filter: blur(24px) saturate(160%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(160%) !important;
+  border: 1px solid rgba(255,255,255,0.94) !important;
+  box-shadow:
+    inset 0 1.5px 0 rgba(255,255,255,1),
+    inset 0 -0.5px 0 rgba(255,255,255,0.40),
+    0 4px 24px rgba(10,10,12,0.10),
+    0 1px 3px rgba(10,10,12,0.05) !important;
+}
+/* ── TEXT LEGIBILITY — light mode ── */
+.card-title { color: var(--text) !important; font-weight: 800 !important; letter-spacing: 1px !important; }
+.stat-label { color: #3a3844 !important; font-weight: 700 !important; }
+.stat-value { color: #0a0a0c !important; }
+.stat-sub { color: #6f6c78 !important; }
+.campaign-name { color: #0a0a0c !important; }
+.campaign-client { color: #6f6c78 !important; }
+.task-title:not(.done-text) { color: #0a0a0c !important; }
+.task-meta, .task-time { color: #6f6c78 !important; }
+.alert-msg { color: #0a0a0c !important; }
+.alert-campaign, .inf-handle, .inf-campaign, .inf-date, .doc-campaign, .doc-date { color: #6f6c78 !important; }
+.inf-name, .doc-name { color: #0a0a0c !important; }
+.metric-value { color: #0a0a0c !important; }
+.metric-label { color: #6f6c78 !important; }
+.table th { color: #6f6c78 !important; }
+.table td { color: #0a0a0c !important; }
+.card-link { color: var(--pink) !important; }
+.settings-title, .settings-desc { color: var(--text) !important; }
+.info-label { color: #6f6c78 !important; }
+.info-value { color: #0a0a0c !important; }
+.flow-step-name { color: #0a0a0c !important; }
+.detail-title { color: #0a0a0c !important; }
+.detail-subtitle { color: #6f6c78 !important; }
+.nav-label { color: #7a7884 !important; }
+
+html.dark .card, html.dark .stat-card, html.dark .campaign-card,
+html.dark .metric-card, html.dark .detail-header, html.dark .settings-section {
+  background: rgba(14,11,30,0.88) !important;
+  border: 1px solid rgba(255,255,255,0.13) !important;
+  box-shadow:
+    inset 0 1.5px 0 rgba(255,255,255,0.16),
+    inset 0 -0.5px 0 rgba(255,255,255,0.04),
+    0 4px 24px rgba(0,0,0,0.44),
+    0 1px 3px rgba(0,0,0,0.22) !important;
+}
+/* ── TEXT LEGIBILITY — dark mode ── */
+html.dark .card-title { color: #f0eef6 !important; }
+html.dark .stat-label { color: #b8b6cc !important; }
+html.dark .stat-value { color: #f0eef6 !important; }
+html.dark .stat-sub { color: #7a7890 !important; }
+html.dark .campaign-name, html.dark .task-title:not(.done-text),
+html.dark .alert-msg, html.dark .inf-name, html.dark .doc-name { color: #f0eef6 !important; }
+html.dark .metric-value, html.dark .detail-title, html.dark .flow-step-name,
+html.dark .info-value, html.dark .settings-title { color: #f0eef6 !important; }
+html.dark .table td { color: #e8e6f4 !important; }
+html.dark .table th { color: #7a7890 !important; }
+
+/* Featured stat card keeps brand pink */
+.stat-card.featured {
+  background: rgba(255,45,135,0.82) !important;
+  backdrop-filter: blur(24px) saturate(220%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(220%) !important;
+  border: 1px solid rgba(255,255,255,0.38) !important;
+  box-shadow:
+    inset 0 1.5px 0 rgba(255,255,255,0.55),
+    0 8px 32px rgba(255,45,135,0.45) !important;
+}
+.stat-card.urgent {
+  background: rgba(255,77,109,0.12) !important;
+  backdrop-filter: blur(24px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
+  border: 1px solid rgba(255,77,109,0.30) !important;
+  box-shadow:
+    inset 0 1.5px 0 rgba(255,255,255,0.90),
+    0 4px 20px rgba(255,77,109,0.14) !important;
+}
+.stat-card.urgent .stat-label { color: #c0173a !important; }
+.stat-card.urgent .stat-value { color: #e6126d !important; }
+.stat-card.urgent .stat-sub   { color: #a01030 !important; }
+
+/* Team cards */
+.team-card {
+  background: rgba(255,255,255,0.52) !important;
+  backdrop-filter: blur(20px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+  border: 1px solid rgba(255,255,255,0.78) !important;
+  box-shadow:
+    inset 0 1.5px 0 rgba(255,255,255,0.95),
+    0 4px 20px rgba(10,10,12,0.06) !important;
+}
+
+/* ── 6. MODALS — floating glass ── */
+.modal {
+  background: rgba(252,250,255,0.82) !important;
+  backdrop-filter: blur(44px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(44px) saturate(180%) !important;
+  border: 1px solid rgba(255,255,255,0.82) !important;
+  box-shadow:
+    inset 0 1.5px 0 rgba(255,255,255,1),
+    0 24px 80px rgba(10,10,12,0.22),
+    0 4px 16px rgba(10,10,12,0.08) !important;
+}
+html.dark .modal {
+  background: rgba(14,11,28,0.82) !important;
+  border: 1px solid rgba(255,255,255,0.13) !important;
+  box-shadow:
+    inset 0 1.5px 0 rgba(255,255,255,0.16),
+    0 24px 80px rgba(0,0,0,0.65),
+    0 4px 16px rgba(0,0,0,0.32) !important;
+}
+.modal-overlay {
+  backdrop-filter: blur(4px) !important;
+  -webkit-backdrop-filter: blur(4px) !important;
+}
+
+/* ── 7. BUTTONS — glass tint ── */
+.btn-ghost {
+  background: rgba(255,255,255,0.58) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  border: 1px solid rgba(255,255,255,0.85) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.95) !important;
+}
+.btn-ghost:hover {
+  background: rgba(255,255,255,0.78) !important;
+  border-color: rgba(255,45,135,0.35) !important;
+}
+html.dark .btn-ghost {
+  background: rgba(255,255,255,0.09) !important;
+  border: 1px solid rgba(255,255,255,0.16) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.13) !important;
+}
+
+/* ── 8. FILTER TABS ── */
+.filter-tab:not(.active), .metrics-tab-pill:not(.active) {
+  background: rgba(255,255,255,0.52) !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+  border: 1px solid rgba(255,255,255,0.72) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.9) !important;
+}
+html.dark .filter-tab:not(.active), html.dark .metrics-tab-pill:not(.active) {
+  background: rgba(255,255,255,0.08) !important;
+  border: 1px solid rgba(255,255,255,0.13) !important;
+}
+
+/* ── 9. FORMS & INPUTS ── */
+.form-input, .gen-select, .flow-step-select {
+  background: rgba(255,255,255,0.60) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  border: 1px solid rgba(255,255,255,0.82) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.95), 0 1px 4px rgba(10,10,12,0.04) !important;
+}
+.form-input:focus, .gen-select:focus {
+  background: rgba(255,255,255,0.88) !important;
+  border: 1px solid rgba(255,45,135,0.55) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,1), 0 0 0 3px rgba(255,45,135,0.16) !important;
+}
+html.dark .form-input, html.dark .gen-select, html.dark .flow-step-select {
+  background: rgba(255,255,255,0.07) !important;
+  border: 1px solid rgba(255,255,255,0.13) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.10) !important;
+}
+
+/* ── 10. NOTIFICATION PANEL ── */
+.notif-panel {
+  background: rgba(252,250,255,0.82) !important;
+  backdrop-filter: blur(36px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(36px) saturate(180%) !important;
+  border: 1px solid rgba(255,255,255,0.78) !important;
+  box-shadow:
+    inset 0 1.5px 0 rgba(255,255,255,0.95),
+    0 18px 44px rgba(10,10,12,0.14) !important;
+}
+html.dark .notif-panel {
+  background: rgba(14,11,28,0.82) !important;
+  border: 1px solid rgba(255,255,255,0.12) !important;
+}
+
+/* ── 11. TASK AREA GROUPS ── */
+.task-area-group {
+  background: rgba(255,255,255,0.38) !important;
+  backdrop-filter: blur(14px) !important;
+  -webkit-backdrop-filter: blur(14px) !important;
+  border: 1px solid rgba(255,255,255,0.60) !important;
+}
+.task-area-group summary {
+  background: rgba(255,255,255,0.22) !important;
+}
+html.dark .task-area-group {
+  background: rgba(255,255,255,0.04) !important;
+  border: 1px solid rgba(255,255,255,0.09) !important;
+}
+html.dark .task-area-group summary {
+  background: rgba(255,255,255,0.04) !important;
+}
+
+/* ── 12. FLOW STEPS ── */
+.flow-step {
+  background: rgba(255,255,255,0.50) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  border: 1px solid rgba(255,255,255,0.72) !important;
+}
+html.dark .flow-step {
+  background: rgba(255,255,255,0.05) !important;
+  border: 1px solid rgba(255,255,255,0.10) !important;
+}
+
+/* ── 13. MOBILE NAV ── */
+.mobile-nav {
+  background: rgba(248,246,252,0.82) !important;
+  backdrop-filter: blur(28px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(180%) !important;
+  border-top: 1px solid rgba(255,255,255,0.82) !important;
+  box-shadow: 0 -2px 20px rgba(10,10,12,0.08) !important;
+}
+html.dark .mobile-nav {
+  background: rgba(10,8,20,0.82) !important;
+  border-top: 1px solid rgba(255,255,255,0.10) !important;
+}
+
+/* ── 14. LOGIN SCREEN ── */
+.login-screen {
+  background:
+    radial-gradient(ellipse 80% 60% at 30% 110%, rgba(255,45,135,.32) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 10% 15%, rgba(44,109,255,.22) 0%, transparent 55%),
+    radial-gradient(ellipse 50% 50% at 92% 8%, rgba(198,242,74,.15) 0%, transparent 55%),
+    oklch(9% 0.020 290) !important;
+}
+.login-hero {
+  background: transparent !important;
+}
+.login-card {
+  background: rgba(255,255,255,0.70) !important;
+  backdrop-filter: blur(44px) saturate(190%) !important;
+  -webkit-backdrop-filter: blur(44px) saturate(190%) !important;
+  border-left: 1px solid rgba(255,255,255,0.65) !important;
+  box-shadow:
+    inset 1.5px 0 0 rgba(255,255,255,0.88),
+    -12px 0 48px rgba(0,0,0,0.12) !important;
+}
+html.dark .login-card {
+  background: rgba(12,10,26,0.78) !important;
+  border-left: 1px solid rgba(255,255,255,0.12) !important;
+  box-shadow:
+    inset 1.5px 0 0 rgba(255,255,255,0.10),
+    -12px 0 48px rgba(0,0,0,0.45) !important;
+}
+.login-input {
+  background: rgba(255,255,255,0.60) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  border: 1px solid rgba(255,255,255,0.82) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.95), 0 1px 4px rgba(10,10,12,0.04) !important;
+}
+.login-input:focus {
+  background: rgba(255,255,255,0.88) !important;
+  border: 1.5px solid rgba(255,45,135,0.55) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,1), 0 0 0 3px rgba(255,45,135,0.18) !important;
+}
+html.dark .login-input {
+  background: rgba(255,255,255,0.07) !important;
+  border: 1px solid rgba(255,255,255,0.14) !important;
+}
+html.dark .login-input:focus {
+  background: rgba(255,255,255,0.12) !important;
+}
+
+/* ── 15. PROFILE MODAL ── */
+.profile-modal {
+  background: rgba(252,250,255,0.82) !important;
+  backdrop-filter: blur(44px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(44px) saturate(180%) !important;
+  border: 1px solid rgba(255,255,255,0.82) !important;
+}
+html.dark .profile-modal {
+  background: rgba(14,11,28,0.82) !important;
+  border: 1px solid rgba(255,255,255,0.13) !important;
+}
+.profile-tab-bar {
+  background: rgba(255,255,255,0.50) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  border-bottom: 1px solid rgba(255,255,255,0.65) !important;
+}
+html.dark .profile-tab-bar {
+  background: rgba(255,255,255,0.06) !important;
+  border-bottom: 1px solid rgba(255,255,255,0.10) !important;
+}
+
+/* ── 16. THEME TOGGLE & BELL BTN ── */
+.theme-toggle-btn, .notif-bell-btn {
+  background: rgba(255,255,255,0.55) !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+  border: 1px solid rgba(255,255,255,0.80) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.92) !important;
+}
+.theme-toggle-btn:hover, .notif-bell-btn:hover {
+  background: rgba(255,255,255,0.78) !important;
+}
+html.dark .theme-toggle-btn, html.dark .notif-bell-btn {
+  background: rgba(255,255,255,0.08) !important;
+  border: 1px solid rgba(255,255,255,0.14) !important;
+}
+
+/* ── 17. NAV ACTIVE ITEM — glass pink ── */
+.nav-item.active {
+  background: rgba(255,45,135,0.80) !important;
+  backdrop-filter: blur(14px) !important;
+  -webkit-backdrop-filter: blur(14px) !important;
+  border: 1px solid rgba(255,255,255,0.30) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.38),
+    0 4px 18px rgba(255,45,135,0.40) !important;
+}
+
+/* ── 18. SCROLLBAR ── */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: rgba(255,45,135,0.28);
+  border-radius: 8px;
+}
+::-webkit-scrollbar-thumb:hover { background: rgba(255,45,135,0.50); }
+
+/* ── ANIMATED GLASS ORBS ── */
+#glass-canvas {
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  overflow: hidden;
+}
+.glass-orb {
+  position: absolute; border-radius: 50%;
+  filter: blur(90px); opacity: 1;
+}
+.glass-orb-1 {
+  width: 700px; height: 700px;
+  background: radial-gradient(circle, rgba(255,45,135,.22) 0%, transparent 68%);
+  top: -250px; left: -180px;
+  animation: orbDrift1 20s ease-in-out infinite;
+}
+.glass-orb-2 {
+  width: 580px; height: 580px;
+  background: radial-gradient(circle, rgba(44,109,255,.18) 0%, transparent 68%);
+  bottom: -180px; right: -140px;
+  animation: orbDrift2 26s ease-in-out infinite;
+}
+.glass-orb-3 {
+  width: 380px; height: 380px;
+  background: radial-gradient(circle, rgba(198,242,74,.14) 0%, transparent 68%);
+  top: 38%; left: 52%;
+  animation: orbDrift3 17s ease-in-out infinite;
+}
+.glass-orb-4 {
+  width: 440px; height: 440px;
+  background: radial-gradient(circle, rgba(255,126,176,.16) 0%, transparent 68%);
+  bottom: 15%; left: -120px;
+  animation: orbDrift4 22s ease-in-out infinite 3s;
+}
+.glass-orb-5 {
+  width: 300px; height: 300px;
+  background: radial-gradient(circle, rgba(122,61,240,.13) 0%, transparent 68%);
+  top: 20%; right: 8%;
+  animation: orbDrift5 14s ease-in-out infinite 1.5s;
+}
+html.dark .glass-orb-1 { background: radial-gradient(circle, rgba(255,45,135,.36) 0%, transparent 68%); }
+html.dark .glass-orb-2 { background: radial-gradient(circle, rgba(44,109,255,.30) 0%, transparent 68%); }
+html.dark .glass-orb-3 { background: radial-gradient(circle, rgba(198,242,74,.16) 0%, transparent 68%); }
+html.dark .glass-orb-4 { background: radial-gradient(circle, rgba(255,126,176,.24) 0%, transparent 68%); }
+html.dark .glass-orb-5 { background: radial-gradient(circle, rgba(122,61,240,.22) 0%, transparent 68%); }
+@keyframes orbDrift1 {
+  0%,100% { transform: translate(0,0) scale(1); }
+  25%      { transform: translate(90px,70px) scale(1.07); }
+  50%      { transform: translate(160px,20px) scale(0.94); }
+  75%      { transform: translate(60px,130px) scale(1.04); }
+}
+@keyframes orbDrift2 {
+  0%,100% { transform: translate(0,0) scale(1); }
+  30%      { transform: translate(-110px,-70px) scale(1.09); }
+  60%      { transform: translate(-50px,-140px) scale(0.92); }
+  80%      { transform: translate(-140px,-40px) scale(1.05); }
+}
+@keyframes orbDrift3 {
+  0%,100% { transform: translate(0,0) scale(1); }
+  35%      { transform: translate(-70px,55px) scale(1.13); }
+  70%      { transform: translate(50px,-60px) scale(0.88); }
+}
+@keyframes orbDrift4 {
+  0%,100% { transform: translate(0,0) scale(1); }
+  40%      { transform: translate(110px,-90px) scale(1.08); }
+  70%      { transform: translate(50px,-150px) scale(0.93); }
+}
+@keyframes orbDrift5 {
+  0%,100% { transform: translate(0,0) scale(1); }
+  50%      { transform: translate(-80px,100px) scale(1.15); }
+}
+/* app wrapper sits above the orb canvas */
+.sidebar, .main { position: relative; z-index: 1; }
+
 </style>
 </head>
 <body>
+
+<!-- ANIMATED GLASS CANVAS -->
+<div id="glass-canvas" aria-hidden="true">
+  <div class="glass-orb glass-orb-1"></div>
+  <div class="glass-orb glass-orb-2"></div>
+  <div class="glass-orb glass-orb-3"></div>
+  <div class="glass-orb glass-orb-4"></div>
+  <div class="glass-orb glass-orb-5"></div>
+</div>
 
 <!-- LOGIN SCREEN -->
 <div class="login-screen" id="loginScreen">
@@ -2105,98 +2610,102 @@ html.dark .profile-card-bio  { background:rgba(255,45,135,.1); color:var(--text)
         </div>
       </div>
 
-      <!-- UPCOMING PUBS (subido) -->
+      <!-- DASHBOARD: left = widgets, right = Google integrations -->
+      <div class="dashboard-split" style="display:grid; grid-template-columns:1fr 360px; gap:20px; margin-top:20px; align-items:start;">
+
+        <!-- LEFT COLUMN -->
+        <div style="display:flex; flex-direction:column; gap:20px;">
+
+          <!-- TODAY TASKS -->
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">¿Qué tengo que hacer hoy?</span>
+              <a class="card-link" onclick="navigate('pendientes')">Ver todos mis pendientes →</a>
+            </div>
+            <div id="todayTasksList"></div>
+          </div>
+
+          <!-- ALERTS -->
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">Alertas importantes</span>
+              <a class="card-link" onclick="navigate('pendientes')">Ver todas →</a>
+            </div>
+            <div id="alertsList"></div>
+          </div>
+
+          <!-- CAMPAIGN STATUS -->
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">Status de campañas</span>
+              <a class="card-link" onclick="navigate('campannas')">Ver todas las campañas →</a>
+            </div>
+            <div class="table-wrap">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>Campaña</th><th>Cliente</th><th>Status</th><th>Próximo paso</th><th>Duración</th>
+                  </tr>
+                </thead>
+                <tbody id="dashCampaignTable"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- UPCOMING PUBS -->
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">Próximas publicaciones</span>
+              <a class="card-link" onclick="navigate('calendario')">Ver calendario →</a>
+            </div>
+            <div id="upcomingPubs"></div>
+          </div>
+
+          <!-- DOCS -->
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">Documentos recientes</span>
+              <a class="card-link" onclick="navigate('documentos')">Ir a documentos →</a>
+            </div>
+            <div id="recentDocsList"></div>
+          </div>
+        </div>
+
+        <!-- RIGHT COLUMN: Google -->
+        <div style="display:flex; flex-direction:column; gap:20px; position:sticky; top:20px;">
+          <div id="googleCalendarWidget"></div>
+          <div id="googleGmailWidget"></div>
+        </div>
+      </div>
+
+      <!-- TEXT GENERATOR (full width bottom) -->
       <div class="card" style="margin-top:20px;">
         <div class="card-header">
-          <span class="card-title">Próximas publicaciones</span>
-          <a class="card-link" onclick="navigate('calendario')">Ver calendario →</a>
+          <span class="card-title">Generador de textos</span>
+          <a class="card-link" onclick="navigate('generador')">Abrir generador completo →</a>
         </div>
-        <div id="upcomingPubs"></div>
-      </div>
-
-      <!-- GOOGLE WIDGETS: daily overview -->
-      <div class="grid-main-side" style="margin-top:20px;">
-        <div id="googleCalendarWidget"></div>
-        <div id="googleGmailWidget"></div>
-      </div>
-
-      <div class="grid-main-side">
-        <!-- TODAY TASKS -->
-        <div class="card">
-          <div class="card-header">
-            <span class="card-title">¿Qué tengo que hacer hoy?</span>
-            <a class="card-link" onclick="navigate('pendientes')">Ver todos mis pendientes →</a>
-          </div>
-          <div id="todayTasksList"></div>
-        </div>
-
-        <!-- ALERTS -->
-        <div class="card">
-          <div class="card-header">
-            <span class="card-title">Alertas importantes</span>
-            <a class="card-link" onclick="navigate('pendientes')">Ver todas →</a>
-          </div>
-          <div id="alertsList"></div>
-        </div>
-      </div>
-
-      <!-- CAMPAIGN STATUS -->
-      <div class="card">
-        <div class="card-header">
-          <span class="card-title">Status de campañas</span>
-          <a class="card-link" onclick="navigate('campannas')">Ver todas las campañas →</a>
-        </div>
-        <div class="table-wrap">
-        <table class="table">
-          <thead>
-            <tr>
-              <th>Campaña</th><th>Cliente</th><th>Status</th><th>Próximo paso</th><th>Duración</th>
-            </tr>
-          </thead>
-          <tbody id="dashCampaignTable"></tbody>
-        </table>
-        </div>
-      </div>
-
-      <div class="grid-3">
-        <!-- DOCS -->
-        <div class="card">
-          <div class="card-header">
-            <span class="card-title">Documentos recientes</span>
-            <a class="card-link" onclick="navigate('documentos')">Ir a documentos →</a>
-          </div>
-          <div id="recentDocsList"></div>
-        </div>
-
-        <!-- TEXT GENERATOR WIDGET -->
-        <div class="card" style="grid-column:span 2;">
-          <div class="card-header">
-            <span class="card-title">Generador de textos</span>
-            <a class="card-link" onclick="navigate('generador')">Abrir generador completo →</a>
-          </div>
-          <div class="gen-form">
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-              <div>
-                <label style="font-size:11px;font-weight:600;color:var(--text-muted);display:block;margin-bottom:4px;">¿Qué quieres generar?</label>
-                <select class="gen-select" id="dashGenType">
-                  <option>Follow up cliente</option>
-                  <option>Follow up influencer</option>
-                  <option>Brief</option>
-                  <option>Minuta de reunión</option>
-                  <option>Email de propuesta</option>
-                </select>
-              </div>
-              <div>
-                <label style="font-size:11px;font-weight:600;color:var(--text-muted);display:block;margin-bottom:4px;">Campaña</label>
-                <select class="gen-select" id="dashGenCampaign"></select>
-              </div>
+        <div class="gen-form">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div>
+              <label style="font-size:11px;font-weight:600;color:var(--text-muted);display:block;margin-bottom:4px;">¿Qué quieres generar?</label>
+              <select class="gen-select" id="dashGenType">
+                <option>Follow up cliente</option>
+                <option>Follow up influencer</option>
+                <option>Brief</option>
+                <option>Minuta de reunión</option>
+                <option>Email de propuesta</option>
+              </select>
             </div>
-            <button class="btn btn-primary" onclick="generateText('dash')" id="dashGenBtn"><span class="icn-inline"></span> Generar texto</button>
-            <div class="gen-output" id="dashGenOutput"></div>
-            <div class="gen-actions" id="dashGenActions">
-              <button class="btn btn-ghost btn-sm" onclick="copyGenText('dash')"><span class="icn-copy"></span> Copiar</button>
-              <button class="btn btn-ghost btn-sm"><span class="icn-mail"></span> Enviar por email</button>
+            <div>
+              <label style="font-size:11px;font-weight:600;color:var(--text-muted);display:block;margin-bottom:4px;">Campaña</label>
+              <select class="gen-select" id="dashGenCampaign"></select>
             </div>
+          </div>
+          <button class="btn btn-primary" onclick="generateText('dash')" id="dashGenBtn"><span class="icn-inline"></span> Generar texto</button>
+          <div class="gen-output" id="dashGenOutput"></div>
+          <div class="gen-actions" id="dashGenActions">
+            <button class="btn btn-ghost btn-sm" onclick="copyGenText('dash')"><span class="icn-copy"></span> Copiar</button>
+            <button class="btn btn-ghost btn-sm"><span class="icn-mail"></span> Enviar por email</button>
           </div>
         </div>
       </div>
@@ -2336,8 +2845,7 @@ html.dark .profile-card-bio  { background:rgba(255,45,135,.1); color:var(--text)
 
     <!-- PENDIENTES -->
     <div class="page" id="page-pendientes">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
-        <h3 style="font-size:28px;font-weight:700;letter-spacing:-0.4px;">Pendientes</h3>
+      <div style="display:flex;justify-content:flex-end;margin-bottom:16px;">
         <button class="btn btn-primary" onclick="openAddGlobalTaskModal()">+ Nueva tarea</button>
       </div>
       <div class="filter-tabs">
@@ -2437,7 +2945,7 @@ html.dark .profile-card-bio  { background:rgba(255,45,135,.1); color:var(--text)
     <!-- GENERADOR FULL PAGE -->
     <div class="page" id="page-generador">
       <div style="max-width:700px;">
-        <h3 style="font-size:28px;font-weight:700;letter-spacing:-0.4px;margin-bottom:20px;">Generador de textos</h3>
+
         <div class="card">
           <div class="form-group">
             <label class="form-label">¿Qué quieres generar?</label>
@@ -2469,8 +2977,7 @@ html.dark .profile-card-bio  { background:rgba(255,45,135,.1); color:var(--text)
 
     <!-- INFLUENCERS PLACEHOLDER -->
     <div class="page" id="page-influencers">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
-        <h3 style="font-size:28px;font-weight:700;letter-spacing:-0.4px;">Base de Influencers</h3>
+      <div style="display:flex;justify-content:flex-end;margin-bottom:20px;">
         <input type="search" id="infSearch" class="form-input" style="max-width:220px;font-size:13px;" placeholder="Buscar influencer..." oninput="renderInfluencers()">
       </div>
       <div class="campaign-grid" id="infGrid"></div>
@@ -2478,9 +2985,7 @@ html.dark .profile-card-bio  { background:rgba(255,45,135,.1); color:var(--text)
 
     <!-- EQUIPO -->
     <div class="page" id="page-equipo">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
-        <h3 style="font-size:28px;font-weight:700;letter-spacing:-0.4px;">Equipo</h3>
-      </div>
+
       <!-- Area filter tabs -->
       <div id="equipoFilterBar" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px;"></div>
       <div id="equipoGrid"></div>
@@ -2488,8 +2993,7 @@ html.dark .profile-card-bio  { background:rgba(255,45,135,.1); color:var(--text)
 
     <!-- DOCUMENTOS -->
     <div class="page" id="page-documentos">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:12px;">
-        <h3 style="font-size:28px;font-weight:700;letter-spacing:-0.4px;">Documentos</h3>
+      <div style="display:flex;justify-content:flex-end;margin-bottom:16px;">
         <button class="btn btn-primary" onclick="openAddDocModalGlobal()">+ Agregar documento</button>
       </div>
 
@@ -2547,7 +3051,7 @@ html.dark .profile-card-bio  { background:rgba(255,45,135,.1); color:var(--text)
 
     <!-- AJUSTES -->
     <div class="page" id="page-ajustes">
-      <h3 style="font-size:28px;font-weight:700;letter-spacing:-0.4px;margin-bottom:20px;">Ajustes</h3>
+
 
       <!-- APARIENCIA -->
       <div class="settings-section">
@@ -3056,6 +3560,7 @@ html.dark .profile-card-bio  { background:rgba(255,45,135,.1); color:var(--text)
           <option>TikTok</option>
           <option>YouTube</option>
           <option>Twitter/X</option>
+          <option>Facebook</option>
         </select>
       </div>
       <div class="form-group">
@@ -3203,10 +3708,21 @@ const ICN_sheet = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" st
 const ICN_paperclip = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11l-9 9a5 5 0 0 1-7-7l9-9a3.5 3.5 0 0 1 5 5l-9 9a2 2 0 0 1-3-3l8-8"/></svg>';
 const ICN_clipboard = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9 4h6v3H9z"/></svg>';
 const ICN_check = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/></svg>';
-const ICN_insta = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r=".7" fill="currentColor"/></svg>';
-const ICN_tiktok = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4v10.5a3.5 3.5 0 1 1-3.5-3.5"/><path d="M14 4c.5 2.5 2.5 4.5 5 5"/></svg>';
-const ICN_youtube = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="3"/><path d="M10 9l5 3-5 3z" fill="currentColor"/></svg>';
-const ICN_twitter = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l8 11M21 3l-9 13M3 21l7-8M21 21l-8-11"/></svg>';
+// Social platform icons — colored filled
+const ICN_insta = `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="ig-g" x1="0%" y1="100%" x2="100%" y2="0%"><stop offset="0%" stop-color="#FFDC80"/><stop offset="30%" stop-color="#F77737"/><stop offset="65%" stop-color="#C13584"/><stop offset="100%" stop-color="#833AB4"/></linearGradient></defs><rect x="1" y="1" width="22" height="22" rx="6" fill="url(#ig-g)"/><circle cx="12" cy="12" r="5" fill="none" stroke="white" stroke-width="2"/><circle cx="17.5" cy="6.5" r="1.2" fill="white"/></svg>`;
+const ICN_tiktok = `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><rect width="24" height="24" rx="6" fill="#010101"/><path d="M19.1 8.7a5.1 5.1 0 0 1-3.1-1V14a4.3 4.3 0 1 1-3.5-4.2v2.6a1.8 1.8 0 1 0 1.2 1.7V4h2.4a3.1 3.1 0 0 0 3 2.7v2z" fill="white"/><path d="M18.8 8.4a5.1 5.1 0 0 1-2.8-2.4A3.1 3.1 0 0 0 18.8 8.4z" fill="#69C9D0"/></svg>`;
+const ICN_youtube = `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><rect width="24" height="24" rx="6" fill="#FF0000"/><path d="M20.2 8.6s-.2-1.2-.7-1.7c-.7-.7-1.4-.7-1.8-.8C15.4 6 12 6 12 6s-3.4 0-5.7.1c-.4.1-1.1.1-1.8.8-.5.5-.7 1.7-.7 1.7S3.6 10 3.6 11.4v1.2c0 1.4.2 2.8.2 2.8s.2 1.2.7 1.7c.7.7 1.6.7 2 .8 1.5.1 5.5.1 5.5.1s3.4 0 5.7-.2c.4 0 1.1-.1 1.8-.8.5-.5.7-1.7.7-1.7s.2-1.4.2-2.8v-1.2C20.4 10 20.2 8.6 20.2 8.6zM10.2 14V9.8l4.7 2.1-4.7 2.1z" fill="white"/></svg>`;
+const ICN_twitter = `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><rect width="24" height="24" rx="6" fill="#000000"/><path d="M17.8 4.5h2.3l-5 5.7 5.9 7.8h-4.6l-3.6-4.7-4.2 4.7H5.3l5.4-6.1L5 4.5h4.7l3.2 4.3 3.9-4.3zm-.8 12h1.3L7.1 5.7H5.7L17 16.5z" fill="white"/></svg>`;
+const ICN_facebook = `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><rect width="24" height="24" rx="6" fill="#1877F2"/><path d="M15.9 13.5l.4-2.9h-2.8v-1.9c0-.8.4-1.6 1.6-1.6h1.2V4.6S15.3 4.4 14 4.4c-2.3 0-3.8 1.4-3.8 3.9v2.3H7.7v2.9h2.5V21c.5.1 1 .1 1.5.1s1 0 1.5-.1v-7.5h2.7z" fill="white"/></svg>`;
+
+// Platform badge — colored pill with brand icon
+function platformBadge(pf) {
+  const icons = {Instagram:ICN_insta,TikTok:ICN_tiktok,YouTube:ICN_youtube,'Twitter/X':ICN_twitter,Facebook:ICN_facebook};
+  const colors = {Instagram:'#C13584',TikTok:'#010101',YouTube:'#FF0000','Twitter/X':'#000000',Facebook:'#1877F2'};
+  const icon = icons[pf];
+  if(!icon) return `<span style="font-size:11px;color:var(--text-muted);">${pf||'—'}</span>`;
+  return `<span style="display:inline-flex;align-items:center;gap:5px;padding:2px 8px 2px 3px;border-radius:20px;background:${colors[pf]}18;font-size:11px;font-weight:700;color:${colors[pf]};white-space:nowrap;"><span style="width:18px;height:18px;display:inline-flex;flex-shrink:0;">${icon}</span>${pf}</span>`;
+}
 
 // ============================================================
 // FIREBASE INIT
@@ -4596,7 +5112,7 @@ function renderCampaignInfluencers(c) {
     const map={Publicado:'badge-green',Aprobado:'badge-blue','En producción':'badge-purple',Pendiente:'badge-gray'};
     return `<span class="badge ${map[s]||'badge-gray'}">${s}</span>`;
   };
-  const pfIcon = {Instagram:ICN_insta,TikTok:ICN_tiktok,YouTube:ICN_youtube,'Twitter/X':ICN_twitter};
+  const pfIcon = {Instagram:ICN_insta,TikTok:ICN_tiktok,YouTube:ICN_youtube,'Twitter/X':ICN_twitter,Facebook:ICN_facebook};
   const visibleInfs = (c.influencers||[]).filter(inf => (typeof _isRealCreatorName==='function') ? _isRealCreatorName(inf.name) : true);
   document.getElementById('campaignInfluencerTable').innerHTML = visibleInfs.length===0
     ? `<tr><td colspan="10"><div class="empty-state"><p>Sin influencers. Agrega el primero.</p></div></td></tr>`
@@ -4605,7 +5121,7 @@ function renderCampaignInfluencers(c) {
       <td><div style="display:flex;align-items:center;gap:8px"><div class="inf-avatar" style="width:28px;height:28px;font-size:11px">${inf.name[0]}</div><div><div style="font-weight:600;font-size:13px">${_esc(inf.name)}</div><div style="font-size:11px;color:var(--text-muted)">${_esc(inf.handle)}</div></div></div></td>
       <td>${inf.format}</td>
       <td>${formatDateShort(inf.publishDate)||'—'}</td>
-      <td><span style="display:inline-flex;align-items:center;gap:6px"><span style="width:14px;height:14px;display:inline-flex;color:var(--text-muted)">${pfIcon[inf.platform]||''}</span>${inf.platform}</span></td>
+      <td>${platformBadge(inf.platform)}</td>
       <td>${infStatusBadge(inf.status)}</td>
       <td><span style="font-weight:600;color:var(--blue);">${inf.contenidos||0}</span></td>
       <td><span style="font-weight:600;color:var(--pink-deep);">${inf.boosted||0}</span></td>
@@ -9215,7 +9731,7 @@ function renderInfluencers() {
           <div class="inf-avatar" style="width:40px;height:40px;font-size:15px;flex-shrink:0;">${(inf.name||'?')[0].toUpperCase()}</div>
           <div>
             <div class="campaign-name">${_esc(inf.name)}</div>
-            <div class="campaign-client">${inf.handle ? '@'+inf.handle : ''} ${inf.platform ? '· '+inf.platform : ''}</div>
+            <div class="campaign-client">${inf.handle ? '<span style="color:var(--text-muted);font-size:11px;">@'+inf.handle+'</span>' : ''} ${inf.platform ? platformBadge(inf.platform) : ''}</div>
           </div>
         </div>
       </div>
@@ -9238,7 +9754,7 @@ function openInfluencerDetail(key) {
   const inf = infs.find(x => x.key === key);
   if (!inf) return;
   document.getElementById('infDetailName').textContent = inf.name;
-  document.getElementById('infDetailHandle').textContent = (inf.handle ? '@'+inf.handle : '') + (inf.platform ? ' · '+inf.platform : '');
+  document.getElementById('infDetailHandle').innerHTML = (inf.handle ? '<span style="color:var(--text-muted);margin-right:6px;">@'+inf.handle+'</span>' : '') + (inf.platform ? platformBadge(inf.platform) : '');
   renderInfluencerDetailContent(inf);
   openModal('infDetailModal');
 }
@@ -9501,8 +10017,8 @@ function renderCalendar() {
 
   visibleCampaigns().forEach(c => {
     // Campaign start/end
-    if(c.startDate) add(c.startDate, {type:'start', label:'▶ '+c.name, color:'var(--mint)', text:'#3a6b28'});
-    if(c.endDate)   add(c.endDate,   {type:'end',   label:'■ '+c.name, color:'var(--yellow)', text:'#7a5a00'});
+    if(c.startDate) add(c.startDate, {type:'start', label:'🚀 '+c.name, color:'rgba(198,242,74,0.85)', text:'#2a5a18'});
+    if(c.endDate)   add(c.endDate,   {type:'end',   label:'🏁 '+c.name, color:'rgba(240,200,74,0.85)', text:'#6a4800'});
     // Publications
     (c.influencers||[]).forEach(inf => {
       if(inf.publishDate) add(inf.publishDate, {type:'pub', label:inf.name||inf.handle, color:'var(--pink)', text:'#fff'});
@@ -9585,8 +10101,8 @@ function renderCalendar() {
     }));
     const fixed = [
       { bg:'var(--lavender)', color:'#fff',    icon:'📋', label:'Tarea',           show: Object.values(events).some(a => a.some(e => e.type==='task')) },
-      { bg:'var(--mint)',     color:'#3a6b28', icon:'▶',  label:'Inicio campaña',  show: Object.values(events).some(a => a.some(e => e.type==='start')) },
-      { bg:'var(--yellow)',   color:'#7a5a00', icon:'■',  label:'Cierre campaña',  show: Object.values(events).some(a => a.some(e => e.type==='end')) },
+      { bg:'rgba(198,242,74,0.85)', color:'#2a5a18', icon:'🚀', label:'Inicio campaña',  show: Object.values(events).some(a => a.some(e => e.type==='start')) },
+      { bg:'rgba(240,200,74,0.85)', color:'#6a4800', icon:'🏁', label:'Cierre campaña',  show: Object.values(events).some(a => a.some(e => e.type==='end')) },
     ].filter(x => x.show);
     // Order: tracker statuses (defined order), then task/campaign markers
     const orderedStatuses = TRACKER_STATUS_STYLES
