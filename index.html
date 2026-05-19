@@ -2382,11 +2382,12 @@ html.dark .glass-orb-5 { background: radial-gradient(circle, rgba(122,61,240,.22
 /* ─────────────────────── AI COMPANION ─────────────────────── */
 .ai-fab {
   position:fixed; right:22px; bottom:22px; z-index:9000;
-  width:58px; height:58px; border-radius:50%; border:none; cursor:pointer;
-  background:linear-gradient(135deg,#ff2d87 0%,#9b8cff 100%);
+  width:62px; height:62px; border-radius:50%; border:2px solid rgba(255,255,255,.85); cursor:pointer;
+  background:#fff;
   color:#fff; font-size:24px; display:flex; align-items:center; justify-content:center;
-  box-shadow:0 12px 32px rgba(255,45,135,.35), 0 2px 8px rgba(0,0,0,.12);
+  box-shadow:0 12px 32px rgba(255,45,135,.4), 0 2px 8px rgba(0,0,0,.12);
   transition:transform .2s var(--ease), box-shadow .2s var(--ease);
+  padding:0; overflow:hidden;
 }
 .ai-fab:hover { transform:translateY(-3px) scale(1.04); box-shadow:0 16px 40px rgba(255,45,135,.45); }
 .ai-fab.is-open { transform:rotate(45deg); }
@@ -11308,10 +11309,7 @@ function clearAgentChat() {
 
 <!-- AI COMPANION -->
 <button class="ai-fab" id="aiFab" onclick="toggleAgentPanel()" aria-label="Asistente IA" title="Asistente IA">
-  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M12 2l1.6 4.4L18 8l-4.4 1.6L12 14l-1.6-4.4L6 8l4.4-1.6L12 2z"/>
-    <path d="M19 14l.9 2.5L22 17.5l-2.1 1L19 21l-.9-2.5L16 17.5l2.1-1L19 14z"/>
-  </svg>
+  <img src="assets/y-pink-transparent.png" alt="" style="width:42px;height:42px;object-fit:contain;pointer-events:none;">
 </button>
 <div class="ai-panel" id="aiPanel" role="dialog" aria-label="Asistente IA">
   <div class="ai-panel-header">
