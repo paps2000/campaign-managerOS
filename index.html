@@ -10203,8 +10203,12 @@ function _scnCreatorCard(cr, ci) {
   const t = _scnCreatorTotals(cr);
   const platRows = (cr.platforms||[]).map((p,pi)=>{
     const pt = _scnLineTotals(p);
+    const _plat = _scnLinePlatform(p);
     return `<tr>
-      <td><input class="form-input" style="font-size:11px;padding:4px 6px;width:120px;" value="${_esc(p.contenidoTipo||'')}" placeholder="TikTok, FB REEL..." onchange="_scnSet(${ci},${pi},'contenidoTipo',this.value)"></td>
+      <td><select class="form-input" style="font-size:11px;padding:4px 6px;min-width:104px;" onchange="_scnSet(${ci},${pi},'platform',this.value)">
+        ${SCENARIO_PLATFORMS.map(pl=>`<option ${_plat===pl?'selected':''}>${pl}</option>`).join('')}
+      </select></td>
+      <td><input class="form-input" style="font-size:11px;padding:4px 6px;width:104px;" value="${_esc(p.contenidoTipo||'')}" placeholder="Reel, Post, Story..." onchange="_scnSet(${ci},${pi},'contenidoTipo',this.value)"></td>
       <td>${_scnIn(p.seguidores,ci,pi,'seguidores',100)}</td>
       <td>${_scnIn(p.cantidad,ci,pi,'cantidad',54)}</td>
       <td style="font-size:11px;font-weight:700;color:var(--text-muted);white-space:nowrap;">${formatNum(pt.totalSeguidores)}</td>
@@ -10241,9 +10245,9 @@ function _scnCreatorCard(cr, ci) {
       <button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="_scnRemoveCreator(${ci})">Eliminar creador</button>
     </div>
     <div class="table-wrap" style="overflow-x:auto;">
-      <table class="table" style="font-size:11px;min-width:1180px;">
+      <table class="table" style="font-size:11px;min-width:1280px;">
         <thead><tr>
-          <th>Contenido</th><th>Seguidores</th><th>Cant.</th><th>Total seg.</th>
+          <th>Plataforma</th><th>Tipo contenido</th><th>Seguidores</th><th>Cant.</th><th>Total seg.</th>
           <th>Views x posteo</th><th>Views totales</th>
           <th>Inter. x cont.</th><th>Inter. totales</th>
           <th>ER %</th><th>View rate %</th>
@@ -10269,7 +10273,7 @@ function _scnStatsSection() {
     if(cr.tier) tierMix[cr.tier] = (tierMix[cr.tier]||0)+1;
     (cr.platforms||[]).forEach(p=>{
       const q = Number(p.cantidad)||0;
-      const pl = _normalizePlatform(p.contenidoTipo) || (p.contenidoTipo||'—');
+      const pl = _scnLinePlatform(p);
       platMix[pl] = (platMix[pl]||0)+q;
       boosted += Number(p.pauta)||0;
     });
@@ -10314,7 +10318,11 @@ function _scnStatsSection() {
 // ---- Mutations ----
 const _SCN_NUM_KEYS = ['seguidores','cantidad','viewsPerContent','impresionesPerContent','interaccionesPerContent','pauta','costoPauta','costoContenidos'];
 function _newScnLine(seed) {
-  return Object.assign({ id:_scnId(), contenidoTipo:'', seguidores:0, cantidad:1, viewsPerContent:0, impresionesPerContent:0, interaccionesPerContent:0, pauta:0, costoPauta:0, costoContenidos:0 }, seed||{});
+  return Object.assign({ id:_scnId(), platform:'Instagram', contenidoTipo:'', seguidores:0, cantidad:1, viewsPerContent:0, impresionesPerContent:0, interaccionesPerContent:0, pauta:0, costoPauta:0, costoContenidos:0 }, seed||{});
+}
+// Back-compat: derive platform from old free-text content if missing.
+function _scnLinePlatform(p) {
+  return p.platform || _normalizePlatform(p.contenidoTipo) || 'Instagram';
 }
 function _scnSet(ci, pi, key, val) {
   const p = _scenarioState.creators[ci].platforms[pi];
@@ -10375,7 +10383,7 @@ function scenarioSave() {
 // ---- Export ----
 function _scenarioFlatRows() {
   const c = _cache.campaigns.find(x=>x.id===_scenarioState.campaignId);
-  const header = ['NOMBRE','TIER','SEGUIDORES','CONTENIDO','CANTIDAD DE CONTENIDO','TOTAL DE SEGUIDORES','VIEWS X POSTEO ESTIMADAS','INTERACCIONES PROMEDIO X CONTENIDO','ENGAGEMENT RATE PROMEDIO','VIEW RATE PROMEDIO','VIEWS ESTIMADAS TOTALES','INTERACCIONES ESTIMADAS TOTALES','PAUTA','COSTO PAUTA','COSTO CONTENIDOS','COSTO','CPV','CPI'];
+  const header = ['NOMBRE','TIER','SEGUIDORES','PLATAFORMA','CONTENIDO','CANTIDAD DE CONTENIDO','TOTAL DE SEGUIDORES','VIEWS X POSTEO ESTIMADAS','INTERACCIONES PROMEDIO X CONTENIDO','ENGAGEMENT RATE PROMEDIO','VIEW RATE PROMEDIO','VIEWS ESTIMADAS TOTALES','INTERACCIONES ESTIMADAS TOTALES','PAUTA','COSTO PAUTA','COSTO CONTENIDOS','COSTO','CPV','CPI'];
   const rows = [header];
   (_scenarioState.creators||[]).forEach(cr=>{
     let first = true;
@@ -10383,7 +10391,7 @@ function _scenarioFlatRows() {
       const pt = _scnLineTotals(p);
       rows.push([
         first?(cr.name||''):'', first?(cr.tier||''):'',
-        p.seguidores||0, p.contenidoTipo||'', p.cantidad||0, pt.totalSeguidores,
+        p.seguidores||0, _scnLinePlatform(p), p.contenidoTipo||'', p.cantidad||0, pt.totalSeguidores,
         p.viewsPerContent||0, p.interaccionesPerContent||0,
         (pt.er*100).toFixed(2)+'%', (pt.vrate*100).toFixed(2)+'%',
         pt.viewsTotal, pt.engTotal,
@@ -10394,7 +10402,7 @@ function _scenarioFlatRows() {
     });
   });
   const g = _scnGrand();
-  rows.push(['TOTALES','',g.seg,'',g.qty,g.seg,'','','','',g.views,g.eng,g.pauta,g.cPauta,g.cCont,g.cost,g.cpv?g.cpv.toFixed(4):'',g.cpi?g.cpi.toFixed(4):'']);
+  rows.push(['TOTALES','',g.seg,'','',g.qty,g.seg,'','','','',g.views,g.eng,g.pauta,g.cPauta,g.cCont,g.cost,g.cpv?g.cpv.toFixed(4):'',g.cpi?g.cpi.toFixed(4):'']);
   return { rows, name: (c?c.name:'escenario') };
 }
 function scenarioExportCSV() {
