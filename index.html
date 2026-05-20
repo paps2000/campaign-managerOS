@@ -2844,7 +2844,7 @@ html.dark .ai-input-row textarea { background:rgba(255,255,255,.05); border-colo
           <div style="background:var(--bg);border:1px solid var(--border);border-radius:14px;padding:12px 14px;margin-bottom:16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
             <span style="font-size:12px;font-weight:700;color:#3a7a5e;white-space:nowrap;">🎯 Escenario</span>
             <input type="text" id="escenarioSheetsUrl" class="form-input" style="flex:1;min-width:180px;font-size:12px;" placeholder="URL del escenario (con #gid=... de la pestaña Escenario Final)" oninput="saveEscenarioUrl()">
-            <button class="btn btn-ghost btn-sm" onclick="syncEscenario()" style="white-space:nowrap;">🔄 Sincronizar</button>
+            <button class="btn btn-ghost btn-sm" onclick="syncEscenario()" style="white-space:nowrap;">🔄 Actualizar</button>
             <span id="escenarioLastSync" style="font-size:11px;color:var(--text-muted);"></span>
           </div>
           <div id="escenarioBlock" style="margin-bottom:20px;"></div>
@@ -4054,6 +4054,18 @@ async function persistSettings(settings) {
   try {
     await db.collection('workspaces').doc(WORKSPACE).collection('config').doc('settings').set(settings, {merge:true});
   } catch(e) { console.error('persistSettings error',e); }
+}
+
+// Escenario load/fetch guards keyed by campaign id (NOT on the campaign object,
+// because the realtime listener rebuilds those objects on every snapshot — a
+// per-object flag would reset and cause an infinite render→load→render flash).
+const _escenarioStoreChecked = new Set();
+const _escenarioLoading = new Set();
+const _escenarioFetching = new Set();
+function _rerenderEscenarioIfActive(campaignId) {
+  if(currentCampaignId !== campaignId) return;
+  const c = (_cache.campaigns||[]).find(x=>x.id===campaignId);
+  if(c) { try { renderEscenarioBlock(c); } catch(e){} }
 }
 
 // --- Escenario sheet persistence (separate doc so the big rows array survives
@@ -6704,23 +6716,25 @@ function renderEscenarioBlock(c) {
     syncEl.textContent = 'Última sync: ' + new Date(c.escenarioLastSync).toLocaleString('es-MX',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
   }
   if(!c.escenarioRows || !c.escenarioRows.length) {
-    wrap.innerHTML = (c.escenarioSheetUrl || !c._escenarioStoreChecked)
+    const checked = _escenarioStoreChecked.has(c.id);
+    wrap.innerHTML = (c.escenarioSheetUrl || !checked)
       ? `<div class="empty-state"><p>Cargando escenario...</p></div>`
       : `<div class="empty-state" style="padding:14px;"><p style="font-size:12px;">Vincula el escenario para ver views estimadas, contenidos cerrados y costos por creador</p></div>`;
     // 1) First try the saved copy in Firestore (survives reloads, no re-sync).
-    if(!c._escenarioStoreChecked && !c._escenarioLoading) {
-      c._escenarioLoading = true;
+    //    Guard with id-based Sets so repeated snapshots don't re-trigger and flash.
+    if(!checked && !_escenarioLoading.has(c.id)) {
+      _escenarioLoading.add(c.id);
       loadEscenarioFromStore(c).then(found => {
-        c._escenarioStoreChecked = true;
-        c._escenarioLoading = false;
-        if(found) { renderEscenarioBlock(c); }
-        else if(c.escenarioSheetUrl && !c._escenarioFetching) { c._escenarioFetching=true; _autoFetchEscenario(c.escenarioSheetUrl, c).finally(()=>{c._escenarioFetching=false;}); }
-        else { renderEscenarioBlock(c); }
+        _escenarioStoreChecked.add(c.id);
+        _escenarioLoading.delete(c.id);
+        if(found) { _rerenderEscenarioIfActive(c.id); }
+        else if(c.escenarioSheetUrl && !_escenarioFetching.has(c.id)) { _escenarioFetching.add(c.id); _autoFetchEscenario(c.escenarioSheetUrl, c).finally(()=>{_escenarioFetching.delete(c.id);}); }
+        else { _rerenderEscenarioIfActive(c.id); }
       });
       return;
     }
     // 2) No saved copy — fall back to live fetch if a URL is linked.
-    if(c.escenarioSheetUrl && !c._escenarioFetching) { c._escenarioFetching=true; _autoFetchEscenario(c.escenarioSheetUrl, c).finally(()=>{c._escenarioFetching=false;}); }
+    if(c.escenarioSheetUrl && !_escenarioFetching.has(c.id)) { _escenarioFetching.add(c.id); _autoFetchEscenario(c.escenarioSheetUrl, c).finally(()=>{_escenarioFetching.delete(c.id);}); }
     return;
   }
   // Lazy auto-fetch UGC results sheet if linked but uncached
