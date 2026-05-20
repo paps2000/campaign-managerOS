@@ -298,6 +298,9 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
 .btn:active { transform:scale(.97); }
 .btn-primary { background:var(--text); color:#fff; box-shadow:0 4px 14px rgba(10,10,12,.18); }
 .btn-primary:hover { background:#000; transform:translateY(-2px); box-shadow:0 10px 24px rgba(10,10,12,.25); }
+/* Dark mode: --text turns light, so a light-on-white primary button vanishes. Use brand pink instead. */
+html.dark .btn-primary { background:var(--pink); color:#fff; box-shadow:0 4px 14px rgba(255,45,135,.4); }
+html.dark .btn-primary:hover { background:var(--pink-deep); box-shadow:0 10px 24px rgba(255,45,135,.5); }
 .btn-pink { background:var(--pink); color:#fff; box-shadow:0 4px 14px rgba(255,45,135,.35); }
 .btn-pink:hover { background:var(--pink-deep); transform:translateY(-2px); box-shadow:0 10px 24px rgba(255,45,135,.45); }
 .btn-ghost { background:#fff; color:var(--text); border:1px solid var(--border); }
