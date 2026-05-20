@@ -5265,23 +5265,58 @@ function renderCampaignInfluencers(c) {
     const map={Publicado:'badge-green',Aprobado:'badge-blue','En producción':'badge-purple',Pendiente:'badge-gray'};
     return `<span class="badge ${map[s]||'badge-gray'}">${s}</span>`;
   };
-  const pfIcon = {Instagram:ICN_insta,TikTok:ICN_tiktok,YouTube:ICN_youtube,'Twitter/X':ICN_twitter,Facebook:ICN_facebook};
   const visibleInfs = (c.influencers||[]).filter(inf => (typeof _isRealCreatorName==='function') ? _isRealCreatorName(inf.name) : true);
-  document.getElementById('campaignInfluencerTable').innerHTML = visibleInfs.length===0
+
+  // Platforms per creator from the parsed escenario sheet (creators can be on
+  // several platforms — e.g. TikTok + FB REEL) so the table mirrors the top block.
+  const escPlatByName = {};
+  try {
+    if(c.escenarioRows && c.escenarioRows.length && typeof parseEscenarioRows==='function') {
+      const parsed = parseEscenarioRows(c.escenarioRows);
+      (parsed.creators||[]).forEach(cr => {
+        escPlatByName[(cr.name||'').toLowerCase()] = (cr.platforms||[]).map(x=>x.platform).filter(Boolean);
+      });
+    }
+  } catch(e){}
+
+  // Group rows by creator name so duplicate per-platform rows collapse into one
+  // line that shows every platform.
+  const groups = {};
+  visibleInfs.forEach(inf => {
+    const key = (inf.name||'').toLowerCase();
+    if(!groups[key]) groups[key] = { ref:inf, platforms:new Set(), contenidos:0, boosted:0, reach:0, interactions:0 };
+    const g = groups[key];
+    if(inf.platform) { const n=_normalizePlatform(inf.platform)||inf.platform; if(n) g.platforms.add(n); }
+    g.contenidos += Number(inf.contenidos)||0;
+    g.boosted    += Number(inf.boosted)||0;
+    g.reach      += Number(inf.reach)||0;
+    g.interactions += Number(inf.interactions)||0;
+    if(!g.ref.publishDate && inf.publishDate) g.ref.publishDate = inf.publishDate;
+  });
+  // Merge platforms detected in the escenario sheet
+  Object.values(groups).forEach(g => {
+    (escPlatByName[(g.ref.name||'').toLowerCase()]||[]).forEach(pl => { const n=_normalizePlatform(pl)||pl; if(n) g.platforms.add(n); });
+  });
+
+  const rows = Object.values(groups);
+  document.getElementById('campaignInfluencerTable').innerHTML = rows.length===0
     ? `<tr><td colspan="10"><div class="empty-state"><p>Sin influencers. Agrega el primero.</p></div></td></tr>`
-    : visibleInfs.map(inf=>`
+    : rows.map(g=>{
+      const inf = g.ref;
+      const platsHtml = g.platforms.size ? platformBadges([...g.platforms]) : (inf.platform?platformBadge(inf.platform):'—');
+      return `
     <tr>
-      <td><div style="display:flex;align-items:center;gap:8px"><div class="inf-avatar" style="width:28px;height:28px;font-size:11px">${inf.name[0]}</div><div><div style="font-weight:600;font-size:13px">${_esc(inf.name)}</div><div style="font-size:11px;color:var(--text-muted)">${_esc(inf.handle)}</div></div></div></td>
-      <td>${inf.format}</td>
+      <td><div style="display:flex;align-items:center;gap:8px"><div class="inf-avatar" style="width:28px;height:28px;font-size:11px">${(inf.name||'?')[0]}</div><div><div style="font-weight:600;font-size:13px">${_esc(inf.name)}</div><div style="font-size:11px;color:var(--text-muted)">${_esc(inf.handle||'')}</div></div></div></td>
+      <td>${_esc(inf.format||'—')}</td>
       <td>${formatDateShort(inf.publishDate)||'—'}</td>
-      <td>${platformBadge(inf.platform)}</td>
+      <td><div style="display:flex;flex-wrap:wrap;gap:4px;">${platsHtml}</div></td>
       <td>${infStatusBadge(inf.status)}</td>
-      <td><span style="font-weight:600;color:var(--blue);">${inf.contenidos||0}</span></td>
-      <td><span style="font-weight:600;color:var(--pink-deep);">${inf.boosted||0}</span></td>
-      <td>${inf.reach?inf.reach.toLocaleString():'—'}</td>
-      <td>${inf.interactions?inf.interactions.toLocaleString():'—'}</td>
+      <td><span style="font-weight:600;color:var(--blue);">${g.contenidos||0}</span></td>
+      <td><span style="font-weight:600;color:var(--pink-deep);">${g.boosted||0}</span></td>
+      <td>${g.reach?g.reach.toLocaleString():'—'}</td>
+      <td>${g.interactions?g.interactions.toLocaleString():'—'}</td>
       <td>${inf.er||'—'}</td>
-    </tr>`).join('');
+    </tr>`;}).join('');
 }
 
 function _taskItemHtml(t, cid) {
