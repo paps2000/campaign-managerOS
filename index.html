@@ -10011,25 +10011,34 @@ function confirmScenarioStart() {
 
 function closeScenarioEditor() { closeModal('scenarioModal'); }
 
-// ---- Calculations ----
-function _scnPlatTotals(p) {
-  const qty = Number(p.cantidad)||0;
-  const vpc = Number(p.viewsPerContent)||0;
-  const epc = Number(p.engPerContent)||0;
-  const viewsTotal = qty * vpc;
-  const engTotal = qty * epc;
-  const cost = p.costMode === 'total' ? (Number(p.costTotal)||0) : qty*(Number(p.costPerContent)||0);
-  return { qty, viewsTotal, engTotal, cost };
+// ---- Calculations (matches the agency scenario sheet) ----
+function _scnLineTotals(p) {
+  const qty   = Number(p.cantidad)||0;
+  const seg   = Number(p.seguidores)||0;
+  const vpc   = Number(p.viewsPerContent)||0;
+  const impc  = Number(p.impresionesPerContent)||0;
+  const ipc   = Number(p.interaccionesPerContent)||0;
+  const cPauta= Number(p.costoPauta)||0;
+  const cCont = Number(p.costoContenidos)||0;
+  const totalSeguidores = seg * qty;
+  const viewsTotal      = qty * vpc;
+  const impresionesTotal= qty * impc;
+  const engTotal        = qty * ipc;
+  const cost            = cPauta + cCont;
+  const er    = vpc>0 ? (ipc/vpc) : 0;       // engagement rate = inter/views
+  const vrate = seg>0 ? (vpc/seg) : 0;       // view rate = views/seguidores
+  return { qty, seg, totalSeguidores, viewsTotal, impresionesTotal, engTotal, cost, cPauta, cCont, er, vrate,
+           cpv: viewsTotal>0?cost/viewsTotal:0, cpi: engTotal>0?cost/engTotal:0 };
 }
 function _scnCreatorTotals(cr) {
-  let qty=0, views=0, eng=0, cost=0;
-  (cr.platforms||[]).forEach(p=>{ const t=_scnPlatTotals(p); qty+=t.qty; views+=t.viewsTotal; eng+=t.engTotal; cost+=t.cost; });
-  return { qty, views, eng, cost, cpv: views>0?cost/views:0, cpi: eng>0?cost/eng:0 };
+  let qty=0, seg=0, views=0, impr=0, eng=0, cost=0, cPauta=0, cCont=0, pauta=0;
+  (cr.platforms||[]).forEach(p=>{ const t=_scnLineTotals(p); qty+=t.qty; seg+=t.totalSeguidores; views+=t.viewsTotal; impr+=t.impresionesTotal; eng+=t.engTotal; cost+=t.cost; cPauta+=t.cPauta; cCont+=t.cCont; pauta+=Number(p.pauta)||0; });
+  return { qty, seg, views, impr, eng, cost, cPauta, cCont, pauta, cpv: views>0?cost/views:0, cpi: eng>0?cost/eng:0 };
 }
 function _scnGrand() {
-  let qty=0, views=0, eng=0, cost=0, creators=0;
-  (_scenarioState.creators||[]).forEach(cr=>{ const t=_scnCreatorTotals(cr); qty+=t.qty; views+=t.views; eng+=t.eng; cost+=t.cost; creators++; });
-  return { qty, views, eng, cost, creators, cpv: views>0?cost/views:0, cpi: eng>0?cost/eng:0 };
+  let qty=0, seg=0, views=0, impr=0, eng=0, cost=0, cPauta=0, cCont=0, pauta=0, creators=0;
+  (_scenarioState.creators||[]).forEach(cr=>{ const t=_scnCreatorTotals(cr); qty+=t.qty; seg+=t.seg; views+=t.views; impr+=t.impr; eng+=t.eng; cost+=t.cost; cPauta+=t.cPauta; cCont+=t.cCont; pauta+=t.pauta; creators++; });
+  return { qty, seg, views, impr, eng, cost, cPauta, cCont, pauta, creators, cpv: views>0?cost/views:0, cpi: eng>0?cost/eng:0 };
 }
 
 // ---- Render ----
@@ -10081,27 +10090,30 @@ function _scnStat(label, val) {
   return `<div style="text-align:center;"><div style="font-size:9px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;">${label}</div><div style="font-size:18px;font-weight:800;line-height:1.1;">${val}</div></div>`;
 }
 
+const _scnIn = (val, ci, pi, key, w) => `<input type="number" min="0" class="form-input" style="font-size:11px;padding:4px 6px;width:${w||80}px;" value="${val||0}" onchange="_scnSet(${ci},${pi},'${key}',this.value)">`;
+const _scnPct = v => (v*100).toFixed(2).replace(/\.00$/,'')+'%';
+
 function _scnCreatorCard(cr, ci) {
   const t = _scnCreatorTotals(cr);
   const platRows = (cr.platforms||[]).map((p,pi)=>{
-    const pt = _scnPlatTotals(p);
+    const pt = _scnLineTotals(p);
     return `<tr>
-      <td><select class="form-input" style="font-size:11px;padding:4px 6px;min-width:96px;" onchange="_scnSet(${ci},${pi},'platform',this.value)">
-        ${SCENARIO_PLATFORMS.map(pl=>`<option ${p.platform===pl?'selected':''}>${pl}</option>`).join('')}
-      </select></td>
-      <td><input class="form-input" style="font-size:11px;padding:4px 6px;width:110px;" value="${_esc(p.contenidoTipo||'')}" placeholder="Reel, TikTok..." onchange="_scnSet(${ci},${pi},'contenidoTipo',this.value)"></td>
-      <td><input type="number" min="0" class="form-input" style="font-size:11px;padding:4px 6px;width:60px;" value="${p.cantidad||0}" onchange="_scnSet(${ci},${pi},'cantidad',this.value)"></td>
-      <td style="text-align:center;"><input type="checkbox" ${p.boost?'checked':''} onchange="_scnSet(${ci},${pi},'boost',this.checked)" style="accent-color:var(--pink);"></td>
-      <td><input type="number" min="0" class="form-input" style="font-size:11px;padding:4px 6px;width:90px;" value="${p.viewsPerContent||0}" onchange="_scnSet(${ci},${pi},'viewsPerContent',this.value)"></td>
+      <td><input class="form-input" style="font-size:11px;padding:4px 6px;width:120px;" value="${_esc(p.contenidoTipo||'')}" placeholder="TikTok, FB REEL..." onchange="_scnSet(${ci},${pi},'contenidoTipo',this.value)"></td>
+      <td>${_scnIn(p.seguidores,ci,pi,'seguidores',100)}</td>
+      <td>${_scnIn(p.cantidad,ci,pi,'cantidad',54)}</td>
+      <td style="font-size:11px;font-weight:700;color:var(--text-muted);white-space:nowrap;">${formatNum(pt.totalSeguidores)}</td>
+      <td>${_scnIn(p.viewsPerContent,ci,pi,'viewsPerContent',90)}</td>
       <td style="font-size:11px;font-weight:700;color:var(--text-muted);white-space:nowrap;">${formatNum(pt.viewsTotal)}</td>
-      <td><input type="number" min="0" class="form-input" style="font-size:11px;padding:4px 6px;width:80px;" value="${p.engPerContent||0}" onchange="_scnSet(${ci},${pi},'engPerContent',this.value)"></td>
+      <td>${_scnIn(p.interaccionesPerContent,ci,pi,'interaccionesPerContent',80)}</td>
       <td style="font-size:11px;font-weight:700;color:var(--text-muted);white-space:nowrap;">${formatNum(pt.engTotal)}</td>
-      <td><select class="form-input" style="font-size:11px;padding:4px 6px;" onchange="_scnSet(${ci},${pi},'costMode',this.value)">
-        <option value="perContent" ${p.costMode!=='total'?'selected':''}>x contenido</option>
-        <option value="total" ${p.costMode==='total'?'selected':''}>total</option>
-      </select></td>
-      <td><input type="number" min="0" class="form-input" style="font-size:11px;padding:4px 6px;width:90px;" value="${p.costMode==='total'?(p.costTotal||0):(p.costPerContent||0)}" onchange="_scnSet(${ci},${pi},'${p.costMode==='total'?'costTotal':'costPerContent'}',this.value)"></td>
+      <td style="font-size:11px;white-space:nowrap;">${_scnPct(pt.er)}</td>
+      <td style="font-size:11px;white-space:nowrap;">${_scnPct(pt.vrate)}</td>
+      <td>${_scnIn(p.pauta,ci,pi,'pauta',46)}</td>
+      <td>${_scnIn(p.costoPauta,ci,pi,'costoPauta',84)}</td>
+      <td>${_scnIn(p.costoContenidos,ci,pi,'costoContenidos',90)}</td>
       <td style="font-size:11px;font-weight:700;white-space:nowrap;">${_scnMoney(pt.cost)}</td>
+      <td style="font-size:11px;white-space:nowrap;">${pt.cpv?'$'+pt.cpv.toFixed(2):'—'}</td>
+      <td style="font-size:11px;white-space:nowrap;">${pt.cpi?'$'+pt.cpi.toFixed(2):'—'}</td>
       <td><button onclick="_scnRemovePlat(${ci},${pi})" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:13px;">✕</button></td>
     </tr>`;
   }).join('');
@@ -10120,27 +10132,25 @@ function _scnCreatorCard(cr, ci) {
           ${SCENARIO_TIERS.map(tr=>`<option ${cr.tier===tr?'selected':''}>${tr}</option>`).join('')}
         </select>
       </div>
-      <div>
-        <label style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;">Seguidores</label>
-        <input type="number" min="0" class="form-input" style="font-size:12px;width:120px;" value="${cr.seguidores||0}" onchange="_scnSetCreator(${ci},'seguidores',this.value)">
-      </div>
       <button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="_scnRemoveCreator(${ci})">Eliminar creador</button>
     </div>
     <div class="table-wrap">
       <table class="table" style="font-size:11px;">
         <thead><tr>
-          <th>Plataforma</th><th>Contenido</th><th>Cant.</th><th>Boost</th>
-          <th>Views x cont.</th><th>Views totales</th>
-          <th>Eng. x cont.</th><th>Eng. totales</th>
-          <th>Modo costo</th><th>Costo</th><th>Costo total</th><th></th>
+          <th>Contenido</th><th>Seguidores</th><th>Cant.</th><th>Total seg.</th>
+          <th>Views x posteo</th><th>Views totales</th>
+          <th>Inter. x cont.</th><th>Inter. totales</th>
+          <th>ER %</th><th>View rate %</th>
+          <th>Pauta</th><th>Costo pauta</th><th>Costo cont.</th><th>Costo</th>
+          <th>CPV</th><th>CPI</th><th></th>
         </tr></thead>
         <tbody>${platRows||''}</tbody>
       </table>
     </div>
     <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;flex-wrap:wrap;gap:8px;">
-      <button class="btn btn-ghost btn-sm" onclick="_scnAddPlat(${ci})">+ Agregar plataforma/contenido</button>
+      <button class="btn btn-ghost btn-sm" onclick="_scnAddPlat(${ci})">+ Agregar contenido</button>
       <div style="font-size:12px;color:var(--text-muted);">
-        Subtotal: <b style="color:var(--text);">${t.qty} cont.</b> · ${formatNum(t.views)} views · ${formatNum(t.eng)} eng · <b style="color:var(--text);">${_scnMoney(t.cost)}</b>
+        Subtotal: <b style="color:var(--text);">${t.qty} cont.</b> · ${formatNum(t.views)} views · ${formatNum(t.eng)} inter · <b style="color:var(--text);">${_scnMoney(t.cost)}</b>
         ${t.cpv?` · CPV $${t.cpv.toFixed(2)}`:''}${t.cpi?` · CPI $${t.cpi.toFixed(2)}`:''}
       </div>
     </div>
@@ -10153,9 +10163,9 @@ function _scnStatsSection() {
     if(cr.tier) tierMix[cr.tier] = (tierMix[cr.tier]||0)+1;
     (cr.platforms||[]).forEach(p=>{
       const q = Number(p.cantidad)||0;
-      const pl = p.platform||'—';
+      const pl = _normalizePlatform(p.contenidoTipo) || (p.contenidoTipo||'—');
       platMix[pl] = (platMix[pl]||0)+q;
-      if(p.boost) boosted += q;
+      boosted += Number(p.pauta)||0;
     });
   });
   const g = _scnGrand();
@@ -10183,9 +10193,12 @@ function _scnStatsSection() {
     <div style="margin-top:14px;display:flex;flex-wrap:wrap;gap:18px;font-size:12px;border-top:1px solid var(--border);padding-top:12px;">
       <span><b>${g.creators}</b> creadores</span>
       <span><b>${g.qty}</b> contenidos</span>
-      <span><b>${boosted}</b> boosteados</span>
+      <span><b>${g.pauta}</b> con pauta</span>
+      <span>Seguidores totales: <b>${formatNum(g.seg)}</b></span>
       <span>Views totales: <b>${formatNum(g.views)}</b></span>
-      <span>Engagement total: <b>${formatNum(g.eng)}</b></span>
+      <span>Interacciones totales: <b>${formatNum(g.eng)}</b></span>
+      <span>Costo pauta: <b>${_scnMoney(g.cPauta)}</b></span>
+      <span>Costo contenidos: <b>${_scnMoney(g.cCont)}</b></span>
       <span>CPV: <b>${g.cpv?('$'+g.cpv.toFixed(2)):'—'}</b></span>
       <span>CPI: <b>${g.cpi?('$'+g.cpi.toFixed(2)):'—'}</b></span>
     </div>
@@ -10193,20 +10206,22 @@ function _scnStatsSection() {
 }
 
 // ---- Mutations ----
+const _SCN_NUM_KEYS = ['seguidores','cantidad','viewsPerContent','impresionesPerContent','interaccionesPerContent','pauta','costoPauta','costoContenidos'];
+function _newScnLine(seed) {
+  return Object.assign({ id:_scnId(), contenidoTipo:'', seguidores:0, cantidad:1, viewsPerContent:0, impresionesPerContent:0, interaccionesPerContent:0, pauta:0, costoPauta:0, costoContenidos:0 }, seed||{});
+}
 function _scnSet(ci, pi, key, val) {
   const p = _scenarioState.creators[ci].platforms[pi];
-  if(key==='boost') p[key] = !!val;
-  else if(['cantidad','viewsPerContent','engPerContent','costPerContent','costTotal'].includes(key)) p[key] = Number(val)||0;
+  if(_SCN_NUM_KEYS.includes(key)) p[key] = Number(val)||0;
   else p[key] = val;
   _renderScenario();
 }
 function _scnSetCreator(ci, key, val) {
-  const cr = _scenarioState.creators[ci];
-  cr[key] = key==='seguidores' ? (Number(val)||0) : val;
+  _scenarioState.creators[ci][key] = val;
   _renderScenario();
 }
 function _scnAddPlat(ci) {
-  _scenarioState.creators[ci].platforms.push({ id:_scnId(), platform:'Instagram', contenidoTipo:'', cantidad:1, boost:false, viewsPerContent:0, engPerContent:0, costMode:'perContent', costPerContent:0, costTotal:0 });
+  _scenarioState.creators[ci].platforms.push(_newScnLine());
   _renderScenario();
 }
 function _scnRemovePlat(ci, pi) {
@@ -10218,7 +10233,7 @@ function _scnRemoveCreator(ci) {
   _renderScenario();
 }
 function scenarioAddCreator(seed) {
-  _scenarioState.creators.push(seed || { id:_scnId(), name:'', tier:'', seguidores:0, platforms:[{ id:_scnId(), platform:'Instagram', contenidoTipo:'', cantidad:1, boost:false, viewsPerContent:0, engPerContent:0, costMode:'perContent', costPerContent:0, costTotal:0 }] });
+  _scenarioState.creators.push(seed || { id:_scnId(), name:'', tier:'', platforms:[_newScnLine()] });
   _renderScenario();
 }
 
@@ -10234,7 +10249,7 @@ function scenarioPickExisting() {
   const idx = parseInt(pick)-1;
   if(isNaN(idx) || idx<0 || idx>=opts.length) return;
   const inf = opts[idx];
-  scenarioAddCreator({ id:_scnId(), name:inf.name, tier:'', seguidores:0, platforms:[{ id:_scnId(), platform:inf.platform||'Instagram', contenidoTipo:'', cantidad:1, boost:false, viewsPerContent:0, engPerContent:0, costMode:'perContent', costPerContent:0, costTotal:0 }] });
+  scenarioAddCreator({ id:_scnId(), name:inf.name, tier:'', platforms:[_newScnLine({ contenidoTipo: inf.platform||'' })] });
 }
 
 // ---- Save ----
@@ -10254,21 +10269,26 @@ function scenarioSave() {
 // ---- Export ----
 function _scenarioFlatRows() {
   const c = _cache.campaigns.find(x=>x.id===_scenarioState.campaignId);
-  const header = ['NOMBRE','TIER','SEGUIDORES','PLATAFORMA','CONTENIDO','CANTIDAD','BOOST','VIEWS X CONTENIDO','VIEWS TOTALES','ENG X CONTENIDO','ENG TOTALES','COSTO','CPV','CPI'];
+  const header = ['NOMBRE','TIER','SEGUIDORES','CONTENIDO','CANTIDAD DE CONTENIDO','TOTAL DE SEGUIDORES','VIEWS X POSTEO ESTIMADAS','INTERACCIONES PROMEDIO X CONTENIDO','ENGAGEMENT RATE PROMEDIO','VIEW RATE PROMEDIO','VIEWS ESTIMADAS TOTALES','INTERACCIONES ESTIMADAS TOTALES','PAUTA','COSTO PAUTA','COSTO CONTENIDOS','COSTO','CPV','CPI'];
   const rows = [header];
   (_scenarioState.creators||[]).forEach(cr=>{
+    let first = true;
     (cr.platforms||[]).forEach(p=>{
-      const pt = _scnPlatTotals(p);
+      const pt = _scnLineTotals(p);
       rows.push([
-        cr.name||'', cr.tier||'', cr.seguidores||0,
-        p.platform||'', p.contenidoTipo||'', p.cantidad||0, p.boost?'Sí':'No',
-        p.viewsPerContent||0, pt.viewsTotal, p.engPerContent||0, pt.engTotal,
-        pt.cost, pt.viewsTotal>0?(pt.cost/pt.viewsTotal).toFixed(4):'', pt.engTotal>0?(pt.cost/pt.engTotal).toFixed(4):''
+        first?(cr.name||''):'', first?(cr.tier||''):'',
+        p.seguidores||0, p.contenidoTipo||'', p.cantidad||0, pt.totalSeguidores,
+        p.viewsPerContent||0, p.interaccionesPerContent||0,
+        (pt.er*100).toFixed(2)+'%', (pt.vrate*100).toFixed(2)+'%',
+        pt.viewsTotal, pt.engTotal,
+        p.pauta||0, p.costoPauta||0, p.costoContenidos||0, pt.cost,
+        pt.viewsTotal>0?(pt.cost/pt.viewsTotal).toFixed(4):'', pt.engTotal>0?(pt.cost/pt.engTotal).toFixed(4):''
       ]);
+      first = false;
     });
   });
   const g = _scnGrand();
-  rows.push(['TOTALES','','','','',g.qty,'','',g.views,'',g.eng,g.cost,g.cpv?g.cpv.toFixed(4):'',g.cpi?g.cpi.toFixed(4):'']);
+  rows.push(['TOTALES','',g.seg,'',g.qty,g.seg,'','','','',g.views,g.eng,g.pauta,g.cPauta,g.cCont,g.cost,g.cpv?g.cpv.toFixed(4):'',g.cpi?g.cpi.toFixed(4):'']);
   return { rows, name: (c?c.name:'escenario') };
 }
 function scenarioExportCSV() {
