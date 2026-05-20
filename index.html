@@ -7690,20 +7690,10 @@ function _renderMetricsTable(){
   </tr>`).join('') : `<tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:18px;">Sin resultados para este filtro.</td></tr>`;
 }
 
-// Donut legend that shows "Label: N (P%)" like the platform chart.
-function _donutLegendLabels(chart){
-  const ds = chart.data.datasets[0];
-  const total = (ds.data||[]).reduce((a,b)=>a+(Number(b)||0),0) || 1;
-  return chart.data.labels.map((lbl,i)=>{
-    const v = Number(ds.data[i])||0;
-    const pct = ((v/total)*100).toFixed(1);
-    return {
-      text: `${lbl}: ${formatNum(v)} (${pct}%)`,
-      fillStyle: Array.isArray(ds.backgroundColor)?ds.backgroundColor[i]:ds.backgroundColor,
-      strokeStyle: Array.isArray(ds.backgroundColor)?ds.backgroundColor[i]:ds.backgroundColor,
-      index: i,
-    };
-  });
+// Legend text color that adapts to light/dark theme (default Chart.js color is
+// too dark to read on the dark glass background).
+function _chartTextColor(){
+  return document.documentElement.classList.contains('dark') ? '#e9e8f0' : '#33333b';
 }
 
 function displayMetrics(rows, campaign) {
@@ -7792,7 +7782,7 @@ function displayMetrics(rows, campaign) {
   lineChartInst = new Chart(lc.getContext('2d'),{type:'line',data:{labels,datasets:[
     {label:'Vistas',data:viewsData,borderColor:'#ff2d87',backgroundColor:'rgba(255,45,135,0.1)',tension:.4,fill:true,pointBackgroundColor:'#ff2d87'},
     {label:'Engagement',data:engData,borderColor:'#2c6dff',backgroundColor:'rgba(44,109,255,0.08)',tension:.4,fill:true,pointBackgroundColor:'#2c6dff'}
-  ]},options:{responsive:true,plugins:{legend:{position:'top'}},scales:{y:{beginAtZero:true}}}});
+  ]},options:{responsive:true,plugins:{legend:{position:'top',labels:{color:_chartTextColor()}}},scales:{y:{beginAtZero:true,ticks:{color:_chartTextColor()}},x:{ticks:{color:_chartTextColor()}}}}});
   const dc = document.getElementById('donutChart'); if(!dc) return;
   // Dynamic donut: only show non-zero buckets, no hardcoded fallback
   const donutBuckets = [
@@ -7809,7 +7799,7 @@ function displayMetrics(rows, campaign) {
       backgroundColor: noDonutData ? ['#e5e7eb'] : donutBuckets.map(d=>d.c),
       borderWidth:0,hoverOffset:6
     }]
-  },options:{responsive:true,plugins:{legend:{position:'right',labels:{font:{size:12},generateLabels:_donutLegendLabels}},tooltip:{callbacks:{label:ctx=>{const t=ctx.dataset.data.reduce((a,b)=>a+(Number(b)||0),0)||1;return ` ${ctx.label}: ${formatNum(ctx.parsed)} (${((ctx.parsed/t)*100).toFixed(1)}%)`;}}}},cutout:'65%'}});
+  },options:{responsive:true,plugins:{legend:{position:'right',labels:{font:{size:12},color:_chartTextColor()}},tooltip:{callbacks:{label:ctx=>{const t=ctx.dataset.data.reduce((a,b)=>a+(Number(b)||0),0)||1;return ` ${ctx.label}: ${formatNum(ctx.parsed)} (${((ctx.parsed/t)*100).toFixed(1)}%)`;}}}},cutout:'65%'}});
 
   // ----- Platform distribution -----
   const platformCounts = {};
@@ -7846,7 +7836,7 @@ function displayMetrics(rows, campaign) {
           legend:{display:false},
           tooltip:{callbacks:{label:ctx=>` ${ctx.parsed.x} contenido${ctx.parsed.x===1?'':'s'} (click para filtrar)`}}
         },
-        scales:{ x:{ beginAtZero:true, ticks:{ precision:0 } } }
+        scales:{ x:{ beginAtZero:true, ticks:{ precision:0, color:_chartTextColor() } }, y:{ ticks:{ color:_chartTextColor() } } }
       }
     });
   }
@@ -7868,7 +7858,7 @@ function displayMetrics(rows, campaign) {
         responsive:true,
         onClick:(evt, els)=>{ if(els&&els.length){ const lbl = pfLabels[els[0].index]; setMetricsPlatformFilter(lbl); } },
         plugins:{
-          legend:{position:'right',labels:{font:{size:12},generateLabels:_donutLegendLabels}},
+          legend:{position:'right',labels:{font:{size:12},color:_chartTextColor()}},
           tooltip:{ callbacks:{ label:ctx=>{
             const total = pfData.reduce((a,b)=>a+b,0) || 1;
             const pct = ((ctx.parsed/total)*100).toFixed(1);
