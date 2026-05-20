@@ -3039,8 +3039,11 @@ html.dark .ai-input-row textarea { background:rgba(255,255,255,.05); border-colo
 
     <!-- INFLUENCERS PLACEHOLDER -->
     <div class="page" id="page-influencers">
-      <div style="display:flex;justify-content:flex-end;margin-bottom:20px;">
+      <div style="display:flex;justify-content:flex-end;align-items:center;gap:10px;margin-bottom:20px;">
         <input type="search" id="infSearch" class="form-input" style="max-width:220px;font-size:13px;" placeholder="Buscar influencer..." oninput="renderInfluencers()">
+        <button class="btn btn-primary" onclick="openScenarioStart()" style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;">
+          <span style="font-size:16px;line-height:1;">+</span> Arma tu escenario
+        </button>
       </div>
       <div class="campaign-grid" id="infGrid"></div>
     </div>
@@ -3450,6 +3453,49 @@ html.dark .ai-input-row textarea { background:rgba(255,255,255,.05); border-colo
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('deleteUserModal')">Cancelar</button>
       <button class="btn" id="deleteUserConfirmBtn" style="background:var(--red);color:#fff;">Eliminar perfil</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: ESCENARIO — paso 1 (seleccionar campaña + confirmar budget) -->
+<div class="modal-overlay" id="scenarioStartModal">
+  <div class="modal" style="width:520px;">
+    <div class="modal-header">
+      <div class="modal-title">Arma tu escenario</div>
+      <button class="modal-close" onclick="closeModal('scenarioStartModal')"><span class="icn-close"></span></button>
+    </div>
+    <div style="padding:4px 0 8px;">
+      <label class="form-label">1. Selecciona una campaña</label>
+      <select class="form-input" id="scenarioCampSelect" onchange="_scenarioStartPreview()"></select>
+      <div id="scenarioBudgetPreview" style="margin-top:16px;"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('scenarioStartModal')">Cancelar</button>
+      <button class="btn btn-primary" id="scenarioStartBtn" onclick="confirmScenarioStart()">Continuar →</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: ESCENARIO — editor full -->
+<div class="modal-overlay" id="scenarioModal">
+  <div class="modal" style="width:min(1180px,96vw);max-height:94vh;display:flex;flex-direction:column;padding:0;">
+    <div class="modal-header" style="padding:16px 22px;">
+      <div>
+        <div class="modal-title" id="scenarioTitle">Escenario</div>
+        <div id="scenarioSubtitle" style="font-size:12px;color:var(--text-muted);"></div>
+      </div>
+      <button class="modal-close" onclick="closeScenarioEditor()"><span class="icn-close"></span></button>
+    </div>
+    <!-- Sticky budget + totals bar -->
+    <div id="scenarioBudgetBar" style="padding:12px 22px;border-bottom:1px solid var(--border);"></div>
+    <div id="scenarioBody" style="overflow-y:auto;flex:1;padding:16px 22px;"></div>
+    <div class="modal-footer" style="padding:14px 22px;flex-wrap:wrap;gap:8px;">
+      <button class="btn btn-ghost btn-sm" onclick="scenarioAddCreator()">+ Agregar creador nuevo</button>
+      <button class="btn btn-ghost btn-sm" onclick="scenarioPickExisting()">+ Desde creadores anteriores</button>
+      <div style="flex:1;"></div>
+      <button class="btn btn-ghost btn-sm" onclick="scenarioCopyTSV()">Copiar tabla</button>
+      <button class="btn btn-ghost btn-sm" onclick="scenarioExportCSV()">Descargar CSV</button>
+      <button class="btn btn-primary btn-sm" onclick="scenarioSave()">Guardar escenario</button>
     </div>
   </div>
 </div>
@@ -9884,6 +9930,368 @@ function getAllInfluencers() {
 
 function infRatingsFor(key) {
   return (_cache.influencerRatings || []).filter(r => r.influencerKey === key);
+}
+
+// ============================================================
+// SCENARIO BUILDER (Arma tu escenario)
+// ============================================================
+const SCENARIO_TIERS = ['VIP','MEGA','MACRO','MID','MICRO','NANO'];
+const SCENARIO_PLATFORMS = ['Instagram','TikTok','YouTube','Twitter/X','Facebook'];
+let _scenarioState = null; // { campaignId, budgetSource, creators:[...] }
+
+function _scnId() { return 's'+Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
+function _scnMoney(n) { n = Number(n)||0; return '$'+n.toLocaleString('es-MX',{maximumFractionDigits:0}); }
+
+function _scenarioBudgetFor(c, source) {
+  if(!c) return 0;
+  if(source === 'client') return Number(c.budgetClient||c.budget||0);
+  // ops = budgetOps if present, else client - margin
+  if(c.budgetOps != null) return Number(c.budgetOps);
+  const bc = Number(c.budgetClient||c.budget||0), bm = Number(c.budgetMargin||0);
+  return bc > 0 ? bc - (bc*bm/100) : 0;
+}
+
+// ---- Step 1: pick campaign + confirm budget ----
+function openScenarioStart() {
+  const camps = visibleCampaigns();
+  const sel = document.getElementById('scenarioCampSelect');
+  if(!camps.length) { showToast('Primero crea una campaña','error'); return; }
+  sel.innerHTML = camps.map(c=>`<option value="${c.id}">${_esc(c.name)}${c.client?' · '+_esc(c.client):''}</option>`).join('');
+  _scenarioStartPreview();
+  openModal('scenarioStartModal');
+}
+
+function _scenarioStartPreview() {
+  const cid = document.getElementById('scenarioCampSelect').value;
+  const c = _cache.campaigns.find(x=>x.id===cid);
+  const box = document.getElementById('scenarioBudgetPreview');
+  if(!c) { box.innerHTML=''; return; }
+  const ops = _scenarioBudgetFor(c,'ops');
+  const client = _scenarioBudgetFor(c,'client');
+  const hasScenario = c.scenario && c.scenario.creators && c.scenario.creators.length;
+  box.innerHTML = `
+    <label class="form-label">2. Confirma el budget base del escenario</label>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-top:4px;">
+      <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1.5px solid var(--pink);border-radius:12px;cursor:pointer;background:var(--pink-pale);">
+        <input type="radio" name="scnBudgetSrc" value="ops" checked style="accent-color:var(--pink);">
+        <div>
+          <div style="font-weight:700;font-size:13px;">Budget de operaciones · ${_scnMoney(ops)}</div>
+          <div style="font-size:11px;color:var(--text-muted);">Dinero asignado a operaciones (cliente − margen). Recomendado.</div>
+        </div>
+      </label>
+      <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1.5px solid var(--border);border-radius:12px;cursor:pointer;">
+        <input type="radio" name="scnBudgetSrc" value="client" style="accent-color:var(--pink);">
+        <div>
+          <div style="font-weight:700;font-size:13px;">Budget cliente total · ${_scnMoney(client)}</div>
+          <div style="font-size:11px;color:var(--text-muted);">Presupuesto completo del cliente.</div>
+        </div>
+      </label>
+    </div>
+    ${hasScenario ? `<div style="margin-top:12px;padding:8px 12px;background:#fffbeb;border:1px solid #fde68a;border-radius:10px;font-size:11px;color:#92400e;">Esta campaña ya tiene un escenario guardado (${c.scenario.creators.length} creadores). Continuar lo abrirá para seguir editándolo.</div>` : ''}
+  `;
+}
+
+function confirmScenarioStart() {
+  const cid = document.getElementById('scenarioCampSelect').value;
+  const c = _cache.campaigns.find(x=>x.id===cid);
+  if(!c) { showToast('Selecciona una campaña','error'); return; }
+  const source = document.querySelector('input[name="scnBudgetSrc"]:checked')?.value || 'ops';
+  if(c.scenario && c.scenario.creators && c.scenario.creators.length) {
+    _scenarioState = JSON.parse(JSON.stringify(c.scenario));
+    _scenarioState.campaignId = cid;
+    _scenarioState.budgetSource = source;
+  } else {
+    _scenarioState = { campaignId: cid, budgetSource: source, creators: [] };
+  }
+  closeModal('scenarioStartModal');
+  openModal('scenarioModal');
+  if(!_scenarioState.creators.length) scenarioAddCreator();
+  else _renderScenario();
+}
+
+function closeScenarioEditor() { closeModal('scenarioModal'); }
+
+// ---- Calculations ----
+function _scnPlatTotals(p) {
+  const qty = Number(p.cantidad)||0;
+  const vpc = Number(p.viewsPerContent)||0;
+  const epc = Number(p.engPerContent)||0;
+  const viewsTotal = qty * vpc;
+  const engTotal = qty * epc;
+  const cost = p.costMode === 'total' ? (Number(p.costTotal)||0) : qty*(Number(p.costPerContent)||0);
+  return { qty, viewsTotal, engTotal, cost };
+}
+function _scnCreatorTotals(cr) {
+  let qty=0, views=0, eng=0, cost=0;
+  (cr.platforms||[]).forEach(p=>{ const t=_scnPlatTotals(p); qty+=t.qty; views+=t.viewsTotal; eng+=t.engTotal; cost+=t.cost; });
+  return { qty, views, eng, cost, cpv: views>0?cost/views:0, cpi: eng>0?cost/eng:0 };
+}
+function _scnGrand() {
+  let qty=0, views=0, eng=0, cost=0, creators=0;
+  (_scenarioState.creators||[]).forEach(cr=>{ const t=_scnCreatorTotals(cr); qty+=t.qty; views+=t.views; eng+=t.eng; cost+=t.cost; creators++; });
+  return { qty, views, eng, cost, creators, cpv: views>0?cost/views:0, cpi: eng>0?cost/eng:0 };
+}
+
+// ---- Render ----
+function _renderScenario() {
+  if(!_scenarioState) return;
+  const c = _cache.campaigns.find(x=>x.id===_scenarioState.campaignId);
+  document.getElementById('scenarioTitle').textContent = 'Escenario · ' + (c?c.name:'');
+  document.getElementById('scenarioSubtitle').textContent = (c&&c.client?c.client+' · ':'') + (_scenarioState.budgetSource==='ops'?'Budget operaciones':'Budget cliente');
+
+  const budget = _scenarioBudgetFor(c, _scenarioState.budgetSource);
+  const g = _scnGrand();
+  const over = g.cost > budget && budget > 0;
+  const pct = budget>0 ? Math.min(100,(g.cost/budget)*100) : 0;
+  const barColor = over ? '#e5484d' : '#2fa86b';
+  const remaining = budget - g.cost;
+
+  document.getElementById('scenarioBudgetBar').innerHTML = `
+    <div style="display:flex;flex-wrap:wrap;gap:18px;align-items:center;">
+      <div style="flex:1;min-width:220px;">
+        <div style="display:flex;justify-content:space-between;font-size:11px;font-weight:700;margin-bottom:5px;">
+          <span style="color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;">Budget usado</span>
+          <span style="color:${barColor};">${_scnMoney(g.cost)} / ${_scnMoney(budget)}</span>
+        </div>
+        <div style="height:10px;border-radius:6px;background:var(--bg);overflow:hidden;">
+          <div style="height:100%;width:${pct}%;background:${barColor};transition:width .3s,background .3s;"></div>
+        </div>
+        <div style="font-size:11px;margin-top:5px;color:${over?'#e5484d':'var(--text-muted)'};font-weight:${over?'700':'500'};">
+          ${over ? '⚠ Te pasaste por '+_scnMoney(Math.abs(remaining)) : 'Disponible: '+_scnMoney(remaining)}
+        </div>
+      </div>
+      <div style="display:flex;gap:16px;flex-wrap:wrap;">
+        ${_scnStat('Contenidos', g.qty)}
+        ${_scnStat('Views est.', formatNum(g.views))}
+        ${_scnStat('Eng. est.', formatNum(g.eng))}
+        ${_scnStat('CPV', g.cpv?('$'+g.cpv.toFixed(2)):'—')}
+        ${_scnStat('CPI', g.cpi?('$'+g.cpi.toFixed(2)):'—')}
+      </div>
+    </div>`;
+
+  const body = document.getElementById('scenarioBody');
+  if(!_scenarioState.creators.length) {
+    body.innerHTML = '<div class="empty-state"><p>Agrega tu primer creador para empezar.</p></div>';
+    return;
+  }
+  body.innerHTML = _scenarioState.creators.map((cr,ci)=>_scnCreatorCard(cr,ci)).join('') + _scnStatsSection();
+}
+
+function _scnStat(label, val) {
+  return `<div style="text-align:center;"><div style="font-size:9px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;">${label}</div><div style="font-size:18px;font-weight:800;line-height:1.1;">${val}</div></div>`;
+}
+
+function _scnCreatorCard(cr, ci) {
+  const t = _scnCreatorTotals(cr);
+  const platRows = (cr.platforms||[]).map((p,pi)=>{
+    const pt = _scnPlatTotals(p);
+    return `<tr>
+      <td><select class="form-input" style="font-size:11px;padding:4px 6px;min-width:96px;" onchange="_scnSet(${ci},${pi},'platform',this.value)">
+        ${SCENARIO_PLATFORMS.map(pl=>`<option ${p.platform===pl?'selected':''}>${pl}</option>`).join('')}
+      </select></td>
+      <td><input class="form-input" style="font-size:11px;padding:4px 6px;width:110px;" value="${_esc(p.contenidoTipo||'')}" placeholder="Reel, TikTok..." onchange="_scnSet(${ci},${pi},'contenidoTipo',this.value)"></td>
+      <td><input type="number" min="0" class="form-input" style="font-size:11px;padding:4px 6px;width:60px;" value="${p.cantidad||0}" onchange="_scnSet(${ci},${pi},'cantidad',this.value)"></td>
+      <td style="text-align:center;"><input type="checkbox" ${p.boost?'checked':''} onchange="_scnSet(${ci},${pi},'boost',this.checked)" style="accent-color:var(--pink);"></td>
+      <td><input type="number" min="0" class="form-input" style="font-size:11px;padding:4px 6px;width:90px;" value="${p.viewsPerContent||0}" onchange="_scnSet(${ci},${pi},'viewsPerContent',this.value)"></td>
+      <td style="font-size:11px;font-weight:700;color:var(--text-muted);white-space:nowrap;">${formatNum(pt.viewsTotal)}</td>
+      <td><input type="number" min="0" class="form-input" style="font-size:11px;padding:4px 6px;width:80px;" value="${p.engPerContent||0}" onchange="_scnSet(${ci},${pi},'engPerContent',this.value)"></td>
+      <td style="font-size:11px;font-weight:700;color:var(--text-muted);white-space:nowrap;">${formatNum(pt.engTotal)}</td>
+      <td><select class="form-input" style="font-size:11px;padding:4px 6px;" onchange="_scnSet(${ci},${pi},'costMode',this.value)">
+        <option value="perContent" ${p.costMode!=='total'?'selected':''}>x contenido</option>
+        <option value="total" ${p.costMode==='total'?'selected':''}>total</option>
+      </select></td>
+      <td><input type="number" min="0" class="form-input" style="font-size:11px;padding:4px 6px;width:90px;" value="${p.costMode==='total'?(p.costTotal||0):(p.costPerContent||0)}" onchange="_scnSet(${ci},${pi},'${p.costMode==='total'?'costTotal':'costPerContent'}',this.value)"></td>
+      <td style="font-size:11px;font-weight:700;white-space:nowrap;">${_scnMoney(pt.cost)}</td>
+      <td><button onclick="_scnRemovePlat(${ci},${pi})" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:13px;">✕</button></td>
+    </tr>`;
+  }).join('');
+
+  return `
+  <div class="card" style="margin-bottom:14px;padding:14px 16px;">
+    <div style="display:flex;flex-wrap:wrap;align-items:end;gap:10px;margin-bottom:10px;">
+      <div style="flex:1;min-width:160px;">
+        <label style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;">Creador</label>
+        <input class="form-input" style="font-size:13px;font-weight:700;" value="${_esc(cr.name||'')}" placeholder="Nombre del creador" onchange="_scnSetCreator(${ci},'name',this.value)">
+      </div>
+      <div>
+        <label style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;">Tier</label>
+        <select class="form-input" style="font-size:12px;" onchange="_scnSetCreator(${ci},'tier',this.value)">
+          <option value="">—</option>
+          ${SCENARIO_TIERS.map(tr=>`<option ${cr.tier===tr?'selected':''}>${tr}</option>`).join('')}
+        </select>
+      </div>
+      <div>
+        <label style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;">Seguidores</label>
+        <input type="number" min="0" class="form-input" style="font-size:12px;width:120px;" value="${cr.seguidores||0}" onchange="_scnSetCreator(${ci},'seguidores',this.value)">
+      </div>
+      <button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="_scnRemoveCreator(${ci})">Eliminar creador</button>
+    </div>
+    <div class="table-wrap">
+      <table class="table" style="font-size:11px;">
+        <thead><tr>
+          <th>Plataforma</th><th>Contenido</th><th>Cant.</th><th>Boost</th>
+          <th>Views x cont.</th><th>Views totales</th>
+          <th>Eng. x cont.</th><th>Eng. totales</th>
+          <th>Modo costo</th><th>Costo</th><th>Costo total</th><th></th>
+        </tr></thead>
+        <tbody>${platRows||''}</tbody>
+      </table>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;flex-wrap:wrap;gap:8px;">
+      <button class="btn btn-ghost btn-sm" onclick="_scnAddPlat(${ci})">+ Agregar plataforma/contenido</button>
+      <div style="font-size:12px;color:var(--text-muted);">
+        Subtotal: <b style="color:var(--text);">${t.qty} cont.</b> · ${formatNum(t.views)} views · ${formatNum(t.eng)} eng · <b style="color:var(--text);">${_scnMoney(t.cost)}</b>
+        ${t.cpv?` · CPV $${t.cpv.toFixed(2)}`:''}${t.cpi?` · CPI $${t.cpi.toFixed(2)}`:''}
+      </div>
+    </div>
+  </div>`;
+}
+
+function _scnStatsSection() {
+  const platMix = {}, tierMix = {}; let boosted = 0;
+  (_scenarioState.creators||[]).forEach(cr=>{
+    if(cr.tier) tierMix[cr.tier] = (tierMix[cr.tier]||0)+1;
+    (cr.platforms||[]).forEach(p=>{
+      const q = Number(p.cantidad)||0;
+      const pl = p.platform||'—';
+      platMix[pl] = (platMix[pl]||0)+q;
+      if(p.boost) boosted += q;
+    });
+  });
+  const g = _scnGrand();
+  const bar = (entries, total, colorFn) => entries.sort((a,b)=>b[1]-a[1]).map(([k,v],i)=>{
+    const pct = total>0?((v/total)*100):0;
+    return `<div style="margin-bottom:6px;">
+      <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px;"><span>${_esc(k)}</span><span style="color:var(--text-muted);">${v} (${pct.toFixed(0)}%)</span></div>
+      <div style="height:7px;border-radius:4px;background:var(--bg);overflow:hidden;"><div style="height:100%;width:${pct}%;background:${colorFn(k,i)};"></div></div>
+    </div>`;
+  }).join('');
+
+  return `
+  <div class="card" style="margin-top:6px;padding:16px 18px;">
+    <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:14px;">📊 Estadísticas del escenario</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;">
+      <div>
+        <div style="font-size:12px;font-weight:700;margin-bottom:8px;">Contenidos por plataforma</div>
+        ${bar(Object.entries(platMix), g.qty, (k,i)=>_platformColor(k,i)) || '<span style="font-size:11px;color:var(--text-muted);">Sin datos</span>'}
+      </div>
+      <div>
+        <div style="font-size:12px;font-weight:700;margin-bottom:8px;">Creadores por tier</div>
+        ${bar(Object.entries(tierMix), g.creators, (k,i)=>_PLATFORM_FALLBACK[i%_PLATFORM_FALLBACK.length]) || '<span style="font-size:11px;color:var(--text-muted);">Sin datos</span>'}
+      </div>
+    </div>
+    <div style="margin-top:14px;display:flex;flex-wrap:wrap;gap:18px;font-size:12px;border-top:1px solid var(--border);padding-top:12px;">
+      <span><b>${g.creators}</b> creadores</span>
+      <span><b>${g.qty}</b> contenidos</span>
+      <span><b>${boosted}</b> boosteados</span>
+      <span>Views totales: <b>${formatNum(g.views)}</b></span>
+      <span>Engagement total: <b>${formatNum(g.eng)}</b></span>
+      <span>CPV: <b>${g.cpv?('$'+g.cpv.toFixed(2)):'—'}</b></span>
+      <span>CPI: <b>${g.cpi?('$'+g.cpi.toFixed(2)):'—'}</b></span>
+    </div>
+  </div>`;
+}
+
+// ---- Mutations ----
+function _scnSet(ci, pi, key, val) {
+  const p = _scenarioState.creators[ci].platforms[pi];
+  if(key==='boost') p[key] = !!val;
+  else if(['cantidad','viewsPerContent','engPerContent','costPerContent','costTotal'].includes(key)) p[key] = Number(val)||0;
+  else p[key] = val;
+  _renderScenario();
+}
+function _scnSetCreator(ci, key, val) {
+  const cr = _scenarioState.creators[ci];
+  cr[key] = key==='seguidores' ? (Number(val)||0) : val;
+  _renderScenario();
+}
+function _scnAddPlat(ci) {
+  _scenarioState.creators[ci].platforms.push({ id:_scnId(), platform:'Instagram', contenidoTipo:'', cantidad:1, boost:false, viewsPerContent:0, engPerContent:0, costMode:'perContent', costPerContent:0, costTotal:0 });
+  _renderScenario();
+}
+function _scnRemovePlat(ci, pi) {
+  _scenarioState.creators[ci].platforms.splice(pi,1);
+  _renderScenario();
+}
+function _scnRemoveCreator(ci) {
+  _scenarioState.creators.splice(ci,1);
+  _renderScenario();
+}
+function scenarioAddCreator(seed) {
+  _scenarioState.creators.push(seed || { id:_scnId(), name:'', tier:'', seguidores:0, platforms:[{ id:_scnId(), platform:'Instagram', contenidoTipo:'', cantidad:1, boost:false, viewsPerContent:0, engPerContent:0, costMode:'perContent', costPerContent:0, costTotal:0 }] });
+  _renderScenario();
+}
+
+function scenarioPickExisting() {
+  const infs = getAllInfluencers();
+  if(!infs.length) { showToast('No hay creadores anteriores registrados','error'); return; }
+  const existing = new Set((_scenarioState.creators||[]).map(c=>(c.name||'').toLowerCase()));
+  const opts = infs.filter(i=>!existing.has((i.name||'').toLowerCase()));
+  if(!opts.length) { showToast('Ya agregaste a todos los creadores disponibles','error'); return; }
+  // Simple prompt-based picker
+  const list = opts.map((i,idx)=>`${idx+1}. ${i.name}${i.platform?' ('+i.platform+')':''}`).join('\n');
+  const pick = prompt('Escribe el número del creador a agregar:\n\n'+list);
+  const idx = parseInt(pick)-1;
+  if(isNaN(idx) || idx<0 || idx>=opts.length) return;
+  const inf = opts[idx];
+  scenarioAddCreator({ id:_scnId(), name:inf.name, tier:'', seguidores:0, platforms:[{ id:_scnId(), platform:inf.platform||'Instagram', contenidoTipo:'', cantidad:1, boost:false, viewsPerContent:0, engPerContent:0, costMode:'perContent', costPerContent:0, costTotal:0 }] });
+}
+
+// ---- Save ----
+function scenarioSave() {
+  const campaigns = getData('campaigns');
+  const idx = campaigns.findIndex(x=>x.id===_scenarioState.campaignId);
+  if(idx===-1) { showToast('Campaña no encontrada','error'); return; }
+  campaigns[idx] = { ...campaigns[idx], scenario: {
+    budgetSource: _scenarioState.budgetSource,
+    creators: _scenarioState.creators,
+    updatedAt: Date.now(),
+  }};
+  setData('campaigns', campaigns);
+  showToast('Escenario guardado','success');
+}
+
+// ---- Export ----
+function _scenarioFlatRows() {
+  const c = _cache.campaigns.find(x=>x.id===_scenarioState.campaignId);
+  const header = ['NOMBRE','TIER','SEGUIDORES','PLATAFORMA','CONTENIDO','CANTIDAD','BOOST','VIEWS X CONTENIDO','VIEWS TOTALES','ENG X CONTENIDO','ENG TOTALES','COSTO','CPV','CPI'];
+  const rows = [header];
+  (_scenarioState.creators||[]).forEach(cr=>{
+    (cr.platforms||[]).forEach(p=>{
+      const pt = _scnPlatTotals(p);
+      rows.push([
+        cr.name||'', cr.tier||'', cr.seguidores||0,
+        p.platform||'', p.contenidoTipo||'', p.cantidad||0, p.boost?'Sí':'No',
+        p.viewsPerContent||0, pt.viewsTotal, p.engPerContent||0, pt.engTotal,
+        pt.cost, pt.viewsTotal>0?(pt.cost/pt.viewsTotal).toFixed(4):'', pt.engTotal>0?(pt.cost/pt.engTotal).toFixed(4):''
+      ]);
+    });
+  });
+  const g = _scnGrand();
+  rows.push(['TOTALES','','','','',g.qty,'','',g.views,'',g.eng,g.cost,g.cpv?g.cpv.toFixed(4):'',g.cpi?g.cpi.toFixed(4):'']);
+  return { rows, name: (c?c.name:'escenario') };
+}
+function scenarioExportCSV() {
+  const { rows, name } = _scenarioFlatRows();
+  const csv = rows.map(r=>r.map(v=>{
+    const s = String(v==null?'':v);
+    return /[",\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s;
+  }).join(',')).join('\n');
+  const blob = new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `Escenario - ${name}.csv`;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+  showToast('CSV descargado','success');
+}
+function scenarioCopyTSV() {
+  const { rows } = _scenarioFlatRows();
+  const tsv = rows.map(r=>r.join('\t')).join('\n');
+  navigator.clipboard.writeText(tsv).then(
+    ()=>showToast('Tabla copiada — pégala en Sheets/Excel','success'),
+    ()=>showToast('No se pudo copiar','error')
+  );
 }
 
 function avgStars(ratings) {
