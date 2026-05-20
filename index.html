@@ -3777,13 +3777,28 @@ const ICN_youtube = `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"
 const ICN_twitter = `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><rect width="24" height="24" rx="6" fill="#000000"/><path d="M17.8 4.5h2.3l-5 5.7 5.9 7.8h-4.6l-3.6-4.7-4.2 4.7H5.3l5.4-6.1L5 4.5h4.7l3.2 4.3 3.9-4.3zm-.8 12h1.3L7.1 5.7H5.7L17 16.5z" fill="white"/></svg>`;
 const ICN_facebook = `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><rect width="24" height="24" rx="6" fill="#1877F2"/><path d="M15.9 13.5l.4-2.9h-2.8v-1.9c0-.8.4-1.6 1.6-1.6h1.2V4.6S15.3 4.4 14 4.4c-2.3 0-3.8 1.4-3.8 3.9v2.3H7.7v2.9h2.5V21c.5.1 1 .1 1.5.1s1 0 1.5-.1v-7.5h2.7z" fill="white"/></svg>`;
 
-// Platform badge — colored pill with brand icon
+// Normalize any platform string (IG, tiktok, YT, X, etc.) → canonical key.
+function _normalizePlatform(pf) {
+  const k = String(pf||'').toLowerCase().normalize('NFD').replace(/[^a-z0-9]/g,'').trim();
+  if(!k) return null;
+  const map = {
+    instagram:'Instagram', ig:'Instagram', insta:'Instagram', reels:'Instagram',
+    tiktok:'TikTok', tt:'TikTok', tik:'TikTok',
+    youtube:'YouTube', yt:'YouTube', shorts:'YouTube', ytshorts:'YouTube',
+    twitter:'Twitter/X', x:'Twitter/X', tweet:'Twitter/X', twitterx:'Twitter/X',
+    facebook:'Facebook', fb:'Facebook', face:'Facebook',
+  };
+  return map[k] || null;
+}
+
+// Platform badge — colored pill with brand icon. Accepts any alias.
 function platformBadge(pf) {
   const icons = {Instagram:ICN_insta,TikTok:ICN_tiktok,YouTube:ICN_youtube,'Twitter/X':ICN_twitter,Facebook:ICN_facebook};
   const colors = {Instagram:'#C13584',TikTok:'#010101',YouTube:'#FF0000','Twitter/X':'#000000',Facebook:'#1877F2'};
-  const icon = icons[pf];
-  if(!icon) return `<span style="font-size:11px;color:var(--text-muted);">${pf||'—'}</span>`;
-  return `<span style="display:inline-flex;align-items:center;gap:5px;padding:2px 8px 2px 3px;border-radius:20px;background:${colors[pf]}18;font-size:11px;font-weight:700;color:${colors[pf]};white-space:nowrap;"><span style="width:18px;height:18px;display:inline-flex;flex-shrink:0;">${icon}</span>${pf}</span>`;
+  const key = _normalizePlatform(pf);
+  const icon = key ? icons[key] : null;
+  if(!icon) { const t = String(pf||'').trim(); return `<span style="font-size:11px;color:var(--text-muted);">${t||'—'}</span>`; }
+  return `<span style="display:inline-flex;align-items:center;gap:5px;padding:2px 8px 2px 3px;border-radius:20px;background:${colors[key]}18;font-size:11px;font-weight:700;color:${colors[key]};white-space:nowrap;"><span style="width:18px;height:18px;display:inline-flex;flex-shrink:0;">${icon}</span>${key}</span>`;
 }
 
 // ============================================================
@@ -5578,7 +5593,7 @@ const TRACKER_COL_DEFS = [
   {label:'Cohorts',            keys:['COHORTS','COHORT','Cohorts','Cohort','COMUNIDAD']},
   {label:'Plataforma Creativa',keys:['PLATAFORMA CREATIVA','Plataforma Creativa','PLATAFORMA_CREATIVA','LINEA','LÍNEA','Linea de comunicación','Línea de comunicación','CREATIVIDAD']},
   {label:'Tipo de contenido',  keys:['TIPO DE CONTENIDO','Tipo de Contenido','Tipo']},
-  {label:'Platform',           keys:['PLATFORM','PLATAFORMA','Platform','Plataforma']},
+  {label:'Platform',           keys:['PLATFORM','PLATAFORMA','Platform','Plataforma'], platform:true},
   {label:'GW',                 keys:['GW','GOODWILL','Goodwill']},
   {label:'Réplica',            keys:['RÉPLICA','REPLICA','Replica','Réplica']},
   {label:'Brief',              keys:['BRIEF','Brief'], link:true},
@@ -5948,6 +5963,7 @@ function _renderTrackerSummaryAndTable() {
                           : `<td style="font-size:12px;">${sv||'—'}</td>`);
                   }
                   if(def.status) return `<td>${val?trackerStatusBadge(val):'—'}</td>`;
+                  if(def.platform) return `<td style="white-space:nowrap;">${val?platformBadge(val):'—'}</td>`;
                   if(def.date) { const iso = _trackerParseDate(val); return `<td style="font-size:12px;white-space:nowrap;">${iso?formatDateShort(iso):'—'}</td>`; }
                   return `<td style="font-size:12px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${String(val||'').replace(/"/g,'&quot;')}">${val||'—'}</td>`;
                 }).join('')}
@@ -6671,11 +6687,16 @@ function renderEscenarioBlock(c) {
           </tr></thead>
           <tbody>
             ${enriched.sort((a,b)=>b.viewsEstTotal-a.viewsEstTotal).map(cr => {
-              const breakdown = cr.platforms.map(p => `${p.cantidad||1} ${p.contenido||p.platform}`).join(' · ');
+              const breakdown = (cr.platforms||[]).map(p => {
+                const badge = platformBadge(p.platform);
+                const qty = p.cantidad||1;
+                const detail = p.contenido ? ` <span style="color:var(--text-muted);">${_esc(p.contenido)}</span>` : '';
+                return `<span style="display:inline-flex;align-items:center;gap:4px;">${badge}<span style="font-weight:700;">×${qty}</span>${detail}</span>`;
+              }).join('<span style="color:var(--border);margin:0 2px;">·</span>');
               return `<tr>
                 <td><div style="font-weight:600;">${_esc(cr.nombre)}</div><div style="font-size:10px;color:var(--text-muted);">${_esc(cr.comunidad)||""}</div></td>
                 <td><span style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:6px;background:var(--bg);">${cr.tier||'—'}</span></td>
-                <td style="font-size:11px;">${breakdown||'—'}</td>
+                <td style="font-size:11px;"><div style="display:flex;flex-wrap:wrap;align-items:center;gap:4px;">${breakdown||'—'}</div></td>
                 <td style="text-align:right;">${fmt(cr.viewsEstTotal)}</td>
                 <td style="text-align:right;font-weight:700;">${fmt(cr.real.views)}</td>
                 <td>${pctCell(cr.viewsPct)}</td>
@@ -7477,7 +7498,7 @@ function displayMetrics(rows, campaign) {
     <td>${gs(r,'Influencer Name','Influencer','Creator','Creador','Cuenta')}</td>
     <td>${gs(r,'Formato','Format','Tipo','Type','Content Type')}</td>
     <td>${gs(r,'Post Date','Campaign Date','Fecha','Date')}</td>
-    <td>${gs(r,'Platform','Plataforma','Red Social','Network','Canal')}</td>
+    <td>${platformBadge(gs(r,'Platform','Plataforma','Red Social','Network','Canal'))}</td>
     <td>${formatNum(rowViews(r))}</td>
     <td>${formatNum(gi(r,'Organic_Reach','Reach','Alcance'))}</td>
     <td>${formatNum(gi(r,'Organic_Likes','Likes','Me gusta'))}</td>
