@@ -2661,7 +2661,7 @@ html.dark .ai-input-row textarea { background:rgba(255,255,255,.05); border-colo
           <div class="stat-value" id="statUrgent">0</div>
           <div class="stat-sub">Alta prioridad</div>
         </div>
-        <div class="stat-card pubs">
+        <div class="stat-card pubs" style="cursor:pointer;" onclick="navigate('calendario')" title="Ver calendario">
           <div class="stat-label">Publicaciones próximas</div>
           <div class="stat-value" id="statPubs">0</div>
           <div class="stat-sub">Esta semana</div>
@@ -4470,7 +4470,7 @@ function renderDashboard() {
       ? `<span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;color:var(--blue,#2c6dff);background:var(--blue-pale,#eff6ff);border-radius:20px;padding:2px 8px;white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis;" title="${_esc(p.campaignName)}">${_esc(p.campaignName)}</span>`
       : '';
     return `
-    <div class="influencer-row" style="gap:8px;">
+    <div class="influencer-row" style="gap:8px;cursor:pointer;" onclick="navigate('calendario')" title="Ver en calendario">
       <div class="inf-avatar">${initial}</div>
       <div class="inf-info" style="min-width:0;">
         <div class="inf-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_esc(p.name)}</div>
