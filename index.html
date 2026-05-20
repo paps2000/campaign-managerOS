@@ -4592,11 +4592,53 @@ function renderDashboard() {
       alerts.push({msg:t.title, campaign:c.name, time:'Hoy', icon:ICN_alert});
     });
   });
+
+  // Tracker review states: "Revisión INT" (sentarse a leer guión / revisar
+  // contenido para decidir si pasa a cliente) y "Revisión EXT" (push con
+  // cliente para que el contenido salga). Surface every matching row.
+  const RE_INT = /revisi[oó]n\s*\(?\s*int/i;
+  const RE_EXT = /revisi[oó]n\s*\(?\s*ext/i;
+  const STATUS_KEYS = ['ESTATUS CONTENIDO','Estatus Contenido','ESTATUS','Estatus','STATUS','Status','ESTADO','Estado','ESTATUS POST','Estatus Post','STATUS POST'];
+  const GUION_KEYS  = ['ESTATUS GUIÓN','ESTATUS GUION','Estatus Guión','Estatus Guion'];
+  const reviewAlerts = [];
+  campaigns.forEach(c => {
+    (c.trackerRows||[]).forEach(row => {
+      const name = (typeof _trackerGet==='function')
+        ? (_trackerGet(row,['NOMBRE','Nombre','Influencer','Creador','Creator'])||'Contenido')
+        : 'Contenido';
+      // join the status-bearing cells so we catch the state wherever it lives
+      let statusBlob = '';
+      if(typeof _trackerGet==='function') {
+        statusBlob = [ _trackerGet(row, STATUS_KEYS), _trackerGet(row, GUION_KEYS) ].filter(Boolean).join(' · ');
+      }
+      if(!statusBlob) statusBlob = Object.values(row).map(v=>String(v||'')).join(' · ');
+      if(RE_INT.test(statusBlob)) {
+        reviewAlerts.push({ kind:'int', name:String(name).trim(), campaign:c.name });
+      } else if(RE_EXT.test(statusBlob)) {
+        reviewAlerts.push({ kind:'ext', name:String(name).trim(), campaign:c.name });
+      }
+    });
+  });
+
   const al = document.getElementById('alertsList');
-  if(alerts.length===0) {
-    al.innerHTML=`<div class="empty-state"><div class="empty-icon">${ICN_check}</div><p>Sin alertas urgentes.</p></div>`;
-  } else {
-    al.innerHTML = alerts.slice(0,4).map(a=>`
+  const reviewHtml = reviewAlerts.slice(0,12).map(a => {
+    const isInt = a.kind==='int';
+    const icon  = isInt ? '🔍' : '👀';
+    const label = isInt ? 'Revisión INT — leer guión / revisar contenido' : 'Revisión EXT — push con cliente para publicar';
+    const tag   = isInt
+      ? '<span style="font-size:9px;font-weight:800;background:#fef08a;color:#854d0e;padding:1px 6px;border-radius:6px;">INT</span>'
+      : '<span style="font-size:9px;font-weight:800;background:#fde047;color:#713f12;padding:1px 6px;border-radius:6px;">EXT</span>';
+    return `
+      <div class="alert-item">
+        <span class="alert-icon" style="width:18px;height:18px;display:inline-flex;flex-shrink:0;">${icon}</span>
+        <div class="alert-info">
+          <div class="alert-msg" style="display:flex;align-items:center;gap:6px;">${tag} ${_esc(a.name)}</div>
+          <div class="alert-campaign">${_esc(a.campaign)} · ${label}</div>
+        </div>
+      </div>`;
+  }).join('');
+
+  const highHtml = alerts.slice(0,4).map(a=>`
       <div class="alert-item">
         <span class="alert-icon" style="width:18px;height:18px;display:inline-flex;color:#c9a449;flex-shrink:0">${a.icon}</span>
         <div class="alert-info">
@@ -4605,6 +4647,11 @@ function renderDashboard() {
         </div>
         <span class="alert-time">${a.time}</span>
       </div>`).join('');
+
+  if(!alerts.length && !reviewAlerts.length) {
+    al.innerHTML=`<div class="empty-state"><div class="empty-icon">${ICN_check}</div><p>Sin alertas urgentes.</p></div>`;
+  } else {
+    al.innerHTML = reviewHtml + highHtml;
   }
 
   // Campaign status table
