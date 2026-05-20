@@ -6032,7 +6032,8 @@ function _renderTrackerSummaryAndTable() {
       <div style="font-size:10px;color:var(--text-muted);margin-top:2px;">contenidos</div>
     </button>`;
 
-  // Timeline: count by week × creativa
+  // Timeline: count by period × creativa. Period = week or month (toggle).
+  const byMonth = (_trackerTimeView === 'month');
   const weekKey = iso => {
     if(!iso) return '';
     const d = new Date(iso+'T12:00:00');
@@ -6040,6 +6041,12 @@ function _renderTrackerSummaryAndTable() {
     const onejan = new Date(d.getFullYear(),0,1);
     const w = Math.ceil((((d - onejan)/86400000) + onejan.getDay()+1)/7);
     return `${d.getFullYear()}-W${String(w).padStart(2,'0')}`;
+  };
+  const monthKey = iso => {
+    if(!iso) return '';
+    const d = new Date(iso+'T12:00:00');
+    if(isNaN(d)) return '';
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
   };
   const weekLabel = wk => {
     if(!wk) return '';
@@ -6049,22 +6056,38 @@ function _renderTrackerSummaryAndTable() {
     const monday = new Date(simple); monday.setDate(simple.getDate() - ((dow+6)%7));
     return monday.toLocaleDateString('es-MX',{day:'numeric',month:'short'});
   };
-  const timelineMap = {}; // week → {creativa → count}
+  const monthLabel = mk => {
+    if(!mk) return '';
+    const [y,m] = mk.split('-').map(Number);
+    return new Date(y,m-1,1).toLocaleDateString('es-MX',{month:'short',year:'2-digit'});
+  };
+  const periodKey   = byMonth ? monthKey : weekKey;
+  const periodLabel = byMonth ? monthLabel : weekLabel;
+  const periodTitle = byMonth ? 'mes' : 'semana';
+
+  const timelineMap = {}; // period → {creativa → count}
   rows.forEach(r => {
     const iso = _trackerRowDate(r);
-    const wk = weekKey(iso);
-    if(!wk) return;
+    const pk = periodKey(iso);
+    if(!pk) return;
     const cv = gst(r,'PLATAFORMA CREATIVA','Plataforma Creativa','LINEA','LÍNEA','CREATIVIDAD') || 'Sin clasificar';
-    if(!timelineMap[wk]) timelineMap[wk] = {};
-    timelineMap[wk][cv] = (timelineMap[wk][cv]||0) + 1;
+    if(!timelineMap[pk]) timelineMap[pk] = {};
+    timelineMap[pk][cv] = (timelineMap[pk][cv]||0) + 1;
   });
-  // Cap to most recent 26 weeks so the SVG chart doesn't render thousands
+  // Cap to most recent N periods so the SVG chart doesn't render thousands
   // of pixels wide for trackers spanning multiple years.
   const allWeeks = Object.keys(timelineMap).sort();
-  const weeks = allWeeks.slice(-26);
+  const weeks = allWeeks.slice(byMonth ? -18 : -26);
   const creativas = Object.keys(creativaCounts);
   let maxWeekTotal = 0;
   weeks.forEach(w => { const t = Object.values(timelineMap[w]).reduce((a,b)=>a+b,0); if(t>maxWeekTotal) maxWeekTotal=t; });
+
+  // Week/Month toggle
+  const timeToggleHtml = `
+    <div style="display:flex;gap:6px;margin-bottom:10px;">
+      <button class="metrics-tab-pill ${!byMonth?'active':''}" onclick="setTrackerTimeView('week')">Por semana</button>
+      <button class="metrics-tab-pill ${byMonth?'active':''}" onclick="setTrackerTimeView('month')">Por mes</button>
+    </div>`;
 
   // SVG line chart of total publications per week
   let chartHtml = '';
@@ -6083,12 +6106,13 @@ function _renderTrackerSummaryAndTable() {
       return `<line x1="${pad.l}" x2="${W-pad.r}" y1="${yScale(v)}" y2="${yScale(v)}" stroke="var(--border)" stroke-width="1" opacity=".5"/>
               <text x="${pad.l-6}" y="${yScale(v)+3}" text-anchor="end" font-size="9" fill="var(--text-muted)">${v}</text>`;
     }).join('');
-    const dots = totals.map((t,i)=>`<circle cx="${xPos(i).toFixed(1)}" cy="${yScale(t).toFixed(1)}" r="3.5" fill="var(--pink)" stroke="var(--white)" stroke-width="1.5"><title>${weekLabel(weeks[i])}: ${t}</title></circle>`).join('');
-    const xLabels = weeks.map((w,i)=>`<text x="${xPos(i).toFixed(1)}" y="${H-pad.b+14}" text-anchor="middle" font-size="9" fill="var(--text-muted)">${weekLabel(w)}</text>`).join('');
+    const dots = totals.map((t,i)=>`<circle cx="${xPos(i).toFixed(1)}" cy="${yScale(t).toFixed(1)}" r="3.5" fill="var(--pink)" stroke="var(--white)" stroke-width="1.5"><title>${periodLabel(weeks[i])}: ${t}</title></circle>`).join('');
+    const xLabels = weeks.map((w,i)=>`<text x="${xPos(i).toFixed(1)}" y="${H-pad.b+14}" text-anchor="middle" font-size="9" fill="var(--text-muted)">${periodLabel(w)}</text>`).join('');
     const valLabels = totals.map((t,i)=>`<text x="${xPos(i).toFixed(1)}" y="${(yScale(t)-7).toFixed(1)}" text-anchor="middle" font-size="9" font-weight="700" fill="var(--text)">${t}</text>`).join('');
     chartHtml = `
       <div style="background:var(--bg);border:1px solid var(--border);border-radius:14px;padding:14px 16px;">
-        <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;">📈 Publicaciones por semana</div>
+        <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;">📈 Publicaciones por ${periodTitle}</div>
+        ${timeToggleHtml}
         <div style="overflow-x:auto;">
           <svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" preserveAspectRatio="xMinYMid meet" style="display:block;">
             ${yAxis}
@@ -6107,11 +6131,11 @@ function _renderTrackerSummaryAndTable() {
     const totalAll = weeks.reduce((acc,w)=>acc + Object.values(timelineMap[w]).reduce((a,b)=>a+b,0), 0);
     weeklyTableHtml = `
       <div style="background:var(--bg);border:1px solid var(--border);border-radius:14px;padding:14px 16px;">
-        <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;">📋 Tabla semanal</div>
+        <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;">📋 Tabla por ${periodTitle}</div>
         <div class="table-wrap">
           <table class="table" style="font-size:12px;">
             <thead><tr>
-              <th style="text-align:left;">Semana</th>
+              <th style="text-align:left;">${byMonth?'Mes':'Semana'}</th>
               <th style="text-align:right;">Publicaciones</th>
               <th>Top plataforma creativa</th>
             </tr></thead>
@@ -6120,7 +6144,7 @@ function _renderTrackerSummaryAndTable() {
                 const tot = Object.values(timelineMap[w]).reduce((a,b)=>a+b,0);
                 const top = Object.entries(timelineMap[w]).sort((a,b)=>b[1]-a[1])[0];
                 return `<tr>
-                  <td style="white-space:nowrap;">${weekLabel(w)}</td>
+                  <td style="white-space:nowrap;">${periodLabel(w)}</td>
                   <td style="text-align:right;font-weight:700;">${tot}</td>
                   <td><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:${creativaColor(top[0])};vertical-align:middle;margin-right:4px;"></span>${top[0]} <span style="color:var(--text-muted);">(${top[1]})</span></td>
                 </tr>`;
@@ -7099,6 +7123,8 @@ function updateFlowStep(cid, idx, status) {
 let _trackerAllRows = [];
 let _trackerBatchFilter = 'all';
 let _trackerStatusFilter = null;
+let _trackerTimeView = 'week'; // 'week' | 'month' — timeline grouping
+function setTrackerTimeView(v) { _trackerTimeView = v; _renderTrackerSummaryAndTable(); }
 let _trackerAutoRefreshTimer = null;
 let currentFilter = 'hoy';
 let filterByUser = '';
