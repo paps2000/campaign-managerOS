@@ -6065,7 +6065,11 @@ function _renderTrackerSummaryAndTable() {
   const periodLabel = byMonth ? monthLabel : weekLabel;
   const periodTitle = byMonth ? 'mes' : 'semana';
 
-  const timelineMap = {}; // period → {creativa → count}
+  // Boost detection: master tracker marks boosted content with a checkbox,
+  // which exports as TRUE / VERDADERO / sí / x / 1.
+  const _isBoosted = v => /^(true|verdadero|s[ií]|x|1|✓|yes)$/i.test(String(v||'').trim());
+  const timelineMap = {};  // period → {creativa → count}
+  const boostMap = {};     // period → boosted count
   rows.forEach(r => {
     const iso = _trackerRowDate(r);
     const pk = periodKey(iso);
@@ -6073,6 +6077,7 @@ function _renderTrackerSummaryAndTable() {
     const cv = gst(r,'PLATAFORMA CREATIVA','Plataforma Creativa','LINEA','LÍNEA','CREATIVIDAD') || 'Sin clasificar';
     if(!timelineMap[pk]) timelineMap[pk] = {};
     timelineMap[pk][cv] = (timelineMap[pk][cv]||0) + 1;
+    if(_isBoosted(gst(r,'BOOST','Boost'))) boostMap[pk] = (boostMap[pk]||0) + 1;
   });
   // Cap to most recent N periods so the SVG chart doesn't render thousands
   // of pixels wide for trackers spanning multiple years.
@@ -6100,6 +6105,10 @@ function _renderTrackerSummaryAndTable() {
     const yScale = v => pad.t + (H - pad.t - pad.b) * (1 - v/yMax);
     const xPos = i => pad.l + i*xStep;
     const points = totals.map((t,i)=>`${xPos(i).toFixed(1)},${yScale(t).toFixed(1)}`).join(' ');
+    const boostTotals = weeks.map(w => boostMap[w]||0);
+    const boostPoints = boostTotals.map((t,i)=>`${xPos(i).toFixed(1)},${yScale(t).toFixed(1)}`).join(' ');
+    const boostDots = boostTotals.map((t,i)=>`<circle cx="${xPos(i).toFixed(1)}" cy="${yScale(t).toFixed(1)}" r="3" fill="#2c6dff" stroke="var(--white)" stroke-width="1.5"><title>Boost ${periodLabel(weeks[i])}: ${t}</title></circle>`).join('');
+    const hasBoost = boostTotals.some(t=>t>0);
     const ticks = Math.min(yMax, 5);
     const yAxis = Array.from({length: ticks+1}, (_,k)=> {
       const v = Math.round((yMax/ticks)*k);
@@ -6113,11 +6122,17 @@ function _renderTrackerSummaryAndTable() {
       <div style="background:var(--bg);border:1px solid var(--border);border-radius:14px;padding:14px 16px;">
         <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;">📈 Publicaciones por ${periodTitle}</div>
         ${timeToggleHtml}
+        <div style="display:flex;gap:14px;font-size:11px;margin-bottom:6px;">
+          <span style="display:inline-flex;align-items:center;gap:5px;"><span style="width:14px;height:3px;background:var(--pink);border-radius:2px;display:inline-block;"></span>Total</span>
+          ${hasBoost?`<span style="display:inline-flex;align-items:center;gap:5px;"><span style="width:14px;height:3px;background:#2c6dff;border-radius:2px;display:inline-block;"></span>Con boost</span>`:''}
+        </div>
         <div style="overflow-x:auto;">
           <svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" preserveAspectRatio="xMinYMid meet" style="display:block;">
             ${yAxis}
             <polyline points="${points}" fill="none" stroke="var(--pink)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+            ${hasBoost?`<polyline points="${boostPoints}" fill="none" stroke="#2c6dff" stroke-width="2" stroke-dasharray="4 3" stroke-linejoin="round" stroke-linecap="round"/>`:''}
             ${dots}
+            ${hasBoost?boostDots:''}
             ${valLabels}
             ${xLabels}
           </svg>
@@ -6137,20 +6152,23 @@ function _renderTrackerSummaryAndTable() {
             <thead><tr>
               <th style="text-align:left;">${byMonth?'Mes':'Semana'}</th>
               <th style="text-align:right;">Publicaciones</th>
+              <th style="text-align:right;">Con boost</th>
               <th>Top plataforma creativa</th>
             </tr></thead>
             <tbody>
               ${weeks.map(w => {
                 const tot = Object.values(timelineMap[w]).reduce((a,b)=>a+b,0);
+                const bst = boostMap[w]||0;
                 const top = Object.entries(timelineMap[w]).sort((a,b)=>b[1]-a[1])[0];
                 return `<tr>
                   <td style="white-space:nowrap;">${periodLabel(w)}</td>
                   <td style="text-align:right;font-weight:700;">${tot}</td>
+                  <td style="text-align:right;font-weight:700;color:${bst?'#2c6dff':'var(--text-muted)'};">${bst?('🚀 '+bst):'—'}</td>
                   <td><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:${creativaColor(top[0])};vertical-align:middle;margin-right:4px;"></span>${top[0]} <span style="color:var(--text-muted);">(${top[1]})</span></td>
                 </tr>`;
               }).join('')}
               <tr style="border-top:2px solid var(--border);font-weight:800;">
-                <td>Total</td><td style="text-align:right;">${totalAll}</td><td></td>
+                <td>Total</td><td style="text-align:right;">${totalAll}</td><td style="text-align:right;color:#2c6dff;">${Object.values(boostMap).reduce((a,b)=>a+b,0)||0}</td><td></td>
               </tr>
             </tbody>
           </table>
