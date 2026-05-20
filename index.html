@@ -2382,6 +2382,13 @@ html.dark .glass-orb-5 { background: radial-gradient(circle, rgba(122,61,240,.22
 /* app wrapper sits above the orb canvas */
 .sidebar, .main { position: relative; z-index: 1; }
 
+/* Dark mode: black-brand platform badges (TikTok, X) need light text/bg */
+html.dark .plat-badge[data-plat="TikTok"],
+html.dark .plat-badge[data-plat="Twitter/X"] {
+  color:#fff !important;
+  background:rgba(255,255,255,.14) !important;
+}
+
 /* ─────────────────────── AI COMPANION ─────────────────────── */
 .ai-fab {
   position:fixed; right:22px; bottom:22px; z-index:9000;
@@ -3847,7 +3854,15 @@ function platformBadge(pf) {
   const key = _normalizePlatform(pf);
   const icon = key ? icons[key] : null;
   if(!icon) { const t = String(pf||'').trim(); return `<span style="font-size:11px;color:var(--text-muted);">${t||'—'}</span>`; }
-  return `<span style="display:inline-flex;align-items:center;gap:5px;padding:2px 8px 2px 3px;border-radius:20px;background:${colors[key]}18;font-size:11px;font-weight:700;color:${colors[key]};white-space:nowrap;"><span style="width:18px;height:18px;display:inline-flex;flex-shrink:0;">${icon}</span>${key}</span>`;
+  return `<span class="plat-badge" data-plat="${key}" style="display:inline-flex;align-items:center;gap:5px;padding:2px 8px 2px 3px;border-radius:20px;background:${colors[key]}18;font-size:11px;font-weight:700;color:${colors[key]};white-space:nowrap;"><span style="width:18px;height:18px;display:inline-flex;flex-shrink:0;">${icon}</span>${key}</span>`;
+}
+
+// Render every platform a creator is active on (array or comma string).
+function platformBadges(platforms) {
+  const arr = Array.isArray(platforms) ? platforms : String(platforms||'').split(',');
+  const seen = new Set(); const out = [];
+  arr.forEach(p => { const k = _normalizePlatform(p) || String(p||'').trim(); if(k && !seen.has(k)) { seen.add(k); out.push(platformBadge(p)); } });
+  return out.join(' ');
 }
 
 // ============================================================
@@ -9918,17 +9933,47 @@ function _isRealCreatorName(raw) {
 
 function getAllInfluencers() {
   const map = {};
+  const ensure = (k, inf) => {
+    if(!map[k]) map[k] = { key:k, name:inf.name, handle:inf.handle||'', platform:inf.platform||'', platforms:[], _platSet:new Set(), campaigns:[] };
+    return map[k];
+  };
+  const addPlat = (entry, raw) => {
+    const norm = _normalizePlatform(raw) || String(raw||'').trim();
+    if(norm && !entry._platSet.has(norm)) { entry._platSet.add(norm); entry.platforms.push(norm); if(!entry.platform) entry.platform = norm; }
+  };
   _cache.campaigns.forEach(c => {
+    // 1) Imported influencer rows
     (c.influencers || []).forEach(inf => {
-      if(!_isRealCreatorName(inf.name)) return;   // skip non-creators
+      if(!_isRealCreatorName(inf.name)) return;
       const k = infKey(inf);
-      if (!map[k]) map[k] = { key: k, name: inf.name, handle: inf.handle || '', platform: inf.platform || '', campaigns: [] };
-      if (!map[k].campaigns.find(x => x.id === c.id)) {
-        map[k].campaigns.push({ id: c.id, name: c.name, client: c.client || '', status: c.status || '' });
-      }
+      const e = ensure(k, inf);
+      if(inf.platform) addPlat(e, inf.platform);
+      if(!e.handle && inf.handle) e.handle = inf.handle;
+      if(!e.campaigns.find(x => x.id === c.id)) e.campaigns.push({ id:c.id, name:c.name, client:c.client||'', status:c.status||'' });
     });
+    // 2) Scenario creators (multi-platform per creator)
+    (c.scenario && c.scenario.creators || []).forEach(cr => {
+      if(!_isRealCreatorName(cr.name)) return;
+      const k = infKey({ handle:'', name:cr.name });
+      const e = ensure(k, { name:cr.name });
+      (cr.platforms||[]).forEach(p => addPlat(e, p.contenidoTipo));
+      if(!e.campaigns.find(x => x.id === c.id)) e.campaigns.push({ id:c.id, name:c.name, client:c.client||'', status:c.status||'' });
+    });
+    // 3) Parsed escenario rows (sheet) — creator platform breakdown
+    try {
+      if(c.escenarioRows && c.escenarioRows.length && typeof parseEscenarioRows === 'function') {
+        const parsed = parseEscenarioRows(c.escenarioRows);
+        (parsed.creators||[]).forEach(cr => {
+          if(!_isRealCreatorName(cr.name)) return;
+          const k = infKey({ handle:'', name:cr.name });
+          const e = ensure(k, { name:cr.name });
+          (cr.platforms||[]).forEach(p => addPlat(e, p.platform));
+          if(!e.campaigns.find(x => x.id === c.id)) e.campaigns.push({ id:c.id, name:c.name, client:c.client||'', status:c.status||'' });
+        });
+      }
+    } catch(err){}
   });
-  return Object.values(map).sort((a, b) => a.name.localeCompare(b.name));
+  return Object.values(map).map(e => { delete e._platSet; return e; }).sort((a, b) => a.name.localeCompare(b.name));
 }
 
 function infRatingsFor(key) {
@@ -10347,7 +10392,7 @@ function renderInfluencers() {
           <div class="inf-avatar" style="width:40px;height:40px;font-size:15px;flex-shrink:0;">${(inf.name||'?')[0].toUpperCase()}</div>
           <div>
             <div class="campaign-name">${_esc(inf.name)}</div>
-            <div class="campaign-client">${inf.handle ? '<span style="color:var(--text-muted);font-size:11px;">@'+inf.handle+'</span>' : ''} ${inf.platform ? platformBadge(inf.platform) : ''}</div>
+            <div class="campaign-client" style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;">${inf.handle ? '<span style="color:var(--text-muted);font-size:11px;">@'+inf.handle+'</span>' : ''} ${(inf.platforms&&inf.platforms.length)?platformBadges(inf.platforms):(inf.platform?platformBadge(inf.platform):'')}</div>
           </div>
         </div>
       </div>
@@ -10370,7 +10415,7 @@ function openInfluencerDetail(key) {
   const inf = infs.find(x => x.key === key);
   if (!inf) return;
   document.getElementById('infDetailName').textContent = inf.name;
-  document.getElementById('infDetailHandle').innerHTML = (inf.handle ? '<span style="color:var(--text-muted);margin-right:6px;">@'+inf.handle+'</span>' : '') + (inf.platform ? platformBadge(inf.platform) : '');
+  document.getElementById('infDetailHandle').innerHTML = (inf.handle ? '<span style="color:var(--text-muted);margin-right:6px;">@'+inf.handle+'</span>' : '') + ((inf.platforms&&inf.platforms.length)?platformBadges(inf.platforms):(inf.platform?platformBadge(inf.platform):''));
   renderInfluencerDetailContent(inf);
   openModal('infDetailModal');
 }
