@@ -3014,10 +3014,18 @@ html.dark .ai-input-row textarea { background:rgba(255,255,255,.05); border-colo
             <div class="card"><div class="card-header"><span class="card-title">Share por plataforma</span></div><canvas id="platformShareChart" height="180"></canvas></div>
           </div>
           <div class="card">
-            <div class="card-header"><span class="card-title">Rendimiento por publicación</span></div>
+            <div class="card-header" style="flex-wrap:wrap;gap:8px;"><span class="card-title">Rendimiento por publicación</span><span style="font-size:11px;color:var(--text-muted);">Click en plataforma para filtrar · click en columna para ordenar</span></div>
+            <div id="metricsTableFilters" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;"></div>
             <div class="table-wrap">
               <table class="table">
-                <thead><tr><th>Influencer</th><th>Formato</th><th>Fecha</th><th>Plataforma</th><th>Vistas</th><th>Alcance</th><th>Likes</th><th>Engagement</th><th>ER</th></tr></thead>
+                <thead><tr>
+                  <th>Influencer</th><th>Formato</th><th>Fecha</th><th>Plataforma</th>
+                  <th class="m-sort" onclick="setMetricsSort('views')" style="cursor:pointer;">Vistas <span class="m-sort-ind" data-k="views"></span></th>
+                  <th class="m-sort" onclick="setMetricsSort('reach')" style="cursor:pointer;">Alcance <span class="m-sort-ind" data-k="reach"></span></th>
+                  <th class="m-sort" onclick="setMetricsSort('likes')" style="cursor:pointer;">Likes <span class="m-sort-ind" data-k="likes"></span></th>
+                  <th class="m-sort" onclick="setMetricsSort('eng')" style="cursor:pointer;">Engagement <span class="m-sort-ind" data-k="eng"></span></th>
+                  <th>ER</th>
+                </tr></thead>
                 <tbody id="metricsTable"></tbody>
               </table>
             </div>
@@ -7625,7 +7633,82 @@ function parseCSV(text) {
   return out;
 }
 
+// ---- Metrics table filter/sort state + shared row accessors ----
+let _metricsRows = [];
+let _metricsPlatFilter = null;       // canonical platform label or null
+let _metricsSortKey = null;          // 'views'|'reach'|'likes'|'eng'
+let _metricsSortDir = 'desc';        // 'desc'|'asc'
+function _mGi(r, ...keys){ for(const k of keys){ const kn=k.toLowerCase().replace(/_/g,' '); for(const rk of Object.keys(r)){ if(rk.toLowerCase().replace(/_/g,' ')===kn){ const v=Math.round(parseLocaleNumber(r[rk])); if(v) return v; } } } return 0; }
+function _mGs(r, ...keys){ for(const k of keys){ const kn=k.toLowerCase().replace(/_/g,' '); for(const rk of Object.keys(r)){ if(rk.toLowerCase().replace(/_/g,' ')===kn && r[rk]) return r[rk]; } } return '—'; }
+function _mViews(r){ return _mGi(r,'Views','Vistas','organic views','Total Views','Impresiones','Impressions','Reproducciones','Plays','Visualizaciones','Video Views'); }
+function _mLikes(r){ return _mGi(r,'Organic_Likes','Likes','Me gusta'); }
+function _mReach(r){ return _mGi(r,'Organic_Reach','Reach','Alcance'); }
+function _mEng(r){ const bd=_mGi(r,'Likes','Me gusta','organic likes')+_mGi(r,'Comments','Comentarios','organic comments')+_mGi(r,'Shares','Compartidos','organic shares')+_mGi(r,'Saves','Guardados','Saved','organic saves'); return bd>0?bd:_mGi(r,'Engagement','Interacciones','Interactions','Total Engagement','Engagements'); }
+function _mPlatformLabel(r){ const raw=_mGs(r,'Platform','Plataforma','Red Social','Network','Canal'); return (raw && raw!=='—') ? (_platformLabel(raw)) : 'Sin plataforma'; }
+
+function setMetricsSort(key){
+  if(_metricsSortKey===key){ _metricsSortDir = _metricsSortDir==='desc'?'asc':'desc'; }
+  else { _metricsSortKey = key; _metricsSortDir='desc'; }
+  _renderMetricsTable();
+}
+function setMetricsPlatformFilter(label){
+  _metricsPlatFilter = (_metricsPlatFilter===label) ? null : label;
+  _renderMetricsTable();
+}
+function _renderMetricsTable(){
+  const tb = document.getElementById('metricsTable');
+  if(!tb) return;
+  let view = _metricsRows.slice();
+  if(_metricsPlatFilter) view = view.filter(r => _mPlatformLabel(r) === _metricsPlatFilter);
+  if(_metricsSortKey){
+    const f = { views:_mViews, reach:_mReach, likes:_mLikes, eng:_mEng }[_metricsSortKey];
+    view.sort((a,b)=> _metricsSortDir==='desc' ? f(b)-f(a) : f(a)-f(b));
+  }
+  // Filter pills
+  const filterBar = document.getElementById('metricsTableFilters');
+  if(filterBar){
+    const counts = {};
+    _metricsRows.forEach(r=>{ const p=_mPlatformLabel(r); counts[p]=(counts[p]||0)+1; });
+    const pills = Object.entries(counts).sort((a,b)=>b[1]-a[1]);
+    filterBar.innerHTML = `<button class="metrics-tab-pill ${!_metricsPlatFilter?'active':''}" onclick="setMetricsPlatformFilter(null)">Todas (${_metricsRows.length})</button>` +
+      pills.map(([p,n])=>`<button class="metrics-tab-pill ${_metricsPlatFilter===p?'active':''}" onclick="setMetricsPlatformFilter('${String(p).replace(/'/g,"&#39;")}')">${_esc(p)} (${n})</button>`).join('');
+  }
+  // Sort indicators
+  document.querySelectorAll('.m-sort-ind').forEach(el=>{
+    el.textContent = (el.dataset.k===_metricsSortKey) ? (_metricsSortDir==='desc'?'▼':'▲') : '';
+  });
+  tb.innerHTML = view.length ? view.map(r=>`<tr>
+    <td>${_mGs(r,'Influencer Name','Influencer','Creator','Creador','Cuenta')}</td>
+    <td>${_mGs(r,'Formato','Format','Tipo','Type','Content Type')}</td>
+    <td>${_mGs(r,'Post Date','Campaign Date','Fecha','Date')}</td>
+    <td>${platformBadge(_mGs(r,'Platform','Plataforma','Red Social','Network','Canal'))}</td>
+    <td>${formatNum(_mViews(r))}</td>
+    <td>${formatNum(_mReach(r))}</td>
+    <td>${formatNum(_mLikes(r))}</td>
+    <td>${formatNum(_mEng(r))}</td>
+    <td>${_mGs(r,'ER% Profile Instagram','ER% Profile Tiktok','Engagement Rate','ER','Tasa Engagement')}</td>
+  </tr>`).join('') : `<tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:18px;">Sin resultados para este filtro.</td></tr>`;
+}
+
+// Donut legend that shows "Label: N (P%)" like the platform chart.
+function _donutLegendLabels(chart){
+  const ds = chart.data.datasets[0];
+  const total = (ds.data||[]).reduce((a,b)=>a+(Number(b)||0),0) || 1;
+  return chart.data.labels.map((lbl,i)=>{
+    const v = Number(ds.data[i])||0;
+    const pct = ((v/total)*100).toFixed(1);
+    return {
+      text: `${lbl}: ${formatNum(v)} (${pct}%)`,
+      fillStyle: Array.isArray(ds.backgroundColor)?ds.backgroundColor[i]:ds.backgroundColor,
+      strokeStyle: Array.isArray(ds.backgroundColor)?ds.backgroundColor[i]:ds.backgroundColor,
+      index: i,
+    };
+  });
+}
+
 function displayMetrics(rows, campaign) {
+  _metricsRows = rows || [];
+  _metricsPlatFilter = null; _metricsSortKey = null; _metricsSortDir = 'desc';
   // Case-insensitive, underscore/space-normalized key lookup
   const gi = (r, ...keys) => {
     for(const k of keys) {
@@ -7698,18 +7781,7 @@ function displayMetrics(rows, campaign) {
              + gi(r,'Saves','Guardados','Saved','organic saves');
     return bd>0 ? bd : gi(r,'Engagement','Interacciones','Interactions','Total Engagement','Engagements');
   };
-  const tb = document.getElementById('metricsTable');
-  tb.innerHTML = rows.map(r=>`<tr>
-    <td>${gs(r,'Influencer Name','Influencer','Creator','Creador','Cuenta')}</td>
-    <td>${gs(r,'Formato','Format','Tipo','Type','Content Type')}</td>
-    <td>${gs(r,'Post Date','Campaign Date','Fecha','Date')}</td>
-    <td>${platformBadge(gs(r,'Platform','Plataforma','Red Social','Network','Canal'))}</td>
-    <td>${formatNum(rowViews(r))}</td>
-    <td>${formatNum(gi(r,'Organic_Reach','Reach','Alcance'))}</td>
-    <td>${formatNum(gi(r,'Organic_Likes','Likes','Me gusta'))}</td>
-    <td>${formatNum(rowEng(r))}</td>
-    <td>${gs(r,'ER% Profile Instagram','ER% Profile Tiktok','Engagement Rate','ER','Tasa Engagement')}</td>
-  </tr>`).join('');
+  _renderMetricsTable();
 
   if(lineChartInst) lineChartInst.destroy();
   if(donutChartInst) donutChartInst.destroy();
@@ -7737,7 +7809,7 @@ function displayMetrics(rows, campaign) {
       backgroundColor: noDonutData ? ['#e5e7eb'] : donutBuckets.map(d=>d.c),
       borderWidth:0,hoverOffset:6
     }]
-  },options:{responsive:true,plugins:{legend:{position:'right',labels:{font:{size:12}}}},cutout:'65%'}});
+  },options:{responsive:true,plugins:{legend:{position:'right',labels:{font:{size:12},generateLabels:_donutLegendLabels}},tooltip:{callbacks:{label:ctx=>{const t=ctx.dataset.data.reduce((a,b)=>a+(Number(b)||0),0)||1;return ` ${ctx.label}: ${formatNum(ctx.parsed)} (${((ctx.parsed/t)*100).toFixed(1)}%)`;}}}},cutout:'65%'}});
 
   // ----- Platform distribution -----
   const platformCounts = {};
@@ -7769,9 +7841,10 @@ function displayMetrics(rows, campaign) {
       options:{
         responsive:true,
         indexAxis:'y',
+        onClick:(evt, els)=>{ if(els&&els.length){ const lbl = pfLabels[els[0].index]; setMetricsPlatformFilter(lbl); } },
         plugins:{
           legend:{display:false},
-          tooltip:{callbacks:{label:ctx=>` ${ctx.parsed.x} contenido${ctx.parsed.x===1?'':'s'}`}}
+          tooltip:{callbacks:{label:ctx=>` ${ctx.parsed.x} contenido${ctx.parsed.x===1?'':'s'} (click para filtrar)`}}
         },
         scales:{ x:{ beginAtZero:true, ticks:{ precision:0 } } }
       }
@@ -7793,12 +7866,13 @@ function displayMetrics(rows, campaign) {
       },
       options:{
         responsive:true,
+        onClick:(evt, els)=>{ if(els&&els.length){ const lbl = pfLabels[els[0].index]; setMetricsPlatformFilter(lbl); } },
         plugins:{
-          legend:{position:'right',labels:{font:{size:12}}},
+          legend:{position:'right',labels:{font:{size:12},generateLabels:_donutLegendLabels}},
           tooltip:{ callbacks:{ label:ctx=>{
             const total = pfData.reduce((a,b)=>a+b,0) || 1;
             const pct = ((ctx.parsed/total)*100).toFixed(1);
-            return ` ${ctx.label}: ${ctx.parsed} (${pct}%)`;
+            return ` ${ctx.label}: ${ctx.parsed} (${pct}%) — click para filtrar`;
           }}}
         },
         cutout:'60%'
