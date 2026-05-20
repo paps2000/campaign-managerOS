@@ -4056,6 +4056,33 @@ async function persistSettings(settings) {
   } catch(e) { console.error('persistSettings error',e); }
 }
 
+// --- Escenario sheet persistence (separate doc so the big rows array survives
+//     reloads without bloating the campaign doc). Stored under
+//     workspaces/<ws>/escenarios/<campaignId>. ---
+async function persistEscenario(campaignId, rows, url, lastSync) {
+  if(!currentUser || !campaignId) return;
+  try {
+    await db.collection('workspaces').doc(WORKSPACE).collection('escenarios').doc(campaignId)
+      .set({ rows: rows||[], url: url||'', lastSync: lastSync||Date.now(), _by: currentUser.uid }, {merge:true});
+  } catch(e) { console.error('persistEscenario error', e); }
+}
+async function loadEscenarioFromStore(campaign) {
+  if(!campaign || !campaign.id) return false;
+  try {
+    const doc = await db.collection('workspaces').doc(WORKSPACE).collection('escenarios').doc(campaign.id).get();
+    if(!doc.exists) return false;
+    const data = doc.data();
+    if(!data || !Array.isArray(data.rows) || !data.rows.length) return false;
+    campaign.escenarioRows = data.rows;
+    if(data.url && !campaign.escenarioSheetUrl) campaign.escenarioSheetUrl = data.url;
+    if(data.lastSync) campaign.escenarioLastSync = data.lastSync;
+    // mirror into cache entry
+    const cached = (_cache.campaigns||[]).find(x=>x.id===campaign.id);
+    if(cached && cached !== campaign) { cached.escenarioRows = data.rows; cached.escenarioLastSync = data.lastSync; if(data.url && !cached.escenarioSheetUrl) cached.escenarioSheetUrl = data.url; }
+    return true;
+  } catch(e) { console.error('loadEscenarioFromStore error', e); return false; }
+}
+
 // --- Realtime listeners ---
 function attachListeners() {
   // Detach any previous
@@ -6301,6 +6328,8 @@ async function _autoFetchEscenario(url, campaign) {
       campaigns[idx].escenarioLastSync = campaign.escenarioLastSync;
       setData('campaigns', campaigns);
     }
+    // Persist the parsed rows so they survive reloads (no re-sync needed).
+    persistEscenario(campaign.id, rows, url, campaign.escenarioLastSync);
     renderEscenarioBlock(campaign);
     showToast('Escenario sincronizado','success');
   } catch(e) {
@@ -6675,9 +6704,22 @@ function renderEscenarioBlock(c) {
     syncEl.textContent = 'Última sync: ' + new Date(c.escenarioLastSync).toLocaleString('es-MX',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
   }
   if(!c.escenarioRows || !c.escenarioRows.length) {
-    wrap.innerHTML = c.escenarioSheetUrl
+    wrap.innerHTML = (c.escenarioSheetUrl || !c._escenarioStoreChecked)
       ? `<div class="empty-state"><p>Cargando escenario...</p></div>`
       : `<div class="empty-state" style="padding:14px;"><p style="font-size:12px;">Vincula el escenario para ver views estimadas, contenidos cerrados y costos por creador</p></div>`;
+    // 1) First try the saved copy in Firestore (survives reloads, no re-sync).
+    if(!c._escenarioStoreChecked && !c._escenarioLoading) {
+      c._escenarioLoading = true;
+      loadEscenarioFromStore(c).then(found => {
+        c._escenarioStoreChecked = true;
+        c._escenarioLoading = false;
+        if(found) { renderEscenarioBlock(c); }
+        else if(c.escenarioSheetUrl && !c._escenarioFetching) { c._escenarioFetching=true; _autoFetchEscenario(c.escenarioSheetUrl, c).finally(()=>{c._escenarioFetching=false;}); }
+        else { renderEscenarioBlock(c); }
+      });
+      return;
+    }
+    // 2) No saved copy — fall back to live fetch if a URL is linked.
     if(c.escenarioSheetUrl && !c._escenarioFetching) { c._escenarioFetching=true; _autoFetchEscenario(c.escenarioSheetUrl, c).finally(()=>{c._escenarioFetching=false;}); }
     return;
   }
