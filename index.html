@@ -3498,6 +3498,34 @@ html.dark .ai-input-row textarea { background:rgba(255,255,255,.05); border-colo
   </div>
 </div>
 
+<!-- MODAL: ESCENARIO — agregar desde creadores anteriores -->
+<div class="modal-overlay" id="scnPickModal">
+  <div class="modal" style="width:520px;max-height:88vh;display:flex;flex-direction:column;">
+    <div class="modal-header">
+      <div class="modal-title">Agregar creador existente</div>
+      <button class="modal-close" onclick="closeModal('scnPickModal')"><span class="icn-close"></span></button>
+    </div>
+    <div style="padding:4px 0 0;display:flex;flex-direction:column;gap:10px;flex:1;min-height:0;">
+      <input type="search" id="scnPickSearch" class="form-input" placeholder="Buscar creador..." oninput="_scnRenderPickList()">
+      <div id="scnPickList" style="overflow-y:auto;flex:1;min-height:120px;max-height:300px;border:1px solid var(--border);border-radius:12px;padding:6px;"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div>
+          <label class="form-label">Plataforma</label>
+          <select class="form-input" id="scnPickPlatform"></select>
+        </div>
+        <div>
+          <label class="form-label">Tipo de contenido</label>
+          <input class="form-input" id="scnPickTipo" placeholder="Reel, Post, Story...">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('scnPickModal')">Cancelar</button>
+      <button class="btn btn-primary" id="scnPickAddBtn" onclick="_scnPickConfirm()" disabled>Agregar al escenario</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL: ESCENARIO — editor full -->
 <div class="modal-overlay" id="scenarioModal">
   <div class="modal" style="width:min(1180px,96vw);max-height:94vh;display:flex;flex-direction:column;padding:0;">
@@ -10351,19 +10379,68 @@ function scenarioAddCreator(seed) {
   _renderScenario();
 }
 
+let _scnPickName = null;
 function scenarioPickExisting() {
   const infs = getAllInfluencers();
   if(!infs.length) { showToast('No hay creadores anteriores registrados','error'); return; }
-  const existing = new Set((_scenarioState.creators||[]).map(c=>(c.name||'').toLowerCase()));
-  const opts = infs.filter(i=>!existing.has((i.name||'').toLowerCase()));
-  if(!opts.length) { showToast('Ya agregaste a todos los creadores disponibles','error'); return; }
-  // Simple prompt-based picker
-  const list = opts.map((i,idx)=>`${idx+1}. ${i.name}${i.platform?' ('+i.platform+')':''}`).join('\n');
-  const pick = prompt('Escribe el número del creador a agregar:\n\n'+list);
-  const idx = parseInt(pick)-1;
-  if(isNaN(idx) || idx<0 || idx>=opts.length) return;
-  const inf = opts[idx];
-  scenarioAddCreator({ id:_scnId(), name:inf.name, tier:'', platforms:[_newScnLine({ contenidoTipo: inf.platform||'' })] });
+  _scnPickName = null;
+  document.getElementById('scnPickSearch').value = '';
+  document.getElementById('scnPickTipo').value = '';
+  const platSel = document.getElementById('scnPickPlatform');
+  platSel.innerHTML = SCENARIO_PLATFORMS.map(p=>`<option>${p}</option>`).join('');
+  document.getElementById('scnPickAddBtn').disabled = true;
+  _scnRenderPickList();
+  openModal('scnPickModal');
+}
+
+function _scnRenderPickList() {
+  const q = (document.getElementById('scnPickSearch').value||'').toLowerCase();
+  let infs = getAllInfluencers();
+  if(q) infs = infs.filter(i => (i.name||'').toLowerCase().includes(q) || (i.handle||'').toLowerCase().includes(q));
+  const list = document.getElementById('scnPickList');
+  if(!infs.length) { list.innerHTML = '<div style="padding:16px;text-align:center;color:var(--text-muted);font-size:12px;">Sin resultados.</div>'; return; }
+  list.innerHTML = infs.map(i=>{
+    const sel = _scnPickName && _scnPickName.toLowerCase()===(i.name||'').toLowerCase();
+    const plats = (i.platforms&&i.platforms.length)?platformBadges(i.platforms):(i.platform?platformBadge(i.platform):'');
+    return `<div onclick="_scnPickSelect('${(i.name||'').replace(/'/g,"\\'")}')" style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:10px;cursor:pointer;${sel?'background:var(--pink-pale);border:1px solid var(--pink);':'border:1px solid transparent;'}">
+      <div class="inf-avatar" style="width:28px;height:28px;font-size:11px;flex-shrink:0;">${(i.name||'?')[0]}</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_esc(i.name)}</div>
+        <div style="display:flex;gap:3px;flex-wrap:wrap;margin-top:2px;">${plats}</div>
+      </div>
+      ${sel?'<span style="color:var(--pink);font-weight:700;">✓</span>':''}
+    </div>`;
+  }).join('');
+}
+
+function _scnPickSelect(name) {
+  _scnPickName = name;
+  // Pre-select first known platform of this creator if available
+  const inf = getAllInfluencers().find(i=>(i.name||'').toLowerCase()===name.toLowerCase());
+  if(inf && inf.platforms && inf.platforms.length) {
+    const platSel = document.getElementById('scnPickPlatform');
+    const match = SCENARIO_PLATFORMS.indexOf(inf.platforms[0]);
+    if(match>=0) platSel.value = inf.platforms[0];
+  }
+  document.getElementById('scnPickAddBtn').disabled = false;
+  _scnRenderPickList();
+}
+
+function _scnPickConfirm() {
+  if(!_scnPickName) { showToast('Selecciona un creador','error'); return; }
+  const platform = document.getElementById('scnPickPlatform').value || 'Instagram';
+  const tipo = (document.getElementById('scnPickTipo').value||'').trim();
+  const line = _newScnLine({ platform, contenidoTipo: tipo });
+  // If creator already in scenario, append a line; else add new creator.
+  const existing = (_scenarioState.creators||[]).find(c=>(c.name||'').toLowerCase()===_scnPickName.toLowerCase());
+  if(existing) {
+    existing.platforms.push(line);
+  } else {
+    _scenarioState.creators.push({ id:_scnId(), name:_scnPickName, tier:'', platforms:[line] });
+  }
+  closeModal('scnPickModal');
+  _renderScenario();
+  showToast('Creador agregado','success');
 }
 
 // ---- Save ----
