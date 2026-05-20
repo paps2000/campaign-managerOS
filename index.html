@@ -3845,18 +3845,28 @@ const ICN_youtube = `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"
 const ICN_twitter = `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><rect width="24" height="24" rx="6" fill="#000000"/><path d="M17.8 4.5h2.3l-5 5.7 5.9 7.8h-4.6l-3.6-4.7-4.2 4.7H5.3l5.4-6.1L5 4.5h4.7l3.2 4.3 3.9-4.3zm-.8 12h1.3L7.1 5.7H5.7L17 16.5z" fill="white"/></svg>`;
 const ICN_facebook = `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><rect width="24" height="24" rx="6" fill="#1877F2"/><path d="M15.9 13.5l.4-2.9h-2.8v-1.9c0-.8.4-1.6 1.6-1.6h1.2V4.6S15.3 4.4 14 4.4c-2.3 0-3.8 1.4-3.8 3.9v2.3H7.7v2.9h2.5V21c.5.1 1 .1 1.5.1s1 0 1.5-.1v-7.5h2.7z" fill="white"/></svg>`;
 
-// Normalize any platform string (IG, tiktok, YT, X, etc.) → canonical key.
+// Normalize any platform string (IG, tiktok, YT, X, "FB REEL", etc.) → canonical key.
 function _normalizePlatform(pf) {
-  const k = String(pf||'').toLowerCase().normalize('NFD').replace(/[^a-z0-9]/g,'').trim();
+  const raw = String(pf||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+  const k = raw.replace(/[^a-z0-9]/g,'').trim();
   if(!k) return null;
+  // 1) Exact alias match
   const map = {
-    instagram:'Instagram', ig:'Instagram', insta:'Instagram', reels:'Instagram',
+    instagram:'Instagram', ig:'Instagram', insta:'Instagram', reel:'Instagram', reels:'Instagram', story:'Instagram', stories:'Instagram', post:'Instagram',
     tiktok:'TikTok', tt:'TikTok', tik:'TikTok',
-    youtube:'YouTube', yt:'YouTube', shorts:'YouTube', ytshorts:'YouTube',
+    youtube:'YouTube', yt:'YouTube', shorts:'YouTube', short:'YouTube', ytshorts:'YouTube',
     twitter:'Twitter/X', x:'Twitter/X', tweet:'Twitter/X', twitterx:'Twitter/X',
-    facebook:'Facebook', fb:'Facebook', face:'Facebook',
+    facebook:'Facebook', fb:'Facebook', face:'Facebook', fbreel:'Facebook',
   };
-  return map[k] || null;
+  if(map[k]) return map[k];
+  // 2) Substring detection (handles "FB REEL", "TIKTOK ORGÁNICO", "SHORT (REPLICA)").
+  //    Order matters: most specific / brand-named first so "FB REEL" → Facebook.
+  if(/tiktok|tik\b|\btt\b/.test(raw)) return 'TikTok';
+  if(/youtube|\byt\b|short/.test(raw)) return 'YouTube';
+  if(/facebook|\bfb\b/.test(raw)) return 'Facebook';
+  if(/twitter|tweet|\bx\b/.test(raw)) return 'Twitter/X';
+  if(/instagram|\big\b|insta|reel|story|stories/.test(raw)) return 'Instagram';
+  return null;
 }
 
 // Platform badge — colored pill with brand icon. Accepts any alias.
@@ -5274,7 +5284,7 @@ function renderCampaignInfluencers(c) {
     if(c.escenarioRows && c.escenarioRows.length && typeof parseEscenarioRows==='function') {
       const parsed = parseEscenarioRows(c.escenarioRows);
       (parsed.creators||[]).forEach(cr => {
-        escPlatByName[(cr.name||'').toLowerCase()] = (cr.platforms||[]).map(x=>x.platform).filter(Boolean);
+        escPlatByName[(cr.nombre||cr.name||'').toLowerCase()] = (cr.platforms||[]).map(x=>x.platform||x.contenido).filter(Boolean);
       });
     }
   } catch(e){}
@@ -10011,10 +10021,11 @@ function getAllInfluencers() {
       if(c.escenarioRows && c.escenarioRows.length && typeof parseEscenarioRows === 'function') {
         const parsed = parseEscenarioRows(c.escenarioRows);
         (parsed.creators||[]).forEach(cr => {
-          if(!_isRealCreatorName(cr.name)) return;
-          const k = infKey({ handle:'', name:cr.name });
-          const e = ensure(k, { name:cr.name });
-          (cr.platforms||[]).forEach(p => addPlat(e, p.platform));
+          const nm = cr.nombre || cr.name;
+          if(!_isRealCreatorName(nm)) return;
+          const k = infKey({ handle:'', name:nm });
+          const e = ensure(k, { name:nm });
+          (cr.platforms||[]).forEach(p => addPlat(e, p.platform||p.contenido));
           if(!e.campaigns.find(x => x.id === c.id)) e.campaigns.push({ id:c.id, name:c.name, client:c.client||'', status:c.status||'' });
         });
       }
