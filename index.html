@@ -2063,14 +2063,26 @@ html.dark .table th { color: #7a7890 !important; }
 
 /* Team cards */
 .team-card {
-  background: rgba(255,255,255,0.52) !important;
+  background: rgba(255,255,255,0.72) !important;
   backdrop-filter: blur(20px) saturate(180%) !important;
   -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
-  border: 1px solid rgba(255,255,255,0.78) !important;
+  border: 1px solid rgba(255,255,255,0.85) !important;
   box-shadow:
     inset 0 1.5px 0 rgba(255,255,255,0.95),
     0 4px 20px rgba(10,10,12,0.06) !important;
 }
+
+/* Dark mode: solid dark glass + readable text (light-on-light made cards vanish) */
+html.dark .team-card {
+  background: rgba(34,34,44,0.82) !important;
+  border: 1px solid rgba(255,255,255,0.10) !important;
+  box-shadow:
+    inset 0 1.5px 0 rgba(255,255,255,0.06),
+    0 8px 26px rgba(0,0,0,0.40) !important;
+}
+html.dark .team-card .team-card-name { color:#f4f3f8 !important; }
+html.dark .team-card .team-card-role { color:rgba(244,243,248,0.62) !important; }
+html.dark .team-card .team-card-status { background:rgba(255,255,255,0.08) !important; color:rgba(244,243,248,0.72) !important; }
 
 /* ── 6. MODALS — floating glass ── */
 .modal {
