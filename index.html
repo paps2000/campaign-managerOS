@@ -2792,6 +2792,12 @@ html.dark .ai-input-row textarea { background:rgba(255,255,255,.05); border-colo
           <h3 style="font-size:28px;font-weight:700;letter-spacing:-0.4px;">Todas las campañas</h3>
           <button class="btn btn-primary" onclick="openNewCampaignModal()">+ Nueva campaña</button>
         </div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
+          <input type="text" id="campFilterSearch" class="form-input" style="flex:1;min-width:200px;font-size:13px;" placeholder="Buscar por nombre o cliente..." oninput="renderCampaignGrid()">
+          <div id="campStatusPills" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+          <button class="btn btn-ghost btn-sm" onclick="saveCampaignView()" title="Guardar filtros actuales como vista">💾 Guardar vista</button>
+        </div>
+        <div id="campSavedViews" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;"></div>
         <div class="campaign-grid" id="campaignGrid"></div>
       </div>
 
@@ -2808,6 +2814,7 @@ html.dark .ai-input-row textarea { background:rgba(255,255,255,.05); border-colo
               <div class="detail-subtitle" id="detailCampaignSub"></div>
             </div>
             <div style="display:flex;gap:8px;">
+              <button class="btn btn-ghost btn-sm" onclick="downloadCampaignReport()" title="Descargar reporte de resultados">📄 Descargar resultados</button>
               <button class="btn btn-ghost btn-sm" onclick="openEditCampaignModal()"><span class="icn-edit"></span> Editar</button>
               <button class="btn btn-ghost btn-sm" onclick="deleteCampaign()" style="color:var(--red);"><span class="icn-trash"></span> Eliminar</button>
               <button class="btn btn-primary btn-sm" onclick="openAddTaskModal()">+ Tarea</button>
@@ -2843,7 +2850,10 @@ html.dark .ai-input-row textarea { background:rgba(255,255,255,.05); border-colo
           <div id="escenarioBlock" style="margin-bottom:20px;"></div>
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
             <h4 style="font-size:13px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;">Influencers en esta campaña</h4>
-            <button class="btn btn-primary btn-sm" onclick="openAddInfluencerModal()">+ Agregar influencer</button>
+            <div style="display:flex;gap:8px;">
+              <button class="btn btn-ghost btn-sm" onclick="openBulkImportModal()">⬇ Importar lista</button>
+              <button class="btn btn-primary btn-sm" onclick="openAddInfluencerModal()">+ Agregar influencer</button>
+            </div>
           </div>
           <div class="card">
             <div class="table-wrap">
@@ -2911,6 +2921,13 @@ html.dark .ai-input-row textarea { background:rgba(255,255,255,.05); border-colo
           <div class="card" style="margin-bottom:16px;">
             <div class="card-header"><span class="card-title">Flujo de campaña</span></div>
             <div class="flow-list" id="campaignFlowList"></div>
+          </div>
+          <div class="card" style="margin-bottom:16px;">
+            <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
+              <span class="card-title">Aprobación de contenidos</span>
+              <button class="btn btn-primary btn-sm" onclick="openApprovalModal()">+ Agregar contenido</button>
+            </div>
+            <div id="campaignApprovalList" style="padding:4px 0;"></div>
           </div>
         </div>
       </div>
@@ -4724,15 +4741,58 @@ function renderDashboard() {
 // ============================================================
 // CAMPAÑAS
 // ============================================================
+const CAMP_STATUSES = ['En proceso','Ajustes','Pendiente cliente','En reporte','En producción','Completado'];
+let _campStatusFilter = '';
+function setCampStatusFilter(s) { _campStatusFilter = (_campStatusFilter===s)?'':s; renderCampaignGrid(); }
+function _getCampViews() { try { return JSON.parse(localStorage.getItem('cmos:campViews')||'[]'); } catch(e){ return []; } }
+function saveCampaignView() {
+  const search = (document.getElementById('campFilterSearch')?.value||'').trim();
+  if(!search && !_campStatusFilter) { showToast('Aplica un filtro antes de guardar','error'); return; }
+  const name = prompt('Nombre de la vista:', _campStatusFilter || search || 'Vista');
+  if(!name) return;
+  const views = _getCampViews();
+  views.push({ name: name.trim(), search, status: _campStatusFilter });
+  try { localStorage.setItem('cmos:campViews', JSON.stringify(views.slice(-12))); } catch(e){}
+  renderCampaignGrid();
+  showToast('Vista guardada','success');
+}
+function applyCampaignView(i) {
+  const v = _getCampViews()[i]; if(!v) return;
+  _campStatusFilter = v.status||'';
+  const inp = document.getElementById('campFilterSearch'); if(inp) inp.value = v.search||'';
+  renderCampaignGrid();
+}
+function deleteCampaignView(i, e) {
+  if(e) e.stopPropagation();
+  const views = _getCampViews(); views.splice(i,1);
+  try { localStorage.setItem('cmos:campViews', JSON.stringify(views)); } catch(e){}
+  renderCampaignGrid();
+}
 function renderCampaignGrid() {
-  const campaigns = _cache.campaigns;
+  // Status filter pills
+  const pillWrap = document.getElementById('campStatusPills');
+  if(pillWrap) pillWrap.innerHTML = CAMP_STATUSES.map(s=>`<button class="metrics-tab-pill ${_campStatusFilter===s?'active':''}" onclick="setCampStatusFilter('${s}')">${s}</button>`).join('');
+  // Saved views
+  const svWrap = document.getElementById('campSavedViews');
+  if(svWrap) {
+    const views = _getCampViews();
+    svWrap.innerHTML = views.length
+      ? '<span style="font-size:11px;color:var(--text-muted);align-self:center;">Vistas:</span>' + views.map((v,i)=>`<span class="metrics-tab-pill" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;" onclick="applyCampaignView(${i})">${_esc(v.name)}<span onclick="deleteCampaignView(${i},event)" style="opacity:.6;">✕</span></span>`).join('')
+      : '';
+  }
+  const q = (document.getElementById('campFilterSearch')?.value||'').toLowerCase().trim();
+  const campaigns = _cache.campaigns.filter(c => {
+    if(_campStatusFilter && c.status !== _campStatusFilter) return false;
+    if(q && !((c.name||'').toLowerCase().includes(q) || (c.client||'').toLowerCase().includes(q))) return false;
+    return true;
+  });
   const grid = document.getElementById('campaignGrid');
   const statusBadge = (s) => {
     const map = {'En proceso':'badge-blue','Ajustes':'badge-yellow','Pendiente cliente':'badge-orange','En reporte':'badge-red','En producción':'badge-purple','Completado':'badge-green'};
     return `<span class="badge ${map[s]||'badge-gray'}">${s}</span>`;
   };
   if(campaigns.length===0) {
-    grid.innerHTML=`<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">${ICN_clipboard}</div><p>No hay campañas. ¡Crea la primera!</p></div>`;
+    grid.innerHTML=`<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">${ICN_clipboard}</div><p>${(q||_campStatusFilter)?'Sin campañas con esos filtros.':'No hay campañas. ¡Crea la primera!'}</p></div>`;
     return;
   }
   grid.innerHTML = campaigns.map(c=>{
@@ -4923,6 +4983,7 @@ function openCampaignDetail(cid) {
   renderCampaignTasks(c);
   renderCampaignDocs(c);
   renderCampaignFlow(c);
+  try { renderCampaignApproval(c); } catch(e){ console.warn('approval render', e); }
   renderCampaignTracker(c);
   renderCampaignMetricsSection(c);
   try { renderCampaignClients(c); } catch(e){ console.warn('clients render', e); }
@@ -5559,22 +5620,60 @@ function initNotifications() {
     _notifs = snap.docs.map(d=>({id:d.id,...d.data()}));
     _renderNotifBell();
   }, () => {});
+  // Refresh deadline notifications periodically + once now (Firestore snapshot
+  // may not fire, so this guarantees time-based alerts appear).
+  _renderNotifBell();
+  if(_deadlineTimer) clearInterval(_deadlineTimer);
+  _deadlineTimer = setInterval(_renderNotifBell, 30 * 60 * 1000);
+}
+let _deadlineTimer = null;
+
+// --- Deadline (time-based) notifications, computed locally (no Firestore) ---
+const DEADLINE_WARN_DAYS = 3; // avisar cuando falten ≤3 días
+function _dlSeen() { try { return new Set(JSON.parse(localStorage.getItem('cmos:dlSeen')||'[]')); } catch(e){ return new Set(); } }
+function _dlMarkSeen(id) {
+  const s = _dlSeen(); s.add(id);
+  try { localStorage.setItem('cmos:dlSeen', JSON.stringify([...s].slice(-200))); } catch(e){}
+}
+function _computeDeadlineNotifs() {
+  if(!currentUser) return [];
+  const seen = _dlSeen();
+  const today = new Date(); today.setHours(0,0,0,0);
+  const out = [];
+  const consider = (t, campaignName) => {
+    if(t.done || !t.dueDate) return;
+    if(t.assigneeUid && t.assigneeUid !== currentUser.uid) return;
+    const due = new Date(t.dueDate+'T00:00:00'); if(isNaN(due)) return;
+    const days = Math.round((due - today)/86400000);
+    if(days > DEADLINE_WARN_DAYS) return;
+    const id = 'dl_'+(t.id||t.title)+'_'+t.dueDate;
+    const where = campaignName ? ` · ${campaignName}` : '';
+    const text = days < 0 ? `⏰ Tarea vencida hace ${-days}d: "${t.title}"${where}`
+      : days === 0 ? `⏰ Tarea vence HOY: "${t.title}"${where}`
+      : `⏰ Tarea vence en ${days}d: "${t.title}"${where}`;
+    out.push({ id, type:'deadline', text, read: seen.has(id), createdAt: due.getTime(), _sort: days });
+  };
+  (getData('globalTasks')||[]).forEach(t=>consider(t,''));
+  (getData('campaigns')||[]).forEach(c => (c.tasks||[]).forEach(t=>consider(t,c.name)));
+  return out.sort((a,b)=>a._sort-b._sort);
 }
 
 function _renderNotifBell() {
-  const unread = _notifs.filter(n=>!n.read).length;
+  const deadlines = _computeDeadlineNotifs();
+  const all = [...deadlines, ..._notifs];
+  const unread = all.filter(n=>!n.read).length;
   _setTBadge('notifBadge', unread);
   const list = document.getElementById('notifList');
   if(!list) return;
-  if(!_notifs.length) { list.innerHTML='<div class="notif-empty">Sin notificaciones 🎉</div>'; return; }
-  list.innerHTML = _notifs.map(n => {
-    const ago = _timeAgo(n.createdAt?.toDate ? n.createdAt.toDate() : new Date(n.createdAt||Date.now()));
-    const icon = n.type==='kudos'?'🏆':n.type==='task_assigned'?'✅':'💬';
+  if(!all.length) { list.innerHTML='<div class="notif-empty">Sin notificaciones 🎉</div>'; return; }
+  list.innerHTML = all.map(n => {
+    const ago = n.type==='deadline' ? '' : _timeAgo(n.createdAt?.toDate ? n.createdAt.toDate() : new Date(n.createdAt||Date.now()));
+    const icon = n.type==='kudos'?'🏆':n.type==='task_assigned'?'✅':n.type==='deadline'?'⏰':'💬';
     return `<div class="notif-item ${n.read?'':'unread'}" onclick="markNotifRead('${n.id}')">
       <div class="notif-avatar">${icon}</div>
       <div class="notif-body">
         <p>${n.text||''}</p>
-        <time>${ago}</time>
+        ${ago?`<time>${ago}</time>`:''}
       </div>
     </div>`;
   }).join('');
@@ -5608,14 +5707,17 @@ function _closeNotifOnOutside(e) {
 }
 
 async function markNotifRead(nid) {
+  if(String(nid).startsWith('dl_')) { _dlMarkSeen(nid); _renderNotifBell(); return; }
   try {
     await db.collection('workspaces').doc(WORKSPACE).collection('notifications').doc(nid).update({read:true});
   } catch(e) {}
 }
 
 async function markAllNotifsRead() {
+  _computeDeadlineNotifs().filter(n=>!n.read).forEach(n=>_dlMarkSeen(n.id));
   const unread = _notifs.filter(n=>!n.read);
   await Promise.all(unread.map(n=>markNotifRead(n.id)));
+  _renderNotifBell();
 }
 
 async function _createNotification({toUid, type, text}) {
@@ -6795,6 +6897,13 @@ function _semaforo(pct) {
   return { color:'#991b1b', bg:'#fecaca', label:'<40%' };
 }
 
+let _escRankMetric = 'cpv'; // 'cpv' | 'cpi' — eficiencia ranking sort
+function setEscRankMetric(cid, metric) {
+  _escRankMetric = metric;
+  const c = _cache.campaigns.find(x=>x.id===cid);
+  if(c) renderEscenarioBlock(c);
+}
+
 function renderEscenarioBlock(c) {
   const wrap = document.getElementById('escenarioBlock');
   if(!wrap) return;
@@ -7008,6 +7117,61 @@ function renderEscenarioBlock(c) {
       </div>
     </div>`;
 
+  // --- Ranking de eficiencia: CPV / CPI por creador (MXN) ---
+  // CPV = costo / views reales · CPI = costo / interacciones reales. Menor = mejor.
+  const fmtCPX = n => (n>0 && isFinite(n)) ? '$'+n.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:n<1?4:2}) : '—';
+  const rankCreators = enriched
+    .filter(cr => cr.costoTotal>0 && (cr.real.views>0 || cr.real.engagement>0))
+    .map(cr => ({
+      nombre: cr.nombre,
+      costo: cr.costoTotal,
+      views: cr.real.views,
+      eng: cr.real.engagement,
+      cpv: cr.real.views>0 ? cr.costoTotal/cr.real.views : Infinity,
+      cpi: cr.real.engagement>0 ? cr.costoTotal/cr.real.engagement : Infinity,
+    }));
+  let _rankMetric = (typeof _escRankMetric!=='undefined') ? _escRankMetric : 'cpv';
+  const rankSorted = [...rankCreators].sort((a,b)=>a[_rankMetric]-b[_rankMetric]);
+  const rankBestCpv = Math.min(...rankCreators.map(r=>r.cpv).filter(isFinite));
+  const rankBestCpi = Math.min(...rankCreators.map(r=>r.cpi).filter(isFinite));
+  const rankingHtml = rankCreators.length ? `
+    <div class="card" style="margin-top:14px;">
+      <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+        <span class="card-title">🏆 Ranking de eficiencia · ${rankCreators.length} creadores (MXN)</span>
+        <div style="display:flex;gap:6px;">
+          <button class="metrics-tab-pill ${_rankMetric==='cpv'?'active':''}" onclick="setEscRankMetric('${c.id}','cpv')">Por CPV</button>
+          <button class="metrics-tab-pill ${_rankMetric==='cpi'?'active':''}" onclick="setEscRankMetric('${c.id}','cpi')">Por CPI</button>
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--text-muted);padding:0 14px 8px;">CPV = costo ÷ views reales · CPI = costo ÷ interacciones reales. Menor es mejor.</div>
+      <div class="table-wrap">
+        <table class="table" style="font-size:12px;">
+          <thead><tr>
+            <th style="text-align:center;">#</th><th>Creador</th>
+            <th style="text-align:right;">Costo</th>
+            <th style="text-align:right;">Views</th><th style="text-align:right;">CPV</th>
+            <th style="text-align:right;">Interac.</th><th style="text-align:right;">CPI</th>
+          </tr></thead>
+          <tbody>
+            ${rankSorted.map((r,i)=>{
+              const cpvBest = isFinite(r.cpv) && r.cpv===rankBestCpv;
+              const cpiBest = isFinite(r.cpi) && r.cpi===rankBestCpi;
+              const medal = i===0?'🥇':i===1?'🥈':i===2?'🥉':(i+1);
+              return `<tr${i===0?' style="background:var(--pink-pale);"':''}>
+                <td style="text-align:center;font-weight:700;">${medal}</td>
+                <td style="font-weight:600;">${_esc(r.nombre)}</td>
+                <td style="text-align:right;">${fmtMoney(r.costo)}</td>
+                <td style="text-align:right;">${fmt(r.views)}</td>
+                <td style="text-align:right;font-weight:700;${cpvBest?'color:#166534;':''}">${fmtCPX(r.cpv)}</td>
+                <td style="text-align:right;">${fmt(r.eng)}</td>
+                <td style="text-align:right;font-weight:700;${cpiBest?'color:#166534;':''}">${fmtCPX(r.cpi)}</td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>` : '';
+
   const ugcHtml = (ugc || c.ugcSheetUrl || c.ugcRows) ? `
     <div class="card" style="margin-top:14px;background:var(--pink-pale);border:1px solid var(--pink);">
       <div class="card-header"><span class="card-title">UGC (Nano / Micro)</span></div>
@@ -7075,7 +7239,7 @@ function renderEscenarioBlock(c) {
         </ul>
       </div>
     </details>` : '';
-  wrap.innerHTML = headlineHtml + tableHtml + ugcHtml + diagHtml;
+  wrap.innerHTML = headlineHtml + tableHtml + rankingHtml + ugcHtml + diagHtml;
   // Replay digit-pop on headline numbers (idempotent — won't trigger if
   // value hasn't changed since last render)
   try {
@@ -7126,6 +7290,212 @@ function updateFlowStep(cid, idx, status) {
   c.flowSteps[idx].status = status;
   setData('campaigns', campaigns);
   _notifyCampaignSubscribers(c, `${stepName} → ${status}`);
+}
+
+// ============================================================
+// APROBACIÓN DE CONTENIDOS (flujo borrador→revisión→aprobado→publicado)
+// ============================================================
+const APPROVAL_STATES = [
+  {key:'Borrador',  bg:'#e5e7eb', col:'#374151'},
+  {key:'Revisión',  bg:'#fef08a', col:'#854d0e'},
+  {key:'Aprobado',  bg:'#bbf7d0', col:'#166534'},
+  {key:'Publicado', bg:'#166534', col:'#ffffff'},
+];
+function _approvalBadge(status) {
+  const s = APPROVAL_STATES.find(x=>x.key===status) || APPROVAL_STATES[0];
+  return `<span style="font-size:11px;font-weight:700;padding:2px 9px;border-radius:10px;background:${s.bg};color:${s.col};white-space:nowrap;">${s.key}</span>`;
+}
+function renderCampaignApproval(c) {
+  const el = document.getElementById('campaignApprovalList');
+  if(!el) return;
+  const items = Array.isArray(c.approvalItems) ? c.approvalItems : [];
+  if(!items.length) {
+    el.innerHTML = `<div class="empty-state" style="padding:18px;"><p>Sin contenidos en aprobación. Agrega el primero para seguir su estado.</p></div>`;
+    return;
+  }
+  el.innerHTML = items.map(it => {
+    const stateOpts = APPROVAL_STATES.map(s=>`<option ${s.key===it.status?'selected':''}>${s.key}</option>`).join('');
+    const linkHtml = it.link
+      ? `<a href="${_esc(it.link)}" target="_blank" rel="noopener" style="color:var(--blue);font-size:12px;">Ver contenido →</a>`
+      : `<span style="font-size:12px;color:var(--text-muted);">Sin link</span>`;
+    const comments = Array.isArray(it.comments) ? it.comments : [];
+    const commentsHtml = comments.length
+      ? comments.map(cm=>`<div style="font-size:12px;padding:6px 10px;background:var(--bg);border-radius:8px;margin-top:6px;"><strong>${_esc(cm.user||'?')}</strong> <span style="color:var(--text-muted);font-size:10px;">${cm.at?new Date(cm.at).toLocaleDateString('es-MX',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):''}</span><div style="margin-top:2px;">${_esc(cm.text)}</div></div>`).join('')
+      : `<div style="font-size:11px;color:var(--text-muted);margin-top:4px;">Sin comentarios</div>`;
+    return `<div style="border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:10px;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;">
+        <div>
+          <div style="font-weight:700;font-size:13px;">${_esc(it.creator||'Contenido')}${it.platform?` <span style="font-weight:400;color:var(--text-muted);font-size:11px;">· ${_esc(it.platform)}</span>`:''}</div>
+          <div style="margin-top:3px;">${linkHtml}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          ${_approvalBadge(it.status)}
+          <select class="flow-step-select" onchange="setApprovalStatus('${c.id}','${it.id}',this.value)">${stateOpts}</select>
+          <button onclick="deleteApprovalItem('${c.id}','${it.id}')" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:14px;" title="Eliminar">🗑</button>
+        </div>
+      </div>
+      <div style="margin-top:8px;">
+        ${commentsHtml}
+        <div style="display:flex;gap:8px;margin-top:8px;">
+          <input type="text" id="apprComment-${it.id}" class="form-input" style="flex:1;font-size:12px;" placeholder="Añadir comentario..." onkeydown="if(event.key==='Enter')addApprovalComment('${c.id}','${it.id}')">
+          <button class="btn btn-ghost btn-sm" onclick="addApprovalComment('${c.id}','${it.id}')">Comentar</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+function openApprovalModal() {
+  if(!currentCampaignId) return;
+  const ov = document.createElement('div');
+  ov.className = 'modal-overlay open';
+  ov.id = 'approvalAddModal';
+  ov.innerHTML = `<div class="modal" style="max-width:440px;">
+    <div class="modal-header"><div class="modal-title">Nuevo contenido</div><button class="modal-close" onclick="document.getElementById('approvalAddModal').remove()"><span class="icn-close"></span></button></div>
+    <div class="modal-body" style="padding:18px;">
+      <div class="form-group"><label class="form-label">Creador / contenido</label><input type="text" id="apprNewCreator" class="form-input" placeholder="Ej: @crilon · Reel lanzamiento"></div>
+      <div class="form-group"><label class="form-label">Plataforma</label><input type="text" id="apprNewPlatform" class="form-input" placeholder="Ej: Instagram, TikTok..."></div>
+      <div class="form-group"><label class="form-label">Link (opcional)</label><input type="text" id="apprNewLink" class="form-input" placeholder="https://..."></div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="document.getElementById('approvalAddModal').remove()">Cancelar</button><button class="btn btn-primary" onclick="addApprovalItem()">Agregar</button></div>
+  </div>`;
+  ov.addEventListener('click', e=>{ if(e.target===ov) ov.remove(); });
+  document.body.appendChild(ov);
+  setTimeout(()=>document.getElementById('apprNewCreator')?.focus(),50);
+}
+function addApprovalItem() {
+  const creator = (document.getElementById('apprNewCreator')?.value||'').trim();
+  const platform = (document.getElementById('apprNewPlatform')?.value||'').trim();
+  const link = (document.getElementById('apprNewLink')?.value||'').trim();
+  if(!creator) { showToast('Indica el creador o contenido','error'); return; }
+  const campaigns = getData('campaigns');
+  const c = campaigns.find(x=>x.id===currentCampaignId);
+  if(!c) return;
+  if(!Array.isArray(c.approvalItems)) c.approvalItems = [];
+  c.approvalItems.push({ id:'ap'+Date.now().toString(36), creator, platform, link, status:'Borrador', comments:[], createdAt:Date.now() });
+  setData('campaigns', campaigns);
+  document.getElementById('approvalAddModal')?.remove();
+  renderCampaignApproval(c);
+  showToast('Contenido agregado','success');
+}
+function setApprovalStatus(cid, itemId, status) {
+  const campaigns = getData('campaigns');
+  const c = campaigns.find(x=>x.id===cid);
+  if(!c) return;
+  const it = (c.approvalItems||[]).find(x=>x.id===itemId);
+  if(!it) return;
+  it.status = status;
+  setData('campaigns', campaigns);
+  renderCampaignApproval(c);
+  _notifyCampaignSubscribers(c, `${it.creator||'Contenido'} → ${status}`);
+}
+function addApprovalComment(cid, itemId) {
+  const inp = document.getElementById('apprComment-'+itemId);
+  const text = (inp?.value||'').trim();
+  if(!text) return;
+  const campaigns = getData('campaigns');
+  const c = campaigns.find(x=>x.id===cid);
+  if(!c) return;
+  const it = (c.approvalItems||[]).find(x=>x.id===itemId);
+  if(!it) return;
+  if(!Array.isArray(it.comments)) it.comments = [];
+  it.comments.push({ user: currentUserProfile?.name || currentUser?.email || 'Usuario', text, at: Date.now() });
+  setData('campaigns', campaigns);
+  renderCampaignApproval(c);
+}
+function deleteApprovalItem(cid, itemId) {
+  const campaigns = getData('campaigns');
+  const c = campaigns.find(x=>x.id===cid);
+  if(!c) return;
+  c.approvalItems = (c.approvalItems||[]).filter(x=>x.id!==itemId);
+  setData('campaigns', campaigns);
+  renderCampaignApproval(c);
+}
+
+// ============================================================
+// REPORTE DE RESULTADOS (descarga / imprimir → PDF)
+// ============================================================
+function downloadCampaignReport() {
+  const c = (getData('campaigns')||[]).find(x=>x.id===currentCampaignId);
+  if(!c) { showToast('Abre una campaña primero','error'); return; }
+  const fmt = n => formatNum(Math.round(n||0));
+  const money = n => n>0 ? '$'+Math.round(n).toLocaleString('es-MX') : '—';
+  const cpx = n => (n>0 && isFinite(n)) ? '$'+n.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:n<1?4:2}) : '—';
+
+  // Parse escenario + real metrics (mirror of renderEscenarioBlock aggregation)
+  let creators = [], goal = null, ugc = null;
+  try { const p = parseEscenarioRows(c.escenarioRows||[]); creators = p.creators||[]; goal = p.goal; ugc = p.ugc; } catch(e){}
+  const real = _escenarioRealMetricsByCreator(c);
+  const norm = s => String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[_\s@.]+/g,' ').trim();
+  const match = (map,name)=>{ const k=norm(name); if(map.has(k)) return map.get(k); for(const [mk,mv] of map){ if(mk.length>=4&&k.length>=4&&(mk.includes(k)||k.includes(mk))) return mv; } return null; };
+  const ugcRes = (typeof _parseUgcResults==='function') ? _parseUgcResults(c.ugcRows) : null;
+
+  const enriched = creators.map(cr => ({ ...cr, real: match(real,cr.nombre)||{views:0,engagement:0,posts:0} }));
+  const agg = enriched.reduce((a,cr)=>({views:a.views+cr.real.views, eng:a.eng+cr.real.engagement, cost:a.cost+(cr.costoTotal||0)}),{views:0,eng:0,cost:0});
+  const totalViews = agg.views + (ugcRes?ugcRes.views:0);
+  const totalEng = agg.eng + (ugcRes?ugcRes.engagement:0);
+  const goalViews = (c.goal&&c.goal.views) || (goal&&goal.viewsEstTotal) || enriched.reduce((s,x)=>s+x.viewsEstTotal,0);
+  const goalEng = (c.goal&&c.goal.engagement) || (goal&&goal.engagementEst) || enriched.reduce((s,x)=>s+x.engagementEstTotal,0);
+  const totalCost = agg.cost + (ugc?ugc.costo:0);
+
+  const ranking = enriched.filter(cr=>cr.costoTotal>0 && cr.real.views>0)
+    .map(cr=>({nombre:cr.nombre, cost:cr.costoTotal, views:cr.real.views, eng:cr.real.engagement, cpv:cr.costoTotal/cr.real.views, cpi:cr.real.engagement>0?cr.costoTotal/cr.real.engagement:Infinity}))
+    .sort((a,b)=>a.cpv-b.cpv);
+  const topCreators = [...enriched].sort((a,b)=>b.real.views-a.real.views).slice(0,10);
+  const showCost = (typeof canSeeCosts==='function') ? canSeeCosts() : true;
+
+  const pct = (r,e)=> e>0 ? Math.round((r/e)*100)+'%' : '—';
+  const kpiCard = (label,val,sub)=>`<div class="kpi"><div class="kl">${label}</div><div class="kv">${val}</div>${sub?`<div class="ks">${sub}</div>`:''}</div>`;
+  const today = new Date().toLocaleDateString('es-MX',{day:'2-digit',month:'long',year:'numeric'});
+
+  const html = `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Reporte · ${_esc(c.name)}</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;}
+    body{color:#1a1a1a;padding:40px;max-width:920px;margin:0 auto;}
+    .cover{border-bottom:4px solid #ff2d87;padding-bottom:20px;margin-bottom:28px;}
+    h1{font-size:30px;color:#ff2d87;}
+    .meta{color:#666;font-size:14px;margin-top:6px;}
+    h2{font-size:16px;margin:28px 0 12px;text-transform:uppercase;letter-spacing:1px;color:#444;border-left:4px solid #ff2d87;padding-left:10px;}
+    .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
+    .kpi{border:1px solid #e5e5e5;border-radius:12px;padding:14px;}
+    .kl{font-size:10px;text-transform:uppercase;color:#888;letter-spacing:.6px;font-weight:700;}
+    .kv{font-size:24px;font-weight:800;margin-top:4px;}
+    .ks{font-size:11px;color:#666;margin-top:2px;}
+    table{width:100%;border-collapse:collapse;font-size:12px;margin-top:8px;}
+    th,td{text-align:left;padding:7px 8px;border-bottom:1px solid #eee;}
+    th{background:#faf0f5;font-size:10px;text-transform:uppercase;color:#666;}
+    td.r,th.r{text-align:right;}
+    .foot{margin-top:36px;font-size:11px;color:#999;text-align:center;border-top:1px solid #eee;padding-top:14px;}
+    @media print{body{padding:0;}.noprint{display:none;}}
+  </style></head><body>
+  <div class="cover">
+    <h1>${_esc(c.name)}</h1>
+    <div class="meta">${_esc(c.client||'')}${c.season?' · '+_esc(c.season):''} · Reporte generado ${today}</div>
+    ${c.objective?`<div class="meta">Objetivo: ${_esc(c.objective)}</div>`:''}
+  </div>
+  <h2>Resultados clave</h2>
+  <div class="kpis">
+    ${kpiCard('Views', fmt(totalViews), goalViews>0?`Meta ${fmt(goalViews)} · ${pct(totalViews,goalViews)}`:'')}
+    ${kpiCard('Interacciones', fmt(totalEng), goalEng>0?`Meta ${fmt(goalEng)} · ${pct(totalEng,goalEng)}`:'')}
+    ${kpiCard('Creadores', String(enriched.length), ugc&&ugc.cantidadCreadores?`+ ${ugc.cantidadCreadores} UGC`:'')}
+    ${showCost?kpiCard('Inversión', money(totalCost),'MXN'):kpiCard('Contenidos', fmt(enriched.reduce((s,x)=>s+(x.contenidosTotal||0),0)),'')}
+  </div>
+  <h2>Top creadores por views</h2>
+  <table><thead><tr><th>Creador</th><th class="r">Views</th><th class="r">Interac.</th><th class="r">Views est.</th><th class="r">%</th></tr></thead><tbody>
+    ${topCreators.map(cr=>`<tr><td>${_esc(cr.nombre)}</td><td class="r">${fmt(cr.real.views)}</td><td class="r">${fmt(cr.real.engagement)}</td><td class="r">${fmt(cr.viewsEstTotal)}</td><td class="r">${pct(cr.real.views,cr.viewsEstTotal)}</td></tr>`).join('')||'<tr><td colspan="5">Sin datos de métricas reales.</td></tr>'}
+  </tbody></table>
+  ${showCost&&ranking.length?`<h2>Ranking de eficiencia (MXN)</h2>
+  <table><thead><tr><th>#</th><th>Creador</th><th class="r">Costo</th><th class="r">CPV</th><th class="r">CPI</th></tr></thead><tbody>
+    ${ranking.map((r,i)=>`<tr><td>${i+1}</td><td>${_esc(r.nombre)}</td><td class="r">${money(r.cost)}</td><td class="r">${cpx(r.cpv)}</td><td class="r">${cpx(r.cpi)}</td></tr>`).join('')}
+  </tbody></table>`:''}
+  <div class="foot">Campaign Manager OS · Think Y</div>
+  <div class="noprint" style="text-align:center;margin-top:24px;"><button onclick="window.print()" style="background:#ff2d87;color:#fff;border:none;padding:12px 28px;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;">Descargar / Imprimir PDF</button></div>
+  </body></html>`;
+
+  const w = window.open('', '_blank');
+  if(!w) { showToast('Permite ventanas emergentes para descargar el reporte','error'); return; }
+  w.document.write(html);
+  w.document.close();
+  showToast('Reporte generado','success');
 }
 
 // ============================================================
@@ -8933,6 +9303,61 @@ function saveInfluencer() {
   renderCampaignInfluencers(c);
   closeModal('influencerModal');
   showToast('Influencer agregado','success');
+}
+
+// --- Import masivo de influencers (pegar CSV/TSV) ---
+function openBulkImportModal() {
+  if(!currentCampaignId) { showToast('Abre una campaña primero','error'); return; }
+  const ov = document.createElement('div');
+  ov.className = 'modal-overlay open';
+  ov.id = 'bulkImportModal';
+  ov.innerHTML = `<div class="modal" style="max-width:560px;">
+    <div class="modal-header"><div class="modal-title">Importar influencers</div><button class="modal-close" onclick="document.getElementById('bulkImportModal').remove()"><span class="icn-close"></span></button></div>
+    <div class="modal-body" style="padding:18px;">
+      <p style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">Pega una fila por influencer. Columnas separadas por coma o tabulador (puedes copiar directo de Excel/Sheets):</p>
+      <p style="font-size:11px;color:var(--text-muted);margin-bottom:10px;font-family:monospace;background:var(--bg);padding:8px 10px;border-radius:8px;">Nombre, @handle, Plataforma, Formato</p>
+      <textarea id="bulkImportText" class="form-input" rows="9" style="font-size:13px;font-family:monospace;" placeholder="Crilon, @elcrilon, TikTok, Reel&#10;Ana López, @analopez, Instagram, Story"></textarea>
+      <label style="display:flex;align-items:center;gap:8px;font-size:12px;margin-top:10px;cursor:pointer;"><input type="checkbox" id="bulkSkipHeader"> La primera fila es encabezado (ignorar)</label>
+    </div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="document.getElementById('bulkImportModal').remove()">Cancelar</button><button class="btn btn-primary" onclick="runBulkImport()">Importar</button></div>
+  </div>`;
+  ov.addEventListener('click', e=>{ if(e.target===ov) ov.remove(); });
+  document.body.appendChild(ov);
+  setTimeout(()=>document.getElementById('bulkImportText')?.focus(),50);
+}
+function runBulkImport() {
+  const raw = (document.getElementById('bulkImportText')?.value||'').trim();
+  if(!raw) { showToast('Pega al menos una fila','error'); return; }
+  const skipHeader = document.getElementById('bulkSkipHeader')?.checked;
+  const campaigns = getData('campaigns');
+  const c = campaigns.find(x=>x.id===currentCampaignId);
+  if(!c) return;
+  if(!Array.isArray(c.influencers)) c.influencers = [];
+  let lines = raw.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
+  if(skipHeader) lines = lines.slice(1);
+  const today = new Date().toISOString().split('T')[0];
+  let added = 0;
+  lines.forEach(line => {
+    const parts = line.split(/\t|,/).map(p=>p.trim());
+    const name = parts[0];
+    if(!name) return;
+    c.influencers.push({
+      id:id(),
+      name,
+      handle: (parts[1]||'').replace(/^@/,''),
+      platform: parts[2]||'',
+      format: parts[3]||'',
+      publishDate: today,
+      status: 'Pendiente',
+      contenidos:0, boosted:0, reach:0, impressions:0, interactions:0, er:'—'
+    });
+    added++;
+  });
+  if(!added) { showToast('No se detectaron filas válidas','error'); return; }
+  setData('campaigns', campaigns);
+  renderCampaignInfluencers(c);
+  document.getElementById('bulkImportModal')?.remove();
+  showToast(`${added} influencer${added!==1?'s':''} importado${added!==1?'s':''}`,'success');
 }
 
 function saveCampaignSheetsUrl() {
@@ -10768,10 +11193,50 @@ async function _hydrateInfluencerPrivateInfo(key) {
   inp('infPrivNotes',  data?.notas);
 }
 
+function _influencerHistory(inf) {
+  const norm = s => String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[_\s@.]+/g,' ').trim();
+  const target = norm(inf.name);
+  const acc = { reach:0, views:0, interactions:0, contenidos:0, byPlatform:{}, perCampaign:[] };
+  (_cache.campaigns||[]).forEach(c => {
+    let r=0, it=0, ct=0, vw=0;
+    (c.influencers||[]).forEach(row => {
+      if(norm(row.name) !== target) return;
+      r += Number(row.reach)||0;
+      it += Number(row.interactions)||0;
+      ct += Number(row.contenidos)||0;
+      if(row.platform) { const p=_normalizePlatform(row.platform)||row.platform; acc.byPlatform[p]=(acc.byPlatform[p]||0)+(Number(row.reach)||0); }
+    });
+    // Real views/engagement from the campaign's loaded metrics sheet (cachedMetrics)
+    try {
+      const real = _escenarioRealMetricsByCreator(c);
+      for(const [k,v] of real) { if(k===target || (k.length>=4&&target.length>=4&&(k.includes(target)||target.includes(k)))) { vw += v.views||0; if(v.engagement>it) it = v.engagement; break; } }
+    } catch(e){}
+    if(r||it||ct||vw) acc.perCampaign.push({ name:c.name, reach:r, views:vw, interactions:it, contenidos:ct });
+    acc.reach+=r; acc.views+=vw; acc.interactions+=it; acc.contenidos+=ct;
+  });
+  acc.campaignsCount = acc.perCampaign.length;
+  acc.bestPlatform = Object.entries(acc.byPlatform).sort((a,b)=>b[1]-a[1])[0];
+  return acc;
+}
+
 function renderInfluencerDetailContent(inf) {
   const ratings = infRatingsFor(inf.key);
   const avg = avgStars(ratings);
   const myRating = currentUser ? ratings.find(r => r.userId === currentUser.uid) : null;
+  const hist = _influencerHistory(inf);
+  const fmtH = n => (Number(n)||0).toLocaleString('es-MX');
+  const histHtml = (hist.reach||hist.views||hist.interactions||hist.contenidos) ? `
+    <div style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;">Histórico de rendimiento</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:10px;margin-bottom:14px;">
+      <div style="background:var(--bg);border-radius:12px;padding:10px 12px;"><div style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;">Campañas</div><div style="font-size:22px;font-weight:800;">${hist.campaignsCount}</div></div>
+      <div style="background:var(--bg);border-radius:12px;padding:10px 12px;"><div style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;">Views</div><div style="font-size:22px;font-weight:800;">${fmtH(hist.views)}</div></div>
+      <div style="background:var(--bg);border-radius:12px;padding:10px 12px;"><div style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;">Alcance</div><div style="font-size:22px;font-weight:800;">${fmtH(hist.reach)}</div></div>
+      <div style="background:var(--bg);border-radius:12px;padding:10px 12px;"><div style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;">Interacciones</div><div style="font-size:22px;font-weight:800;">${fmtH(hist.interactions)}</div></div>
+      <div style="background:var(--bg);border-radius:12px;padding:10px 12px;"><div style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;">Contenidos</div><div style="font-size:22px;font-weight:800;">${fmtH(hist.contenidos)}</div></div>
+    </div>
+    ${hist.bestPlatform ? `<div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">🏅 Mejor plataforma por alcance: <strong style="color:var(--text);">${_esc(hist.bestPlatform[0])}</strong> (${fmtH(hist.bestPlatform[1])})</div>`:''}
+    ${hist.perCampaign.length>1 ? `<div class="table-wrap" style="margin-bottom:18px;"><table class="table" style="font-size:12px;"><thead><tr><th>Campaña</th><th style="text-align:right;">Views</th><th style="text-align:right;">Alcance</th><th style="text-align:right;">Interac.</th><th style="text-align:right;">Contenidos</th></tr></thead><tbody>${hist.perCampaign.map(p=>`<tr><td>${_esc(p.name)}</td><td style="text-align:right;">${fmtH(p.views)}</td><td style="text-align:right;">${fmtH(p.reach)}</td><td style="text-align:right;">${fmtH(p.interactions)}</td><td style="text-align:right;">${fmtH(p.contenidos)}</td></tr>`).join('')}</tbody></table></div>`:''}`
+    : '';
 
   const campRows = inf.campaigns.map(c => `
     <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);">
@@ -10811,6 +11276,8 @@ function renderInfluencerDetailContent(inf) {
         <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">${ratings.length} calificación${ratings.length!==1?'es':''}</div>
       </div>
     </div>` : ''}
+
+    ${histHtml}
 
     <!-- Campaigns -->
     <div style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;">Campañas</div>
@@ -11724,6 +12191,90 @@ document.addEventListener('keydown', (e) => {
     spawnConfetti();
     showEasterToast('🎮 ¡Modo campaña PRO activado! Bienvenide, genie ✨');
   }
+});
+
+// ============================================================
+// COMMAND PALETTE (Cmd/Ctrl+K) — buscador global
+// ============================================================
+let _cmdkIndex = 0;
+let _cmdkResults = [];
+function _ensureCmdkDom() {
+  if(document.getElementById('cmdkOverlay')) return;
+  const ov = document.createElement('div');
+  ov.id = 'cmdkOverlay';
+  ov.style.cssText = 'display:none;position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.45);backdrop-filter:blur(2px);align-items:flex-start;justify-content:center;padding-top:12vh;';
+  ov.innerHTML = `<div style="width:min(620px,92vw);background:var(--white,#fff);border-radius:16px;box-shadow:0 24px 70px rgba(0,0,0,.35);overflow:hidden;" onclick="event.stopPropagation()">
+    <input id="cmdkInput" type="text" placeholder="Buscar campañas, influencers, tareas, documentos..." autocomplete="off"
+      style="width:100%;border:none;outline:none;padding:18px 20px;font-size:16px;background:transparent;color:var(--text,#111);border-bottom:1px solid var(--border,#eee);">
+    <div id="cmdkList" style="max-height:50vh;overflow-y:auto;padding:6px;"></div>
+    <div style="padding:8px 16px;font-size:11px;color:var(--text-muted,#888);border-top:1px solid var(--border,#eee);display:flex;gap:14px;">
+      <span>↑↓ navegar</span><span>↵ abrir</span><span>esc cerrar</span>
+    </div>
+  </div>`;
+  ov.addEventListener('click', closeCmdk);
+  document.body.appendChild(ov);
+  document.getElementById('cmdkInput').addEventListener('input', _cmdkRender);
+}
+function openCmdk() {
+  if(typeof currentUser !== 'undefined' && !currentUser) return; // not logged in
+  _ensureCmdkDom();
+  const ov = document.getElementById('cmdkOverlay');
+  ov.style.display = 'flex';
+  const inp = document.getElementById('cmdkInput');
+  inp.value = ''; _cmdkIndex = 0;
+  _cmdkRender();
+  setTimeout(()=>inp.focus(),30);
+}
+function closeCmdk() {
+  const ov = document.getElementById('cmdkOverlay');
+  if(ov) ov.style.display = 'none';
+}
+function _cmdkData() {
+  const items = [];
+  try { (typeof visibleCampaigns==='function'?visibleCampaigns():getData('campaigns')||[]).forEach(c=>items.push({type:'Campaña', icon:'📁', label:c.name, sub:c.client||'', action:()=>{navigate('campannas');setTimeout(()=>openCampaignDetail(c.id),60);}})); } catch(e){}
+  try { (getAllInfluencers()||[]).forEach(inf=>items.push({type:'Influencer', icon:'⭐', label:inf.name, sub:inf.handle?'@'+inf.handle:'', action:()=>{navigate('influencers');setTimeout(()=>openInfluencerDetail(inf.key),60);}})); } catch(e){}
+  try {
+    (getData('globalTasks')||[]).forEach(t=>{ if(!t.done) items.push({type:'Tarea', icon:'✅', label:t.title, sub:'General', action:()=>navigate('pendientes')}); });
+    (getData('campaigns')||[]).forEach(c=>(c.tasks||[]).forEach(t=>{ if(!t.done) items.push({type:'Tarea', icon:'✅', label:t.title, sub:c.name, action:()=>{navigate('campannas');setTimeout(()=>openCampaignDetail(c.id),60);}}); }));
+  } catch(e){}
+  try { (getData('campaigns')||[]).forEach(c=>(c.documents||[]).forEach(d=>items.push({type:'Documento', icon:'📄', label:d.name||d.title||'Documento', sub:c.name, action:()=>{ if(d.url) window.open(d.url,'_blank'); else navigate('documentos'); }}))); } catch(e){}
+  return items;
+}
+function _cmdkRender() {
+  const q = (document.getElementById('cmdkInput')?.value||'').toLowerCase().trim();
+  let items = _cmdkData();
+  if(q) items = items.filter(it => (it.label||'').toLowerCase().includes(q) || (it.sub||'').toLowerCase().includes(q) || it.type.toLowerCase().includes(q));
+  items = items.slice(0, 40);
+  _cmdkResults = items;
+  if(_cmdkIndex >= items.length) _cmdkIndex = Math.max(0, items.length-1);
+  const list = document.getElementById('cmdkList');
+  if(!items.length) { list.innerHTML = `<div style="padding:24px;text-align:center;color:var(--text-muted,#888);font-size:14px;">${q?'Sin resultados':'Empieza a escribir...'}</div>`; return; }
+  list.innerHTML = items.map((it,i)=>`<div class="cmdk-row" data-i="${i}" onclick="_cmdkPick(${i})"
+    style="display:flex;align-items:center;gap:12px;padding:11px 14px;border-radius:10px;cursor:pointer;${i===_cmdkIndex?'background:var(--pink-pale,#ffe3f0);':''}">
+    <span style="font-size:18px;">${it.icon}</span>
+    <div style="flex:1;min-width:0;"><div style="font-size:14px;font-weight:600;color:var(--text,#111);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${_esc(it.label)}</div>${it.sub?`<div style="font-size:12px;color:var(--text-muted,#888);">${_esc(it.sub)}</div>`:''}</div>
+    <span style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted,#999);background:var(--bg,#f3f3f3);padding:2px 8px;border-radius:8px;">${it.type}</span>
+  </div>`).join('');
+}
+function _cmdkPick(i) {
+  const it = _cmdkResults[i];
+  if(!it) return;
+  closeCmdk();
+  try { it.action(); } catch(e){ console.warn('cmdk action', e); }
+}
+document.addEventListener('keydown', (e) => {
+  if((e.metaKey || e.ctrlKey) && e.key.toLowerCase()==='k') {
+    e.preventDefault();
+    const ov = document.getElementById('cmdkOverlay');
+    if(ov && ov.style.display==='flex') closeCmdk(); else openCmdk();
+    return;
+  }
+  const ov = document.getElementById('cmdkOverlay');
+  if(!ov || ov.style.display!=='flex') return;
+  if(e.key==='Escape') { closeCmdk(); }
+  else if(e.key==='ArrowDown') { e.preventDefault(); _cmdkIndex = Math.min(_cmdkResults.length-1, _cmdkIndex+1); _cmdkRender(); }
+  else if(e.key==='ArrowUp') { e.preventDefault(); _cmdkIndex = Math.max(0, _cmdkIndex-1); _cmdkRender(); }
+  else if(e.key==='Enter') { e.preventDefault(); _cmdkPick(_cmdkIndex); }
 });
 
 // ---- Login: rotating taglines ----
