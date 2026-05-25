@@ -6245,7 +6245,10 @@ function _renderTrackerSummaryAndTable() {
     const valLabels = totals.map((t,i)=>`<text x="${xPos(i).toFixed(1)}" y="${(yScale(t)-7).toFixed(1)}" text-anchor="middle" font-size="9" font-weight="700" fill="var(--text)">${t}</text>`).join('');
     chartHtml = `
       <div style="background:var(--bg);border:1px solid var(--border);border-radius:14px;padding:14px 16px;">
-        <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;">📈 Publicaciones por ${periodTitle}</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+          <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;">📈 Publicaciones por ${periodTitle}</div>
+          <button class="btn btn-ghost btn-sm" data-noexport onclick="downloadTrackerChartPng()" title="Descargar gráfico como PNG">⬇ PNG</button>
+        </div>
         ${timeToggleHtml}
         ${boostToggleHtml}
         <div style="display:flex;gap:14px;font-size:11px;margin-bottom:6px;">
@@ -6253,7 +6256,7 @@ function _renderTrackerSummaryAndTable() {
           ${showBoost?`<span style="display:inline-flex;align-items:center;gap:5px;"><span style="width:14px;height:3px;background:#2c6dff;border-radius:2px;display:inline-block;"></span>Con boost</span>`:''}
         </div>
         <div style="overflow-x:auto;">
-          <svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" preserveAspectRatio="xMinYMid meet" style="display:block;">
+          <svg id="trackerChartSvg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" preserveAspectRatio="xMinYMid meet" style="display:block;">
             ${yAxis}
             <polyline points="${points}" fill="none" stroke="var(--pink)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
             ${showBoost?`<polyline points="${boostPoints}" fill="none" stroke="#2c6dff" stroke-width="2" stroke-dasharray="4 3" stroke-linejoin="round" stroke-linecap="round"/>`:''}
@@ -7571,6 +7574,49 @@ async function downloadTrackerTablePng() {
     a.href = canvas.toDataURL('image/png');
     a.click();
     showToast('PNG descargado','success');
+  } catch(e) {
+    showToast('Error exportando PNG: '+e.message,'error');
+  }
+}
+// Exporta el gráfico SVG de publicaciones a PNG (respeta semana/mes + boost
+// porque captura el SVG ya renderizado). Resuelve las CSS vars a color real.
+function downloadTrackerChartPng() {
+  const svg = document.getElementById('trackerChartSvg');
+  if(!svg) { showToast('No hay gráfico para exportar','error'); return; }
+  try {
+    const cs = getComputedStyle(document.body);
+    const resolve = v => v.replace(/var\((--[\w-]+)\)/g, (_, n) => (cs.getPropertyValue(n).trim() || '#000'));
+    const clone = svg.cloneNode(true);
+    clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    clone.querySelectorAll('*').forEach(el => {
+      ['stroke','fill'].forEach(attr => {
+        const val = el.getAttribute(attr);
+        if(val && val.includes('var(')) el.setAttribute(attr, resolve(val));
+      });
+    });
+    const W = parseFloat(svg.getAttribute('width')) || svg.viewBox.baseVal.width || 600;
+    const H = parseFloat(svg.getAttribute('height')) || svg.viewBox.baseVal.height || 200;
+    const xml = new XMLSerializer().serializeToString(clone);
+    const url = URL.createObjectURL(new Blob([xml], {type:'image/svg+xml;charset=utf-8'}));
+    const img = new Image();
+    img.onload = () => {
+      const scale = 2;
+      const canvas = document.createElement('canvas');
+      canvas.width = W*scale; canvas.height = H*scale;
+      const ctx = canvas.getContext('2d');
+      ctx.scale(scale, scale);
+      ctx.fillStyle = cs.getPropertyValue('--white').trim() || '#ffffff';
+      ctx.fillRect(0, 0, W, H);
+      ctx.drawImage(img, 0, 0, W, H);
+      URL.revokeObjectURL(url);
+      const a = document.createElement('a');
+      a.download = 'grafico-publicaciones.png';
+      a.href = canvas.toDataURL('image/png');
+      a.click();
+      showToast('PNG descargado','success');
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); showToast('Error generando PNG','error'); };
+    img.src = url;
   } catch(e) {
     showToast('Error exportando PNG: '+e.message,'error');
   }
