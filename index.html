@@ -6228,6 +6228,12 @@ function _renderTrackerSummaryAndTable() {
     const boostPoints = boostTotals.map((t,i)=>`${xPos(i).toFixed(1)},${yScale(t).toFixed(1)}`).join(' ');
     const boostDots = boostTotals.map((t,i)=>`<circle cx="${xPos(i).toFixed(1)}" cy="${yScale(t).toFixed(1)}" r="3" fill="#2c6dff" stroke="var(--white)" stroke-width="1.5"><title>Boost ${periodLabel(weeks[i])}: ${t}</title></circle>`).join('');
     const hasBoost = boostTotals.some(t=>t>0);
+    const showBoost = hasBoost && _trackerShowBoost;
+    const boostToggleHtml = hasBoost ? `
+      <div style="display:flex;gap:6px;margin-bottom:10px;">
+        <button class="metrics-tab-pill ${!_trackerShowBoost?'active':''}" onclick="setTrackerShowBoost(false)">Solo total</button>
+        <button class="metrics-tab-pill ${_trackerShowBoost?'active':''}" onclick="setTrackerShowBoost(true)">Total + boost</button>
+      </div>` : '';
     const ticks = Math.min(yMax, 5);
     const yAxis = Array.from({length: ticks+1}, (_,k)=> {
       const v = Math.round((yMax/ticks)*k);
@@ -6241,17 +6247,18 @@ function _renderTrackerSummaryAndTable() {
       <div style="background:var(--bg);border:1px solid var(--border);border-radius:14px;padding:14px 16px;">
         <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;">📈 Publicaciones por ${periodTitle}</div>
         ${timeToggleHtml}
+        ${boostToggleHtml}
         <div style="display:flex;gap:14px;font-size:11px;margin-bottom:6px;">
           <span style="display:inline-flex;align-items:center;gap:5px;"><span style="width:14px;height:3px;background:var(--pink);border-radius:2px;display:inline-block;"></span>Total</span>
-          ${hasBoost?`<span style="display:inline-flex;align-items:center;gap:5px;"><span style="width:14px;height:3px;background:#2c6dff;border-radius:2px;display:inline-block;"></span>Con boost</span>`:''}
+          ${showBoost?`<span style="display:inline-flex;align-items:center;gap:5px;"><span style="width:14px;height:3px;background:#2c6dff;border-radius:2px;display:inline-block;"></span>Con boost</span>`:''}
         </div>
         <div style="overflow-x:auto;">
           <svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" preserveAspectRatio="xMinYMid meet" style="display:block;">
             ${yAxis}
             <polyline points="${points}" fill="none" stroke="var(--pink)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
-            ${hasBoost?`<polyline points="${boostPoints}" fill="none" stroke="#2c6dff" stroke-width="2" stroke-dasharray="4 3" stroke-linejoin="round" stroke-linecap="round"/>`:''}
+            ${showBoost?`<polyline points="${boostPoints}" fill="none" stroke="#2c6dff" stroke-width="2" stroke-dasharray="4 3" stroke-linejoin="round" stroke-linecap="round"/>`:''}
             ${dots}
-            ${hasBoost?boostDots:''}
+            ${showBoost?boostDots:''}
             ${valLabels}
             ${xLabels}
           </svg>
@@ -6263,15 +6270,19 @@ function _renderTrackerSummaryAndTable() {
   let weeklyTableHtml = '';
   if(weeks.length > 0) {
     const totalAll = weeks.reduce((acc,w)=>acc + Object.values(timelineMap[w]).reduce((a,b)=>a+b,0), 0);
+    const showBoostCol = _trackerShowBoost && Object.values(boostMap).some(v=>v>0);
     weeklyTableHtml = `
-      <div style="background:var(--bg);border:1px solid var(--border);border-radius:14px;padding:14px 16px;">
-        <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;">📋 Tabla por ${periodTitle}</div>
+      <div id="trackerWeeklyTableCard" style="background:var(--bg);border:1px solid var(--border);border-radius:14px;padding:14px 16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+          <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;">📋 Tabla por ${periodTitle}</div>
+          <button class="btn btn-ghost btn-sm" data-noexport onclick="downloadTrackerTablePng()" title="Descargar tabla como PNG">⬇ PNG</button>
+        </div>
         <div class="table-wrap">
           <table class="table" style="font-size:12px;">
             <thead><tr>
               <th style="text-align:left;">${byMonth?'Mes':'Semana'}</th>
               <th style="text-align:right;">Publicaciones</th>
-              <th style="text-align:right;">Con boost</th>
+              ${showBoostCol?'<th style="text-align:right;">Con boost</th>':''}
               <th>Top plataforma creativa</th>
             </tr></thead>
             <tbody>
@@ -6282,12 +6293,12 @@ function _renderTrackerSummaryAndTable() {
                 return `<tr>
                   <td style="white-space:nowrap;">${periodLabel(w)}</td>
                   <td style="text-align:right;font-weight:700;">${tot}</td>
-                  <td style="text-align:right;font-weight:700;color:${bst?'#2c6dff':'var(--text-muted)'};">${bst?('🚀 '+bst):'—'}</td>
+                  ${showBoostCol?`<td style="text-align:right;font-weight:700;color:${bst?'#2c6dff':'var(--text-muted)'};">${bst?('🚀 '+bst):'—'}</td>`:''}
                   <td><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:${creativaColor(top[0])};vertical-align:middle;margin-right:4px;"></span>${top[0]} <span style="color:var(--text-muted);">(${top[1]})</span></td>
                 </tr>`;
               }).join('')}
               <tr style="border-top:2px solid var(--border);font-weight:800;">
-                <td>Total</td><td style="text-align:right;">${totalAll}</td><td style="text-align:right;color:#2c6dff;">${Object.values(boostMap).reduce((a,b)=>a+b,0)||0}</td><td></td>
+                <td>Total</td><td style="text-align:right;">${totalAll}</td>${showBoostCol?`<td style="text-align:right;color:#2c6dff;">${Object.values(boostMap).reduce((a,b)=>a+b,0)||0}</td>`:''}<td></td>
               </tr>
             </tbody>
           </table>
@@ -7530,6 +7541,40 @@ let _trackerBatchFilter = 'all';
 let _trackerStatusFilter = null;
 let _trackerTimeView = 'week'; // 'week' | 'month' — timeline grouping
 function setTrackerTimeView(v) { _trackerTimeView = v; _renderTrackerSummaryAndTable(); }
+let _trackerShowBoost = true; // toggle: incluir línea/columna "con boost"
+function setTrackerShowBoost(v) { _trackerShowBoost = v; _renderTrackerSummaryAndTable(); }
+
+// Carga html2canvas bajo demanda (sin dependencia permanente) para exportar PNG.
+let _html2canvasPromise = null;
+function _loadHtml2Canvas() {
+  if(window.html2canvas) return Promise.resolve(window.html2canvas);
+  if(_html2canvasPromise) return _html2canvasPromise;
+  _html2canvasPromise = new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
+    s.onload = () => resolve(window.html2canvas);
+    s.onerror = () => { _html2canvasPromise = null; reject(new Error('No se pudo cargar html2canvas')); };
+    document.head.appendChild(s);
+  });
+  return _html2canvasPromise;
+}
+async function downloadTrackerTablePng() {
+  const el = document.getElementById('trackerWeeklyTableCard');
+  if(!el) { showToast('No hay tabla para exportar','error'); return; }
+  showToast('Generando PNG...');
+  try {
+    const h2c = await _loadHtml2Canvas();
+    const bg = getComputedStyle(document.body).getPropertyValue('--white').trim() || '#ffffff';
+    const canvas = await h2c(el, { backgroundColor: bg, scale: 2, useCORS: true, ignoreElements: n => n.hasAttribute && n.hasAttribute('data-noexport') });
+    const a = document.createElement('a');
+    a.download = 'tabla-publicaciones.png';
+    a.href = canvas.toDataURL('image/png');
+    a.click();
+    showToast('PNG descargado','success');
+  } catch(e) {
+    showToast('Error exportando PNG: '+e.message,'error');
+  }
+}
 let _trackerAutoRefreshTimer = null;
 let currentFilter = 'todos';
 let filterByUser = '';
