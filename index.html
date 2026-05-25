@@ -2416,14 +2416,20 @@ html.dark .plat-badge[data-plat="Twitter/X"] {
 .ai-fab.is-open { transform:rotate(45deg); }
 .pend-fab {
   position:fixed; right:24px; bottom:96px; z-index:8999;
-  width:54px; height:54px; border-radius:50%; border:none; cursor:pointer;
-  background:var(--text); color:#fff; display:flex; align-items:center; justify-content:center;
-  box-shadow:0 10px 26px rgba(0,0,0,.28), 0 2px 6px rgba(0,0,0,.14);
+  width:54px; height:54px; border-radius:50%; border:2px solid rgba(255,255,255,.85); cursor:pointer;
+  background:linear-gradient(135deg, var(--pink) 0%, var(--pink-deep, #e0186f) 100%); color:#fff;
+  display:flex; align-items:center; justify-content:center;
+  box-shadow:0 12px 30px rgba(255,45,135,.42), 0 2px 6px rgba(0,0,0,.14);
   transition:transform .2s var(--ease), box-shadow .2s var(--ease);
 }
-.pend-fab:hover { transform:translateY(-3px) scale(1.05); }
+.pend-fab:hover { transform:translateY(-3px) scale(1.06); box-shadow:0 16px 38px rgba(255,45,135,.5); }
 .pend-fab svg { width:24px; height:24px; }
-.pend-fab .t-badge { position:absolute; top:-4px; right:-4px; }
+.pend-fab .t-badge { position:absolute; top:-6px; right:-6px; }
+.pend-fab .t-badge-dot {
+  background:#fff !important; color:var(--pink-deep, #e0186f) !important; font-size:11px; font-weight:800;
+  min-width:20px; height:20px; line-height:16px; padding:0 5px; border-radius:11px;
+  border:2px solid var(--pink); box-shadow:0 2px 6px rgba(0,0,0,.2); text-align:center; margin:0;
+}
 @media (max-width: 768px) { .pend-fab { display:none; } }
 .ai-panel {
   position:fixed; right:22px; bottom:92px; z-index:8999;
@@ -4291,6 +4297,16 @@ function setPendientesBadge(count) {
   _setTBadge('pendientesBadge', count);
   _setTBadge('mobileNavBadge', count);
 }
+// Recompute pending-task count for the FAB badge from any page (mirrors the
+// "mis pendientes" logic: my/unassigned tasks not done, across global + campaigns).
+function _refreshPendCount() {
+  if(!currentUser) return;
+  let n = 0;
+  const mine = t => !t.done && (!t.assigneeUid || t.assigneeUid === currentUser.uid);
+  (getData('globalTasks')||[]).forEach(t => { if(mine(t)) n++; });
+  (visibleCampaigns()||[]).forEach(c => (c.tasks||[]).forEach(t => { if(mine(t)) n++; }));
+  setPendientesBadge(n);
+}
 // Render a number into an element as a transitions.dev .t-digit-group,
 // replaying the staggered pop-in only when the value actually changes.
 // Idempotent: if the new value equals the previous one, do nothing.
@@ -4491,6 +4507,7 @@ function navigate(page) {
   if(page==='equipo') renderEquipo();
   if(page==='ajustes') loadSettingsUI();
   if(page==='influencers') renderInfluencers();
+  try { _refreshPendCount(); } catch(e){}
 }
 
 // ============================================================
