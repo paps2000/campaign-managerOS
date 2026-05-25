@@ -2946,9 +2946,9 @@ html.dark .ai-input-row textarea { background:rgba(255,255,255,.05); border-colo
         <button class="btn btn-primary" onclick="openAddGlobalTaskModal()">+ Nueva tarea</button>
       </div>
       <div class="filter-tabs">
-        <div class="filter-tab active" data-filter="hoy">Hoy</div>
+        <div class="filter-tab" data-filter="hoy">Hoy</div>
         <div class="filter-tab" data-filter="semana">Esta semana</div>
-        <div class="filter-tab" data-filter="todos">Todos</div>
+        <div class="filter-tab active" data-filter="todos">Todos</div>
       </div>
       <div id="pendientesPersonFilter" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;"></div>
       <div id="allTasksList"></div>
@@ -7514,7 +7514,7 @@ let _trackerStatusFilter = null;
 let _trackerTimeView = 'week'; // 'week' | 'month' — timeline grouping
 function setTrackerTimeView(v) { _trackerTimeView = v; _renderTrackerSummaryAndTable(); }
 let _trackerAutoRefreshTimer = null;
-let currentFilter = 'hoy';
+let currentFilter = 'todos';
 let filterByUser = '';
 
 function renderPendientes() {
