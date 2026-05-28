@@ -3855,6 +3855,7 @@ html.dark .skeleton {
           </div>
           <!-- Sheet tab selector (populated dynamically) -->
           <div id="metricsTabSelector" style="display:none;margin-bottom:16px;"></div>
+          <div id="metricsGoalPanel" style="margin-bottom:16px;"></div>
           <div class="metrics-grid" id="metricsCards">
             <div class="metric-card"><div class="metric-label">Vistas</div><div class="metric-value" id="mViews">—</div></div>
             <div class="metric-card"><div class="metric-label">Engagement</div><div class="metric-value" id="mEngagement">—</div></div>
@@ -3865,12 +3866,12 @@ html.dark .skeleton {
             <div class="metric-card"><div class="metric-label" style="display:flex;align-items:center;gap:4px;">CPE <span style="font-size:10px;color:var(--text-muted);font-weight:400;">(costo/engagement)</span></div><div class="metric-value" id="mCPE">—</div></div>
           </div>
           <div class="charts-grid">
-            <div class="card"><div class="card-header"><span class="card-title">Alcance e Interacciones</span></div><canvas id="lineChart" height="120"></canvas></div>
-            <div class="card"><div class="card-header"><span class="card-title">Distribución de interacciones</span></div><canvas id="donutChart" height="180"></canvas></div>
+            <div class="card"><div class="card-header" style="display:flex;justify-content:space-between;align-items:center;"><span class="card-title">Alcance e Interacciones</span><button class="btn btn-ghost btn-sm" onclick="downloadMetricChart('lineChartInst','alcance-interacciones.png')" title="Descargar PNG">⬇ PNG</button></div><canvas id="lineChart" height="120"></canvas></div>
+            <div class="card"><div class="card-header" style="display:flex;justify-content:space-between;align-items:center;"><span class="card-title">Distribución de interacciones</span><button class="btn btn-ghost btn-sm" onclick="downloadMetricChart('donutChartInst','distribucion-interacciones.png')" title="Descargar PNG">⬇ PNG</button></div><canvas id="donutChart" height="180"></canvas></div>
           </div>
           <div class="charts-grid">
-            <div class="card"><div class="card-header"><span class="card-title">Contenidos por plataforma</span></div><canvas id="platformChart" height="160"></canvas></div>
-            <div class="card"><div class="card-header"><span class="card-title">Share por plataforma</span></div><canvas id="platformShareChart" height="180"></canvas></div>
+            <div class="card"><div class="card-header" style="display:flex;justify-content:space-between;align-items:center;"><span class="card-title">Contenidos por plataforma</span><button class="btn btn-ghost btn-sm" onclick="downloadMetricChart('platformChartInst','contenidos-plataforma.png')" title="Descargar PNG">⬇ PNG</button></div><canvas id="platformChart" height="160"></canvas></div>
+            <div class="card"><div class="card-header" style="display:flex;justify-content:space-between;align-items:center;"><span class="card-title">Share por plataforma</span><button class="btn btn-ghost btn-sm" onclick="downloadMetricChart('platformShareChartInst','share-plataforma.png')" title="Descargar PNG">⬇ PNG</button></div><canvas id="platformShareChart" height="180"></canvas></div>
           </div>
           <div class="card">
             <div class="card-header" style="flex-wrap:wrap;gap:8px;"><span class="card-title">Rendimiento por publicación</span><span style="font-size:11px;color:var(--text-muted);">Click en plataforma para filtrar · click en columna para ordenar</span></div>
@@ -7960,7 +7961,8 @@ function renderEscenarioBlock(c) {
             <th>Creador</th><th>Tier</th><th>Cerrado</th>
             <th>Views est.</th><th>Views real</th><th>%</th>
             <th>Eng. est.</th><th>Eng. real</th><th>%</th>
-            <th>Pubs</th><th>%</th>
+            <th>Pubs (tr.)</th><th>%</th>
+            <th>Posts (mét.)</th><th>%</th>
             <th>Costo</th>
           </tr></thead>
           <tbody>
@@ -7983,6 +7985,8 @@ function renderEscenarioBlock(c) {
                 <td>${pctCell(cr.engPct)}</td>
                 <td style="text-align:right;">${cr.tracker.published}/${cr.contenidosTotal}</td>
                 <td>${pctCell(cr.contPct)}</td>
+                <td style="text-align:right;font-weight:700;">${cr.real.posts||0}/${cr.contenidosTotal}</td>
+                <td>${pctCell(cr.contenidosTotal>0 ? ((cr.real.posts||0)/cr.contenidosTotal)*100 : 0)}</td>
                 <td style="text-align:right;">${fmtMoney(cr.costoTotal)}</td>
               </tr>`;
             }).join('')}
@@ -9101,6 +9105,80 @@ function _chartTextColor(){
   return document.documentElement.classList.contains('dark') ? '#e9e8f0' : '#33333b';
 }
 
+// Descarga un chart de la página de métricas como PNG (Chart.js .toBase64Image).
+function downloadMetricChart(instanceName, fname) {
+  const inst = window[instanceName];
+  if(!inst || typeof inst.toBase64Image !== 'function') { showToast('No hay gráfico para exportar','error'); return; }
+  try {
+    const dataUrl = inst.toBase64Image('image/png', 1);
+    const a = document.createElement('a');
+    a.download = fname || 'grafico.png';
+    a.href = dataUrl; a.click();
+    showToast('PNG descargado','success');
+  } catch(e) { showToast('Error exportando: '+e.message,'error'); }
+}
+
+// Panel "Meta vs Real": cruza totales reales (cachedMetrics) con el estimado
+// del escenario para mostrar % completado por views, engagement y contenidos.
+function _renderMetricsGoal(c, realViews, realEng, realPosts) {
+  const el = document.getElementById('metricsGoalPanel');
+  if(!el) return;
+  if(!c) { el.innerHTML = ''; return; }
+  // Estimados: prioridad campaign.goal -> parseEscenarioRows.goal -> suma de creadores
+  let estViews = 0, estEng = 0, estCont = 0;
+  if(c.goal) {
+    estViews = Number(c.goal.views)||0;
+    estEng   = Number(c.goal.engagement)||0;
+    estCont  = Number(c.goal.contenidos)||0;
+  }
+  try {
+    if((!estViews || !estEng || !estCont) && c.escenarioRows && c.escenarioRows.length && typeof parseEscenarioRows==='function') {
+      const p = parseEscenarioRows(c.escenarioRows);
+      if(p.goal) {
+        estViews = estViews || (p.goal.viewsEstTotal||0);
+        estEng   = estEng   || (p.goal.engagementEst||0);
+        estCont  = estCont  || (p.goal.totalContenidos||0);
+      }
+      if(!estViews || !estEng || !estCont) {
+        const sum = (p.creators||[]).reduce((a,cr)=>({
+          v:a.v+(cr.viewsEstTotal||0), e:a.e+(cr.engagementEstTotal||0), c:a.c+(cr.contenidosTotal||0)
+        }), {v:0,e:0,c:0});
+        estViews = estViews || sum.v;
+        estEng   = estEng   || sum.e;
+        estCont  = estCont  || sum.c;
+      }
+    }
+  } catch(e){}
+  if(!estViews && !estEng && !estCont) { el.innerHTML = '<div style="font-size:11px;color:var(--text-muted);padding:8px 4px;">Vincula un escenario para ver % de cumplimiento vs estimado.</div>'; return; }
+  const pct = (r,e) => e>0 ? Math.min(999, (r/e)*100) : 0;
+  const sem = p => p>=80?{bg:'#bbf7d0',col:'#166534'}:p>=40?{bg:'#fef08a',col:'#854d0e'}:{bg:'#fecaca',col:'#991b1b'};
+  const fmt = n => formatNum(Math.round(n||0));
+  const bar = (label, real, est) => {
+    const p = pct(real, est);
+    const s = sem(p);
+    const w = Math.min(100, p);
+    return `<div style="background:var(--white);border:1px solid var(--border);border-radius:14px;padding:12px 14px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <div style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.6px;">${label}</div>
+        <div style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;background:${s.bg};color:${s.col};">${p.toFixed(0)}%</div>
+      </div>
+      <div style="font-size:16px;font-weight:800;color:var(--text);line-height:1.1;">${fmt(real)} <span style="font-size:11px;color:var(--text-muted);font-weight:600;">/ ${fmt(est)} est.</span></div>
+      <div style="margin-top:8px;height:6px;border-radius:6px;background:var(--bg);overflow:hidden;">
+        <div style="width:${w}%;height:100%;background:linear-gradient(90deg, var(--pink), var(--lavender));"></div>
+      </div>
+    </div>`;
+  };
+  el.innerHTML = `
+    <div style="background:var(--bg);border:1px solid var(--border);border-radius:14px;padding:14px 16px;">
+      <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;">🎯 Meta vs Real (escenario)</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;">
+        ${bar('Views', realViews, estViews)}
+        ${bar('Engagement', realEng, estEng)}
+        ${bar('Contenidos', realPosts, estCont)}
+      </div>
+    </div>`;
+}
+
 function displayMetrics(rows, campaign) {
   _metricsRows = rows || [];
   _metricsPlatFilter = null; _metricsSortKey = null; _metricsSortDir = 'desc';
@@ -9162,6 +9240,7 @@ function displayMetrics(rows, campaign) {
 
   _renderDigitPop('mViews',      formatNum(totalViews));
   _renderDigitPop('mEngagement', formatNum(totalEngagement));
+  try { _renderMetricsGoal(campaign, totalViews, totalEngagement, rows.length); } catch(e) { console.warn('goal panel', e); }
   _renderDigitPop('mER',         er);
   _renderDigitPop('mVR',         vr);
   if(document.getElementById('mQER')) _renderDigitPop('mQER', qer);
