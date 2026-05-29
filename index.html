@@ -2432,7 +2432,7 @@ html.dark .plat-badge[data-plat="Twitter/X"] {
 }
 @media (max-width: 768px) { .pend-fab { display:none; } }
 .ai-panel {
-  position:fixed; right:22px; bottom:92px; z-index:8999;
+  position:fixed; right:22px; top:72px; z-index:8999;
   width:min(420px, calc(100vw - 44px)); height:min(620px, calc(100vh - 120px));
   background:rgba(255,255,255,.86); backdrop-filter:blur(28px) saturate(180%); -webkit-backdrop-filter:blur(28px) saturate(180%);
   border:1px solid rgba(255,255,255,.7); border-radius:22px;
@@ -3482,6 +3482,13 @@ html.dark .skeleton {
       <button class="notif-bell-btn" id="notifBellBtn" onclick="toggleNotifPanel()" title="Notificaciones" style="position:relative;">
         🔔
         <span class="t-badge" id="notifBadge" data-open="false"><span class="t-badge-dot notif-badge">0</span></span>
+      </button>
+      <button class="notif-bell-btn" id="pendTopBtn" onclick="navigate('pendientes')" title="Pendientes" aria-label="Pendientes" style="position:relative;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9 12l2 2 4-4"/></svg>
+        <span class="t-badge" id="pendientesBadgeTop" data-open="false"><span class="t-badge-dot nav-badge">0</span></span>
+      </button>
+      <button class="notif-bell-btn" id="aiTopBtn" onclick="toggleAgentPanel()" title="Asistente IA" aria-label="Asistente IA" style="position:relative;padding:4px;">
+        <img src="assets/y-pink-transparent.png" alt="" style="width:24px;height:24px;object-fit:contain;pointer-events:none;">
       </button>
       <button class="theme-toggle-btn" id="themeToggleBtn" onclick="cycleTheme()" title="Cambiar modo">
         <span class="t-icon-swap" id="themeToggleSwap" data-state="a">
@@ -5139,6 +5146,7 @@ let editingTaskCampaignId = null;
 
 function setPendientesBadge(count) {
   _setTBadge('pendientesBadge', count);
+  _setTBadge('pendientesBadgeTop', count);
   _setTBadge('mobileNavBadge', count);
 }
 // Recompute pending-task count for the FAB badge from any page (mirrors the
@@ -13696,7 +13704,7 @@ function clearAgentChat() {
 </script>
 
 <!-- AI COMPANION -->
-<button class="ai-fab" id="aiFab" onclick="toggleAgentPanel()" aria-label="Asistente IA" title="Asistente IA">
+<button class="ai-fab" id="aiFab" onclick="toggleAgentPanel()" aria-label="Asistente IA" title="Asistente IA" style="display:none !important;">
   <img src="assets/y-pink-transparent.png" alt="" style="width:42px;height:42px;object-fit:contain;pointer-events:none;">
 </button>
 <div class="ai-panel" id="aiPanel" role="dialog" aria-label="Asistente IA">
@@ -13718,7 +13726,7 @@ function clearAgentChat() {
 </div>
 
 <!-- QUICK-ADD FAB (Liquid Glass v2) -->
-<div class="fab-wrap" id="fabWrap" style="display:none;bottom:170px;right:24px;">
+<div class="fab-wrap" id="fabWrap" style="display:none;bottom:24px;right:24px;">
   <div class="fab-actions" id="fabActions">
     <button class="fab-action" onclick="closeFab();openAddGlobalTaskModal();">
       <span class="fab-action-icon">✅</span> Nueva tarea
@@ -13801,8 +13809,8 @@ document.addEventListener('click', e => { if(_fabOpen && !e.target.closest('.fab
 })();
 </script>
 
-<!-- FAB PENDIENTES -->
-<button class="pend-fab" onclick="navigate('pendientes')" title="Pendientes" aria-label="Pendientes">
+<!-- FAB PENDIENTES (moved into topbar) -->
+<button class="pend-fab" onclick="navigate('pendientes')" title="Pendientes" aria-label="Pendientes" style="display:none !important;">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9 12l2 2 4-4"/></svg>
   <span class="t-badge" id="pendientesBadge" data-open="false"><span class="t-badge-dot nav-badge">0</span></span>
 </button>
