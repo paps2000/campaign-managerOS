@@ -3800,7 +3800,14 @@ html.dark .skeleton {
     <div class="page" id="page-metricas">
       <!-- Campaign picker view -->
       <div id="metricsCampList">
-        <p style="font-size:13px;color:var(--text-muted);margin-bottom:24px;">Selecciona una campaña para ver sus métricas.</p>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px;flex-wrap:wrap;">
+          <p style="font-size:13px;color:var(--text-muted);margin:0;">Selecciona una campaña para ver sus métricas.</p>
+          <a href="https://app.thinkydigital.com/" target="_blank" rel="noopener" class="btn btn-pink btn-sm" style="display:inline-flex;align-items:center;gap:8px;text-decoration:none;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z"/></svg>
+            Consulta tus métricas aquí — Thinky Hub
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M7 7h10v10"/></svg>
+          </a>
+        </div>
         <div class="campaign-grid" id="metricsCampGrid"></div>
       </div>
       <!-- Per-campaign metrics view -->
@@ -8134,14 +8141,14 @@ function renderCampaignDocs(c) {
   el.innerHTML = c.documents.length===0
     ? `<div class="empty-state"><div class="empty-icon">${ICN_paperclip}</div><p>Sin documentos.</p></div>`
     : c.documents.map(d=>`
-    <div class="doc-item">
+    <div class="doc-item" ${d.url?`onclick="if(event.target.closest('button,a'))return;window.open('${_esc(d.url)}','_blank','noopener')" style="cursor:pointer;"`:''}>
       <div class="doc-icon ${d.type==='PDF'?'doc-pdf':'doc-sheets'}">${docIcons[d.type]||ICN_paperclip}</div>
       <div class="doc-info">
         <div class="doc-name">${d.name}</div>
         <div class="doc-campaign">${d.type} · ${formatDateShort(d.date)}</div>
       </div>
-      ${d.url?`<a href="${d.url}" target="_blank" class="card-link">Ver →</a>`:''}
-      <button onclick="deleteDoc('${d.id}')" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:12px;padding:4px;"><span class="icn-close"></span></button>
+      ${d.url?`<a href="${d.url}" target="_blank" rel="noopener" class="card-link">Ver →</a>`:''}
+      <button onclick="event.stopPropagation();deleteDoc('${d.id}')" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:12px;padding:4px;"><span class="icn-close"></span></button>
     </div>`).join('');
 }
 
@@ -10620,14 +10627,14 @@ function renderDocumentosPage() {
   }
   const docIcons={PDF:'📄',Sheets:'📊',Doc:'📝',Presentación:'📋',Drive:'📦',Otro:'📎'};
   list.innerHTML = docs.map(d=>`
-    <div class="doc-item" style="padding:12px 0;">
+    <div class="doc-item" style="padding:12px 0;${d.url?'cursor:pointer;':''}" ${d.url?`onclick="if(event.target.closest('button,a'))return;window.open('${_esc(d.url)}','_blank','noopener')"`:''}>
       <div class="doc-icon ${d.type==='PDF'?'doc-pdf':'doc-sheets'}">${docIcons[d.type]||'📎'}</div>
       <div class="doc-info">
         <div class="doc-name">${d.name}</div>
         <div class="doc-campaign">${d.type} · ${formatDateShort(d.date)||''}</div>
       </div>
-      ${d.url?`<a href="${d.url}" target="_blank" class="card-link" style="margin-right:8px;">Abrir →</a>`:''}
-      <button onclick="deleteDocFromPage('${c.id}','${d.id}')" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:14px;padding:4px;">✕</button>
+      ${d.url?`<a href="${d.url}" target="_blank" rel="noopener" class="card-link" style="margin-right:8px;">Abrir →</a>`:''}
+      <button onclick="event.stopPropagation();deleteDocFromPage('${c.id}','${d.id}')" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:14px;padding:4px;">✕</button>
     </div>`).join('');
 }
 
