@@ -3496,7 +3496,6 @@ html.dark .skeleton {
           <span class="t-icon" data-icon="b">🌙</span>
         </span>
       </button>
-      <button class="btn btn-primary" id="mainActionBtn" onclick="openAddGlobalTaskModal()">+ Nueva tarea</button>
       <button class="logout-btn" onclick="logout()" title="Cerrar sesión">⎋ Salir</button>
     </div>
     <!-- NOTIFICATION PANEL -->
@@ -5343,11 +5342,7 @@ function navigate(page) {
   document.getElementById('topbarTitle').textContent = t[0];
   document.getElementById('topbarSub').textContent = t[1];
   const btn = document.getElementById('mainActionBtn');
-  if(t[2]) {
-    btn.style.display='inline-flex';
-    btn.textContent=t[2];
-    btn.onclick = (page === 'campannas') ? openNewCampaignModal : openAddGlobalTaskModal;
-  } else { btn.style.display='none'; }
+  if(btn) btn.style.display='none';
 
   if(page==='dashboard') renderDashboard();
   if(page==='campannas') { showCampaignList(); renderCampaignGrid(); }
