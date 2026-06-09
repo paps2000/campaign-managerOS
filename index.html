@@ -16,7 +16,6 @@
 <link rel="apple-touch-icon" sizes="256x256" href="assets/y-pink-filled-256.png">
 <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
@@ -3974,8 +3973,6 @@ html.dark .skeleton {
         <select id="infFilterPlat" class="form-input" style="max-width:150px;font-size:12px;" onchange="_infResetAndRender()"><option value="">Plataforma: todas</option></select>
         <span id="infCount" style="font-size:12px;color:var(--text-muted);white-space:nowrap;"></span>
         <div style="flex:1;"></div>
-        <input type="file" id="masterImportFile" accept=".xlsx,.xls,.csv" style="display:none;" onchange="_handleMasterFile(this)">
-        <button class="btn btn-ghost" onclick="importMasterExcel()" style="white-space:nowrap;" title="Sube el Excel Master de creadores — actualiza la base sin borrar reseñas ni escenarios">📥 Importar Master</button>
         <button class="btn btn-primary" onclick="openScenarioStart()" style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;">
           <span style="font-size:16px;line-height:1;">+</span> Arma tu escenario
         </button>
@@ -11755,6 +11752,10 @@ function _isMasterCreatorName(raw) {
   return true;
 }
 
+// Import del Excel Master: el botón de UI se retiró tras la carga inicial
+// (2026-06). La base vive en Firestore `creators` y se alimenta de los
+// escenarios guardados. Para re-importar: cargar SheetJS y llamar
+// _handleMasterFile con un input file desde la consola.
 function importMasterExcel() {
   const input = document.getElementById('masterImportFile');
   if(input) input.click();
