@@ -16,6 +16,7 @@
 <link rel="apple-touch-icon" sizes="256x256" href="assets/y-pink-filled-256.png">
 <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
@@ -3940,10 +3941,17 @@ html.dark .skeleton {
       </div>
     </div>
 
-    <!-- INFLUENCERS PLACEHOLDER -->
+    <!-- INFLUENCERS — base de datos de talento -->
     <div class="page" id="page-influencers">
-      <div style="display:flex;justify-content:flex-end;align-items:center;gap:10px;margin-bottom:20px;">
-        <input type="search" id="infSearch" class="form-input" style="max-width:220px;font-size:13px;" placeholder="Buscar influencer..." oninput="renderInfluencers()">
+      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:14px;">
+        <input type="search" id="infSearch" class="form-input" style="flex:1;min-width:180px;max-width:280px;font-size:13px;" placeholder="Buscar por nombre o keyword..." oninput="renderInfluencers()">
+        <select id="infFilterCategoria" class="form-input" style="max-width:170px;font-size:12px;" onchange="renderInfluencers()"><option value="">Categoría: todas</option></select>
+        <select id="infFilterTier" class="form-input" style="max-width:130px;font-size:12px;" onchange="renderInfluencers()"><option value="">Tier: todos</option></select>
+        <select id="infFilterPlat" class="form-input" style="max-width:150px;font-size:12px;" onchange="renderInfluencers()"><option value="">Plataforma: todas</option></select>
+        <span id="infCount" style="font-size:12px;color:var(--text-muted);white-space:nowrap;"></span>
+        <div style="flex:1;"></div>
+        <input type="file" id="masterImportFile" accept=".xlsx,.xls,.csv" style="display:none;" onchange="_handleMasterFile(this)">
+        <button class="btn btn-ghost" onclick="importMasterExcel()" style="white-space:nowrap;" title="Sube el Excel Master de creadores — actualiza la base sin borrar reseñas ni escenarios">📥 Importar Master</button>
         <button class="btn btn-primary" onclick="openScenarioStart()" style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;">
           <span style="font-size:16px;line-height:1;">+</span> Arma tu escenario
         </button>
@@ -4753,6 +4761,7 @@ const ICN_tiktok = `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
 const ICN_youtube = `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><rect width="24" height="24" rx="6" fill="#FF0000"/><path d="M20.2 8.6s-.2-1.2-.7-1.7c-.7-.7-1.4-.7-1.8-.8C15.4 6 12 6 12 6s-3.4 0-5.7.1c-.4.1-1.1.1-1.8.8-.5.5-.7 1.7-.7 1.7S3.6 10 3.6 11.4v1.2c0 1.4.2 2.8.2 2.8s.2 1.2.7 1.7c.7.7 1.6.7 2 .8 1.5.1 5.5.1 5.5.1s3.4 0 5.7-.2c.4 0 1.1-.1 1.8-.8.5-.5.7-1.7.7-1.7s.2-1.4.2-2.8v-1.2C20.4 10 20.2 8.6 20.2 8.6zM10.2 14V9.8l4.7 2.1-4.7 2.1z" fill="white"/></svg>`;
 const ICN_twitter = `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><rect width="24" height="24" rx="6" fill="#000000"/><path d="M17.8 4.5h2.3l-5 5.7 5.9 7.8h-4.6l-3.6-4.7-4.2 4.7H5.3l5.4-6.1L5 4.5h4.7l3.2 4.3 3.9-4.3zm-.8 12h1.3L7.1 5.7H5.7L17 16.5z" fill="white"/></svg>`;
 const ICN_facebook = `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><rect width="24" height="24" rx="6" fill="#1877F2"/><path d="M15.9 13.5l.4-2.9h-2.8v-1.9c0-.8.4-1.6 1.6-1.6h1.2V4.6S15.3 4.4 14 4.4c-2.3 0-3.8 1.4-3.8 3.9v2.3H7.7v2.9h2.5V21c.5.1 1 .1 1.5.1s1 0 1.5-.1v-7.5h2.7z" fill="white"/></svg>`;
+const ICN_twitch = `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><rect width="24" height="24" rx="6" fill="#9146FF"/><path d="M7 4L5 8v10h3v2h2l2-2h3l4-4V4H7zm11 9.5L15.5 16H12l-2 2v-2H7.5V5.5H18v8z" fill="white"/><rect x="11" y="8" width="1.6" height="4.5" fill="white"/><rect x="14.5" y="8" width="1.6" height="4.5" fill="white"/></svg>`;
 
 // Normalize any platform string (IG, tiktok, YT, X, "FB REEL", etc.) → canonical key.
 function _normalizePlatform(pf) {
@@ -4766,8 +4775,10 @@ function _normalizePlatform(pf) {
     youtube:'YouTube', yt:'YouTube', shorts:'YouTube', short:'YouTube', ytshorts:'YouTube',
     twitter:'Twitter/X', x:'Twitter/X', tweet:'Twitter/X', twitterx:'Twitter/X',
     facebook:'Facebook', fb:'Facebook', face:'Facebook', fbreel:'Facebook',
+    twitch:'Twitch', stream:'Twitch',
   };
   if(map[k]) return map[k];
+  if(/twitch|stream/.test(raw)) return 'Twitch';
   // 2) Substring detection (handles "FB REEL", "TIKTOK ORGÁNICO", "SHORT (REPLICA)").
   //    Order matters: most specific / brand-named first so "FB REEL" → Facebook.
   if(/tiktok|tik\b|\btt\b/.test(raw)) return 'TikTok';
@@ -4780,8 +4791,8 @@ function _normalizePlatform(pf) {
 
 // Platform badge — colored pill with brand icon. Accepts any alias.
 function platformBadge(pf) {
-  const icons = {Instagram:ICN_insta,TikTok:ICN_tiktok,YouTube:ICN_youtube,'Twitter/X':ICN_twitter,Facebook:ICN_facebook};
-  const colors = {Instagram:'#C13584',TikTok:'#010101',YouTube:'#FF0000','Twitter/X':'#000000',Facebook:'#1877F2'};
+  const icons = {Instagram:ICN_insta,TikTok:ICN_tiktok,YouTube:ICN_youtube,'Twitter/X':ICN_twitter,Facebook:ICN_facebook,Twitch:ICN_twitch};
+  const colors = {Instagram:'#C13584',TikTok:'#010101',YouTube:'#FF0000','Twitter/X':'#000000',Facebook:'#1877F2',Twitch:'#9146FF'};
   const key = _normalizePlatform(pf);
   const icon = key ? icons[key] : null;
   if(!icon) { const t = String(pf||'').trim(); return `<span style="font-size:11px;color:var(--text-muted);">${t||'—'}</span>`; }
@@ -4844,7 +4855,7 @@ const COST_ACCESS_PUESTOS = new Set(['Account Director','Head Account','Account 
 const STATUS_OPTIONS = STATUS_OPTIONS_FLOW;
 
 // In-memory cache backed by Firestore. Reads = sync (cache). Writes = sync cache + async Firestore.
-const _cache = { campaigns:[], globalTasks:[], settings:{}, influencerRatings:[], _initialized:false };
+const _cache = { campaigns:[], globalTasks:[], settings:{}, influencerRatings:[], creators:[], _initialized:false };
 
 function getData(key, def) {
   if(key in _cache) return _cache[key];
@@ -5028,6 +5039,12 @@ function attachListeners() {
     _cache.influencerRatings = snap.docs.map(d => d.data());
     if(currentPage==='influencers') renderInfluencers();
   }, err => console.error('influencerRatings listener',err)));
+
+  // Master creators DB listener (base de datos de talento)
+  unsubscribers.push(ws.collection('creators').onSnapshot(snap => {
+    _cache.creators = snap.docs.map(d => d.data());
+    if(currentPage==='influencers') renderInfluencers();
+  }, err => console.error('creators listener',err)));
 }
 
 function visibleCampaigns() {
@@ -11641,6 +11658,208 @@ function _isRealCreatorName(raw) {
   return true;
 }
 
+// ============================================================
+// MASTER CREATORS DB — base de datos de talento (colección `creators`)
+// Fuente: import del Excel "Master Escenarios" + escenarios guardados en la app.
+// ============================================================
+function _creatorByKey(key) {
+  return (_cache.creators||[]).find(c => c.key === key) || null;
+}
+
+const _MASTER_TIER_MAP = { CELEB:'VIP', VIP:'VIP', MEGA:'MEGA', MACRO:'MACRO', MID:'MID', MICRO:'MICRO', NANO:'NANO', NICHO:'NICHO' };
+function _masterTier(raw) {
+  const v = String(raw||'').trim().toUpperCase();
+  return _MASTER_TIER_MAP[v] || '';
+}
+function _masterNum(v) {
+  if(v == null || v === '' || v === '-') return 0;
+  if(typeof v === 'number') return isFinite(v) ? v : 0;
+  const n = Number(String(v).replace(/[$,\s%]/g,''));
+  return isFinite(n) ? n : 0;
+}
+function _masterMes(v) {
+  if(v instanceof Date && !isNaN(v)) return v.toISOString().slice(0,7);
+  if(typeof v === 'number' && v > 20000) { // Excel serial date
+    const d = new Date(Math.round((v - 25569) * 86400 * 1000));
+    if(!isNaN(d)) return d.toISOString().slice(0,7);
+  }
+  const s = String(v||'').trim();
+  const m = s.match(/^(\d{4})-(\d{2})/);
+  return m ? m[1]+'-'+m[2] : s;
+}
+function _masterKeywords(raw) {
+  return String(raw||'').split(/[,;\n]/).map(s=>s.trim().toLowerCase()).filter(s=>s.length>1);
+}
+
+// Map header text (normalized) → field name. `includes` match, order matters.
+const _MASTER_COLS = [
+  ['marca','marca'], ['pais audiencia','audPaises'],
+  ['costo total campana (usd)','_skip2'], ['costo total campana','costoTotal'],
+  ['campana','campana'], ['mes','mes'],
+  ['agencia','agencia'], ['subcategoria','keywords'], ['categoria','categoria'],
+  ['nombre','nombre'], ['plataforma','plataforma'], ['link','link'],
+  ['total de seguidores','_skip1'], ['seguidores','seguidores'], ['tier','tier'],
+  ['ciudades','audCiudades'], ['edades','audEdades'], ['genero','audGenero'],
+  ['cantidad de contenido','cantidad'],
+  ['interacciones promedio','interacciones'],
+  ['contenido','contenido'],
+  ['views x posteo','viewsXPost'],
+  ['engagement rate','er'], ['view rate','viewRate'],
+  ['costo unitario','costoUnitario'],
+  ['costo uso de imagen','costoPautaImagen'],
+  ['uso de imagen','usoImagen'],
+  ['pauta','pauta'],
+  ['pais','pais'],
+];
+function _masterHeaderField(h) {
+  const n = String(h||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/\s+/g,' ').trim();
+  if(!n) return null;
+  for(const [needle, field] of _MASTER_COLS) { if(n.includes(needle)) return field; }
+  return null;
+}
+
+// El master es una base curada: aceptamos nombres con dígitos ("Pollo 24"),
+// solo rechazamos placeholders obvios.
+function _isMasterCreatorName(raw) {
+  const v = String(raw||'').trim();
+  if(v.length < 2) return false;
+  if(/^(fee|ugc|tbd|na|n\/a|—|-|total|subtotal)$/i.test(v)) return false;
+  return true;
+}
+
+function importMasterExcel() {
+  const input = document.getElementById('masterImportFile');
+  if(input) input.click();
+}
+
+async function _handleMasterFile(input) {
+  const file = input.files && input.files[0];
+  input.value = '';
+  if(!file) return;
+  if(typeof XLSX === 'undefined') { showToast('Librería de Excel no cargó — revisa tu conexión','error'); return; }
+  showToast('Leyendo Excel...','success');
+  try {
+    const buf = await file.arrayBuffer();
+    const wb = XLSX.read(buf, { cellDates:true });
+    const sheet = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(sheet, { header:1, defval:'' });
+    if(!rows.length) throw new Error('Hoja vacía');
+    const fields = rows[0].map(_masterHeaderField);
+    const parsed = [];
+    for(let i=1;i<rows.length;i++) {
+      const r = {};
+      rows[i].forEach((v,ci) => { const f = fields[ci]; if(f && !f.startsWith('_skip')) r[f] = v; });
+      const nombre = String(r.nombre||'').trim();
+      if(!nombre || !_isMasterCreatorName(nombre)) continue;
+      // Skip the instructions row ("PONER FECHA...", no real data)
+      if(!r.plataforma && !r.seguidores && !r.link) continue;
+      parsed.push(r);
+    }
+    if(!parsed.length) throw new Error('No encontré filas de creadores. ¿Es el formato del Master?');
+    const docs = _buildCreatorDocs(parsed);
+    await _upsertCreators(docs);
+    showToast(`Master importado: ${docs.length} creadores (${parsed.length} filas)`,'success');
+    if(currentPage==='influencers') renderInfluencers();
+  } catch(e) {
+    console.error('master import', e);
+    showToast('Error importando: '+e.message,'error');
+  }
+}
+
+function _buildCreatorDocs(rows) {
+  const map = new Map();
+  rows.forEach(r => {
+    const name = String(r.nombre).trim();
+    const key = infKey({ name });
+    if(!map.has(key)) map.set(key, {
+      key, name,
+      categoria:'', keywords:[], tier:'',
+      platforms:{}, audiencia:{},
+      historyMaster: [],
+      source:'master',
+    });
+    const d = map.get(key);
+    const plat = _normalizePlatform(r.plataforma) || String(r.plataforma||'').trim();
+    // Perfil por plataforma (link + seguidores; nos quedamos con lo último visto)
+    if(plat) {
+      if(!d.platforms[plat]) d.platforms[plat] = {};
+      if(r.link) d.platforms[plat].link = String(r.link).trim();
+      const seg = _masterNum(r.seguidores);
+      if(seg) d.platforms[plat].seguidores = seg;
+    }
+    if(r.categoria) d.categoria = String(r.categoria).trim().toUpperCase();
+    _masterKeywords(r.keywords).forEach(k => { if(!d.keywords.includes(k)) d.keywords.push(k); });
+    const tier = _masterTier(r.tier); if(tier) d.tier = tier;
+    if(r.audPaises) d.audiencia.paises = String(r.audPaises).trim();
+    if(r.audCiudades) d.audiencia.ciudades = String(r.audCiudades).trim();
+    if(r.audEdades) d.audiencia.edades = String(r.audEdades).trim();
+    if(r.audGenero) d.audiencia.genero = String(r.audGenero).trim();
+    d.historyMaster.push({
+      marca: String(r.marca||'').trim(),
+      pais: String(r.pais||'').trim(),
+      campana: String(r.campana||'').trim(),
+      mes: _masterMes(r.mes),
+      agencia: String(r.agencia||'').trim(),
+      plataforma: plat,
+      contenido: String(r.contenido||'').trim(),
+      cantidad: _masterNum(r.cantidad),
+      viewsXPost: _masterNum(r.viewsXPost),
+      interacciones: _masterNum(r.interacciones),
+      er: _masterNum(r.er),
+      viewRate: _masterNum(r.viewRate),
+      costoUnitario: _masterNum(r.costoUnitario),
+      costoPautaImagen: _masterNum(r.costoPautaImagen),
+      costoTotal: _masterNum(r.costoTotal),
+      pauta: r.pauta === true || /^(true|si|sí|x|1)$/i.test(String(r.pauta||'').trim()),
+      usoImagen: r.usoImagen === true || /^(true|si|sí|x|1)$/i.test(String(r.usoImagen||'').trim()),
+    });
+  });
+  return Array.from(map.values());
+}
+
+async function _upsertCreators(docs) {
+  const col = db.collection('workspaces').doc(WORKSPACE).collection('creators');
+  const CHUNK = 400;
+  for(let i=0;i<docs.length;i+=CHUNK) {
+    const batch = db.batch();
+    docs.slice(i,i+CHUNK).forEach(d => {
+      batch.set(col.doc(d.key), { ...d, updatedAt: Date.now() }, { merge:true });
+    });
+    await batch.commit();
+    if(docs.length > CHUNK) showToast(`Guardando ${Math.min(i+CHUNK,docs.length)}/${docs.length}...`,'success');
+  }
+}
+
+// Historial completo del creador: master + escenarios guardados en la app, más reciente primero.
+function _creatorAllHistory(cr) {
+  const out = [];
+  (cr.historyMaster||[]).forEach(h => out.push({...h, source:'master'}));
+  Object.values(cr.historyApp||{}).forEach(entry => {
+    (entry.lines||[]).forEach(l => out.push({
+      marca: entry.client||'', campana: entry.campana||'', mes: entry.mes||'',
+      plataforma: l.platform||'', contenido: l.contenido||'', cantidad: l.cantidad||0,
+      viewsXPost: l.viewsXPost||0, interacciones: l.interacciones||0,
+      costoUnitario: l.costoUnitario||0, costoTotal: l.costoTotal||0,
+      pauta: !!(l.costoPauta), usoImagen:false, agencia:'', source:'app',
+    }));
+  });
+  return out.sort((a,b) => String(b.mes||'').localeCompare(String(a.mes||'')));
+}
+
+// Última tarifa conocida del creador para una plataforma (y tipo de contenido si se da).
+function creatorLatestRate(cr, platform, contenido) {
+  const plat = _normalizePlatform(platform) || platform;
+  const hist = _creatorAllHistory(cr).filter(h =>
+    (_normalizePlatform(h.plataforma)||h.plataforma) === plat && (h.costoUnitario>0 || h.viewsXPost>0));
+  if(!hist.length) return null;
+  if(contenido) {
+    const ct = String(contenido).toLowerCase().trim();
+    const match = hist.find(h => String(h.contenido||'').toLowerCase().trim() === ct);
+    if(match) return match;
+  }
+  return hist[0];
+}
+
 function getAllInfluencers() {
   const map = {};
   const ensure = (k, inf) => {
@@ -11684,6 +11903,17 @@ function getAllInfluencers() {
       }
     } catch(err){}
   });
+  // 4) Master creators DB (base de talento importada del Excel)
+  (_cache.creators||[]).forEach(cr => {
+    if(!cr.name || !_isMasterCreatorName(cr.name)) return;
+    const e = ensure(cr.key, { name: cr.name });
+    Object.keys(cr.platforms||{}).forEach(p => addPlat(e, p));
+    e.master = cr;
+    if(cr.categoria) e.categoria = cr.categoria;
+    if(cr.keywords && cr.keywords.length) e.keywords = cr.keywords;
+    if(cr.tier) e.tier = cr.tier;
+    e.seguidoresTotal = Object.values(cr.platforms||{}).reduce((a,p)=>a+(Number(p.seguidores)||0),0);
+  });
   return Object.values(map).map(e => { delete e._platSet; return e; }).sort((a, b) => a.name.localeCompare(b.name));
 }
 
@@ -11694,8 +11924,8 @@ function infRatingsFor(key) {
 // ============================================================
 // SCENARIO BUILDER (Arma tu escenario)
 // ============================================================
-const SCENARIO_TIERS = ['VIP','MEGA','MACRO','MID','MICRO','NANO'];
-const SCENARIO_PLATFORMS = ['Instagram','TikTok','YouTube','Twitter/X','Facebook'];
+const SCENARIO_TIERS = ['VIP','MEGA','MACRO','MID','MICRO','NANO','NICHO'];
+const SCENARIO_PLATFORMS = ['Instagram','TikTok','YouTube','Twitter/X','Facebook','Twitch'];
 let _scenarioState = null; // { campaignId, budgetSource, creators:[...] }
 
 function _scnId() { return 's'+Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
@@ -12021,21 +12251,26 @@ function scenarioPickExisting() {
 function _scnRenderPickList() {
   const q = (document.getElementById('scnPickSearch').value||'').toLowerCase();
   let infs = getAllInfluencers();
-  if(q) infs = infs.filter(i => (i.name||'').toLowerCase().includes(q) || (i.handle||'').toLowerCase().includes(q));
+  if(q) infs = infs.filter(i =>
+    (i.name||'').toLowerCase().includes(q) ||
+    (i.handle||'').toLowerCase().includes(q) ||
+    (i.categoria||'').toLowerCase().includes(q) ||
+    (i.keywords||[]).some(k => k.includes(q)));
   const list = document.getElementById('scnPickList');
   if(!infs.length) { list.innerHTML = '<div style="padding:16px;text-align:center;color:var(--text-muted);font-size:12px;">Sin resultados.</div>'; return; }
-  list.innerHTML = infs.map(i=>{
+  list.innerHTML = infs.slice(0,150).map(i=>{
     const sel = _scnPickName && _scnPickName.toLowerCase()===(i.name||'').toLowerCase();
     const plats = (i.platforms&&i.platforms.length)?platformBadges(i.platforms):(i.platform?platformBadge(i.platform):'');
+    const meta = [i.categoria, i.seguidoresTotal?formatNum(i.seguidoresTotal)+' seg.':''].filter(Boolean).join(' · ');
     return `<div onclick="_scnPickSelect('${(i.name||'').replace(/'/g,"\\'")}')" style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:10px;cursor:pointer;${sel?'background:var(--pink-pale);border:1px solid var(--pink);':'border:1px solid transparent;'}">
       <div class="inf-avatar" style="width:28px;height:28px;font-size:11px;flex-shrink:0;">${(i.name||'?')[0]}</div>
       <div style="flex:1;min-width:0;">
-        <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_esc(i.name)}</div>
-        <div style="display:flex;gap:3px;flex-wrap:wrap;margin-top:2px;">${plats}</div>
+        <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:6px;">${_esc(i.name)} ${_tierBadge(i.tier)}</div>
+        <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:2px;align-items:center;">${plats}${meta?`<span style="font-size:10px;color:var(--text-muted);">${_esc(meta)}</span>`:''}</div>
       </div>
       ${sel?'<span style="color:var(--pink);font-weight:700;">✓</span>':''}
     </div>`;
-  }).join('');
+  }).join('') + (infs.length>150?`<div style="padding:10px;text-align:center;color:var(--text-muted);font-size:11px;">Mostrando 150 de ${infs.length} — afina tu búsqueda</div>`:'');
 }
 
 function _scnPickSelect(name) {
@@ -12055,17 +12290,35 @@ function _scnPickConfirm() {
   if(!_scnPickName) { showToast('Selecciona un creador','error'); return; }
   const platform = document.getElementById('scnPickPlatform').value || 'Instagram';
   const tipo = (document.getElementById('scnPickTipo').value||'').trim();
-  const line = _newScnLine({ platform, contenidoTipo: tipo });
+  // Autofill desde la base de talento: seguidores, views, interacciones y última tarifa.
+  const master = _creatorByKey(infKey({ name:_scnPickName }));
+  const seed = { platform, contenidoTipo: tipo };
+  let tier = '';
+  if(master) {
+    tier = master.tier || '';
+    const pd = (master.platforms||{})[platform];
+    if(pd && pd.seguidores) seed.seguidores = pd.seguidores;
+    const rate = creatorLatestRate(master, platform, tipo);
+    if(rate) {
+      if(!seed.contenidoTipo && rate.contenido) seed.contenidoTipo = rate.contenido;
+      if(rate.viewsXPost) seed.viewsPerContent = rate.viewsXPost;
+      if(rate.interacciones) seed.interaccionesPerContent = rate.interacciones;
+      if(rate.costoUnitario) seed.costoContenidos = rate.costoUnitario;
+      if(!seed.seguidores && rate.seguidores) seed.seguidores = rate.seguidores;
+    }
+  }
+  const line = _newScnLine(seed);
   // If creator already in scenario, append a line; else add new creator.
   const existing = (_scenarioState.creators||[]).find(c=>(c.name||'').toLowerCase()===_scnPickName.toLowerCase());
   if(existing) {
     existing.platforms.push(line);
+    if(!existing.tier && tier) existing.tier = tier;
   } else {
-    _scenarioState.creators.push({ id:_scnId(), name:_scnPickName, tier:'', platforms:[line] });
+    _scenarioState.creators.push({ id:_scnId(), name:_scnPickName, tier, platforms:[line] });
   }
   closeModal('scnPickModal');
   _renderScenario();
-  showToast('Creador agregado','success');
+  showToast(master && line.costoContenidos ? 'Creador agregado con su última tarifa' : 'Creador agregado','success');
 }
 
 // ---- Save ----
@@ -12079,7 +12332,49 @@ function scenarioSave() {
     updatedAt: Date.now(),
   }};
   setData('campaigns', campaigns);
+  // Alimentar la base de talento: cada creador del escenario guarda su entrada
+  // bajo historyApp[campaignId] (re-guardar el mismo escenario solo la actualiza).
+  try { _scenarioFeedCreatorsDB(campaigns[idx]); } catch(e){ console.warn('feed creators db', e); }
   showToast('Escenario guardado','success');
+}
+
+async function _scenarioFeedCreatorsDB(campaign) {
+  const col = db.collection('workspaces').doc(WORKSPACE).collection('creators');
+  const mes = new Date().toISOString().slice(0,7);
+  const batch = db.batch();
+  let count = 0;
+  (_scenarioState.creators||[]).forEach(cr => {
+    const name = String(cr.name||'').trim();
+    if(!name || !_isRealCreatorName(name)) return;
+    const key = infKey({ name });
+    const lines = (cr.platforms||[]).map(p => {
+      const qty = Number(p.cantidad)||0;
+      const cCont = Number(p.costoContenidos)||0;
+      return {
+        platform: _scnLinePlatform(p),
+        contenido: p.contenidoTipo||'',
+        cantidad: qty,
+        seguidores: Number(p.seguidores)||0,
+        viewsXPost: Number(p.viewsPerContent)||0,
+        interacciones: Number(p.interaccionesPerContent)||0,
+        costoUnitario: qty>0 ? Math.round(cCont/qty) : cCont,
+        costoPauta: Number(p.costoPauta)||0,
+        costoTotal: cCont + (Number(p.costoPauta)||0),
+      };
+    }).filter(l => l.cantidad>0 || l.costoTotal>0 || l.viewsXPost>0);
+    if(!lines.length) return;
+    const doc = {
+      key, name,
+      updatedAt: Date.now(),
+      historyApp: { [campaign.id]: {
+        campana: campaign.name||'', client: campaign.client||'', mes, lines,
+      }},
+    };
+    if(cr.tier) doc.tier = cr.tier;
+    batch.set(col.doc(key), doc, { merge:true });
+    count++;
+  });
+  if(count) await batch.commit();
 }
 
 // ---- Export ----
@@ -12140,31 +12435,73 @@ function starsHtml(avg, size) {
   return [1,2,3,4,5].map(i => `<span class="star${cls}" style="color:${i <= Math.round(avg) ? '#f5a623' : '#ddd'};">★</span>`).join('');
 }
 
+function _infFillFilterOptions(infs) {
+  const fill = (id, values, label) => {
+    const sel = document.getElementById(id);
+    if(!sel) return;
+    const cur = sel.value;
+    sel.innerHTML = `<option value="">${label}</option>` + values.map(v=>`<option value="${_esc(v)}">${_esc(v)}</option>`).join('');
+    if(values.includes(cur)) sel.value = cur;
+  };
+  fill('infFilterCategoria', [...new Set(infs.map(i=>i.categoria).filter(Boolean))].sort(), 'Categoría: todas');
+  const tierOrder = ['VIP','MEGA','MACRO','MID','MICRO','NANO','NICHO'];
+  fill('infFilterTier', [...new Set(infs.map(i=>i.tier).filter(Boolean))].sort((a,b)=>tierOrder.indexOf(a)-tierOrder.indexOf(b)), 'Tier: todos');
+  fill('infFilterPlat', [...new Set(infs.flatMap(i=>i.platforms||[]))].sort(), 'Plataforma: todas');
+}
+
+const _TIER_COLORS = { VIP:'#b45309', MEGA:'#7c3aed', MACRO:'#2563eb', MID:'#0d9488', MICRO:'#65a30d', NANO:'#ea580c', NICHO:'#db2777' };
+function _tierBadge(tier) {
+  if(!tier) return '';
+  const c = _TIER_COLORS[tier] || '#6b7280';
+  return `<span style="font-size:10px;font-weight:800;padding:2px 8px;border-radius:10px;background:${c}18;color:${c};letter-spacing:.5px;">${_esc(tier)}</span>`;
+}
+
 function renderInfluencers() {
   const grid = document.getElementById('infGrid');
   if (!grid) return;
-  const q = (document.getElementById('infSearch')?.value || '').toLowerCase();
-  let infs = getAllInfluencers();
-  if (q) infs = infs.filter(inf => inf.name.toLowerCase().includes(q) || inf.handle.toLowerCase().includes(q));
+  const all = getAllInfluencers();
+  _infFillFilterOptions(all);
+  const _deacc = s => String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').trim();
+  const q = _deacc(document.getElementById('infSearch')?.value);
+  const fCat = document.getElementById('infFilterCategoria')?.value || '';
+  const fTier = document.getElementById('infFilterTier')?.value || '';
+  const fPlat = document.getElementById('infFilterPlat')?.value || '';
+  let infs = all;
+  if (q) infs = infs.filter(inf =>
+    _deacc(inf.name).includes(q) ||
+    _deacc(inf.handle).includes(q) ||
+    _deacc(inf.categoria).includes(q) ||
+    (inf.keywords||[]).some(k => _deacc(k).includes(q)));
+  if (fCat) infs = infs.filter(i => i.categoria === fCat);
+  if (fTier) infs = infs.filter(i => i.tier === fTier);
+  if (fPlat) infs = infs.filter(i => (i.platforms||[]).includes(fPlat));
+  const counter = document.getElementById('infCount');
+  if(counter) counter.textContent = `${infs.length} de ${all.length} creadores`;
   if (!infs.length) {
-    grid.innerHTML = '<div class="empty-state"><p>' + (q ? 'Sin resultados.' : 'Agrega influencers a tus campañas para verlos aquí.') + '</p></div>';
+    grid.innerHTML = '<div class="empty-state"><p>' + ((q||fCat||fTier||fPlat) ? 'Sin resultados con esos filtros.' : 'Importa el Master de creadores o agrega influencers a tus campañas.') + '</p></div>';
     return;
   }
   grid.innerHTML = infs.map(inf => {
     const ratings = infRatingsFor(inf.key);
     const avg = avgStars(ratings);
-    const campList = inf.campaigns.map(c => `<span style="font-size:11px;padding:2px 7px;border-radius:12px;background:var(--bg);color:var(--text-muted);border:1px solid var(--border);">${_esc(c.name)}</span>`).join(' ');
+    const campList = inf.campaigns.slice(0,3).map(c => `<span style="font-size:11px;padding:2px 7px;border-radius:12px;background:var(--bg);color:var(--text-muted);border:1px solid var(--border);">${_esc(c.name)}</span>`).join(' ')
+      + (inf.campaigns.length>3 ? ` <span style="font-size:11px;color:var(--text-muted);">+${inf.campaigns.length-3}</span>` : '');
+    const kw = (inf.keywords||[]).slice(0,4).map(k=>`<span style="font-size:10px;padding:1px 6px;border-radius:8px;background:var(--pink-pale);color:var(--pink);">${_esc(k)}</span>`).join(' ');
+    const segTxt = inf.seguidoresTotal ? `<span style="font-size:11px;color:var(--text-muted);font-weight:700;">${formatNum(inf.seguidoresTotal)} seg.</span>` : '';
     return `<div class="campaign-card" onclick="openInfluencerDetail('${inf.key}')" style="cursor:pointer;">
       <div class="campaign-card-header">
-        <div style="display:flex;align-items:center;gap:10px;">
+        <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;">
           <div class="inf-avatar" style="width:40px;height:40px;font-size:15px;flex-shrink:0;">${(inf.name||'?')[0].toUpperCase()}</div>
-          <div>
-            <div class="campaign-name">${_esc(inf.name)}</div>
-            <div class="campaign-client" style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;">${inf.handle ? '<span style="color:var(--text-muted);font-size:11px;">@'+inf.handle+'</span>' : ''} ${(inf.platforms&&inf.platforms.length)?platformBadges(inf.platforms):(inf.platform?platformBadge(inf.platform):'')}</div>
+          <div style="min-width:0;">
+            <div class="campaign-name" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">${_esc(inf.name)} ${_tierBadge(inf.tier)}</div>
+            <div class="campaign-client" style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;">${inf.handle ? '<span style="color:var(--text-muted);font-size:11px;">@'+inf.handle+'</span>' : ''} ${(inf.platforms&&inf.platforms.length)?platformBadges(inf.platforms):(inf.platform?platformBadge(inf.platform):'')} ${segTxt}</div>
           </div>
         </div>
       </div>
-      <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:4px;">${campList || '<span style="font-size:11px;color:var(--text-muted);">Sin campañas</span>'}</div>
+      ${inf.categoria || kw ? `<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:4px;align-items:center;">
+        ${inf.categoria?`<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:var(--bg);color:var(--text);border:1px solid var(--border);">${_esc(inf.categoria)}</span>`:''} ${kw}
+      </div>`:''}
+      <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:4px;">${campList || '<span style="font-size:11px;color:var(--text-muted);">Sin campañas aún</span>'}</div>
       <div style="margin-top:10px;display:flex;align-items:center;gap:6px;">
         <span>${starsHtml(avg, 'sm')}</span>
         ${ratings.length ? `<span style="font-size:11px;color:var(--text-muted);">${avg.toFixed(1)} (${ratings.length})</span>` : `<span style="font-size:11px;color:var(--text-muted);">Sin calificaciones</span>`}
@@ -12306,7 +12643,52 @@ function renderInfluencerDetailContent(inf) {
     `<span class="star" id="infStar${i}" onclick="selectStar(${i})" style="font-size:28px;cursor:pointer;color:${myRating && i<=myRating.stars ? '#f5a623' : '#ddd'};">★</span>`
   ).join('');
 
+  // Perfil del master (base de talento)
+  const m = inf.master || _creatorByKey(inf.key);
+  let masterHtml = '';
+  if(m) {
+    const platRows = Object.entries(m.platforms||{}).map(([p,d]) => `
+      <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);">
+        ${platformBadge(p)}
+        <span style="font-size:12px;font-weight:700;">${d.seguidores?formatNum(d.seguidores)+' seguidores':''}</span>
+        <div style="flex:1;"></div>
+        ${d.link?`<a href="${_esc(d.link)}" target="_blank" rel="noopener" onclick="event.stopPropagation();" style="font-size:11px;color:var(--pink);font-weight:700;">Ver perfil ↗</a>`:''}
+      </div>`).join('');
+    const aud = m.audiencia||{};
+    const audCell = (label, raw) => raw ? `<div style="background:var(--bg);border-radius:10px;padding:8px 10px;"><div style="font-size:9px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;">${label}</div><div style="font-size:11px;white-space:pre-line;line-height:1.5;">${_esc(raw)}</div></div>` : '';
+    const hist = _creatorAllHistory(m);
+    const rateRows = hist.filter(h=>h.costoUnitario>0).slice(0,8).map(h=>`
+      <tr>
+        <td style="white-space:nowrap;">${_esc(h.mes||'—')}</td>
+        <td>${_esc(h.marca||'')}${h.campana?' · '+_esc(h.campana):''}</td>
+        <td>${h.plataforma?platformBadge(h.plataforma):'—'}</td>
+        <td>${_esc(h.contenido||'—')}</td>
+        <td style="text-align:right;font-weight:700;">$${(h.costoUnitario||0).toLocaleString('es-MX')}</td>
+        <td style="text-align:right;">${h.viewsXPost?formatNum(h.viewsXPost):'—'}</td>
+      </tr>`).join('');
+    masterHtml = `
+    <div style="border:1.5px solid var(--border);border-radius:14px;padding:16px 18px;margin-bottom:20px;">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+        <span style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;">📇 Perfil · Base de talento</span>
+        <div style="flex:1;"></div>
+        ${m.categoria?`<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:var(--bg);border:1px solid var(--border);">${_esc(m.categoria)}</span>`:''}
+        ${_tierBadge(m.tier)}
+      </div>
+      ${(m.keywords&&m.keywords.length)?`<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px;">${m.keywords.map(k=>`<span style="font-size:10px;padding:2px 8px;border-radius:10px;background:var(--pink-pale);color:var(--pink);">${_esc(k)}</span>`).join('')}</div>`:''}
+      ${platRows}
+      ${(aud.paises||aud.edades||aud.genero||aud.ciudades)?`
+      <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin:12px 0 8px;">Audiencia</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;">
+        ${audCell('País', aud.paises)}${audCell('Ciudades', aud.ciudades)}${audCell('Edades', aud.edades)}${audCell('Género', aud.genero)}
+      </div>`:''}
+      ${rateRows?`
+      <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin:14px 0 8px;">💰 Historial de tarifas (más reciente primero)</div>
+      <div class="table-wrap"><table class="table" style="font-size:11px;"><thead><tr><th>Mes</th><th>Marca / Campaña</th><th>Plataforma</th><th>Contenido</th><th style="text-align:right;">Costo unit.</th><th style="text-align:right;">Views x post</th></tr></thead><tbody>${rateRows}</tbody></table></div>`:''}
+    </div>`;
+  }
+
   document.getElementById('infDetailContent').innerHTML = `
+    ${masterHtml}
     <!-- Avg rating -->
     ${ratings.length ? `
     <div style="display:flex;align-items:center;gap:12px;padding:16px;background:var(--bg);border-radius:14px;margin-bottom:20px;">
