@@ -12667,6 +12667,44 @@ function renderInfluencerDetailContent(inf) {
       <span class="badge ${statusBadgeClass(c.status)}">${c.status}</span>
     </div>`).join('');
 
+  // Campañas agregadas a mano al perfil (historial fuera de la plataforma
+  // o campañas donde el creador no quedó registrado en los datos)
+  const m = inf.master || _creatorByKey(inf.key);
+  const manualCamps = (m && m.manualCampaigns) || [];
+  const manualRows = manualCamps.map(mc => `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);">
+      <div>
+        <div style="font-size:13px;font-weight:600;">${_esc(mc.name)}</div>
+        <div style="font-size:11px;color:var(--text-muted);">${_esc(mc.client||'')}${mc.mes?(mc.client?' · ':'')+_esc(mc.mes):''}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span class="badge badge-gray" title="Agregada manualmente al perfil">📌 historial</span>
+        <button onclick="removeManualCampaign('${inf.key}','${mc.id}')" title="Quitar del perfil" style="background:none;border:none;color:var(--red,#e5484d);cursor:pointer;font-size:13px;padding:2px;">✕</button>
+      </div>
+    </div>`).join('');
+
+  // Form pa vincular campaña: precargadas (que aún no estén en el perfil) o manual
+  const linkedIds = new Set([...inf.campaigns.map(c=>c.id), ...manualCamps.map(mc=>mc.campaignId).filter(Boolean)]);
+  const linkedNames = new Set([...inf.campaigns.map(c=>c.name.toLowerCase()), ...manualCamps.map(mc=>String(mc.name||'').toLowerCase())]);
+  const availCamps = (_cache.campaigns||[]).filter(c => !linkedIds.has(c.id) && !linkedNames.has(String(c.name||'').toLowerCase()));
+  const addCampForm = `
+    <div style="margin-top:10px;padding:12px;background:var(--bg);border-radius:12px;">
+      <div style="font-size:11px;font-weight:700;color:var(--text-muted);margin-bottom:8px;">+ Agregar campaña al perfil</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
+        <select id="infCampSelect" class="form-input" style="flex:1;min-width:170px;font-size:12px;" onchange="_infCampSelChange(this)">
+          <option value="">Elegir campaña existente...</option>
+          ${availCamps.map(c=>`<option value="${c.id}">${_esc(c.name)}${c.client?' · '+_esc(c.client):''}</option>`).join('')}
+          <option value="__manual">✎ Escribir una manualmente</option>
+        </select>
+        <button class="btn btn-pink btn-sm" onclick="addManualCampaignToCreator('${inf.key}')">Agregar</button>
+      </div>
+      <div id="infCampManualFields" style="display:none;margin-top:8px;gap:8px;flex-wrap:wrap;">
+        <input id="infCampManualName" class="form-input" style="flex:2;min-width:140px;font-size:12px;" placeholder="Nombre de la campaña">
+        <input id="infCampManualClient" class="form-input" style="flex:1;min-width:100px;font-size:12px;" placeholder="Cliente / marca">
+        <input id="infCampManualMes" type="month" class="form-input" style="flex:1;min-width:120px;font-size:12px;">
+      </div>
+    </div>`;
+
   const ratingCards = ratings.length ? ratings.map(r => `
     <div class="rating-card">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
@@ -12686,8 +12724,7 @@ function renderInfluencerDetailContent(inf) {
     `<span class="star" id="infStar${i}" onclick="selectStar(${i})" style="font-size:28px;cursor:pointer;color:${myRating && i<=myRating.stars ? '#f5a623' : '#ddd'};">★</span>`
   ).join('');
 
-  // Perfil del master (base de talento)
-  const m = inf.master || _creatorByKey(inf.key);
+  // Perfil del master (base de talento) — `m` ya declarado arriba
   let masterHtml = '';
   if(m) {
     const platRows = Object.entries(m.platforms||{}).map(([p,d]) => `
@@ -12745,7 +12782,10 @@ function renderInfluencerDetailContent(inf) {
 
     <!-- Campaigns -->
     <div style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;">Campañas</div>
-    <div style="margin-bottom:20px;">${campRows || '<p style="font-size:13px;color:var(--text-muted);">Sin campañas registradas.</p>'}</div>
+    <div style="margin-bottom:20px;">
+      ${(campRows + manualRows) || '<p style="font-size:13px;color:var(--text-muted);">Sin campañas registradas.</p>'}
+      ${addCampForm}
+    </div>
 
     <!-- Ratings list -->
     <div style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;">Calificaciones</div>
@@ -12801,6 +12841,63 @@ function renderInfluencerDetailContent(inf) {
   if(canSeeCreatorPrivateInfo()) {
     try { _hydrateInfluencerPrivateInfo(inf.key); } catch(e){}
   }
+}
+
+// ---- Campañas manuales en el perfil del creador ----
+function _infCampSelChange(sel) {
+  const fields = document.getElementById('infCampManualFields');
+  if(fields) fields.style.display = sel.value === '__manual' ? 'flex' : 'none';
+}
+
+async function _persistManualCampaigns(key, name, list) {
+  await db.collection('workspaces').doc(WORKSPACE).collection('creators').doc(key)
+    .set({ key, name, manualCampaigns: list, updatedAt: Date.now() }, { merge:true });
+  // Refleja en cache local de inmediato (el snapshot llega después)
+  let cr = _creatorByKey(key);
+  if(cr) cr.manualCampaigns = list;
+  else _cache.creators.push({ key, name, manualCampaigns: list, platforms:{}, historyMaster:[] });
+}
+
+async function addManualCampaignToCreator(key) {
+  const inf = getAllInfluencers().find(x => x.key === key);
+  if(!inf) return;
+  const sel = document.getElementById('infCampSelect');
+  const val = sel?.value || '';
+  if(!val) { showToast('Elige una campaña o escribe una manual','error'); return; }
+  let entry;
+  if(val === '__manual') {
+    const name = (document.getElementById('infCampManualName')?.value||'').trim();
+    if(!name) { showToast('Escribe el nombre de la campaña','error'); return; }
+    entry = {
+      id: id(),
+      name,
+      client: (document.getElementById('infCampManualClient')?.value||'').trim(),
+      mes: (document.getElementById('infCampManualMes')?.value||'').trim(),
+    };
+  } else {
+    const c = (_cache.campaigns||[]).find(x => x.id === val);
+    if(!c) { showToast('Campaña no encontrada','error'); return; }
+    entry = { id: id(), campaignId: c.id, name: c.name||'', client: c.client||'', mes: '' };
+  }
+  const list = [ ...((_creatorByKey(key)||{}).manualCampaigns||[]), entry ];
+  try {
+    await _persistManualCampaigns(key, inf.name, list);
+    showToast('Campaña agregada al perfil','success');
+    const updated = getAllInfluencers().find(x => x.key === key);
+    if(updated && _infDetailKey === key) renderInfluencerDetailContent(updated);
+  } catch(e) { showToast('Error: '+e.message,'error'); }
+}
+
+async function removeManualCampaign(key, entryId) {
+  const cr = _creatorByKey(key);
+  if(!cr) return;
+  const list = (cr.manualCampaigns||[]).filter(mc => mc.id !== entryId);
+  try {
+    await _persistManualCampaigns(key, cr.name, list);
+    showToast('Campaña quitada del perfil','success');
+    const updated = getAllInfluencers().find(x => x.key === key);
+    if(updated && _infDetailKey === key) renderInfluencerDetailContent(updated);
+  } catch(e) { showToast('Error: '+e.message,'error'); }
 }
 
 function selectStar(n) {
