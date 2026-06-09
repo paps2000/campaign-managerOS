@@ -2684,6 +2684,30 @@ html.dark .modal {
   -webkit-backdrop-filter: blur(4px) !important;
 }
 
+
+/* Influencer detail modal: sticky header que se funde con el glass del modal.
+   Colores vía var(--white)/color-mix pa seguir el tema (light/dark/auto). */
+.inf-detail-header {
+  position: sticky; top: -28px; z-index: 2;
+  margin: -28px -28px 0; padding: 24px 28px 14px;
+  background: color-mix(in srgb, var(--white) 94%, transparent) !important;
+  backdrop-filter: blur(44px) saturate(180%);
+  -webkit-backdrop-filter: blur(44px) saturate(180%);
+  border-bottom: 1px solid var(--border) !important;
+  border-radius: 24px 24px 0 0;
+}
+
+/* Card del perfil master: panel legible sobre el modal glass */
+.inf-master-card {
+  background: color-mix(in srgb, var(--white) 70%, transparent);
+  border: 1px solid var(--border);
+  border-radius: 16px; padding: 16px 18px; margin-bottom: 20px;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--white) 90%, transparent), 0 2px 12px rgba(10,10,12,0.05);
+}
+.inf-rates-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: 10px; }
+.inf-rates-wrap .table { min-width: 0; width: 100%; }
+.inf-rates-wrap th, .inf-rates-wrap td { padding: 7px 8px; }
+
 /* ── 7. BUTTONS — glass tint ── */
 .btn-ghost {
   background: rgba(255,255,255,0.58) !important;
@@ -3944,10 +3968,10 @@ html.dark .skeleton {
     <!-- INFLUENCERS — base de datos de talento -->
     <div class="page" id="page-influencers">
       <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:14px;">
-        <input type="search" id="infSearch" class="form-input" style="flex:1;min-width:180px;max-width:280px;font-size:13px;" placeholder="Buscar por nombre o keyword..." oninput="renderInfluencers()">
-        <select id="infFilterCategoria" class="form-input" style="max-width:170px;font-size:12px;" onchange="renderInfluencers()"><option value="">Categoría: todas</option></select>
-        <select id="infFilterTier" class="form-input" style="max-width:130px;font-size:12px;" onchange="renderInfluencers()"><option value="">Tier: todos</option></select>
-        <select id="infFilterPlat" class="form-input" style="max-width:150px;font-size:12px;" onchange="renderInfluencers()"><option value="">Plataforma: todas</option></select>
+        <input type="search" id="infSearch" class="form-input" style="flex:1;min-width:180px;max-width:280px;font-size:13px;" placeholder="Buscar por nombre o keyword..." oninput="_infSearchDebounced()">
+        <select id="infFilterCategoria" class="form-input" style="max-width:170px;font-size:12px;" onchange="_infResetAndRender()"><option value="">Categoría: todas</option></select>
+        <select id="infFilterTier" class="form-input" style="max-width:130px;font-size:12px;" onchange="_infResetAndRender()"><option value="">Tier: todos</option></select>
+        <select id="infFilterPlat" class="form-input" style="max-width:150px;font-size:12px;" onchange="_infResetAndRender()"><option value="">Plataforma: todas</option></select>
         <span id="infCount" style="font-size:12px;color:var(--text-muted);white-space:nowrap;"></span>
         <div style="flex:1;"></div>
         <input type="file" id="masterImportFile" accept=".xlsx,.xls,.csv" style="display:none;" onchange="_handleMasterFile(this)">
@@ -4717,8 +4741,8 @@ html.dark .skeleton {
 
 <!-- MODAL: INFLUENCER DETAIL -->
 <div class="modal-overlay" id="infDetailModal">
-  <div class="modal" style="max-width:580px;max-height:85vh;overflow-y:auto;">
-    <div class="modal-header" style="position:sticky;top:0;background:var(--white);z-index:1;border-bottom:1px solid var(--border);padding-bottom:16px;">
+  <div class="modal" style="max-width:620px;max-height:85vh;overflow-y:auto;">
+    <div class="modal-header inf-detail-header">
       <div>
         <div class="modal-title" id="infDetailName"></div>
         <div style="font-size:12px;color:var(--text-muted);margin-top:2px;" id="infDetailHandle"></div>
@@ -5280,10 +5304,14 @@ function _setTBadge(id, count) {
 // ============================================================
 function getThemePref() { return localStorage.getItem('themePref') || 'auto'; }
 
+// En modo auto aplicamos la clase según el sistema: muchos overrides del tema
+// (glass v2) solo existen como `html.dark` y no cubren el media query solo.
+const _sysDarkMQ = window.matchMedia('(prefers-color-scheme: dark)');
+_sysDarkMQ.addEventListener('change', () => { if(getThemePref()==='auto') applyThemePref('auto'); });
 function applyThemePref(pref) {
   document.documentElement.classList.remove('dark', 'light');
-  if(pref === 'dark')  document.documentElement.classList.add('dark');
-  if(pref === 'light') document.documentElement.classList.add('light');
+  const dark = pref === 'dark' || (pref !== 'light' && _sysDarkMQ.matches);
+  document.documentElement.classList.add(dark ? 'dark' : 'light');
   localStorage.setItem('themePref', pref);
   const btn = document.getElementById('themeToggleBtn');
   if(!btn) return;
@@ -12456,6 +12484,16 @@ function _tierBadge(tier) {
   return `<span style="font-size:10px;font-weight:800;padding:2px 8px;border-radius:10px;background:${c}18;color:${c};letter-spacing:.5px;">${_esc(tier)}</span>`;
 }
 
+// Debounce de búsqueda: 699 cards re-renderizan; esperar a que dejen de teclear.
+let _infSearchTimer = null;
+function _infSearchDebounced() {
+  clearTimeout(_infSearchTimer);
+  _infSearchTimer = setTimeout(() => { _infShowLimit = 60; renderInfluencers(); }, 160);
+}
+let _infShowLimit = 60;
+function _infShowMore() { _infShowLimit += 120; renderInfluencers(); }
+function _infResetAndRender() { _infShowLimit = 60; renderInfluencers(); }
+
 function renderInfluencers() {
   const grid = document.getElementById('infGrid');
   if (!grid) return;
@@ -12481,7 +12519,11 @@ function renderInfluencers() {
     grid.innerHTML = '<div class="empty-state"><p>' + ((q||fCat||fTier||fPlat) ? 'Sin resultados con esos filtros.' : 'Importa el Master de creadores o agrega influencers a tus campañas.') + '</p></div>';
     return;
   }
-  grid.innerHTML = infs.map(inf => {
+  const visible = infs.slice(0, _infShowLimit);
+  const moreBtn = infs.length > _infShowLimit
+    ? `<div style="grid-column:1/-1;text-align:center;padding:8px 0 20px;"><button class="btn btn-ghost" onclick="_infShowMore()">Mostrar más (${infs.length - _infShowLimit} restantes)</button></div>`
+    : '';
+  grid.innerHTML = visible.map(inf => {
     const ratings = infRatingsFor(inf.key);
     const avg = avgStars(ratings);
     const campList = inf.campaigns.slice(0,3).map(c => `<span style="font-size:11px;padding:2px 7px;border-radius:12px;background:var(--bg);color:var(--text-muted);border:1px solid var(--border);">${_esc(c.name)}</span>`).join(' ')
@@ -12507,7 +12549,7 @@ function renderInfluencers() {
         ${ratings.length ? `<span style="font-size:11px;color:var(--text-muted);">${avg.toFixed(1)} (${ratings.length})</span>` : `<span style="font-size:11px;color:var(--text-muted);">Sin calificaciones</span>`}
       </div>
     </div>`;
-  }).join('');
+  }).join('') + moreBtn;
 }
 
 let _infDetailKey = null;
@@ -12659,15 +12701,14 @@ function renderInfluencerDetailContent(inf) {
     const hist = _creatorAllHistory(m);
     const rateRows = hist.filter(h=>h.costoUnitario>0).slice(0,8).map(h=>`
       <tr>
-        <td style="white-space:nowrap;">${_esc(h.mes||'—')}</td>
-        <td>${_esc(h.marca||'')}${h.campana?' · '+_esc(h.campana):''}</td>
-        <td>${h.plataforma?platformBadge(h.plataforma):'—'}</td>
-        <td>${_esc(h.contenido||'—')}</td>
-        <td style="text-align:right;font-weight:700;">$${(h.costoUnitario||0).toLocaleString('es-MX')}</td>
-        <td style="text-align:right;">${h.viewsXPost?formatNum(h.viewsXPost):'—'}</td>
+        <td style="white-space:nowrap;color:var(--text-muted);">${_esc(h.mes||'—')}</td>
+        <td style="max-width:160px;"><div style="font-weight:600;">${_esc(h.marca||'—')}</div>${h.campana?`<div style="font-size:10px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:160px;">${_esc(h.campana)}</div>`:''}</td>
+        <td style="white-space:nowrap;">${h.plataforma?platformBadge(h.plataforma):''}${h.contenido?`<div style="font-size:10px;color:var(--text-muted);margin-top:2px;">${_esc(h.contenido)}</div>`:''}</td>
+        <td style="text-align:right;font-weight:700;white-space:nowrap;">$${(h.costoUnitario||0).toLocaleString('es-MX')}</td>
+        <td style="text-align:right;white-space:nowrap;color:var(--text-muted);">${h.viewsXPost?formatNum(h.viewsXPost):'—'}</td>
       </tr>`).join('');
     masterHtml = `
-    <div style="border:1.5px solid var(--border);border-radius:14px;padding:16px 18px;margin-bottom:20px;">
+    <div class="inf-master-card">
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
         <span style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;">📇 Perfil · Base de talento</span>
         <div style="flex:1;"></div>
@@ -12683,7 +12724,7 @@ function renderInfluencerDetailContent(inf) {
       </div>`:''}
       ${rateRows?`
       <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin:14px 0 8px;">💰 Historial de tarifas (más reciente primero)</div>
-      <div class="table-wrap"><table class="table" style="font-size:11px;"><thead><tr><th>Mes</th><th>Marca / Campaña</th><th>Plataforma</th><th>Contenido</th><th style="text-align:right;">Costo unit.</th><th style="text-align:right;">Views x post</th></tr></thead><tbody>${rateRows}</tbody></table></div>`:''}
+      <div class="inf-rates-wrap"><table class="table" style="font-size:11px;"><thead><tr><th>Mes</th><th>Marca / Campaña</th><th>Plataforma</th><th style="text-align:right;">Costo unit.</th><th style="text-align:right;">Views x post</th></tr></thead><tbody>${rateRows}</tbody></table></div>`:''}
     </div>`;
   }
 
