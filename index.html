@@ -55,6 +55,7 @@
   --shadow: 0 2px 12px rgba(10,10,12,.05);
   --shadow-lg: 0 18px 44px rgba(10,10,12,.10);
   --ease: cubic-bezier(.2,.8,.2,1);
+  --ease-out: cubic-bezier(0.23,1,0.32,1);
 }
 /* ============================================================
    THEME PALETTES — override accent vars on body class
@@ -201,12 +202,50 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
 .campaign-card:nth-child(4) { animation-delay:.22s; }
 .task-item, .influencer-row, .alert-item, .doc-item, .flow-step { animation: slideInLeft .35s var(--ease) backwards; }
 .nav-item { animation: slideInLeft .3s var(--ease) backwards; }
+
+/* Stagger sutil en grids de cards, con tope: después de 12 entran sin animación
+   (los grids grandes no deben sentirse como cascada infinita) */
+.campaign-card:nth-child(2)  { animation-delay:.03s; }
+.campaign-card:nth-child(3)  { animation-delay:.06s; }
+.campaign-card:nth-child(4)  { animation-delay:.09s; }
+.campaign-card:nth-child(5)  { animation-delay:.12s; }
+.campaign-card:nth-child(6)  { animation-delay:.15s; }
+.campaign-card:nth-child(7)  { animation-delay:.18s; }
+.campaign-card:nth-child(8)  { animation-delay:.21s; }
+.campaign-card:nth-child(9)  { animation-delay:.24s; }
+.campaign-card:nth-child(10) { animation-delay:.27s; }
+.campaign-card:nth-child(11) { animation-delay:.30s; }
+.campaign-card:nth-child(12) { animation-delay:.33s; }
+.campaign-card:nth-child(n+13) { animation:none; }
+/* Re-renders (filtros, búsqueda, paginar) no deben re-animar las cards */
+.no-reanim .campaign-card { animation:none !important; }
+
+/* Press feedback: la UI confirma que escuchó el click.
+   Bajada rápida (80ms), regreso suave (el transition normal del elemento). */
+.btn:active, .filter-tab:active, .sub-btn:active, .theme-toggle-btn:active { transform:scale(.97); transition-duration:.08s; }
+.campaign-card:active { transform:scale(.985); }
+.modal-close:active, .row-x:active { transform:scale(.88); }
+.nav-item:active { transform:scale(.98); }
+
+/* Listas seleccionables (picker de creadores): hover/selección con transición */
+#scnPickList > div { transition: background .15s var(--ease), border-color .15s var(--ease), transform .12s var(--ease-out); }
+#scnPickList > div:active { transform: scale(.99); }
+@media (hover:hover) and (pointer:fine) {
+  #scnPickList > div:hover { background: var(--bg); }
+}
+
+/* Accesibilidad: respetar reduce motion (queda el cambio, se va el movimiento) */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration:.01ms !important;
+    animation-iteration-count:1 !important;
+    transition-duration:.01ms !important;
+  }
+}
 .nav-item:nth-child(1){animation-delay:.02s} .nav-item:nth-child(2){animation-delay:.05s}
 .nav-item:nth-child(3){animation-delay:.08s} .nav-item:nth-child(4){animation-delay:.11s}
 .nav-item:nth-child(5){animation-delay:.14s} .nav-item:nth-child(6){animation-delay:.17s}
 .nav-item:nth-child(7){animation-delay:.20s} .nav-item:nth-child(8){animation-delay:.23s}
-.modal { animation: pop .3s var(--ease); }
-.modal-overlay.open { animation: fadeIn .2s var(--ease); }
 .stat-value { animation: countUp .6s var(--ease); }
 
 /* SIDEBAR */
@@ -557,12 +596,25 @@ html.dark .btn-primary:hover { background:var(--pink-deep); box-shadow:0 10px 24
 .filter-tab.active { background:var(--pink); color:#fff !important; border-color:var(--pink); transform:scale(1.03); }
 .filter-tab:hover:not(.active) { border-color:var(--pink); color:var(--pink); background:var(--pink-pale); }
 
-/* MODAL */
+/* MODAL — transiciones interrumpibles (enter Y exit), no keyframes */
 .modal-overlay {
-  position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:1000; display:none;
+  position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:1000; display:flex;
   align-items:center; justify-content:center;
+  visibility:hidden; opacity:0; pointer-events:none;
+  transition: opacity .16s var(--ease-out), visibility 0s linear .16s;
 }
-.modal-overlay.open { display:flex; }
+.modal-overlay.open {
+  visibility:visible; opacity:1; pointer-events:auto;
+  transition: opacity .2s var(--ease-out);
+}
+.modal-overlay .modal {
+  transform: scale(.96) translateY(10px); opacity:0;
+  transition: transform .16s var(--ease-out), opacity .14s var(--ease-out);
+}
+.modal-overlay.open .modal {
+  transform: none; opacity:1;
+  transition: transform .24s var(--ease-out), opacity .2s var(--ease-out);
+}
 .modal {
   background:var(--white); border-radius:24px; padding:28px; width:520px; max-width:90vw;
   max-height:85vh; overflow-y:auto; box-shadow:0 24px 80px rgba(0,0,0,0.2);
@@ -1056,10 +1108,12 @@ html.dark .pronoun-chip.selected { background:var(--pink-pale); color:#fff; }
 /* NOTIFICATION */
 .toast {
   position:fixed; bottom:24px; right:24px; background:var(--text); color:#fff; padding:12px 18px;
-  border-radius:16px; font-size:13px; font-weight:500; z-index:9999; transform:translateY(80px);
-  transition:transform .3s; box-shadow:var(--shadow-lg);
+  border-radius:16px; font-size:13px; font-weight:500; z-index:9999;
+  transform:translateY(80px) scale(.97); opacity:0;
+  transition:transform .22s var(--ease-out), opacity .18s var(--ease-out);
+  box-shadow:var(--shadow-lg);
 }
-.toast.show { transform:translateY(0); }
+.toast.show { transform:translateY(0) scale(1); opacity:1; transition:transform .3s var(--ease-out), opacity .22s var(--ease-out); }
 .toast.success { background:#15803d; }
 .toast.error { background:var(--red); }
 
@@ -12524,6 +12578,8 @@ function renderInfluencers() {
   const moreBtn = infs.length > _infShowLimit
     ? `<div style="grid-column:1/-1;text-align:center;padding:8px 0 20px;"><button class="btn btn-ghost" onclick="_infShowMore()">Mostrar más (${infs.length - _infShowLimit} restantes)</button></div>`
     : '';
+  // Primer render anima con stagger; filtros/búsqueda/paginar ya no re-animan
+  if(!grid._animatedOnce) { grid._animatedOnce = true; setTimeout(()=>grid.classList.add('no-reanim'), 700); }
   grid.innerHTML = visible.map(inf => {
     const ratings = infRatingsFor(inf.key);
     const avg = avgStars(ratings);
