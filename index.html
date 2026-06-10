@@ -234,6 +234,36 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
   #scnPickList > div:hover { background: var(--bg); }
 }
 
+/* SKELETON LOADERS — mientras llega Firestore */
+.skel-card {
+  border-radius:18px; border:1px solid var(--border); background:var(--white);
+  padding:18px; min-height:150px; display:flex; flex-direction:column; gap:12px;
+}
+.skel { background:var(--border); border-radius:8px; position:relative; overflow:hidden; }
+.skel::after {
+  content:''; position:absolute; inset:0;
+  background:linear-gradient(90deg, transparent, color-mix(in srgb, var(--white) 60%, transparent), transparent);
+  animation: skelSweep 1.2s linear infinite;
+}
+@keyframes skelSweep { from { transform:translateX(-100%); } to { transform:translateX(100%); } }
+
+/* COMPARE BAR — flotante abajo cuando hay creadores seleccionados */
+.compare-bar {
+  position:fixed; left:50%; bottom:18px; transform:translateX(-50%) translateY(80px);
+  opacity:0; pointer-events:none;
+  display:flex; align-items:center; gap:12px; z-index:900;
+  background:var(--text); color:var(--white); padding:10px 16px; border-radius:18px;
+  box-shadow:var(--shadow-lg); font-size:13px; font-weight:600;
+  transition: transform .26s var(--ease-out), opacity .2s var(--ease-out);
+}
+.compare-bar.show { transform:translateX(-50%) translateY(0); opacity:1; pointer-events:auto; }
+.inf-compare-check {
+  position:absolute; top:12px; right:12px; width:20px; height:20px; z-index:2;
+  accent-color:var(--pink); cursor:pointer; opacity:0; transition:opacity .15s var(--ease);
+}
+.campaign-card:hover .inf-compare-check, .inf-compare-check:checked { opacity:1; }
+@media (hover:none) { .inf-compare-check { opacity:.6; } }
+
 /* Accesibilidad: respetar reduce motion (queda el cambio, se va el movimiento) */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
@@ -4025,6 +4055,12 @@ html.dark .skeleton {
         <select id="infFilterCategoria" class="form-input" style="max-width:170px;font-size:12px;" onchange="_infResetAndRender()"><option value="">Categoría: todas</option></select>
         <select id="infFilterTier" class="form-input" style="max-width:130px;font-size:12px;" onchange="_infResetAndRender()"><option value="">Tier: todos</option></select>
         <select id="infFilterPlat" class="form-input" style="max-width:150px;font-size:12px;" onchange="_infResetAndRender()"><option value="">Plataforma: todas</option></select>
+        <select id="infSort" class="form-input" style="max-width:170px;font-size:12px;" onchange="_infResetAndRender()">
+          <option value="nombre">Ordenar: nombre</option>
+          <option value="seguidores">Ordenar: seguidores</option>
+          <option value="rating">Ordenar: rating</option>
+          <option value="campanas">Ordenar: campañas</option>
+        </select>
         <span id="infCount" style="font-size:12px;color:var(--text-muted);white-space:nowrap;"></span>
         <div style="flex:1;"></div>
         <button class="btn btn-primary" onclick="openScenarioStart()" style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;">
@@ -4032,6 +4068,13 @@ html.dark .skeleton {
         </button>
       </div>
       <div class="campaign-grid" id="infGrid"></div>
+      <div id="infScrollSentinel" style="height:1px;"></div>
+      <!-- Barra de comparación -->
+      <div class="compare-bar" id="infCompareBar">
+        <span id="infCompareCount"></span>
+        <button class="btn btn-pink btn-sm" onclick="openInfCompare()">Comparar</button>
+        <button onclick="clearInfCompare()" style="background:none;border:none;color:inherit;opacity:.7;cursor:pointer;font-size:13px;font-family:inherit;">Limpiar</button>
+      </div>
     </div>
 
     <!-- EQUIPO -->
@@ -4509,7 +4552,7 @@ html.dark .skeleton {
       <div style="flex:1;"></div>
       <button class="btn btn-ghost btn-sm" onclick="scenarioCopyTSV()">Copiar tabla</button>
       <button class="btn btn-ghost btn-sm" onclick="scenarioExportCSV()">Descargar CSV</button>
-      <button class="btn btn-primary btn-sm" onclick="scenarioSave()">Guardar escenario</button>
+      <button class="btn btn-primary btn-sm" id="scnSaveBtn" onclick="scenarioSave()">Guardar escenario</button>
     </div>
   </div>
 </div>
@@ -4801,6 +4844,17 @@ html.dark .skeleton {
       <button class="modal-close" onclick="closeModal('infDetailModal')">✕</button>
     </div>
     <div id="infDetailContent" style="padding-top:16px;"></div>
+  </div>
+</div>
+
+<!-- MODAL: COMPARAR CREADORES -->
+<div class="modal-overlay" id="infCompareModal">
+  <div class="modal" style="max-width:880px;width:94vw;max-height:85vh;overflow-y:auto;">
+    <div class="modal-header">
+      <div class="modal-title">Comparar creadores</div>
+      <button class="modal-close" onclick="closeModal('infCompareModal')">✕</button>
+    </div>
+    <div id="infCompareContent"></div>
   </div>
 </div>
 
@@ -5118,6 +5172,7 @@ function attachListeners() {
   // Master creators DB listener (base de datos de talento)
   unsubscribers.push(ws.collection('creators').onSnapshot(snap => {
     _cache.creators = snap.docs.map(d => d.data());
+    _cache._creatorsLoaded = true;
     if(currentPage==='influencers') renderInfluencers();
   }, err => console.error('creators listener',err)));
 }
@@ -10950,11 +11005,20 @@ function statusBadgeClass(s) {
   return map[s] || 'badge-gray';
 }
 
-function showToast(msg, type='') {
+let _toastTimer = null;
+function showToast(msg, type='', action) {
   const t=document.getElementById('toast');
-  t.textContent=msg; t.className='toast '+(type||'');
+  clearTimeout(_toastTimer);
+  if(action && action.label && typeof action.fn === 'function') {
+    window._toastAction = () => { try { action.fn(); } finally { t.classList.remove('show'); window._toastAction = null; } };
+    t.innerHTML = `<span>${_esc(msg)}</span><button onclick="window._toastAction&&window._toastAction()" style="margin-left:12px;background:rgba(255,255,255,.18);border:none;color:#fff;font-weight:700;font-size:12px;padding:5px 12px;border-radius:10px;cursor:pointer;font-family:inherit;">${_esc(action.label)}</button>`;
+  } else {
+    window._toastAction = null;
+    t.textContent = msg;
+  }
+  t.className='toast '+(type||'');
   setTimeout(()=>t.classList.add('show'),10);
-  setTimeout(()=>t.classList.remove('show'),3000);
+  _toastTimer = setTimeout(()=>t.classList.remove('show'), action ? 5500 : 3000);
 }
 
 // ============================================================
@@ -12305,12 +12369,23 @@ function _scnAddPlat(ci) {
   _renderScenario();
 }
 function _scnRemovePlat(ci, pi) {
-  _scenarioState.creators[ci].platforms.splice(pi,1);
+  const cr = _scenarioState.creators[ci];
+  const removed = cr.platforms[pi];
+  cr.platforms.splice(pi,1);
   _renderScenario();
+  showToast('Contenido eliminado','', { label:'Deshacer', fn: () => {
+    cr.platforms.splice(pi, 0, removed);
+    _renderScenario();
+  }});
 }
 function _scnRemoveCreator(ci) {
+  const removed = _scenarioState.creators[ci];
   _scenarioState.creators.splice(ci,1);
   _renderScenario();
+  showToast(`${removed.name||'Creador'} eliminado del escenario`,'', { label:'Deshacer', fn: () => {
+    _scenarioState.creators.splice(ci, 0, removed);
+    _renderScenario();
+  }});
 }
 function scenarioAddCreator(seed) {
   _scenarioState.creators.push(seed || { id:_scnId(), name:'', tier:'', platforms:[_newScnLine()] });
@@ -12409,6 +12484,8 @@ function scenarioSave() {
   const campaigns = getData('campaigns');
   const idx = campaigns.findIndex(x=>x.id===_scenarioState.campaignId);
   if(idx===-1) { showToast('Campaña no encontrada','error'); return; }
+  const btn = document.getElementById('scnSaveBtn');
+  if(btn) { btn.disabled = true; btn.textContent = 'Guardando...'; }
   campaigns[idx] = { ...campaigns[idx], scenario: {
     budgetSource: _scenarioState.budgetSource,
     creators: _scenarioState.creators,
@@ -12419,6 +12496,10 @@ function scenarioSave() {
   // bajo historyApp[campaignId] (re-guardar el mismo escenario solo la actualiza).
   try { _scenarioFeedCreatorsDB(campaigns[idx]); } catch(e){ console.warn('feed creators db', e); }
   showToast('Escenario guardado','success');
+  if(btn) {
+    btn.textContent = '✓ Guardado';
+    setTimeout(() => { btn.disabled = false; btn.textContent = 'Guardar escenario'; }, 1600);
+  }
 }
 
 async function _scenarioFeedCreatorsDB(campaign) {
@@ -12549,9 +12630,42 @@ let _infShowLimit = 60;
 function _infShowMore() { _infShowLimit += 120; renderInfluencers(); }
 function _infResetAndRender() { _infShowLimit = 60; renderInfluencers(); }
 
+function _infClearFilters() {
+  const set = (id,v) => { const el=document.getElementById(id); if(el) el.value=v; };
+  set('infSearch',''); set('infFilterCategoria',''); set('infFilterTier',''); set('infFilterPlat','');
+  _infResetAndRender();
+}
+
+const _INF_SKELETON = `<div class="skel-card">
+  <div style="display:flex;gap:10px;align-items:center;">
+    <div class="skel" style="width:40px;height:40px;border-radius:50%;flex-shrink:0;"></div>
+    <div style="flex:1;display:flex;flex-direction:column;gap:6px;"><div class="skel" style="height:14px;width:60%;"></div><div class="skel" style="height:10px;width:40%;"></div></div>
+  </div>
+  <div class="skel" style="height:10px;width:80%;"></div>
+  <div class="skel" style="height:10px;width:55%;"></div>
+</div>`;
+
+// Carga diferida al hacer scroll (sustituye click manual en "Mostrar más")
+let _infScrollObserver = null;
+function _infSetupInfiniteScroll(hasMore) {
+  const sentinel = document.getElementById('infScrollSentinel');
+  if(!sentinel) return;
+  if(_infScrollObserver) { _infScrollObserver.disconnect(); _infScrollObserver = null; }
+  if(!hasMore) return;
+  _infScrollObserver = new IntersectionObserver(entries => {
+    if(entries.some(e => e.isIntersecting)) _infShowMore();
+  }, { rootMargin: '600px' });
+  _infScrollObserver.observe(sentinel);
+}
+
 function renderInfluencers() {
   const grid = document.getElementById('infGrid');
   if (!grid) return;
+  // Skeletons mientras Firestore no ha respondido
+  if(!_cache._creatorsLoaded && !_cache.creators.length && !_cache.campaigns.length) {
+    grid.innerHTML = Array(8).fill(_INF_SKELETON).join('');
+    return;
+  }
   const all = getAllInfluencers();
   _infFillFilterOptions(all);
   const _deacc = s => String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').trim();
@@ -12559,6 +12673,7 @@ function renderInfluencers() {
   const fCat = document.getElementById('infFilterCategoria')?.value || '';
   const fTier = document.getElementById('infFilterTier')?.value || '';
   const fPlat = document.getElementById('infFilterPlat')?.value || '';
+  const sort = document.getElementById('infSort')?.value || 'nombre';
   let infs = all;
   if (q) infs = infs.filter(inf =>
     _deacc(inf.name).includes(q) ||
@@ -12568,14 +12683,26 @@ function renderInfluencers() {
   if (fCat) infs = infs.filter(i => i.categoria === fCat);
   if (fTier) infs = infs.filter(i => i.tier === fTier);
   if (fPlat) infs = infs.filter(i => (i.platforms||[]).includes(fPlat));
+  if (sort === 'seguidores') infs = [...infs].sort((a,b)=>(b.seguidoresTotal||0)-(a.seguidoresTotal||0));
+  else if (sort === 'rating') infs = [...infs].sort((a,b)=>avgStars(infRatingsFor(b.key))-avgStars(infRatingsFor(a.key)));
+  else if (sort === 'campanas') infs = [...infs].sort((a,b)=>{
+    const mc = i => (i.campaigns||[]).length + (((i.master||{}).manualCampaigns)||[]).length;
+    return mc(b)-mc(a);
+  });
   const counter = document.getElementById('infCount');
   if(counter) counter.textContent = `${infs.length} de ${all.length} creadores`;
   if (!infs.length) {
-    grid.innerHTML = '<div class="empty-state"><p>' + ((q||fCat||fTier||fPlat) ? 'Sin resultados con esos filtros.' : 'Importa el Master de creadores o agrega influencers a tus campañas.') + '</p></div>';
+    const filtered = (q||fCat||fTier||fPlat);
+    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;">
+      <p>${filtered ? 'Sin resultados con esos filtros.' : 'Agrega influencers a tus campañas para verlos aquí.'}</p>
+      ${filtered ? '<button class="btn btn-ghost btn-sm" style="margin-top:10px;" onclick="_infClearFilters()">Limpiar filtros</button>' : ''}
+    </div>`;
+    _infSetupInfiniteScroll(false);
     return;
   }
   const visible = infs.slice(0, _infShowLimit);
-  const moreBtn = infs.length > _infShowLimit
+  const hasMore = infs.length > _infShowLimit;
+  const moreBtn = hasMore
     ? `<div style="grid-column:1/-1;text-align:center;padding:8px 0 20px;"><button class="btn btn-ghost" onclick="_infShowMore()">Mostrar más (${infs.length - _infShowLimit} restantes)</button></div>`
     : '';
   // Primer render anima con stagger; filtros/búsqueda/paginar ya no re-animan
@@ -12587,7 +12714,8 @@ function renderInfluencers() {
       + (inf.campaigns.length>3 ? ` <span style="font-size:11px;color:var(--text-muted);">+${inf.campaigns.length-3}</span>` : '');
     const kw = (inf.keywords||[]).slice(0,4).map(k=>`<span style="font-size:10px;padding:1px 6px;border-radius:8px;background:var(--pink-pale);color:var(--pink);">${_esc(k)}</span>`).join(' ');
     const segTxt = inf.seguidoresTotal ? `<span style="font-size:11px;color:var(--text-muted);font-weight:700;">${formatNum(inf.seguidoresTotal)} seg.</span>` : '';
-    return `<div class="campaign-card" onclick="openInfluencerDetail('${inf.key}')" style="cursor:pointer;">
+    return `<div class="campaign-card" onclick="openInfluencerDetail('${inf.key}')" style="cursor:pointer;position:relative;">
+      <input type="checkbox" class="inf-compare-check" title="Comparar" ${_infCompareSet.has(inf.key)?'checked':''} onclick="event.stopPropagation();toggleInfCompare('${inf.key}',this)">
       <div class="campaign-card-header">
         <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;">
           <div class="inf-avatar" style="width:40px;height:40px;font-size:15px;flex-shrink:0;">${(inf.name||'?')[0].toUpperCase()}</div>
@@ -12607,6 +12735,78 @@ function renderInfluencers() {
       </div>
     </div>`;
   }).join('') + moreBtn;
+  _infSetupInfiniteScroll(hasMore);
+}
+
+// ---- Comparar creadores ----
+const _infCompareSet = new Set();
+function toggleInfCompare(key, el) {
+  if(_infCompareSet.has(key)) _infCompareSet.delete(key);
+  else {
+    if(_infCompareSet.size >= 3) { showToast('Máximo 3 creadores a comparar','error'); if(el) el.checked = false; return; }
+    _infCompareSet.add(key);
+  }
+  _updateInfCompareBar();
+}
+function _updateInfCompareBar() {
+  const bar = document.getElementById('infCompareBar');
+  if(!bar) return;
+  const n = _infCompareSet.size;
+  document.getElementById('infCompareCount').textContent = n === 1 ? '1 creador' : `${n} creadores`;
+  bar.classList.toggle('show', n >= 1);
+}
+function clearInfCompare() {
+  _infCompareSet.clear();
+  _updateInfCompareBar();
+  document.querySelectorAll('.inf-compare-check').forEach(c => c.checked = false);
+}
+function openInfCompare() {
+  if(_infCompareSet.size < 2) { showToast('Selecciona al menos 2 creadores','error'); return; }
+  const infs = getAllInfluencers().filter(i => _infCompareSet.has(i.key));
+  const fmtMoney = n => '$' + (Number(n)||0).toLocaleString('es-MX');
+  const row = (label, cells) => `<tr><td style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;">${label}</td>${cells.map(c=>`<td style="vertical-align:top;">${c}</td>`).join('')}</tr>`;
+  const cols = infs.map(inf => {
+    const m = inf.master || _creatorByKey(inf.key) || {};
+    const hist = m.historyMaster ? _creatorAllHistory(m) : [];
+    const ers = hist.filter(h=>h.er>0).map(h=>h.er);
+    const erAvg = ers.length ? (ers.reduce((a,b)=>a+b,0)/ers.length) : 0;
+    const lastRate = hist.find(h=>h.costoUnitario>0);
+    const ratings = infRatingsFor(inf.key);
+    return {
+      inf, m,
+      header: `<div style="display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;">
+        <div class="inf-avatar" style="width:48px;height:48px;font-size:18px;">${(inf.name||'?')[0].toUpperCase()}</div>
+        <div style="font-weight:800;font-size:14px;">${_esc(inf.name)}</div>
+        <div>${_tierBadge(inf.tier)}</div>
+      </div>`,
+      categoria: inf.categoria ? `<span style="font-size:11px;font-weight:700;">${_esc(inf.categoria)}</span>` : '—',
+      seguidores: Object.entries(m.platforms||{}).map(([p,d])=>`<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">${platformBadge(p)}<b style="font-size:12px;">${d.seguidores?formatNum(d.seguidores):'—'}</b></div>`).join('') || '—',
+      er: erAvg ? (erAvg*100).toFixed(2)+'%' : '—',
+      tarifa: lastRate ? `<div style="font-weight:800;">${fmtMoney(lastRate.costoUnitario)}</div><div style="font-size:10px;color:var(--text-muted);">${_esc(lastRate.contenido||lastRate.plataforma||'')} · ${_esc(lastRate.mes||'')}</div>` : '—',
+      rating: ratings.length ? `${starsHtml(avgStars(ratings),'sm')} <span style="font-size:11px;color:var(--text-muted);">(${ratings.length})</span>` : '—',
+      campanas: String((inf.campaigns||[]).length + ((m.manualCampaigns)||[]).length),
+      keywords: (inf.keywords||[]).slice(0,6).map(k=>`<span style="font-size:10px;padding:1px 6px;border-radius:8px;background:var(--pink-pale);color:var(--pink);display:inline-block;margin:1px;">${_esc(k)}</span>`).join('') || '—',
+    };
+  });
+  document.getElementById('infCompareContent').innerHTML = `
+    <div class="table-wrap" style="overflow-x:auto;">
+      <table class="table" style="font-size:12px;min-width:${220*infs.length+120}px;">
+        <thead><tr><th></th>${cols.map(c=>`<th>${c.header}</th>`).join('')}</tr></thead>
+        <tbody>
+          ${row('Categoría', cols.map(c=>c.categoria))}
+          ${row('Seguidores', cols.map(c=>c.seguidores))}
+          ${row('ER promedio', cols.map(c=>c.er))}
+          ${row('Última tarifa', cols.map(c=>c.tarifa))}
+          ${row('Rating', cols.map(c=>c.rating))}
+          ${row('Campañas', cols.map(c=>c.campanas))}
+          ${row('Keywords', cols.map(c=>c.keywords))}
+        </tbody>
+      </table>
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px;">
+      ${cols.map(c=>`<button class="btn btn-ghost btn-sm" onclick="closeModal('infCompareModal');openInfluencerDetail('${c.inf.key}')">Ver ${_esc(c.inf.name.split(' ')[0])}</button>`).join('')}
+    </div>`;
+  openModal('infCompareModal');
 }
 
 let _infDetailKey = null;
@@ -12947,12 +13147,19 @@ async function addManualCampaignToCreator(key) {
 async function removeManualCampaign(key, entryId) {
   const cr = _creatorByKey(key);
   if(!cr) return;
+  const removed = (cr.manualCampaigns||[]).find(mc => mc.id === entryId);
   const list = (cr.manualCampaigns||[]).filter(mc => mc.id !== entryId);
-  try {
-    await _persistManualCampaigns(key, cr.name, list);
-    showToast('Campaña quitada del perfil','success');
+  const rerender = () => {
     const updated = getAllInfluencers().find(x => x.key === key);
     if(updated && _infDetailKey === key) renderInfluencerDetailContent(updated);
+  };
+  try {
+    await _persistManualCampaigns(key, cr.name, list);
+    rerender();
+    showToast('Campaña quitada del perfil','success', removed ? { label:'Deshacer', fn: async () => {
+      await _persistManualCampaigns(key, cr.name, [...list, removed]);
+      rerender();
+    }} : undefined);
   } catch(e) { showToast('Error: '+e.message,'error'); }
 }
 
@@ -13849,7 +14056,7 @@ function closeCmdk() {
 function _cmdkData() {
   const items = [];
   try { (typeof visibleCampaigns==='function'?visibleCampaigns():getData('campaigns')||[]).forEach(c=>items.push({type:'Campaña', icon:'📁', label:c.name, sub:c.client||'', action:()=>{navigate('campannas');setTimeout(()=>openCampaignDetail(c.id),60);}})); } catch(e){}
-  try { (getAllInfluencers()||[]).forEach(inf=>items.push({type:'Influencer', icon:'⭐', label:inf.name, sub:inf.handle?'@'+inf.handle:'', action:()=>{navigate('influencers');setTimeout(()=>openInfluencerDetail(inf.key),60);}})); } catch(e){}
+  try { (getAllInfluencers()||[]).forEach(inf=>items.push({type:'Influencer', icon:'⭐', label:inf.name, sub:[inf.handle?'@'+inf.handle:'', inf.categoria||'', ...(inf.keywords||[]).slice(0,3)].filter(Boolean).join(' · '), action:()=>{navigate('influencers');setTimeout(()=>openInfluencerDetail(inf.key),60);}})); } catch(e){}
   try {
     (getData('globalTasks')||[]).forEach(t=>{ if(!t.done) items.push({type:'Tarea', icon:'✅', label:t.title, sub:'General', action:()=>navigate('pendientes')}); });
     (getData('campaigns')||[]).forEach(c=>(c.tasks||[]).forEach(t=>{ if(!t.done) items.push({type:'Tarea', icon:'✅', label:t.title, sub:c.name, action:()=>{navigate('campannas');setTimeout(()=>openCampaignDetail(c.id),60);}}); }));
