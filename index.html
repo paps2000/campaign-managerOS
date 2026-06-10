@@ -3074,6 +3074,51 @@ html.dark .glass-orb-5 { background: radial-gradient(circle, rgba(122,61,240,.22
   0%,100% { transform: translate(0,0) scale(1); }
   50%      { transform: translate(-80px,100px) scale(1.15); }
 }
+
+/* ── AURORA VIVA — override: las luces de fondo se mueven de verdad ──
+   Recorridos amplios + ciclos más cortos + respiración de opacidad.
+   Solo transform/opacity (GPU); will-change rasteriza el blur una vez. */
+.glass-orb { will-change: transform, opacity; }
+.glass-orb-1 { animation: orbLive1 13s ease-in-out infinite, orbBreath 9s  ease-in-out infinite; }
+.glass-orb-2 { animation: orbLive2 16s ease-in-out infinite, orbBreath 11s ease-in-out infinite 2s; }
+.glass-orb-3 { animation: orbLive3 11s ease-in-out infinite, orbBreath 8s  ease-in-out infinite 1s; }
+.glass-orb-4 { animation: orbLive4 14s ease-in-out infinite 1.2s, orbBreath 10s ease-in-out infinite 3s; }
+.glass-orb-5 { animation: orbLive5 10s ease-in-out infinite .6s,  orbBreath 7s  ease-in-out infinite 1.8s; }
+@keyframes orbLive1 {
+  0%,100% { transform: translate(0,0) scale(1); }
+  25%     { transform: translate(240px,160px) scale(1.12); }
+  50%     { transform: translate(420px,40px) scale(.9); }
+  75%     { transform: translate(150px,300px) scale(1.06); }
+}
+@keyframes orbLive2 {
+  0%,100% { transform: translate(0,0) scale(1); }
+  30%     { transform: translate(-280px,-170px) scale(1.14); }
+  60%     { transform: translate(-120px,-340px) scale(.88); }
+  80%     { transform: translate(-360px,-90px) scale(1.08); }
+}
+@keyframes orbLive3 {
+  0%,100% { transform: translate(0,0) scale(1); }
+  35%     { transform: translate(-200px,150px) scale(1.22); }
+  70%     { transform: translate(160px,-170px) scale(.82); }
+}
+@keyframes orbLive4 {
+  0%,100% { transform: translate(0,0) scale(1); }
+  40%     { transform: translate(300px,-220px) scale(1.12); }
+  70%     { transform: translate(130px,-380px) scale(.9); }
+}
+@keyframes orbLive5 {
+  0%,100% { transform: translate(0,0) scale(1); }
+  33%     { transform: translate(-220px,260px) scale(1.25); }
+  66%     { transform: translate(120px,120px) scale(.85); }
+}
+@keyframes orbBreath {
+  0%,100% { opacity: 1; }
+  50%     { opacity: .68; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .glass-orb { animation: none !important; }
+}
+
 /* app wrapper sits above the orb canvas */
 .sidebar, .main { position: relative; z-index: 1; }
 
