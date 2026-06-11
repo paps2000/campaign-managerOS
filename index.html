@@ -2889,16 +2889,11 @@ html.dark .modal {
 }
 
 
-/* Influencer detail modal: sticky header que se funde con el glass del modal.
-   Colores vía var(--white)/color-mix pa seguir el tema (light/dark/auto). */
+/* Influencer detail modal: header fijo arriba (el body scrollea aparte),
+   sin sticky ni márgenes negativos — los bordes del modal quedan limpios. */
 .inf-detail-header {
-  position: sticky; top: -28px; z-index: 2;
-  margin: -28px -28px 0; padding: 24px 28px 14px;
-  background: color-mix(in srgb, var(--white) 94%, transparent) !important;
-  backdrop-filter: blur(44px) saturate(180%);
-  -webkit-backdrop-filter: blur(44px) saturate(180%);
+  flex-shrink: 0; margin: 0; padding: 22px 28px 14px;
   border-bottom: 1px solid var(--border) !important;
-  border-radius: 24px 24px 0 0;
 }
 
 /* Card del perfil master: panel legible sobre el modal glass */
@@ -5019,7 +5014,7 @@ html.dark .skeleton {
 
 <!-- MODAL: INFLUENCER DETAIL -->
 <div class="modal-overlay" id="infDetailModal">
-  <div class="modal" style="max-width:620px;max-height:85vh;overflow-y:auto;">
+  <div class="modal" style="max-width:620px;max-height:85vh;padding:0;display:flex;flex-direction:column;overflow:hidden;">
     <div class="modal-header inf-detail-header">
       <div>
         <div class="modal-title" id="infDetailName"></div>
@@ -5027,7 +5022,7 @@ html.dark .skeleton {
       </div>
       <button class="modal-close" onclick="closeModal('infDetailModal')">✕</button>
     </div>
-    <div id="infDetailContent" style="padding-top:16px;"></div>
+    <div id="infDetailContent" style="flex:1;overflow-y:auto;padding:16px 28px 28px;"></div>
   </div>
 </div>
 
@@ -5326,6 +5321,7 @@ function attachListeners() {
       });
       return merged;
     });
+    if(typeof _invalidateInfMemo==='function') _invalidateInfMemo();
     rerenderCurrent();
   }, err => console.error('campaigns listener',err)));
 
@@ -5350,6 +5346,7 @@ function attachListeners() {
   // Influencer ratings listener
   unsubscribers.push(ws.collection('influencerRatings').onSnapshot(snap => {
     _cache.influencerRatings = snap.docs.map(d => d.data());
+    if(typeof _invalidateInfMemo==='function') _invalidateInfMemo();
     if(currentPage==='influencers') renderInfluencers();
   }, err => console.error('influencerRatings listener',err)));
 
@@ -5360,6 +5357,7 @@ function attachListeners() {
   unsubscribers.push(ws.collection('creators').onSnapshot(snap => {
     _cache.creators = snap.docs.map(d => d.data());
     _cache._creatorsLoaded = true;
+    if(typeof _invalidateInfMemo==='function') _invalidateInfMemo();
     if(currentPage==='influencers') renderInfluencers();
   }, err => console.error('creators listener',err)));
 }
@@ -8089,8 +8087,13 @@ function parseEscenarioRows(rows) {
 
 // Extract per-creator real metrics from previously loaded cachedMetrics rows
 function _escenarioRealMetricsByCreator(campaign) {
-  const out = new Map();
   const rows = (campaign && campaign.cachedMetrics) || [];
+  // Memo: parsear métricas es O(filas×columnas) — cachear por campaña
+  if(campaign && campaign._memoRealMetrics && campaign._memoRealMetricsStamp === rows.length) {
+    return campaign._memoRealMetrics;
+  }
+  const out = new Map();
+  if(campaign) { campaign._memoRealMetrics = out; campaign._memoRealMetricsStamp = rows.length; }
   if(!rows.length) return out;
   const norm = s => String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[_\s@]+/g,' ').trim();
   const get = (r, ...keys) => { for(const k of keys){ const kn=norm(k); for(const rk of Object.keys(r)){ if(norm(rk)===kn && r[rk]) return r[rk]; } } return ''; };
@@ -12197,7 +12200,12 @@ function creatorLatestRate(cr, platform, contenido) {
   return hist[0];
 }
 
+// Memo: getAllInfluencers recorre campañas + parsea escenarios + 700 creadores.
+// Los listeners de Firestore lo invalidan; entre renders se reusa.
+let _allInfMemo = null;
+function _invalidateInfMemo() { _allInfMemo = null; }
 function getAllInfluencers() {
+  if(_allInfMemo) return _allInfMemo;
   const map = {};
   const ensure = (k, inf) => {
     if(!map[k]) map[k] = { key:k, name:inf.name, handle:inf.handle||'', platform:inf.platform||'', platforms:[], _platSet:new Set(), campaigns:[] };
@@ -12251,7 +12259,8 @@ function getAllInfluencers() {
     if(cr.tier) e.tier = cr.tier;
     e.seguidoresTotal = Object.values(cr.platforms||{}).reduce((a,p)=>a+(Number(p.seguidores)||0),0);
   });
-  return Object.values(map).map(e => { delete e._platSet; return e; }).sort((a, b) => a.name.localeCompare(b.name));
+  _allInfMemo = Object.values(map).map(e => { delete e._platSet; return e; }).sort((a, b) => a.name.localeCompare(b.name));
+  return _allInfMemo;
 }
 
 function infRatingsFor(key) {
@@ -13010,8 +13019,19 @@ function openInfluencerDetail(key) {
   if (!inf) return;
   document.getElementById('infDetailName').textContent = inf.name;
   document.getElementById('infDetailHandle').innerHTML = (inf.handle ? '<span style="color:var(--text-muted);margin-right:6px;">@'+inf.handle+'</span>' : '') + ((inf.platforms&&inf.platforms.length)?platformBadges(inf.platforms):(inf.platform?platformBadge(inf.platform):''));
-  renderInfluencerDetailContent(inf);
+  // Abrir el modal de inmediato (la animación corre fluida) y pintar el
+  // contenido pesado al siguiente frame — la apertura ya no se traba.
+  document.getElementById('infDetailContent').innerHTML =
+    `<div style="display:flex;flex-direction:column;gap:12px;padding:8px 0;">
+      <div class="skel" style="height:90px;border-radius:14px;"></div>
+      <div class="skel" style="height:14px;width:50%;"></div>
+      <div class="skel" style="height:120px;border-radius:14px;"></div>
+    </div>`;
   openModal('infDetailModal');
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    if(_infDetailKey !== key) return;
+    renderInfluencerDetailContent(inf);
+  }));
 }
 
 // In-memory cache of private creator info, keyed by infKey
@@ -13302,6 +13322,7 @@ async function _persistManualCampaigns(key, name, list) {
   let cr = _creatorByKey(key);
   if(cr) cr.manualCampaigns = list;
   else _cache.creators.push({ key, name, manualCampaigns: list, platforms:{}, historyMaster:[] });
+  _invalidateInfMemo();
 }
 
 async function addManualCampaignToCreator(key) {
