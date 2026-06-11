@@ -1560,6 +1560,127 @@ html.dark .profile-card-bio  { background:rgba(255,45,135,.1); color:var(--text)
   z-index:10000; display:flex; align-items:stretch;
 }
 .login-screen.hidden { display:none; }
+
+/* ════════════════════════════════════════════════════════════
+   FLAMINGO COVER — login hero (capa de temporada detrás del recorte)
+   ════════════════════════════════════════════════════════════ */
+.login-hero { padding:0 !important; }
+.flamingo-stage { position:absolute; inset:0; overflow:hidden; background:#0a0a0c; }
+.flamingo-season {
+  position:absolute; inset:0; z-index:0; overflow:hidden;
+  background:#0a0a0c; transition:opacity .5s var(--ease);
+}
+.flamingo-season::before,
+.flamingo-season::after { content:''; position:absolute; }
+.flamingo-season[data-season="default"] {
+  background:linear-gradient(125deg,#ff2d87,#2c6dff,#c6f24a,#ff2d87);
+  background-size:300% 300%; animation:seasonShimmer 9s ease infinite;
+}
+@keyframes seasonShimmer {
+  0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%}
+}
+.flamingo-season[data-season="mundial"] {
+  background:
+    repeating-linear-gradient(90deg, rgba(0,0,0,.05) 0 70px, rgba(255,255,255,.05) 70px 140px),
+    linear-gradient(180deg,#188a45,#0f6b34);
+}
+.flamingo-season[data-season="mundial"]::before {
+  content:'⚽'; font-size:64px; left:-10%; top:46%;
+  filter:drop-shadow(0 8px 14px rgba(0,0,0,.4));
+  animation:ballRoll 4.5s linear infinite;
+}
+.flamingo-season[data-season="mundial"]::after {
+  inset:0; background:radial-gradient(ellipse 60% 40% at 50% 0%, rgba(255,255,255,.35), transparent 70%);
+}
+@keyframes ballRoll {
+  0%{ transform:translateX(0) rotate(0) translateY(0); }
+  50%{ transform:translateX(60vw) rotate(540deg) translateY(-26px); }
+  100%{ transform:translateX(120vw) rotate(1080deg) translateY(0); }
+}
+.flamingo-season[data-season="navidad"] {
+  background:
+    radial-gradient(2.5px 2.5px at 20% 20%,#fff,transparent),
+    radial-gradient(2px 2px at 65% 45%,#fff,transparent),
+    radial-gradient(3px 3px at 40% 70%,#fff,transparent),
+    radial-gradient(2px 2px at 85% 30%,#fff,transparent),
+    radial-gradient(2.5px 2.5px at 10% 80%,#fff,transparent),
+    linear-gradient(180deg,#0b3d2e,#7a1322);
+  background-size:auto,auto,auto,auto,auto,100% 100%;
+  animation:snowFall 7s linear infinite;
+}
+@keyframes snowFall {
+  from{ background-position:0 -10%,0 0,0 5%,0 -8%,0 2%,0 0; }
+  to{ background-position:0 110%,0 120%,0 115%,0 118%,0 122%,0 0; }
+}
+.flamingo-season[data-season="primavera"] {
+  background:linear-gradient(160deg,#ffd1e8,#ff7eb0 45%,#c6f24a);
+  background-size:200% 200%; animation:seasonShimmer 11s ease infinite;
+}
+.flamingo-season[data-season="primavera"]::before {
+  content:'🌸'; font-size:42px; left:30%; top:-12%;
+  animation:petalFall 6s linear infinite;
+}
+@keyframes petalFall {
+  0%{ transform:translateY(0) rotate(0); }
+  100%{ transform:translateY(120vh) rotate(360deg); }
+}
+.flamingo-season.has-gif {
+  background-image:var(--season-gif) !important;
+  background-size:cover !important;
+  background-position:center !important;
+  animation:none !important;
+}
+.flamingo-season.has-gif::before,
+.flamingo-season.has-gif::after { display:none !important; }
+.flamingo-cover {
+  position:absolute; inset:0; width:100%; height:100%;
+  object-fit:cover; object-position:center; z-index:1;
+  cursor:pointer; user-select:none; -webkit-user-drag:none;
+  transition:filter .35s var(--ease);
+}
+.flamingo-cover:hover { filter:brightness(1.04) saturate(1.06); }
+.flamingo-overlay {
+  position:absolute; left:0; right:0; bottom:0; z-index:2;
+  display:flex; flex-direction:column; align-items:center; gap:12px;
+  padding:0 40px 34px;
+  background:linear-gradient(180deg, transparent 30%, rgba(150,8,66,.62) 100%);
+}
+.flamingo-overlay .login-hero-title {
+  margin:0; font-size:28px; white-space:nowrap; text-shadow:0 2px 18px rgba(0,0,0,.32);
+}
+.flamingo-overlay .login-hero-sub { min-height:46px; margin:0; max-width:420px; }
+.flamingo-overlay .login-tagline {
+  font-size:15px; color:rgba(255,255,255,.92);
+  text-shadow:0 1px 10px rgba(0,0,0,.35);
+}
+/* Admin de temporada (en Ajustes) */
+.season-admin-switch { display:flex; gap:8px; flex-wrap:wrap; }
+.season-admin-switch button {
+  border:1.5px solid var(--border); background:var(--white); color:var(--text);
+  font-family:inherit; font-size:13px; font-weight:700; cursor:pointer; white-space:nowrap;
+  padding:9px 14px; border-radius:12px; transition:all .2s var(--ease);
+}
+.season-admin-switch button:hover { border-color:var(--pink); transform:translateY(-1px); }
+.season-admin-switch button.active {
+  background:var(--pink); color:#fff; border-color:var(--pink);
+  box-shadow:0 4px 14px rgba(255,45,135,.32);
+}
+.season-admin-upload {
+  display:inline-flex; align-items:center; gap:6px; cursor:pointer;
+  font-size:13px; font-weight:700; color:var(--pink);
+  padding:9px 14px; border-radius:12px; border:1.5px dashed var(--pink-light);
+  transition:all .2s var(--ease);
+}
+.season-admin-upload:hover { border-color:var(--pink); background:var(--pink-pale); }
+.season-admin-clear {
+  display:inline-flex; align-items:center; font-family:inherit; font-size:12px; font-weight:700;
+  color:var(--text-muted); background:none; border:1.5px solid var(--border);
+  padding:8px 12px; border-radius:12px; cursor:pointer; transition:all .2s var(--ease);
+}
+.season-admin-clear:hover { border-color:var(--red); color:var(--red); }
+@media (max-width:768px) {
+  .flamingo-overlay { display:none; }
+}
 .login-hero {
   flex:1; background:var(--sidebar); display:flex; flex-direction:column;
   align-items:center; justify-content:center; padding:60px 48px; position:relative; overflow:hidden;
@@ -3476,24 +3597,23 @@ html.dark .skeleton {
 <!-- LOGIN SCREEN -->
 <div class="login-screen" id="loginScreen">
   <div class="login-hero" id="loginHero">
-    <span class="login-hero-orb o1"></span>
-    <span class="login-hero-orb o2"></span>
-    <span class="login-hero-orb o3"></span>
-    <span class="login-hero-orb o4"></span>
-    <div class="login-hero-ymark" id="loginHeroLogo" onclick="loginHeroLogoClick()">
-      <img src="assets/thinky-rosa.png" alt="Thinky">
+    <!-- Flamingo cover: la capa de temporada corre detrás del recorte transparente -->
+    <div class="flamingo-stage">
+      <div class="flamingo-season" id="flamingoSeason" data-season="mundial"></div>
+      <img src="assets/flamingo-cover.png" alt="Thinky · Campaign OS" class="flamingo-cover" id="loginHeroLogo" onclick="loginHeroLogoClick()" draggable="false">
     </div>
-    <div class="login-hero-title">Campaign <span>OS</span></div>
-    <div class="login-hero-sub" id="loginTaglineWrap">
-      <span class="login-tagline show" data-i="0">Tu centro de operaciones de campañas.</span>
-      <span class="login-tagline" data-i="1">Donde las ideas se vuelven campañas. 🚀</span>
-      <span class="login-tagline" data-i="2">Menos caos, más creatividad. ✨</span>
-      <span class="login-tagline" data-i="3">Todo en un solo lugar. Por fin. 🙌</span>
-      <span class="login-tagline" data-i="4">¿Lista para hacer magia hoy? 🧠</span>
-      <span class="login-tagline" data-i="5">Hecha con amor (y mucho café). ☕</span>
-      <span class="login-tagline" data-i="6">Think big. Think Y. 💅</span>
+    <div class="flamingo-overlay">
+      <div class="login-hero-title">Campaign <span>OS</span></div>
+      <div class="login-hero-sub" id="loginTaglineWrap">
+        <span class="login-tagline show" data-i="0">Tu centro de operaciones de campañas.</span>
+        <span class="login-tagline" data-i="1">Donde las ideas se vuelven campañas. 🚀</span>
+        <span class="login-tagline" data-i="2">Menos caos, más creatividad. ✨</span>
+        <span class="login-tagline" data-i="3">Todo en un solo lugar. Por fin. 🙌</span>
+        <span class="login-tagline" data-i="4">¿Lista para hacer magia hoy? 🧠</span>
+        <span class="login-tagline" data-i="5">Hecha con amor (y mucho café). ☕</span>
+        <span class="login-tagline" data-i="6">Think big. Think Y. 💅</span>
+      </div>
     </div>
-    <div class="login-dot-grid" id="loginDotGrid"></div>
   </div>
   <div class="login-card">
     <div class="login-card-logo" id="loginCardLogo" onclick="loginCardLogoClick()">
@@ -4231,6 +4351,25 @@ html.dark .skeleton {
             </label>
           </div>
         </div>
+      </div>
+
+      <div class="settings-section" id="seasonAdminSection" style="display:none;">
+        <div class="settings-title">Portada del login — temporada</div>
+        <div class="settings-desc">Controla la animación que corre detrás del recorte del flamingo en la pantalla de inicio. Se sincroniza para todo el equipo. Solo administradores.</div>
+        <div class="season-admin-switch" id="seasonAdminSwitch" style="margin-top:14px;">
+          <button type="button" data-season="mundial" onclick="setLoginSeason('mundial')">⚽ Mundial</button>
+          <button type="button" data-season="navidad" onclick="setLoginSeason('navidad')">🎄 Navidad</button>
+          <button type="button" data-season="primavera" onclick="setLoginSeason('primavera')">🌸 Primavera</button>
+          <button type="button" data-season="default" onclick="setLoginSeason('default')">✨ Marca</button>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:14px;">
+          <label class="season-admin-upload">
+            <input type="file" accept="image/gif,image/*" id="seasonAdminGifInput" hidden onchange="onAdminGifPick(this)">
+            <span id="seasonAdminGifLabel">＋ Subir GIF de temporada</span>
+          </label>
+          <button type="button" class="season-admin-clear" id="seasonAdminClear" onclick="clearLoginGif()" style="display:none;">Quitar GIF</button>
+        </div>
+        <div class="settings-desc" style="margin-top:12px;font-size:11px;opacity:.8;">Sugerencia: usa un GIF horizontal y ligero (&lt; 700&nbsp;KB) para que se sincronice a todo el equipo.</div>
       </div>
 
       <div class="settings-section" id="teamSection">
@@ -5213,6 +5352,9 @@ function attachListeners() {
     _cache.influencerRatings = snap.docs.map(d => d.data());
     if(currentPage==='influencers') renderInfluencers();
   }, err => console.error('influencerRatings listener',err)));
+
+  // Portada del login: listener global (se aplica a todos los usuarios)
+  try { setupCoverSync(); } catch(e){}
 
   // Master creators DB listener (base de datos de talento)
   unsubscribers.push(ws.collection('creators').onSnapshot(snap => {
@@ -10009,6 +10151,9 @@ function _setEquipoFilter(area) {
 }
 
 function renderTeam() {
+  // Sección de portada del login: solo admins
+  const seasonSec = document.getElementById('seasonAdminSection');
+  if(seasonSec) seasonSec.style.display = (typeof isAdmin==='function' && isAdmin()) ? '' : 'none';
   const list = document.getElementById('teamList');
   if(!list) return;
 
@@ -14146,6 +14291,113 @@ document.addEventListener('keydown', (e) => {
   else if(e.key==='Enter') { e.preventDefault(); _cmdkPick(_cmdkIndex); }
 });
 
+// ── Portada flamingo del login — temporada controlada por admin,
+//    sincronizada a TODO el equipo vía Firestore (config/cover) ──
+function _coverLayer() { return document.getElementById('flamingoSeason'); }
+function _coverDoc() {
+  return db.collection('workspaces').doc(WORKSPACE).collection('config').doc('cover');
+}
+let _coverUnsub = null;
+const COVER_GIF_SYNC_LIMIT = 720000; // ~720 KB base64 — bajo el tope de 1 MB por doc de Firestore
+
+// Pinta desde cache local / default por fecha (instantáneo, funciona pre-auth)
+function applyLoginCover() {
+  const layer = _coverLayer(); if (!layer) return;
+  let season = null, gif = null;
+  try { season = localStorage.getItem('cos_season'); gif = localStorage.getItem('cos_season_gif'); } catch(e){}
+  if (!season) {
+    const m = new Date().getMonth(); // default según la fecha
+    season = m === 11 ? 'navidad' : (m >= 2 && m <= 4) ? 'primavera' : 'mundial';
+  }
+  if (gif) {
+    layer.style.setProperty('--season-gif', `url("${gif}")`);
+    layer.classList.add('has-gif');
+  } else {
+    layer.classList.remove('has-gif');
+    layer.style.removeProperty('--season-gif');
+    layer.dataset.season = season;
+  }
+  syncSeasonAdminUI(season, !!gif);
+}
+
+// Aplica el valor autoritativo de Firestore (y lo cachea local)
+function applyCoverFromData(data) {
+  if (!data) return;
+  const layer = _coverLayer();
+  if (data.gif) {
+    try { localStorage.setItem('cos_season_gif', data.gif); } catch(e){}
+    if (layer) { layer.style.setProperty('--season-gif', `url("${data.gif}")`); layer.classList.add('has-gif'); }
+  } else {
+    try { localStorage.removeItem('cos_season_gif'); if (data.season) localStorage.setItem('cos_season', data.season); } catch(e){}
+    if (layer) { layer.classList.remove('has-gif'); layer.style.removeProperty('--season-gif'); if (data.season) layer.dataset.season = data.season; }
+  }
+  syncSeasonAdminUI(data.season || (layer && layer.dataset.season), !!data.gif);
+}
+
+// Escribe la portada global (solo admins)
+function persistCover(patch) {
+  if (typeof db === 'undefined' || !currentUser) return;
+  if (typeof isAdmin === 'function' && !isAdmin()) return;
+  _coverDoc().set({ ...patch, updatedAt: Date.now(), updatedBy: currentUser.uid }, { merge: true })
+    .catch(e => { console.error('persistCover', e); showToast('No se pudo sincronizar la portada: ' + e.message, 'error'); });
+}
+
+// Listener en vivo — cada usuario logueado recibe cambios en tiempo real
+function setupCoverSync() {
+  if (typeof db === 'undefined') return;
+  if (_coverUnsub) { _coverUnsub(); _coverUnsub = null; }
+  _coverUnsub = _coverDoc().onSnapshot(d => { if (d.exists) applyCoverFromData(d.data()); }, () => {});
+}
+
+// Al cargar: pinta cache, luego lectura global + listener best-effort
+function initCoverSync() {
+  applyLoginCover();
+  if (typeof db === 'undefined') return;
+  _coverDoc().get().then(d => { if (d.exists) applyCoverFromData(d.data()); }).catch(() => {});
+}
+
+function setLoginSeason(season) {
+  try { localStorage.setItem('cos_season', season); localStorage.removeItem('cos_season_gif'); } catch(e){}
+  applyLoginCover();
+  persistCover({ season, gif: '' });
+  showToast('Portada del login actualizada para todo el equipo', 'success');
+}
+
+function onAdminGifPick(input) {
+  const f = input.files && input.files[0]; if (!f) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const url = ev.target.result;
+    try { localStorage.setItem('cos_season_gif', url); } catch(e){}
+    applyLoginCover();
+    if (url.length > COVER_GIF_SYNC_LIMIT) {
+      showToast('GIF aplicado solo en este equipo (muy pesado para sincronizar). Usa uno < 700 KB para que lo vean todos.', 'error');
+    } else {
+      persistCover({ gif: url });
+      showToast('GIF de temporada activado para todo el equipo', 'success');
+    }
+  };
+  reader.readAsDataURL(f);
+  input.value = '';
+}
+
+function clearLoginGif() {
+  try { localStorage.removeItem('cos_season_gif'); } catch(e){}
+  applyLoginCover();
+  persistCover({ gif: '' });
+  showToast('GIF quitado para todo el equipo', 'success');
+}
+
+function syncSeasonAdminUI(season, hasGif) {
+  const sw = document.getElementById('seasonAdminSwitch');
+  if (sw) sw.querySelectorAll('button').forEach(b =>
+    b.classList.toggle('active', !hasGif && b.dataset.season === season));
+  const lbl = document.getElementById('seasonAdminGifLabel');
+  if (lbl) lbl.textContent = hasGif ? '✓ GIF activo · cambiar' : '＋ Subir GIF de temporada';
+  const clr = document.getElementById('seasonAdminClear');
+  if (clr) clr.style.display = hasGif ? 'inline-flex' : 'none';
+}
+
 // ---- Login: rotating taglines ----
 let _loginTaglineIdx = 0, _loginTaglineTimer = null;
 function _startLoginTaglines() {
@@ -14247,9 +14499,9 @@ function _maybeBootLogin() {
     _stopLoginInteractions();
     return;
   }
-  _buildLoginDotGrid();
   _startLoginTaglines();
   _initLoginSparkles();
+  try { initCoverSync(); } catch(e){}
 }
 function _stopLoginInteractions() {
   if(_loginTaglineTimer) { clearInterval(_loginTaglineTimer); _loginTaglineTimer = null; }
