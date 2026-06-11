@@ -2895,6 +2895,16 @@ html.dark .modal {
   flex-shrink: 0; margin: 0; padding: 22px 28px 14px;
   border-bottom: 1px solid var(--border) !important;
 }
+/* Scroll del perfil en capa propia (composited): sin esto, scrollear dentro
+   de un elemento con backdrop-filter corre en main thread y se traba. */
+#infDetailContent { will-change: transform; transform: translateZ(0); }
+/* Este modal es grande y denso: glass más opaco con blur menor — mismo look,
+   mucho menos costo de pintado al scrollear. */
+#infDetailModal .modal {
+  background: color-mix(in srgb, var(--white) 96%, transparent) !important;
+  backdrop-filter: blur(14px) saturate(160%) !important;
+  -webkit-backdrop-filter: blur(14px) saturate(160%) !important;
+}
 
 /* Card del perfil master: panel legible sobre el modal glass */
 .inf-master-card {
@@ -13069,9 +13079,14 @@ async function saveInfluencerPrivateInfo(key) {
 let _infDetailReqId = 0;
 async function _hydrateInfluencerPrivateInfo(key) {
   const reqId = ++_infDetailReqId;
+  const IDS = ['infPrivPhone','infPrivAgency','infPrivEmail','infPrivNotes'];
+  // Mientras llega Firestore: inputs deshabilitados con "Cargando…"
+  const pending = !_creatorPrivateCache.has(key);
+  if(pending) IDS.forEach(id => { const el=document.getElementById(id); if(el){ el.disabled=true; el.dataset.ph=el.placeholder; el.placeholder='Cargando…'; } });
   const data = await _loadInfluencerPrivateInfo(key);
   // Drop response if the user already opened a different creator
   if(_infDetailKey !== key || reqId !== _infDetailReqId) return;
+  IDS.forEach(id => { const el=document.getElementById(id); if(el){ el.disabled=false; if(el.dataset.ph!==undefined){ el.placeholder=el.dataset.ph; delete el.dataset.ph; } } });
   const inp = (id, v) => { const el=document.getElementById(id); if(el) el.value = v||''; };
   inp('infPrivPhone',  data?.telefono);
   inp('infPrivAgency', data?.agencia);
