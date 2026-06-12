@@ -5518,6 +5518,28 @@ function renderDashboard() {
         (Array.isArray(c.assignedTo) && c.assignedTo.includes(currentUser.uid))
       );
 
+  // Lazy: igual que el calendario — campañas con tracker vinculado pero sin
+  // filas cacheadas se sincronizan en background. Sin esto el dashboard sale
+  // vacío hasta que el usuario abre cada campaña a mano. Idempotente vía
+  // _trackerFetching; el re-render se debouncea tras cada fetch que termina,
+  // así un solo repintado refleja todas las campañas que llegaron.
+  const _scheduleDashRefresh = () => {
+    if(window._dashRefreshTimer) clearTimeout(window._dashRefreshTimer);
+    window._dashRefreshTimer = setTimeout(() => {
+      window._dashRefreshTimer = null;
+      if(currentPage === 'dashboard') { try { renderDashboard(); } catch(e){} }
+    }, 400);
+  };
+  campaigns.forEach(c => {
+    if(c.trackerSheetUrl && (!c.trackerRows || !c.trackerRows.length) && !c._trackerFetching) {
+      c._trackerFetching = true;
+      _autoFetchTracker(c.trackerSheetUrl, c, {silent:true}).finally(() => {
+        c._trackerFetching = false;
+        _scheduleDashRefresh();
+      });
+    }
+  });
+
   // Non-admin with no subscriptions: show hint instead of empty dashboard
   if(!isAdmin() && campaigns.length === 0 && _cache.campaigns.length > 0) {
     ['statActive','statToday','statUrgent','statPubs'].forEach(id => { const el=document.getElementById(id); if(el) el.textContent='—'; });
