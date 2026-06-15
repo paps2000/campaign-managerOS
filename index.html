@@ -3903,6 +3903,7 @@ html:not(.dark) .login-card {
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg> Volver
           </button>
           <h3 id="metricsCampName" style="font-size:24px;font-weight:700;letter-spacing:-0.3px;flex:1;"></h3>
+          <button class="btn btn-ghost btn-sm" onclick="downloadCampaignReport(currentMetricsCampaignId)" title="Descargar reporte de resultados">📄 Descargar resultados</button>
         </div>
 
         <!-- No-metrics-linked state -->
@@ -8477,8 +8478,9 @@ function deleteApprovalItem(cid, itemId) {
 // ============================================================
 // REPORTE DE RESULTADOS (descarga / imprimir → PDF)
 // ============================================================
-function downloadCampaignReport() {
-  const c = (getData('campaigns')||[]).find(x=>x.id===currentCampaignId);
+function downloadCampaignReport(cid) {
+  const targetId = cid || currentCampaignId || currentMetricsCampaignId;
+  const c = (getData('campaigns')||[]).find(x=>x.id===targetId);
   if(!c) { showToast('Abre una campaña primero','error'); return; }
   const fmt = n => formatNum(Math.round(n||0));
   const money = n => n>0 ? '$'+Math.round(n).toLocaleString('es-MX') : '—';
@@ -8505,6 +8507,25 @@ function downloadCampaignReport() {
     .sort((a,b)=>a.cpv-b.cpv);
   const topCreators = [...enriched].sort((a,b)=>b.real.views-a.real.views).slice(0,10);
   const showCost = (typeof canSeeCosts==='function') ? canSeeCosts() : true;
+
+  // Global efficiency + published-contents progress
+  const cpvCamp = totalViews>0 ? totalCost/totalViews : 0;
+  const cpeCamp = totalEng>0  ? totalCost/totalEng  : 0;
+  const publishedContents = enriched.reduce((s,x)=>s+(x.real.posts||0),0) + (ugcRes?ugcRes.contenidosPublicados:0);
+  const closedContents    = enriched.reduce((s,x)=>s+(x.contenidosTotal||0),0) + (ugc?(ugc.cantidadContenidos||0):0);
+
+  // Platform breakdown from real per-post metrics (each cachedMetrics row = 1 post)
+  const gp = (r,...keys)=>{ for(const k of keys){ const kn=norm(k); for(const rk of Object.keys(r)){ if(norm(rk)===kn && r[rk]) return r[rk]; } } return ''; };
+  const byPlat = {};
+  (c.cachedMetrics||[]).forEach(r=>{
+    const plat = (String(gp(r,'Plataforma','Platform','Red Social','Red')||'').trim()) || '—';
+    const v = parseLocaleNumber(gp(r,'Views','Vistas','Reproducciones','Plays','Visualizaciones','Video Views','Impresiones','Impressions'));
+    const bd = parseLocaleNumber(gp(r,'Likes','Me gusta'))+parseLocaleNumber(gp(r,'Comments','Comentarios'))+parseLocaleNumber(gp(r,'Shares','Compartidos','Reposts','Retweets'))+parseLocaleNumber(gp(r,'Saves','Guardados'));
+    const e = bd>0?bd:parseLocaleNumber(gp(r,'Engagement','Interacciones','Interactions'));
+    if(!byPlat[plat]) byPlat[plat]={posts:0,views:0,eng:0};
+    byPlat[plat].posts++; byPlat[plat].views+=v; byPlat[plat].eng+=e;
+  });
+  const platRows = Object.entries(byPlat).sort((a,b)=>b[1].views-a[1].views);
 
   const pct = (r,e)=> e>0 ? Math.round((r/e)*100)+'%' : '—';
   const kpiCard = (label,val,sub)=>`<div class="kpi"><div class="kl">${label}</div><div class="kv">${val}</div>${sub?`<div class="ks">${sub}</div>`:''}</div>`;
@@ -8539,9 +8560,16 @@ function downloadCampaignReport() {
   <div class="kpis">
     ${kpiCard('Views', fmt(totalViews), goalViews>0?`Meta ${fmt(goalViews)} · ${pct(totalViews,goalViews)}`:'')}
     ${kpiCard('Interacciones', fmt(totalEng), goalEng>0?`Meta ${fmt(goalEng)} · ${pct(totalEng,goalEng)}`:'')}
+    ${kpiCard('Contenidos publicados', `${fmt(publishedContents)}${closedContents>0?` / ${fmt(closedContents)}`:''}`, closedContents>0?pct(publishedContents,closedContents)+' del plan':'piezas live')}
     ${kpiCard('Creadores', String(enriched.length), ugc&&ugc.cantidadCreadores?`+ ${ugc.cantidadCreadores} UGC`:'')}
-    ${showCost?kpiCard('Inversión', money(totalCost),'MXN'):kpiCard('Contenidos', fmt(enriched.reduce((s,x)=>s+(x.contenidosTotal||0),0)),'')}
+    ${showCost?kpiCard('CPV', cpx(cpvCamp),'costo / vista'):''}
+    ${showCost?kpiCard('CPE', cpx(cpeCamp),'costo / interacción'):''}
+    ${showCost?kpiCard('Inversión', money(totalCost),'MXN'):''}
   </div>
+  ${platRows.length?`<h2>Avance por plataforma</h2>
+  <table><thead><tr><th>Plataforma</th><th class="r">Posts</th><th class="r">Views</th><th class="r">Interac.</th><th class="r">% views</th></tr></thead><tbody>
+    ${platRows.map(([p,d])=>`<tr><td>${_esc(p)}</td><td class="r">${fmt(d.posts)}</td><td class="r">${fmt(d.views)}</td><td class="r">${fmt(d.eng)}</td><td class="r">${pct(d.views,totalViews)}</td></tr>`).join('')}
+  </tbody></table>`:''}
   <h2>Top creadores por views</h2>
   <table><thead><tr><th>Creador</th><th class="r">Views</th><th class="r">Interac.</th><th class="r">Views est.</th><th class="r">%</th></tr></thead><tbody>
     ${topCreators.map(cr=>`<tr><td>${_esc(cr.nombre)}</td><td class="r">${fmt(cr.real.views)}</td><td class="r">${fmt(cr.real.engagement)}</td><td class="r">${fmt(cr.viewsEstTotal)}</td><td class="r">${pct(cr.real.views,cr.viewsEstTotal)}</td></tr>`).join('')||'<tr><td colspan="5">Sin datos de métricas reales.</td></tr>'}
