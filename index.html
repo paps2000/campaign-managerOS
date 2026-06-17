@@ -3776,11 +3776,16 @@ html:not(.dark) .login-card {
 
         <!-- TAB: INFLUENCERS -->
         <div class="tab-content" id="tab-influencers">
-          <div style="background:var(--bg);border:1px solid var(--border);border-radius:14px;padding:12px 14px;margin-bottom:16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <div id="escenarioSheetsBar" style="background:var(--bg);border:1px solid var(--border);border-radius:14px;padding:12px 14px;margin-bottom:16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
             <span style="font-size:12px;font-weight:700;color:#3a7a5e;white-space:nowrap;">🎯 Escenario</span>
             <input type="text" id="escenarioSheetsUrl" class="form-input" style="flex:1;min-width:180px;font-size:12px;" placeholder="URL del escenario (con #gid=... de la pestaña Escenario Final)" oninput="saveEscenarioUrl()">
             <button class="btn btn-ghost btn-sm" onclick="syncEscenario()" style="white-space:nowrap;">🔄 Actualizar</button>
             <span id="escenarioLastSync" style="font-size:11px;color:var(--text-muted);"></span>
+          </div>
+          <div id="escenarioAppNotice" style="display:none;background:var(--mint-pale,#eafaf1);border:1px solid #b7e4c7;border-radius:14px;padding:12px 14px;margin-bottom:16px;align-items:center;gap:10px;flex-wrap:wrap;">
+            <span style="font-size:12px;font-weight:700;color:#3a7a5e;white-space:nowrap;">🎯 Escenario armado en plataforma</span>
+            <span style="font-size:11px;color:var(--text-muted);flex:1;min-width:160px;">Este escenario está vinculado desde el editor. La carga por Google Sheets está bloqueada.</span>
+            <button class="btn btn-ghost btn-sm" onclick="enableEscenarioSheets()" style="white-space:nowrap;">🔓 Habilitar Google Sheets</button>
           </div>
           <div id="escenarioBlock" style="margin-bottom:20px;"></div>
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
@@ -4525,6 +4530,23 @@ html:not(.dark) .login-card {
   </div>
 </div>
 
+<!-- MODAL: ESCENARIO — sugerencias por keywords compartidas -->
+<div class="modal-overlay" id="scnSuggestModal">
+  <div class="modal" style="width:560px;max-height:88vh;display:flex;flex-direction:column;">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title">✨ Creadores que comparten keywords</div>
+        <div style="font-size:12px;color:var(--text-muted);">Sugeridos según los creadores que ya tienes en el escenario</div>
+      </div>
+      <button class="modal-close" onclick="closeModal('scnSuggestModal')"><span class="icn-close"></span></button>
+    </div>
+    <div id="scnSuggestBody" style="overflow-y:auto;flex:1;min-height:140px;padding:6px 2px 2px;"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('scnSuggestModal')">Cerrar</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL: ESCENARIO — editor full -->
 <div class="modal-overlay" id="scenarioModal">
   <div class="modal" style="width:min(1180px,96vw);max-height:94vh;display:flex;flex-direction:column;padding:0;">
@@ -4541,8 +4563,10 @@ html:not(.dark) .login-card {
     <div class="modal-footer" style="padding:14px 22px;flex-wrap:wrap;gap:8px;">
       <button class="btn btn-ghost btn-sm" onclick="scenarioAddCreator()">+ Agregar creador nuevo</button>
       <button class="btn btn-ghost btn-sm" onclick="scenarioPickExisting()">+ Desde creadores anteriores</button>
+      <button class="btn btn-ghost btn-sm" onclick="scenarioSuggestByKeywords()">✨ Sugerir por keywords</button>
       <div style="flex:1;"></div>
       <button class="btn btn-ghost btn-sm" onclick="scenarioCopyTSV()">Copiar tabla</button>
+      <button class="btn btn-ghost btn-sm" onclick="scenarioExportXLSX()">📊 Descargar Excel</button>
       <button class="btn btn-ghost btn-sm" onclick="scenarioExportCSV()">Descargar CSV</button>
       <button class="btn btn-primary btn-sm" id="scnSaveBtn" onclick="scenarioSave()">Guardar escenario</button>
     </div>
@@ -7975,6 +7999,14 @@ function renderEscenarioBlock(c) {
   if(syncEl && c.escenarioLastSync) {
     syncEl.textContent = 'Última sync: ' + new Date(c.escenarioLastSync).toLocaleString('es-MX',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
   }
+  // Lock Google-Sheets input when the scenario was built in-platform
+  const _sheetsBar = document.getElementById('escenarioSheetsBar');
+  const _appNotice = document.getElementById('escenarioAppNotice');
+  if(_sheetsBar && _appNotice) {
+    const builtInApp = c.escenarioSource === 'app';
+    _sheetsBar.style.display = builtInApp ? 'none' : 'flex';
+    _appNotice.style.display = builtInApp ? 'flex' : 'none';
+  }
   if(!c.escenarioRows || !c.escenarioRows.length) {
     const checked = _escenarioStoreChecked.has(c.id);
     wrap.innerHTML = (c.escenarioSheetUrl || !checked)
@@ -7988,13 +8020,13 @@ function renderEscenarioBlock(c) {
         _escenarioStoreChecked.add(c.id);
         _escenarioLoading.delete(c.id);
         if(found) { _rerenderEscenarioIfActive(c.id); }
-        else if(c.escenarioSheetUrl && !_escenarioFetching.has(c.id)) { _escenarioFetching.add(c.id); _autoFetchEscenario(c.escenarioSheetUrl, c).finally(()=>{_escenarioFetching.delete(c.id);}); }
+        else if(c.escenarioSheetUrl && c.escenarioSource!=='app' && !_escenarioFetching.has(c.id)) { _escenarioFetching.add(c.id); _autoFetchEscenario(c.escenarioSheetUrl, c).finally(()=>{_escenarioFetching.delete(c.id);}); }
         else { _rerenderEscenarioIfActive(c.id); }
       });
       return;
     }
     // 2) No saved copy — fall back to live fetch if a URL is linked.
-    if(c.escenarioSheetUrl && !_escenarioFetching.has(c.id)) { _escenarioFetching.add(c.id); _autoFetchEscenario(c.escenarioSheetUrl, c).finally(()=>{_escenarioFetching.delete(c.id);}); }
+    if(c.escenarioSheetUrl && c.escenarioSource!=='app' && !_escenarioFetching.has(c.id)) { _escenarioFetching.add(c.id); _autoFetchEscenario(c.escenarioSheetUrl, c).finally(()=>{_escenarioFetching.delete(c.id);}); }
     return;
   }
   // Lazy auto-fetch UGC results sheet if linked but uncached
@@ -12540,6 +12572,98 @@ function _scnPickConfirm() {
   showToast(master && line.costoContenidos ? 'Creador agregado con su última tarifa' : 'Creador agregado','success');
 }
 
+// ---- Sugeridor por keywords compartidas ----
+let _scnSuggestions = [];
+function _scnNorm(s){ return String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').trim(); }
+function _scnCreatorKeywords(inf){
+  const kw = new Set();
+  (inf.keywords||[]).forEach(k=>{ const n=_scnNorm(k); if(n) kw.add(n); });
+  if(inf.categoria) kw.add(_scnNorm(inf.categoria));
+  return kw;
+}
+function scenarioSuggestByKeywords(){
+  if(!_scenarioState){ showToast('Abre un escenario primero','error'); return; }
+  const all = getAllInfluencers();
+  if(!all.length){ showToast('No hay base de creadores','error'); return; }
+  const byName = new Map(all.map(i=>[_scnNorm(i.name), i]));
+  const inScenario = new Set((_scenarioState.creators||[]).map(c=>_scnNorm(c.name)).filter(Boolean));
+  if(!inScenario.size){ showToast('Agrega primero algún creador al escenario','error'); return; }
+  // Keywords semilla: las de los creadores ya en el escenario (con frecuencia)
+  const seedKw = new Map();
+  inScenario.forEach(nm=>{ const inf=byName.get(nm); if(!inf) return; _scnCreatorKeywords(inf).forEach(k=>seedKw.set(k,(seedKw.get(k)||0)+1)); });
+  if(!seedKw.size){ showToast('Los creadores del escenario no tienen keywords registradas','error'); return; }
+  // Candidatos: creadores fuera del escenario que comparten ≥1 keyword
+  const suggestions = [];
+  all.forEach(inf=>{
+    const nm=_scnNorm(inf.name);
+    if(!nm || inScenario.has(nm)) return;
+    const kws=_scnCreatorKeywords(inf);
+    const shared=[...kws].filter(k=>seedKw.has(k));
+    if(!shared.length) return;
+    const score=shared.reduce((s,k)=>s+(seedKw.get(k)||1),0);
+    suggestions.push({ inf, shared, score });
+  });
+  suggestions.sort((a,b)=> b.score-a.score || b.shared.length-a.shared.length || _scnNorm(a.inf.name)<_scnNorm(b.inf.name)?-1:1);
+  _scnSuggestions = suggestions.slice(0,40);
+  _renderScnSuggestModal(seedKw);
+  openModal('scnSuggestModal');
+}
+function _renderScnSuggestModal(seedKw){
+  const body=document.getElementById('scnSuggestBody');
+  if(!body) return;
+  const seedChips=[...seedKw.entries()].sort((a,b)=>b[1]-a[1]).slice(0,14)
+    .map(([k,n])=>`<span style="font-size:11px;padding:2px 8px;border-radius:10px;background:var(--pink-pale);color:var(--pink);">${_esc(k)}${n>1?' ·'+n:''}</span>`).join(' ');
+  const head=`<div style="margin-bottom:12px;font-size:12px;color:var(--text-muted);">Keywords de tu escenario:<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px;">${seedChips||'<span>—</span>'}</div></div>`;
+  if(!_scnSuggestions.length){
+    body.innerHTML=head+`<div style="padding:24px;text-align:center;color:var(--text-muted);font-size:13px;">No hay otros creadores con keywords compartidas en la base.</div>`;
+    return;
+  }
+  body.innerHTML=head+_scnSuggestions.map(s=>{
+    const i=s.inf;
+    const plats=(i.platforms&&i.platforms.length)?platformBadges(i.platforms):'';
+    const shared=s.shared.slice(0,6).map(k=>`<span style="font-size:10px;padding:1px 6px;border-radius:8px;background:#eafaf1;color:#3a7a5e;border:1px solid #b7e4c7;">${_esc(k)}</span>`).join(' ');
+    const meta=[i.categoria,i.seguidoresTotal?formatNum(i.seguidoresTotal)+' seg.':''].filter(Boolean).join(' · ');
+    return `<div style="display:flex;align-items:center;gap:10px;padding:9px 10px;border:1px solid var(--border);border-radius:12px;margin-bottom:8px;">
+      <div class="inf-avatar" style="width:32px;height:32px;font-size:12px;flex-shrink:0;">${_esc((i.name||'?')[0])}</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px;">${_esc(i.name)} ${_tierBadge(i.tier)}</div>
+        <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:3px;align-items:center;">${plats}${meta?`<span style="font-size:10px;color:var(--text-muted);">${_esc(meta)}</span>`:''}</div>
+        <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;align-items:center;"><span style="font-size:9px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;">Comparte:</span> ${shared}</div>
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="_scnSuggestAdd('${(i.name||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'")}')" style="white-space:nowrap;">+ Sumar</button>
+    </div>`;
+  }).join('');
+}
+function _scnSuggestAdd(name){
+  const all=getAllInfluencers();
+  const inf=all.find(i=>_scnNorm(i.name)===_scnNorm(name));
+  const platform=(inf&&inf.platforms&&inf.platforms[0])||'Instagram';
+  const master=_creatorByKey(infKey({ name }));
+  const seed={ platform };
+  let tier=inf?inf.tier||'':'';
+  if(master){
+    tier=master.tier||tier;
+    const pd=(master.platforms||{})[platform];
+    if(pd&&pd.seguidores) seed.seguidores=pd.seguidores;
+    const rate=creatorLatestRate(master, platform, '');
+    if(rate){
+      if(rate.contenido) seed.contenidoTipo=rate.contenido;
+      if(rate.viewsXPost) seed.viewsPerContent=rate.viewsXPost;
+      if(rate.interacciones) seed.interaccionesPerContent=rate.interacciones;
+      if(rate.costoUnitario) seed.costoContenidos=rate.costoUnitario;
+      if(!seed.seguidores&&rate.seguidores) seed.seguidores=rate.seguidores;
+    }
+  }
+  const line=_newScnLine(seed);
+  const existing=(_scenarioState.creators||[]).find(c=>_scnNorm(c.name)===_scnNorm(name));
+  if(existing){ existing.platforms.push(line); if(!existing.tier&&tier) existing.tier=tier; }
+  else { _scenarioState.creators.push({ id:_scnId(), name, tier, platforms:[line] }); }
+  _renderScenario();
+  showToast('Creador agregado al escenario','success');
+  // Recalcular sugerencias (excluye al recién sumado, reajusta keywords)
+  scenarioSuggestByKeywords();
+}
+
 // ---- Save ----
 function scenarioSave() {
   const campaigns = getData('campaigns');
@@ -12547,20 +12671,88 @@ function scenarioSave() {
   if(idx===-1) { showToast('Campaña no encontrada','error'); return; }
   const btn = document.getElementById('scnSaveBtn');
   if(btn) { btn.disabled = true; btn.textContent = 'Guardando...'; }
-  campaigns[idx] = { ...campaigns[idx], scenario: {
-    budgetSource: _scenarioState.budgetSource,
-    creators: _scenarioState.creators,
-    updatedAt: Date.now(),
-  }};
+  const stamp = Date.now();
+  // Vincular el escenario armado a la campaña como escenarioRows (mismo shape
+  // que el de Google Sheets) para que la pestaña Escenario y el reporte lo
+  // consuman con el pipeline existente.
+  const escRows = _scenarioRowsAsObjects();
+  campaigns[idx] = { ...campaigns[idx],
+    scenario: { budgetSource: _scenarioState.budgetSource, creators: _scenarioState.creators, updatedAt: stamp },
+    escenarioRows: escRows,
+    escenarioSource: 'app',
+    escenarioLastSync: stamp,
+  };
   setData('campaigns', campaigns);
+  // Persistir las filas en el store aparte (escenarioRows se strip de Firestore)
+  persistEscenario(_scenarioState.campaignId, escRows, '', stamp);
+  // Reflejar en cache + invalidar memo de parseo
+  const cc = _cache.campaigns.find(x=>x.id===_scenarioState.campaignId);
+  if(cc) {
+    cc.scenario = campaigns[idx].scenario;
+    cc.escenarioRows = escRows;
+    cc.escenarioSource = 'app';
+    cc.escenarioLastSync = stamp;
+    cc._memoEscenario = null; cc._memoEscenarioStamp = null;
+  }
+  _escenarioStoreChecked.add(_scenarioState.campaignId);
   // Alimentar la base de talento: cada creador del escenario guarda su entrada
   // bajo historyApp[campaignId] (re-guardar el mismo escenario solo la actualiza).
   try { _scenarioFeedCreatorsDB(campaigns[idx]); } catch(e){ console.warn('feed creators db', e); }
-  showToast('Escenario guardado','success');
-  if(btn) {
-    btn.textContent = '✓ Guardado';
-    setTimeout(() => { btn.disabled = false; btn.textContent = 'Guardar escenario'; }, 1600);
+  showToast('Escenario guardado y vinculado a la campaña','success');
+  closeScenarioEditor();
+  // Refrescar la pestaña Escenario si la campaña abierta es la misma
+  if(currentCampaignId === _scenarioState.campaignId) {
+    const c = _cache.campaigns.find(x=>x.id===currentCampaignId);
+    if(c && typeof renderEscenarioBlock==='function') renderEscenarioBlock(c);
   }
+}
+
+// Convierte el escenario armado (_scenarioFlatRows) a array de objetos keyados
+// por columna, listo para parseEscenarioRows.
+function _scenarioRowsAsObjects() {
+  const { rows } = _scenarioFlatRows();
+  const header = rows[0] || [];
+  return rows.slice(1).map(r => { const o = {}; header.forEach((h,i)=>o[h]=r[i]); return o; });
+}
+
+// Reabrir la carga por Google Sheets sobre un escenario armado en plataforma.
+function enableEscenarioSheets() {
+  const c = _cache.campaigns.find(x=>x.id===currentCampaignId);
+  if(!c) return;
+  if(!confirm('¿Habilitar la carga desde Google Sheets? El escenario armado en la plataforma queda guardado, pero si sincronizas un Sheet lo sobreescribirá.')) return;
+  c.escenarioSource = 'sheets';
+  const campaigns = getData('campaigns');
+  const idx = campaigns.findIndex(x=>x.id===c.id);
+  if(idx>=0) { campaigns[idx].escenarioSource = 'sheets'; setData('campaigns', campaigns); }
+  renderEscenarioBlock(c);
+  showToast('Carga por Google Sheets habilitada','success');
+}
+
+// Export del escenario a Excel real (.xls SpreadsheetML 2003), misma data que el CSV.
+function scenarioExportXLSX() {
+  const { rows, name } = _scenarioFlatRows();
+  const esc = s => String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const cell = v => {
+    const s = String(v==null?'':v);
+    const isNum = s!=='' && /^-?\d+(\.\d+)?$/.test(s);
+    return isNum
+      ? `<Cell><Data ss:Type="Number">${s}</Data></Cell>`
+      : `<Cell><Data ss:Type="String">${esc(s)}</Data></Cell>`;
+  };
+  const body = rows.map((r,i)=>`<Row${i===0?' ss:StyleID="hdr"':''}>${r.map(cell).join('')}</Row>`).join('');
+  const xml = `<?xml version="1.0"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+<Styles><Style ss:ID="hdr"><Font ss:Bold="1"/><Interior ss:Color="#FCE7F1" ss:Pattern="Solid"/></Style></Styles>
+<Worksheet ss:Name="Escenario"><Table>${body}</Table></Worksheet>
+</Workbook>`;
+  const blob = new Blob([xml], {type:'application/vnd.ms-excel'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `Escenario - ${name}.xls`;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+  showToast('Excel descargado','success');
 }
 
 async function _scenarioFeedCreatorsDB(campaign) {
@@ -14697,6 +14889,9 @@ function clearAgentChat() {
     </button>
     <button class="fab-action" onclick="closeFab();openNewCampaignModal();">
       <span class="fab-action-icon">📣</span> Nueva campaña
+    </button>
+    <button class="fab-action" onclick="closeFab();openScenarioStart();">
+      <span class="fab-action-icon">🎯</span> Crear escenario
     </button>
     <button class="fab-action" onclick="closeFab();openAddDocModalGlobal();">
       <span class="fab-action-icon">📄</span> Nuevo documento
