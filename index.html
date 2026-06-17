@@ -3791,7 +3791,6 @@ html:not(.dark) .login-card {
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
             <h4 style="font-size:13px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;">Influencers en esta campaña</h4>
             <div style="display:flex;gap:8px;">
-              <button class="btn btn-ghost btn-sm" onclick="openBulkImportModal()">⬇ Importar lista</button>
               <button class="btn btn-primary btn-sm" onclick="openAddInfluencerModal()">+ Agregar influencer</button>
             </div>
           </div>
@@ -7999,11 +7998,15 @@ function renderEscenarioBlock(c) {
   if(syncEl && c.escenarioLastSync) {
     syncEl.textContent = 'Última sync: ' + new Date(c.escenarioLastSync).toLocaleString('es-MX',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
   }
+  // Derivar escenarioRows desde un escenario armado en plataforma si hace falta
+  // (cubre escenarios guardados antes de esta feature).
+  _ensureEscenarioRows(c);
   // Lock Google-Sheets input when the scenario was built in-platform
   const _sheetsBar = document.getElementById('escenarioSheetsBar');
   const _appNotice = document.getElementById('escenarioAppNotice');
   if(_sheetsBar && _appNotice) {
-    const builtInApp = c.escenarioSource === 'app';
+    const hasAppScenario = !!(c.scenario && c.scenario.creators && c.scenario.creators.length);
+    const builtInApp = c.escenarioSource !== 'sheets' && (c.escenarioSource === 'app' || hasAppScenario);
     _sheetsBar.style.display = builtInApp ? 'none' : 'flex';
     _appNotice.style.display = builtInApp ? 'flex' : 'none';
   }
@@ -8514,6 +8517,7 @@ function downloadCampaignReport(cid) {
   const targetId = cid || currentCampaignId || currentMetricsCampaignId;
   const c = (getData('campaigns')||[]).find(x=>x.id===targetId);
   if(!c) { showToast('Abre una campaña primero','error'); return; }
+  if(typeof _ensureEscenarioRows==='function') _ensureEscenarioRows(c);
   const fmt = n => formatNum(Math.round(n||0));
   const money = n => n>0 ? '$'+Math.round(n).toLocaleString('es-MX') : '—';
   const cpx = n => (n>0 && isFinite(n)) ? '$'+n.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:n<1?4:2}) : '—';
@@ -12264,9 +12268,9 @@ function _scnCreatorTotals(cr) {
   (cr.platforms||[]).forEach(p=>{ const t=_scnLineTotals(p); qty+=t.qty; seg+=t.totalSeguidores; views+=t.viewsTotal; impr+=t.impresionesTotal; eng+=t.engTotal; cost+=t.cost; cPauta+=t.cPauta; cCont+=t.cCont; pauta+=Number(p.pauta)||0; });
   return { qty, seg, views, impr, eng, cost, cPauta, cCont, pauta, cpv: views>0?cost/views:0, cpi: eng>0?cost/eng:0 };
 }
-function _scnGrand() {
+function _scnGrand(creatorsArg) {
   let qty=0, seg=0, views=0, impr=0, eng=0, cost=0, cPauta=0, cCont=0, pauta=0, creators=0;
-  (_scenarioState.creators||[]).forEach(cr=>{ const t=_scnCreatorTotals(cr); qty+=t.qty; seg+=t.seg; views+=t.views; impr+=t.impr; eng+=t.eng; cost+=t.cost; cPauta+=t.cPauta; cCont+=t.cCont; pauta+=t.pauta; creators++; });
+  ((creatorsArg || (_scenarioState&&_scenarioState.creators) || [])).forEach(cr=>{ const t=_scnCreatorTotals(cr); qty+=t.qty; seg+=t.seg; views+=t.views; impr+=t.impr; eng+=t.eng; cost+=t.cost; cPauta+=t.cPauta; cCont+=t.cCont; pauta+=t.pauta; creators++; });
   return { qty, seg, views, impr, eng, cost, cPauta, cCont, pauta, creators, cpv: views>0?cost/views:0, cpi: eng>0?cost/eng:0 };
 }
 
@@ -12709,10 +12713,28 @@ function scenarioSave() {
 
 // Convierte el escenario armado (_scenarioFlatRows) a array de objetos keyados
 // por columna, listo para parseEscenarioRows.
-function _scenarioRowsAsObjects() {
-  const { rows } = _scenarioFlatRows();
+function _scenarioRowsAsObjects(state) {
+  const { rows } = _scenarioFlatRows(state);
   const header = rows[0] || [];
   return rows.slice(1).map(r => { const o = {}; header.forEach((h,i)=>o[h]=r[i]); return o; });
+}
+
+// Si la campaña tiene un escenario armado en plataforma (c.scenario) pero aún
+// no tiene escenarioRows derivadas (p.ej. guardado antes de esta feature),
+// las deriva en memoria para que la pestaña Escenario y el reporte lo reflejen.
+// No escribe Firestore: c.scenario ya persiste y esto se recalcula al cargar.
+function _ensureEscenarioRows(c) {
+  if(!c) return;
+  const hasAppScenario = !!(c.scenario && c.scenario.creators && c.scenario.creators.length);
+  if(!hasAppScenario) return;
+  if(c.escenarioSource === 'sheets') return; // usuario habilitó Sheets explícitamente
+  if(c.escenarioRows && c.escenarioRows.length && c.escenarioSource === 'app') return;
+  try {
+    c.escenarioRows = _scenarioRowsAsObjects({ campaignId:c.id, creators:c.scenario.creators });
+    c.escenarioSource = 'app';
+    if(!c.escenarioLastSync) c.escenarioLastSync = c.scenario.updatedAt || Date.now();
+    c._memoEscenario = null; c._memoEscenarioStamp = null;
+  } catch(e){ console.warn('ensure escenario rows', e); }
 }
 
 // Reabrir la carga por Google Sheets sobre un escenario armado en plataforma.
@@ -12795,11 +12817,12 @@ async function _scenarioFeedCreatorsDB(campaign) {
 }
 
 // ---- Export ----
-function _scenarioFlatRows() {
-  const c = _cache.campaigns.find(x=>x.id===_scenarioState.campaignId);
+function _scenarioFlatRows(state) {
+  const st = state || _scenarioState || { campaignId:null, creators:[] };
+  const c = _cache.campaigns.find(x=>x.id===st.campaignId);
   const header = ['NOMBRE','TIER','SEGUIDORES','PLATAFORMA','CONTENIDO','CANTIDAD DE CONTENIDO','TOTAL DE SEGUIDORES','VIEWS X POSTEO ESTIMADAS','INTERACCIONES PROMEDIO X CONTENIDO','ENGAGEMENT RATE PROMEDIO','VIEW RATE PROMEDIO','VIEWS ESTIMADAS TOTALES','INTERACCIONES ESTIMADAS TOTALES','PAUTA','COSTO PAUTA','COSTO CONTENIDOS','COSTO','CPV','CPI'];
   const rows = [header];
-  (_scenarioState.creators||[]).forEach(cr=>{
+  (st.creators||[]).forEach(cr=>{
     let first = true;
     (cr.platforms||[]).forEach(p=>{
       const pt = _scnLineTotals(p);
@@ -12815,7 +12838,7 @@ function _scenarioFlatRows() {
       first = false;
     });
   });
-  const g = _scnGrand();
+  const g = _scnGrand(st.creators);
   rows.push(['TOTALES','',g.seg,'','',g.qty,g.seg,'','','','',g.views,g.eng,g.pauta,g.cPauta,g.cCont,g.cost,g.cpv?g.cpv.toFixed(4):'',g.cpi?g.cpi.toFixed(4):'']);
   return { rows, name: (c?c.name:'escenario') };
 }
