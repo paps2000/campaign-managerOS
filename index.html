@@ -758,7 +758,7 @@ html.dark .btn-primary:hover { background:var(--pink-deep); box-shadow:0 10px 24
   .filter-tab.active { background:var(--pink); color:#fff; border-color:var(--pink); }
   .mobile-nav { background:var(--white); border-color:var(--border); }
   .task-area-group summary { background:var(--bg); }
-  .profile-modal-hero { background:linear-gradient(160deg, #1a1a22 0%, #12121a 100%); }
+  .profile-modal-hero { background:linear-gradient(180deg, rgba(255,255,255,.12) 0%, rgba(0,0,0,.04) 48%, rgba(0,0,0,.34) 100%), linear-gradient(135deg, var(--g1,#ff2d87) 0%, var(--g2,#a855f7) 100%); }
   .profile-tab-bar { background:var(--bg); }
   .emoji-cat-btn { background:var(--bg); border-color:var(--border); }
   .emoji-cat-btn:hover, .emoji-cat-btn.active { background:var(--pink-pale); border-color:var(--pink); }
@@ -824,7 +824,7 @@ html.dark .login-input:focus { background:var(--white); }
 html.dark .login-btn-google { background:var(--white); border-color:var(--border); color:var(--text); }
 html.dark .mobile-nav { background:var(--white); border-color:var(--border); }
 html.dark .task-area-group summary { background:var(--bg); }
-html.dark .profile-modal-hero { background:linear-gradient(160deg,#0d0420 0%,#130a1e 60%,#060210 100%); }
+html.dark .profile-modal-hero { background:linear-gradient(180deg, rgba(255,255,255,.10) 0%, rgba(0,0,0,.08) 48%, rgba(0,0,0,.42) 100%), linear-gradient(135deg, var(--g1,#ff2d87) 0%, var(--g2,#a855f7) 100%); }
 html.dark .profile-modal-hero-close { background:rgba(255,255,255,.08); color:var(--text); }
 html.dark .profile-modal-hero-close:hover { background:rgba(255,255,255,.16); color:#fff; }
 html.dark .profile-status-preview { background:rgba(255,255,255,.06); color:var(--text-muted); }
@@ -926,98 +926,118 @@ html.light {
 /* ============ PERFIL MODAL REDISEÑADO ============ */
 .profile-modal { padding:0; overflow:hidden; width:560px; }
 .profile-modal-hero {
-  position:relative; padding:32px 28px 24px; overflow:hidden;
-  background:linear-gradient(160deg,#120720 0%, #1a0a1e 60%, #0d0420 100%);
-  display:flex; flex-direction:column; align-items:center; gap:10px;
-  text-align:center;
+  --g1:#ff2d87; --g2:#a855f7;
+  position:relative; padding:38px 28px 34px;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.12) 0%, rgba(0,0,0,.04) 48%, rgba(0,0,0,.34) 100%),
+    linear-gradient(135deg, var(--g1) 0%, var(--g2) 100%);
+  display:flex; flex-direction:column; align-items:center; gap:9px;
+  text-align:center; overflow:hidden; isolation:isolate;
+  transition:background .45s ease;
 }
+/* soft floating light blobs that react to the chosen color */
 .profile-modal-hero::before {
-  content:''; position:absolute; bottom:-60px; left:50%; transform:translateX(-50%);
-  width:320px; height:180px; pointer-events:none;
-  background:radial-gradient(ellipse, rgba(255,45,135,.35) 0%, transparent 70%);
+  content:''; position:absolute; top:-80px; left:-60px;
+  width:250px; height:250px; border-radius:50%;
+  background:radial-gradient(circle, rgba(255,255,255,.5) 0%, transparent 62%);
+  filter:blur(4px); opacity:.6; pointer-events:none; z-index:-1;
 }
 .profile-modal-hero::after {
-  content:''; position:absolute; top:-40px; right:-40px; width:160px; height:160px; pointer-events:none;
-  background:radial-gradient(ellipse, rgba(44,109,255,.18) 0%, transparent 70%);
+  content:''; position:absolute; bottom:-110px; right:-50px;
+  width:240px; height:240px; border-radius:50%;
+  background:radial-gradient(circle, rgba(0,0,0,.30) 0%, transparent 62%);
+  pointer-events:none; z-index:-1;
 }
 .profile-modal-hero-close {
-  position:absolute; top:14px; right:14px; background:rgba(255,255,255,.12);
-  border:none; border-radius:50%; width:30px; height:30px; cursor:pointer;
-  display:flex; align-items:center; justify-content:center; color:rgba(255,255,255,.7);
-  font-size:16px; transition:all .2s; line-height:1; z-index:2;
+  position:absolute; top:14px; right:14px; background:rgba(255,255,255,.2);
+  backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
+  border:1px solid rgba(255,255,255,.28); border-radius:50%; width:30px; height:30px; cursor:pointer;
+  display:flex; align-items:center; justify-content:center; color:rgba(255,255,255,.95);
+  font-size:14px; transition:all .25s var(--ease); line-height:1; z-index:2;
 }
-.profile-modal-hero-close:hover { background:rgba(255,255,255,.22); color:#fff; }
-.profile-modal-avatar-wrap { position:relative; display:inline-block; z-index:2; }
+.profile-modal-hero-close:hover { background:rgba(255,255,255,.36); color:#fff; transform:rotate(90deg); }
+.profile-modal-avatar-wrap { position:relative; display:inline-block; z-index:1; }
 .profile-modal-avatar {
-  width:80px; height:80px; border-radius:22px; display:flex; align-items:center;
-  justify-content:center; font-size:34px; font-weight:700; color:#fff;
-  transition:all .35s cubic-bezier(.2,.8,.2,1);
-  box-shadow:0 8px 32px rgba(255,45,135,.35), 0 2px 12px rgba(0,0,0,.4);
-  cursor:default; user-select:none;
+  width:84px; height:84px; border-radius:24px; display:flex; align-items:center;
+  justify-content:center; font-size:36px; font-weight:700; color:#fff;
+  transition:transform .35s cubic-bezier(.2,.8,.2,1), border-radius .3s, background .3s;
+  box-shadow:0 0 0 4px rgba(255,255,255,.92), 0 12px 30px rgba(0,0,0,.28);
+  cursor:default; user-select:none; animation:profileFloat 5s ease-in-out infinite;
 }
-.profile-modal-avatar:hover { transform:scale(1.06) rotate(-3deg); }
-.profile-modal-name { font-size:20px; font-weight:700; color:#fff; line-height:1.1; position:relative; z-index:2; }
-.profile-modal-sub { font-size:12px; color:rgba(255,255,255,.5); position:relative; z-index:2; }
+@keyframes profileFloat { 0%,100%{ transform:translateY(0); } 50%{ transform:translateY(-5px); } }
+.profile-modal-avatar:hover { transform:scale(1.07) rotate(-3deg); animation-play-state:paused; }
+.profile-modal-name { font-size:21px; font-weight:700; color:#fff; line-height:1.15; position:relative; z-index:1; text-shadow:0 1px 12px rgba(0,0,0,.22); }
+.profile-modal-sub { font-size:12px; color:rgba(255,255,255,.85); position:relative; z-index:1; font-weight:600; letter-spacing:.2px; text-shadow:0 1px 6px rgba(0,0,0,.2); }
 .profile-status-preview {
-  display:inline-flex; align-items:center; gap:5px; padding:4px 10px;
-  background:rgba(255,255,255,.1); border-radius:20px; font-size:12px;
-  color:rgba(255,255,255,.65); border:1px solid rgba(255,255,255,.1); position:relative; z-index:2;
-  margin-top:2px; transition:all .2s;
+  display:inline-flex; align-items:center; gap:6px; padding:5px 13px;
+  background:rgba(255,255,255,.24); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
+  border-radius:20px; font-size:12px; color:#fff; font-weight:600;
+  margin-top:3px; transition:all .2s; position:relative; z-index:1;
+  border:1px solid rgba(255,255,255,.32); box-shadow:0 2px 10px rgba(0,0,0,.12);
 }
 .profile-tab-bar {
-  display:flex; border-bottom:1px solid var(--border);
-  background:var(--white); padding:0 24px; gap:0;
+  display:flex; gap:6px; justify-content:center; border-bottom:1px solid var(--border);
+  background:var(--white); padding:11px 24px;
 }
 .profile-tab-btn {
-  padding:12px 18px; font-size:13px; font-weight:600; color:var(--text-muted);
-  border:none; background:none; cursor:pointer; border-bottom:2px solid transparent;
-  margin-bottom:-1px; transition:all .2s; font-family:inherit;
+  flex:0 0 auto; padding:8px 22px; font-size:13px; font-weight:700; color:var(--text-muted);
+  border:1px solid transparent; background:rgba(10,10,12,.045); border-radius:22px;
+  cursor:pointer; transition:all .2s var(--ease); font-family:inherit; white-space:nowrap;
 }
-.profile-tab-btn.active { color:var(--pink); border-bottom-color:var(--pink); }
-.profile-tab-btn:hover:not(.active) { color:var(--text); }
-.profile-tab-pane { display:none; padding:20px 28px; overflow-y:auto; max-height:calc(80vh - 240px); }
-.profile-tab-pane.active { display:block; }
+.profile-tab-btn:hover:not(.active) { color:var(--text); background:rgba(10,10,12,.08); }
+.profile-tab-btn.active {
+  color:#fff; background:linear-gradient(135deg,var(--pink),var(--pink-deep));
+  border-color:transparent; box-shadow:0 5px 16px rgba(255,45,135,.36);
+}
+.profile-tab-pane { display:none; padding:22px 28px 10px; overflow-y:auto; max-height:calc(80vh - 252px); }
+.profile-tab-pane.active { display:block; animation:profilePaneIn .28s var(--ease); }
+@keyframes profilePaneIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
+
+/* Refined inputs inside the profile modal */
+.profile-modal .form-label { font-size:11px; font-weight:800; letter-spacing:1px; }
+.profile-modal .form-input {
+  border:1.5px solid rgba(10,10,12,.09); border-radius:13px; background:rgba(255,255,255,.65);
+}
+.profile-modal .form-input:focus { background:#fff; box-shadow:0 0 0 4px rgba(255,45,135,.14); }
 
 /* Emoji section */
-.emoji-cats { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px; }
+.emoji-cats { display:flex; gap:7px; flex-wrap:wrap; margin-bottom:12px; }
 .emoji-cat-btn {
-  padding:5px 11px; border-radius:20px; border:1.5px solid var(--border);
-  background:var(--white); font-size:12px; font-weight:600; cursor:pointer;
-  transition:all .18s; color:var(--text-muted); font-family:inherit;
+  padding:6px 13px; border-radius:20px; border:1.5px solid var(--border);
+  background:var(--white); font-size:13px; font-weight:600; cursor:pointer;
+  transition:all .18s var(--ease); color:var(--text-muted); font-family:inherit;
 }
-.emoji-cat-btn:hover, .emoji-cat-btn.active { background:var(--pink-pale); border-color:var(--pink); color:var(--pink-deep); }
+.emoji-cat-btn:hover, .emoji-cat-btn.active { background:var(--pink-pale); border-color:var(--pink); color:var(--pink-deep); transform:translateY(-1px); }
 .emoji-grid {
-  display:grid; grid-template-columns:repeat(8,1fr); gap:4px;
-  margin-bottom:10px; min-height:80px;
+  display:grid; grid-template-columns:repeat(8,1fr); gap:6px;
+  margin-bottom:12px; min-height:84px;
+  background:rgba(10,10,12,.025); border-radius:16px; padding:8px;
 }
 .emoji-item {
-  width:100%; aspect-ratio:1; border-radius:10px; border:2px solid transparent;
-  background:none; cursor:pointer; font-size:22px; display:flex;
-  align-items:center; justify-content:center; transition:all .15s;
+  width:100%; aspect-ratio:1; border-radius:12px; border:2px solid transparent;
+  background:transparent; cursor:pointer; font-size:23px; display:flex;
+  align-items:center; justify-content:center; transition:all .15s var(--ease);
   user-select:none;
 }
-.emoji-item:hover { background:rgba(255,45,135,.1); transform:scale(1.15); }
-.emoji-item.selected { border-color:var(--pink); background:var(--pink-pale); transform:scale(1.1); }
-.emoji-item.letter { font-size:16px; font-weight:700; color:var(--text-muted); font-family:'Quicksand',sans-serif; }
+.emoji-item:hover { background:#fff; transform:scale(1.18); box-shadow:0 5px 14px rgba(255,45,135,.2); }
+.emoji-item.selected { border-color:var(--pink); background:#fff; transform:scale(1.1); box-shadow:0 5px 16px rgba(255,45,135,.3); }
+.emoji-item.letter { font-size:17px; font-weight:700; color:var(--text-muted); font-family:'Quicksand',sans-serif; }
 .emoji-custom-wrap { position:relative; }
 .emoji-custom-wrap input { padding-left:36px; font-size:18px; letter-spacing:3px; }
 .emoji-custom-wrap::before { content:'✏️'; position:absolute; left:10px; top:50%; transform:translateY(-50%); font-size:14px; pointer-events:none; }
 
 /* Color section */
-.color-picker { display:flex; flex-direction:column; gap:10px; }
-.color-row-label { font-size:9px; font-weight:800; color:var(--pink); opacity:.8; text-transform:uppercase; letter-spacing:1.8px; margin-bottom:2px; }
-.color-swatch { width:38px !important; height:38px !important; border-radius:11px !important; }
-.color-swatches { gap:10px !important; }
+.color-picker { display:flex; flex-direction:column; gap:14px; }
+.color-row-label { font-size:10px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:1.2px; margin-bottom:2px; }
 .color-swatches { display:flex; gap:8px; flex-wrap:wrap; }
 .color-swatch {
-  width:36px; height:36px; border-radius:10px; cursor:pointer;
-  border:3px solid transparent; transition:all .18s;
-  box-shadow:0 2px 6px rgba(0,0,0,.12);
-  background-clip:padding-box;
+  width:36px; height:36px; border-radius:12px; cursor:pointer;
+  border:3px solid transparent; transition:all .18s var(--ease);
+  box-shadow:0 2px 8px rgba(0,0,0,.14); background-clip:padding-box;
 }
-.color-swatch:hover { transform:scale(1.12); }
-.color-swatch.selected { border-color:var(--text); transform:scale(1.12); box-shadow:0 3px 10px rgba(0,0,0,.2); }
-.color-swatch.gradient { border-radius:12px; }
+.color-swatch:hover { transform:scale(1.14) translateY(-1px); }
+.color-swatch.selected { border-color:#fff; transform:scale(1.14); box-shadow:0 0 0 2px var(--pink), 0 4px 12px rgba(0,0,0,.22); }
+.color-swatch.gradient { border-radius:13px; }
 
 /* Status / bio section */
 .status-input-wrap { display:flex; align-items:center; gap:8px; }
@@ -13711,76 +13731,54 @@ function openProfileModal(uid) {
       <span class="badge ${statusBadgeClass(c.status)}" style="font-size:10px;">${c.status}</span>
     </div>`;
 
-  const isMe = u.uid === currentUser?.uid;
-  const editBtn = isMe
-    ? `<button onclick="closeModal('profileModal');openEditProfileModal()" class="btn btn-pink btn-sm" style="margin-top:10px;font-size:12px;">✎ Editar mi perfil</button>`
-    : '';
-
-  const _campCard = c => `
-    <div class="profile-card-row" onclick="openCampaignDetail('${c.id}');closeModal('profileModal');">
-      <div style="flex:1;min-width:0;">
-        <div class="profile-card-row-title">${_esc(c.name)}</div>
-        <div class="profile-card-row-sub">${_esc(c.client||'')}</div>
-      </div>
-      <span class="badge ${statusBadgeClass(c.status)}" style="font-size:10px;">${c.status}</span>
-    </div>`;
-  const _taskRow = (t, isDone) => `
-    <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);">
-      <div style="width:8px;height:8px;border-radius:50%;margin-top:5px;flex-shrink:0;background:${t.priority==='high'?'var(--red)':t.priority==='medium'?'var(--yellow)':'var(--border)'}"></div>
-      <div style="flex:1;min-width:0;">
-        <div style="font-size:13px;font-weight:600;${isDone?'text-decoration:line-through;color:var(--text-muted);':''}">${_esc(t.title)}</div>
-        <div style="font-size:11px;color:var(--text-muted);margin-top:2px;display:flex;gap:8px;flex-wrap:wrap;">
-          <span>${_esc(t.campaignName)}</span>
-          ${t.dueDate?`<span>${formatDate(t.dueDate)}</span>`:''}
-        </div>
-      </div>
-    </div>`;
-
   document.getElementById('profileModalContent').innerHTML = `
-    <div class="profile-card-hero">
-      <div class="profile-card-hero-row">
-        <div class="profile-card-avatar">${memberAvatarHtml(u, 84, '22px')}</div>
-        <div style="flex:1;min-width:0;">
-          <div class="profile-card-name">${_esc(u.name||'—')}${u.pronouns?` <span style="font-size:13px;font-weight:500;color:rgba(255,255,255,.55);">${_esc(_shortPronouns(u.pronouns)||u.pronouns)}</span>`:''}</div>
-          <div class="profile-card-sub">${_esc(u.email||'')}</div>
-          ${u.statusText ? `<div class="profile-card-status-chip">${u.statusEmoji||'💬'} ${_esc(u.statusText)}</div>` : ''}
-          <div class="profile-card-tags">
-            ${u.puesto?`<span class="badge" style="background:rgba(255,255,255,.14);color:#fff;">${_esc(u.puesto)}</span>`:''}
-            ${u.area?`<span class="badge badge-area-${u.area}">${_esc(u.area)}</span>`:''}
-            ${u.role==='admin'?`<span class="badge" style="background:var(--pink);color:#fff;">Admin</span>`:''}
-          </div>
+    <!-- Header full-bleed con degradado del usuario -->
+    <div style="position:relative;margin:0;padding:30px 28px 22px;overflow:hidden;background:linear-gradient(180deg,rgba(255,255,255,.10) 0%,rgba(0,0,0,.06) 45%,rgba(0,0,0,.30) 100%),${u.profileGradient||'linear-gradient(135deg,#ff2d87,#a855f7)'};">
+      <div style="display:flex;align-items:center;gap:16px;position:relative;z-index:1;">
+        <div style="border-radius:18px;box-shadow:0 0 0 4px rgba(255,255,255,.92),0 8px 22px rgba(0,0,0,.22);flex-shrink:0;line-height:0;">${memberAvatarHtml(u, 60, '16px')}</div>
+        <div style="flex:1;min-width:0;color:#fff;">
+          <div style="font-size:21px;font-weight:700;text-shadow:0 1px 10px rgba(0,0,0,.25);">${_esc(u.name||'—')}</div>
+          <div style="font-size:12px;color:rgba(255,255,255,.82);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_esc(u.email||'')}</div>
+          ${u.pronouns ? `<div style="font-size:11px;color:rgba(255,255,255,.8);margin-top:3px;font-weight:600;">${_esc(_shortPronouns(u.pronouns)||u.pronouns)}</div>` : ''}
+          ${(u.statusText) ? `<div style="display:inline-flex;align-items:center;gap:5px;padding:4px 12px;background:rgba(255,255,255,.22);border:1px solid rgba(255,255,255,.32);border-radius:20px;font-size:12px;color:#fff;font-weight:600;margin-top:9px;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);">${u.statusEmoji||'💬'} ${_esc(u.statusText)}</div>` : ''}
         </div>
       </div>
-    </div>
-
-    <div class="profile-card-section">
-      <div class="profile-card-stats">
-        <div class="profile-card-stat"><div class="profile-card-stat-value" style="color:var(--pink);">${active.length}</div><div class="profile-card-stat-label">Pendientes</div></div>
-        <div class="profile-card-stat"><div class="profile-card-stat-value" style="color:var(--blue,#2c6dff);">${userCampaigns.length}</div><div class="profile-card-stat-label">Campañas</div></div>
-        <div class="profile-card-stat"><div class="profile-card-stat-value" style="color:#3a7a5e;">${done.length}</div><div class="profile-card-stat-label">Completadas</div></div>
+      ${u.tagline ? `<div style="position:relative;z-index:1;font-size:12.5px;color:rgba(255,255,255,.9);margin-top:13px;font-style:italic;">${_esc(u.tagline)}</div>` : ''}
+      ${u.bio ? `<div style="position:relative;z-index:1;font-size:13px;color:rgba(255,255,255,.88);margin-top:8px;">“${_esc(u.bio)}”</div>` : ''}
+      <div style="display:flex;gap:6px;margin-top:13px;flex-wrap:wrap;position:relative;z-index:1;">
+        ${u.puesto?`<span style="background:rgba(255,255,255,.92);color:#1a1326;font-size:11px;font-weight:700;padding:4px 11px;border-radius:20px;">${_esc(u.puesto)}</span>`:''}
+        ${u.area?`<span style="background:rgba(255,255,255,.2);color:#fff;border:1px solid rgba(255,255,255,.36);font-size:11px;font-weight:700;padding:4px 11px;border-radius:20px;">${_esc(u.area)}</span>`:''}
+        ${u.role==='admin'?`<span style="background:rgba(255,255,255,.2);color:#fff;border:1px solid rgba(255,255,255,.36);font-size:11px;font-weight:700;padding:4px 11px;border-radius:20px;">Admin</span>`:''}
       </div>
-      ${editBtn}
     </div>
-
-    ${u.bio || u.tagline ? `
-    <div class="profile-card-section">
-      <div class="profile-card-section-label">Bio</div>
-      ${u.tagline ? `<div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">${_esc(u.tagline)}</div>` : ''}
-      ${u.bio ? `<div class="profile-card-bio">"${_esc(u.bio)}"</div>` : ''}
-    </div>` : ''}
-
-    ${userCampaigns.length ? `
-    <div class="profile-card-section">
-      <div class="profile-card-section-label">Campañas (${userCampaigns.length})</div>
-      <div>${userCampaigns.map(_campCard).join('')}</div>
-    </div>` : ''}
-
-    <div class="profile-card-section">
-      <div class="profile-card-section-label">Tareas activas (${active.length})</div>
-      ${active.length ? active.map(t=>_taskRow(t,false)).join('') : '<div style="color:var(--text-muted);font-size:13px;padding:12px 0;">Sin tareas activas 🎉</div>'}
+    <!-- Cuerpo -->
+    <div style="padding:20px 24px 24px;">
+      <!-- Stats row -->
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px;">
+        <div style="text-align:center;padding:14px 12px;background:var(--pink-pale);border-radius:16px;border:1px solid rgba(255,45,135,.12);">
+          <div style="font-size:27px;font-weight:700;color:var(--pink);line-height:1;">${active.length}</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:4px;font-weight:600;">Pendientes</div>
+        </div>
+        <div style="text-align:center;padding:14px 12px;background:var(--lavender-pale);border-radius:16px;border:1px solid rgba(44,109,255,.12);">
+          <div style="font-size:27px;font-weight:700;color:var(--lavender);line-height:1;">${userCampaigns.length}</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:4px;font-weight:600;">Campañas</div>
+        </div>
+        <div style="text-align:center;padding:14px 12px;background:var(--mint-pale);border-radius:16px;border:1px solid rgba(58,122,94,.14);">
+          <div style="font-size:27px;font-weight:700;color:#3a7a5e;line-height:1;">${done.length}</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:4px;font-weight:600;">Completadas</div>
+        </div>
+      </div>
+      <!-- Campaigns -->
+      ${userCampaigns.length ? `
+      <div style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">Campañas</div>
+      <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:20px;">${userCampaigns.map(campCard).join('')}</div>
+      ` : ''}
+      <!-- Active tasks -->
+      <div style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">Tareas activas</div>
+      ${active.length ? active.map(t=>taskRow(t,false)).join('') : '<div style="color:var(--text-muted);font-size:13px;padding:12px 0;">Sin tareas activas 🎉</div>'}
       ${done.length ? `
-        <div class="profile-card-section-label" style="margin-top:18px;">Completadas recientes</div>
-        ${done.map(t=>_taskRow(t,true)).join('')}
+        <div style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin:20px 0 10px;">Completadas recientes</div>
+        ${done.map(t=>taskRow(t,true)).join('')}
       ` : ''}
     </div>`;
   openModal('profileModal');
@@ -14055,6 +14053,14 @@ function _syncProfilePreview() {
   avatar.style.fontSize     = _editProfileEmoji ? '36px' : '28px';
   avatar.style.borderRadius = (SHAPE_RADIUS[_editProfileShape] || SHAPE_RADIUS.rounded)(80);
   avatar.textContent        = content;
+
+  // Make the whole hero react to the chosen avatar color
+  const hero = document.querySelector('#editProfileModal .profile-modal-hero');
+  if(hero) {
+    const hx = (String(_editProfileGradient).match(/#[0-9a-fA-F]{3,8}/g)) || ['#ff2d87'];
+    hero.style.setProperty('--g1', hx[0]);
+    hero.style.setProperty('--g2', hx[1] || hx[0]);
+  }
 
   const area   = document.getElementById('profileAreaInput')?.value   || currentUserProfile.area   || '';
   const puesto = document.getElementById('profilePuestoInput')?.value || currentUserProfile.puesto || '';
