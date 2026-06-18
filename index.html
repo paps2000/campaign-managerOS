@@ -12607,7 +12607,7 @@ function scenarioSuggestByKeywords(){
     const score=shared.reduce((s,k)=>s+(seedKw.get(k)||1),0);
     suggestions.push({ inf, shared, score });
   });
-  suggestions.sort((a,b)=> b.score-a.score || b.shared.length-a.shared.length || _scnNorm(a.inf.name)<_scnNorm(b.inf.name)?-1:1);
+  suggestions.sort((a,b)=> (b.score-a.score) || (b.shared.length-a.shared.length) || _scnNorm(a.inf.name).localeCompare(_scnNorm(b.inf.name)));
   _scnSuggestions = suggestions.slice(0,40);
   _renderScnSuggestModal(seedKw);
   openModal('scnSuggestModal');
@@ -12728,7 +12728,7 @@ function _ensureEscenarioRows(c) {
   const hasAppScenario = !!(c.scenario && c.scenario.creators && c.scenario.creators.length);
   if(!hasAppScenario) return;
   if(c.escenarioSource === 'sheets') return; // usuario habilitó Sheets explícitamente
-  if(c.escenarioRows && c.escenarioRows.length && c.escenarioSource === 'app') return;
+  if(c.escenarioRows && c.escenarioRows.length) return; // ya hay filas, no clobber
   try {
     c.escenarioRows = _scenarioRowsAsObjects({ campaignId:c.id, creators:c.scenario.creators });
     c.escenarioSource = 'app';
