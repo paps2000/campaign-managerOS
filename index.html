@@ -4237,16 +4237,6 @@ html:not(.dark) .login-card {
         <button class="btn btn-primary" onclick="saveApiKeys()">Guardar</button>
       </div>
 
-      <div class="settings-section">
-        <div class="settings-title">Google Sheets — Métricas globales</div>
-        <div class="settings-desc">URL del Google Sheets con métricas generales de todas las campañas.</div>
-        <div class="form-group" style="margin-top:12px;">
-          <label class="form-label">URL de Google Sheets</label>
-          <input type="url" class="form-input" id="settingsSheetsUrl" placeholder="https://docs.google.com/spreadsheets/...">
-        </div>
-        <button class="btn btn-primary" onclick="saveSheetsUrl()">Guardar</button>
-      </div>
-
     </div>
 
   </div><!-- end content -->
@@ -10922,7 +10912,6 @@ function loadSettingsUI() {
   const s=getSettings();
   document.getElementById('settingsApiKey').value=s.claudeApiKey||'';
   document.getElementById('settingsOpenAiKey').value=s.openaiApiKey||'';
-  document.getElementById('settingsSheetsUrl').value=s.sheetsUrl||'';
   const provider = s.aiProvider||'anthropic';
   const radio = document.getElementById(provider==='openai'?'aiProviderOpenAI':'aiProviderAnthropic');
   if(radio) radio.checked=true;
@@ -10967,11 +10956,6 @@ function saveApiKeys() {
   showToast('Configuración guardada','success');
 }
 function saveApiKey() { saveApiKeys(); }
-
-function saveSheetsUrl() {
-  saveSettingsData({sheetsUrl:document.getElementById('settingsSheetsUrl').value});
-  showToast('URL guardada','success');
-}
 
 function resetAllData() {
   if(!confirm('¿Seguro? Se borrarán TODOS los datos. Esta acción no se puede deshacer.')) return;
