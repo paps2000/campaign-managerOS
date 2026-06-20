@@ -6450,7 +6450,7 @@ function openClientContactModal(cid, idx) {
     // Attach overlay-click-to-close: this modal is lazy-mounted after the
     // boot listener pass at line 7249 already ran.
     const ov = document.getElementById('clientContactModal');
-    if(ov) ov.addEventListener('click', e => { if(e.target === ov) ov.classList.remove('open'); });
+    if(ov) ov.addEventListener('click', e => { if(e.target === ov) closeModal(ov.id); });
   }
   document.getElementById('clientContactTitle').textContent = typeof idx==='number' ? 'Editar contacto' : 'Nuevo contacto cliente';
   document.getElementById('fClientName').value     = ct.name || '';
@@ -11374,10 +11374,10 @@ document.querySelectorAll('.filter-tab').forEach(tab=>{
   });
 });
 
-// Close modals on overlay click
+// Close modals on overlay click (vía closeModal para limpiar z-index/contador)
 document.querySelectorAll('.modal-overlay').forEach(overlay=>{
   overlay.addEventListener('click',e=>{
-    if(e.target===overlay) overlay.classList.remove('open');
+    if(e.target===overlay) closeModal(overlay.id);
   });
 });
 
