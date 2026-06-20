@@ -3408,6 +3408,55 @@ html:not(.dark) .login-card {
   .login-card { background: var(--white) !important; }
   html.dark .login-card { background: #141120 !important; }
 }
+
+/* ============ ONBOARDING ============ */
+.ob-screen { position:fixed; inset:0; z-index:1200; background:var(--bg); display:none; align-items:center; justify-content:center; padding:24px; overflow-y:auto; }
+.ob-screen.open { display:flex; }
+.ob-card { width:100%; max-width:560px; background:var(--white); border:1px solid var(--border); border-radius:24px; box-shadow:0 24px 80px rgba(0,0,0,.18); padding:32px; position:relative; }
+html.dark .ob-card { background:#141120; }
+.ob-steps { display:flex; gap:8px; margin-bottom:20px; }
+.ob-steps .dot { flex:1; height:5px; border-radius:3px; background:var(--border); transition:background .3s var(--ease); }
+.ob-steps .dot.on { background:var(--pink); }
+.ob-eyebrow { font-size:12px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--pink); margin-bottom:6px; }
+.ob-title { font-size:24px; font-weight:800; color:var(--text); margin:0 0 4px; }
+.ob-sub { font-size:13px; color:var(--text-muted); margin:0 0 22px; }
+.ob-panel { display:none; }
+.ob-panel.on { display:block; animation:obFade .35s var(--ease); }
+@keyframes obFade { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
+.ob-field { margin-bottom:14px; }
+.ob-field label { display:block; font-size:12px; font-weight:600; color:var(--text-muted); margin-bottom:6px; }
+.ob-field input, .ob-field select, .ob-field textarea { width:100%; padding:11px 13px; border:1.5px solid var(--border); border-radius:11px; font-family:'Quicksand',sans-serif; font-size:14px; background:var(--white); color:var(--text); }
+html.dark .ob-field input, html.dark .ob-field select, html.dark .ob-field textarea { background:#0d0a18; }
+.ob-field input:focus, .ob-field select:focus, .ob-field textarea:focus { outline:none; border-color:var(--pink); box-shadow:0 0 0 3px var(--pink-pale); }
+.ob-field textarea { resize:vertical; min-height:54px; }
+.ob-row { display:flex; gap:12px; }
+.ob-row > .ob-field { flex:1; }
+.ob-avatar-row { display:flex; align-items:center; gap:16px; margin-bottom:14px; }
+.ob-avatar { width:72px; height:72px; border-radius:20px; display:flex; align-items:center; justify-content:center; font-size:30px; font-weight:800; color:#fff; flex-shrink:0; }
+.ob-swatches { display:flex; flex-wrap:wrap; gap:8px; }
+.ob-swatch { width:30px; height:30px; border-radius:9px; cursor:pointer; border:2px solid transparent; transition:transform .15s var(--ease); }
+.ob-swatch:hover { transform:scale(1.12); }
+.ob-swatch.sel { border-color:var(--text); box-shadow:0 0 0 2px var(--white); }
+.ob-emoji-input { width:64px !important; text-align:center; font-size:22px !important; padding:8px !important; }
+.ob-camp-list { display:flex; flex-direction:column; gap:10px; max-height:46vh; overflow-y:auto; margin-bottom:18px; padding-right:4px; }
+.ob-camp { display:flex; align-items:center; gap:12px; padding:13px 15px; border:1.5px solid var(--border); border-radius:14px; cursor:pointer; transition:all .15s var(--ease); }
+.ob-camp:hover { border-color:var(--pink); }
+.ob-camp.sel { border-color:var(--pink); background:var(--pink-pale); }
+.ob-camp-check { width:22px; height:22px; border-radius:7px; border:2px solid var(--border); flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:13px; color:#fff; font-weight:800; }
+.ob-camp.sel .ob-camp-check { background:var(--pink); border-color:var(--pink); }
+.ob-camp-info { min-width:0; flex:1; }
+.ob-camp-name { font-size:14px; font-weight:700; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.ob-camp-meta { font-size:12px; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.ob-camp-new { display:flex; align-items:center; justify-content:center; gap:8px; padding:14px; border:1.5px dashed var(--pink); border-radius:14px; cursor:pointer; color:var(--pink); font-weight:700; font-size:14px; background:none; width:100%; font-family:'Quicksand',sans-serif; transition:background .15s var(--ease); }
+.ob-camp-new:hover { background:var(--pink-pale); }
+.ob-empty { font-size:13px; color:var(--text-muted); text-align:center; padding:18px; }
+.ob-actions { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-top:6px; }
+.ob-btn { padding:12px 22px; border-radius:12px; font-family:'Quicksand',sans-serif; font-size:14px; font-weight:700; cursor:pointer; border:none; }
+.ob-btn-primary { background:var(--pink); color:#fff; }
+.ob-btn-primary:hover { background:var(--pink-deep); }
+.ob-btn-ghost { background:none; color:var(--text-muted); border:1.5px solid var(--border); }
+.ob-btn-ghost:hover { color:var(--text); }
+.ob-skip { background:none; border:none; color:var(--text-muted); font-size:13px; cursor:pointer; font-family:'Quicksand',sans-serif; text-decoration:underline; }
 </style>
 </head>
 <body>
@@ -3464,6 +3513,90 @@ html:not(.dark) .login-card {
       </button>
       <div class="login-hint">Solo cuentas @thinkydigital.com</div>
       <div class="login-error" id="loginError"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ONBOARDING -->
+<div class="ob-screen" id="obScreen">
+  <div class="ob-card">
+    <div class="ob-steps">
+      <div class="dot on" id="obDot1"></div>
+      <div class="dot" id="obDot2"></div>
+    </div>
+
+    <!-- PASO 1: Personalización -->
+    <div class="ob-panel on" id="obPanel1">
+      <div class="ob-eyebrow">Paso 1 de 2</div>
+      <h2 class="ob-title">Personaliza tu perfil ✨</h2>
+      <p class="ob-sub">Cuéntanos quién eres para configurar tu espacio.</p>
+
+      <div class="ob-avatar-row">
+        <div class="ob-avatar" id="obAvatar">A</div>
+        <div style="flex:1;min-width:0;">
+          <label style="display:block;font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:6px;">Color de tu avatar</label>
+          <div class="ob-swatches" id="obSwatches"></div>
+        </div>
+        <div class="ob-field" style="margin:0;">
+          <label>Emoji</label>
+          <input class="ob-emoji-input" id="obEmoji" maxlength="2" placeholder="🙂" oninput="obSyncAvatar()">
+        </div>
+      </div>
+
+      <div class="ob-field">
+        <label>Nombre</label>
+        <input id="obName" placeholder="Tu nombre" oninput="obSyncAvatar()">
+      </div>
+      <div class="ob-row">
+        <div class="ob-field">
+          <label>Área</label>
+          <select id="obArea">
+            <option value="">Selecciona tu área</option>
+            <option value="Operaciones">Operaciones</option>
+            <option value="Cuentas">Cuentas</option>
+            <option value="Creativo">Creativo</option>
+            <option value="Data">Data</option>
+          </select>
+        </div>
+        <div class="ob-field">
+          <label>Puesto</label>
+          <select id="obPuesto"></select>
+        </div>
+      </div>
+      <div class="ob-row">
+        <div class="ob-field">
+          <label>Pronombres</label>
+          <input id="obPronouns" placeholder="ella, elle…">
+        </div>
+        <div class="ob-field">
+          <label>Tagline</label>
+          <input id="obTagline" placeholder="Tu frase 💅" maxlength="60">
+        </div>
+      </div>
+      <div class="ob-field">
+        <label>Bio</label>
+        <textarea id="obBio" maxlength="80" placeholder="Algo corto sobre ti…"></textarea>
+      </div>
+
+      <div class="ob-actions">
+        <button class="ob-skip" onclick="obSkip()">Saltar por ahora</button>
+        <button class="ob-btn ob-btn-primary" onclick="obNext()">Continuar →</button>
+      </div>
+    </div>
+
+    <!-- PASO 2: Suscripción a campañas -->
+    <div class="ob-panel" id="obPanel2">
+      <div class="ob-eyebrow">Paso 2 de 2</div>
+      <h2 class="ob-title">¿A qué campañas te quieres suscribir?</h2>
+      <p class="ob-sub">Elige las que vas a seguir o crea una nueva desde cero.</p>
+
+      <div class="ob-camp-list" id="obCampList"></div>
+      <button class="ob-camp-new" onclick="obCreateNewCampaign()">＋ Crear nueva campaña desde cero</button>
+
+      <div class="ob-actions" style="margin-top:18px;">
+        <button class="ob-btn ob-btn-ghost" onclick="obGoStep(1)">← Atrás</button>
+        <button class="ob-btn ob-btn-primary" id="obFinishBtn" onclick="obFinish()">Entrar a Campaign OS</button>
+      </div>
     </div>
   </div>
 </div>
@@ -4356,6 +4489,12 @@ html:not(.dark) .login-card {
           <input type="number" class="form-input" id="fCampGoalReach" placeholder="ej: 6620000" min="0">
         </div>
       </div>
+    </div>
+    <div style="border:1.5px solid var(--border);border-radius:12px;padding:14px;margin-bottom:14px;">
+      <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;">🎯 Escenario</div>
+      <label class="form-label">Link del escenario en Google Sheets <span style="color:var(--text-muted);font-weight:400;">(opcional)</span></label>
+      <input type="text" class="form-input" id="fCampEscenarioUrl" placeholder="Pega la URL si ya existe (con #gid=... de la pestaña Escenario Final)">
+      <div style="font-size:11px;color:var(--text-muted);margin-top:8px;line-height:1.4;">Si todavía no tienes uno, déjalo vacío y al guardar te dejamos armar el escenario en la plataforma.</div>
     </div>
     <div style="border:1.5px solid var(--border);border-radius:12px;padding:14px;margin-bottom:4px;">
       <div style="display:flex;align-items:center;gap:10px;cursor:pointer;" onclick="document.getElementById('fCampHasNano').click()">
@@ -8855,7 +8994,7 @@ function toggleTask(tid, cid) {
           const wasDone = t.lastDoneDate===today;
           t.lastDoneDate = wasDone ? '' : today;
           wentDone = !wasDone;
-        } else { wentDone = !t.done; t.done=!t.done; }
+        } else { wentDone = !t.done; t.done=!t.done; t.doneAt = t.done ? Date.now() : null; }
       }
       setData('campaigns',campaigns);
     }
@@ -8868,7 +9007,7 @@ function toggleTask(tid, cid) {
         const wasDone = t.lastDoneDate===today;
         t.lastDoneDate = wasDone ? '' : today;
         wentDone = !wasDone;
-      } else { wentDone = !t.done; t.done=!t.done; }
+      } else { wentDone = !t.done; t.done=!t.done; t.doneAt = t.done ? Date.now() : null; }
     }
     setData('globalTasks',tasks);
   }
@@ -8880,6 +9019,33 @@ function toggleTask(tid, cid) {
     const c=campaigns.find(x=>x.id===currentCampaignId);
     if(c) renderCampaignTasks(c);
   }
+}
+
+// Borra automáticamente los pendientes que llevan más de una semana tachados
+// (done). Para tareas viejas marcadas done sin timestamp, estampa doneAt=ahora
+// la primera vez (les da una semana de gracia en vez de borrarlas de golpe).
+const _DONE_TASK_TTL = 7 * 24 * 60 * 60 * 1000; // 1 semana
+function _purgeOldDoneTasks() {
+  const now = Date.now();
+  let stampedGlobal = false, stampedCampaigns = false;
+
+  // Globales
+  let gtasks = getData('globalTasks') || [];
+  gtasks.forEach(t => { if(t.done && !t.recurring && !t.doneAt) { t.doneAt = now; stampedGlobal = true; } });
+  const gKept = gtasks.filter(t => !(t.done && !t.recurring && t.doneAt && (now - t.doneAt) > _DONE_TASK_TTL));
+  if(gKept.length !== gtasks.length) { setData('globalTasks', gKept); }
+  else if(stampedGlobal) { setData('globalTasks', gtasks); }
+
+  // Por campaña
+  const campaigns = getData('campaigns') || [];
+  let campaignsChanged = false;
+  campaigns.forEach(c => {
+    if(!Array.isArray(c.tasks) || !c.tasks.length) return;
+    c.tasks.forEach(t => { if(t.done && !t.recurring && !t.doneAt) { t.doneAt = now; stampedCampaigns = true; } });
+    const kept = c.tasks.filter(t => !(t.done && !t.recurring && t.doneAt && (now - t.doneAt) > _DONE_TASK_TTL));
+    if(kept.length !== c.tasks.length) { c.tasks = kept; campaignsChanged = true; }
+  });
+  if(campaignsChanged || stampedCampaigns) setData('campaigns', campaigns);
 }
 
 function deleteTask(tid, cid) {
@@ -9708,8 +9874,25 @@ function copyGenText(scope) {
 // ============================================================
 // MODALS
 // ============================================================
-function openModal(id) { document.getElementById(id).classList.add('open'); }
-function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+// Stacking: cada modal que se abre se pone por encima del anterior, así los
+// modales anidados (p.ej. "creadores anteriores" sobre el editor de escenario)
+// no quedan tapados por el de atrás.
+let _modalZ = 1000;
+function openModal(id) {
+  const el = document.getElementById(id);
+  if(!el) return;
+  _modalZ += 2;
+  el.style.zIndex = _modalZ;
+  el.classList.add('open');
+}
+function closeModal(id) {
+  const el = document.getElementById(id);
+  if(!el) return;
+  el.classList.remove('open');
+  el.style.zIndex = '';
+  // Si ya no queda ningún modal abierto, reinicia el contador.
+  if(!document.querySelector('.modal-overlay.open')) _modalZ = 1000;
+}
 
 function applyBudgetVisibility() {
   const grp = document.getElementById('fCampBudgetGroup');
@@ -9830,7 +10013,7 @@ function toggleNanoSection() {
 function openNewCampaignModal() {
   editingCampaignId = null;
   document.getElementById('campaignModalTitle').textContent='Nueva campaña';
-  ['fCampName','fCampClient','fCampSeason','fCampObjective','fCampCore','fCampBudgetClient','fCampMargin','fCampStartDate','fCampEndDate','fCampGoalContenidos','fCampGoalViews','fCampGoalEngagement','fCampGoalReach'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  ['fCampName','fCampClient','fCampSeason','fCampObjective','fCampCore','fCampBudgetClient','fCampMargin','fCampStartDate','fCampEndDate','fCampGoalContenidos','fCampGoalViews','fCampGoalEngagement','fCampGoalReach','fCampEscenarioUrl'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
   document.getElementById('fCampBudgetOpsResult').textContent='—';
   document.getElementById('fCampStatus').value='En proceso';
   const nanoChk = document.getElementById('fCampHasNano');
@@ -9871,6 +10054,8 @@ function openEditCampaignModal() {
   populateCampResponsibles(c.responsables||{});
   document.getElementById('fCampStartDate').value=c.startDate||'';
   document.getElementById('fCampEndDate').value=c.endDate||'';
+  const escUrlInp = document.getElementById('fCampEscenarioUrl');
+  if(escUrlInp) escUrlInp.value = c.escenarioSheetUrl || '';
   const nanoChk = document.getElementById('fCampHasNano');
   if(nanoChk) { nanoChk.checked = !!c.hasNano; toggleNanoSection(); }
   if(c.hasNano) {
@@ -10314,6 +10499,7 @@ function saveCampaign() {
   const name = document.getElementById('fCampName').value.trim();
   if(!name) { showToast('El nombre es requerido','error'); return; }
   const campaigns = getData('campaigns');
+  const _escUrl = (document.getElementById('fCampEscenarioUrl')?.value||'').trim();
   const _goal = {
     contenidos: parseFloat(document.getElementById('fCampGoalContenidos')?.value)||0,
     views:      parseFloat(document.getElementById('fCampGoalViews')?.value)||0,
@@ -10345,13 +10531,15 @@ function saveCampaign() {
         trackerAonTab: document.getElementById('fCampAonTab')?.value?.trim()||'',
         trackerNanoTab: document.getElementById('fCampNanoTab')?.value?.trim()||'',
         goal: _goal,
+        ...(_escUrl ? { escenarioSheetUrl: _escUrl } : {}),
       };
     }
   } else {
     const _bc2 = parseFloat(document.getElementById('fCampBudgetClient').value)||0;
     const _bm2 = parseFloat(document.getElementById('fCampMargin').value)||0;
+    var _newCampId = id();
     campaigns.push({
-      id:id(), name, client:document.getElementById('fCampClient').value,
+      id:_newCampId, name, client:document.getElementById('fCampClient').value,
       season:document.getElementById('fCampSeason').value,
       status:document.getElementById('fCampStatus').value,
       objective:document.getElementById('fCampObjective').value,
@@ -10370,6 +10558,7 @@ function saveCampaign() {
       trackerAonTab: document.getElementById('fCampAonTab')?.value?.trim()||'',
       trackerNanoTab: document.getElementById('fCampNanoTab')?.value?.trim()||'',
       goal: _goal,
+      escenarioSheetUrl: _escUrl,
       createdBy: currentUser.uid,
       assignedTo: [currentUser.uid],
       flowSteps:FLOW_STEPS.map(s=>({step:s,status:'Pendiente'})),
@@ -10379,9 +10568,41 @@ function saveCampaign() {
   setData('campaigns',campaigns);
   closeModal('campaignModal');
   showToast(editingCampaignId?'Campaña actualizada':'Campaña creada','success'); try { showSuccessCheck(); } catch(e){}
+  // Si la campaña se creó durante el onboarding, volver a ese flujo con la nueva ya seleccionada
+  if(!editingCampaignId && window._obAwaitingNewCampaign) {
+    populateCampaignSelects();
+    _obOnCampaignCreated(_newCampId);
+    return;
+  }
   if(editingCampaignId) openCampaignDetail(editingCampaignId);
   else renderCampaignGrid();
   populateCampaignSelects();
+  // Campaña nueva sin link de escenario: ofrecer armarlo de una vez.
+  if(!editingCampaignId && !_escUrl) {
+    setTimeout(() => {
+      if(confirm('La campaña no tiene link de escenario en Google Sheets.\n\n¿Quieres armar el escenario en la plataforma ahora?')) {
+        openScenarioEditorForCampaign(_newCampId);
+      }
+    }, 250);
+  }
+}
+
+// Abre el editor de escenario directamente para una campaña (sin pasar por el
+// modal de selección). Usado al crear una campaña sin link de Google Sheets.
+function openScenarioEditorForCampaign(cid, source) {
+  const c = _cache.campaigns.find(x=>x.id===cid);
+  if(!c) { showToast('Campaña no encontrada','error'); return; }
+  const src = source || 'ops';
+  if(c.scenario && c.scenario.creators && c.scenario.creators.length) {
+    _scenarioState = JSON.parse(JSON.stringify(c.scenario));
+    _scenarioState.campaignId = cid;
+    _scenarioState.budgetSource = src;
+  } else {
+    _scenarioState = { campaignId: cid, budgetSource: src, creators: [] };
+  }
+  openModal('scenarioModal');
+  if(!_scenarioState.creators.length) scenarioAddCreator();
+  else _renderScenario();
 }
 
 function populateTaskAssigneeSelect(defaultUid) {
@@ -11295,6 +11516,9 @@ auth.onAuthStateChanged(async (user) => {
     await ws.collection('config').doc('seeded').set({at: firebase.firestore.FieldValue.serverTimestamp(), by: user.uid});
   }
 
+  // Borra pendientes tachados con más de una semana antes de pintar
+  try { _purgeOldDoneTasks(); } catch(e){ console.warn('purge done tasks failed', e); }
+
   // Realtime listeners
   attachListeners();
 
@@ -11343,6 +11567,11 @@ auth.onAuthStateChanged(async (user) => {
       }
     }
   } catch(e){ console.warn('restore last view failed', e); }
+
+  // Onboarding en el primer login: completar perfil + elegir campañas a seguir
+  if(!currentUserProfile.onboardingDone) {
+    try { startOnboarding(); } catch(e){ console.warn('onboarding failed', e); }
+  }
 });
 
 function isAdmin() { return currentUserProfile && currentUserProfile.role === 'admin'; }
@@ -12503,8 +12732,10 @@ function scenarioPickExisting() {
   const platSel = document.getElementById('scnPickPlatform');
   platSel.innerHTML = SCENARIO_PLATFORMS.map(p=>`<option>${p}</option>`).join('');
   document.getElementById('scnPickAddBtn').disabled = true;
-  _scnRenderPickList();
+  // Abrir el modal primero para que tenga layout, luego pintar la lista en el
+  // siguiente frame. Evita que la tabla aparezca vacía hasta interactuar.
   openModal('scnPickModal');
+  requestAnimationFrame(_scnRenderPickList);
 }
 
 function _scnRenderPickList() {
@@ -14136,6 +14367,172 @@ async function saveMyProfile() {
   } catch(e) {
     showToast('Error guardando perfil: '+e.message,'error');
   }
+}
+
+// ============================================================
+// ONBOARDING (primer login: perfil + suscripción a campañas)
+// ============================================================
+let _obGradient = 'linear-gradient(135deg,#ff2d87,#2c6dff)';
+let _obSelectedCamps = new Set();
+window._obAwaitingNewCampaign = false;
+
+function obSyncAvatar() {
+  const av = document.getElementById('obAvatar');
+  if(!av) return;
+  const emoji = (document.getElementById('obEmoji').value||'').trim();
+  const name  = (document.getElementById('obName').value||'').trim();
+  av.style.background = _obGradient;
+  av.textContent = emoji || (name || currentUserProfile?.email || 'A')[0].toUpperCase();
+  av.style.fontSize = emoji ? '34px' : '30px';
+}
+
+function obPickColor(bg, el) {
+  _obGradient = bg;
+  document.querySelectorAll('#obSwatches .ob-swatch').forEach(s=>s.classList.remove('sel'));
+  if(el) el.classList.add('sel');
+  obSyncAvatar();
+}
+
+function _obBuildSwatches() {
+  const wrap = document.getElementById('obSwatches');
+  if(!wrap) return;
+  const all = [...SOLID_COLORS, ...GRADIENT_COLORS];
+  wrap.innerHTML = all.map(c =>
+    `<div class="ob-swatch ${_obGradient===c.bg?'sel':''}" style="background:${c.bg};" title="${c.label}" onclick="obPickColor('${c.bg.replace(/'/g,"\\'")}', this)"></div>`
+  ).join('');
+}
+
+function _obBuildCampList() {
+  const wrap = document.getElementById('obCampList');
+  if(!wrap) return;
+  const camps = getData('campaigns') || [];
+  if(!camps.length) {
+    wrap.innerHTML = `<div class="ob-empty">Aún no hay campañas registradas. Crea la primera 👇</div>`;
+    return;
+  }
+  wrap.innerHTML = camps.map(c => {
+    const sel = _obSelectedCamps.has(c.id);
+    const meta = [c.client, c.status].filter(Boolean).join(' · ') || '—';
+    return `<div class="ob-camp ${sel?'sel':''}" onclick="obToggleCamp('${c.id}', this)">
+      <div class="ob-camp-check">${sel?'✓':''}</div>
+      <div class="ob-camp-info">
+        <div class="ob-camp-name">${c.name||'Sin nombre'}</div>
+        <div class="ob-camp-meta">${meta}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function obToggleCamp(cid, el) {
+  if(_obSelectedCamps.has(cid)) _obSelectedCamps.delete(cid);
+  else _obSelectedCamps.add(cid);
+  const sel = _obSelectedCamps.has(cid);
+  if(el) {
+    el.classList.toggle('sel', sel);
+    const chk = el.querySelector('.ob-camp-check');
+    if(chk) chk.textContent = sel ? '✓' : '';
+  }
+}
+
+function startOnboarding() {
+  if(!currentUserProfile) return;
+  const p = currentUserProfile;
+  _obGradient = p.profileGradient || 'linear-gradient(135deg,#ff2d87,#2c6dff)';
+  _obSelectedCamps = new Set(p.subscribedCampaigns || []);
+  document.getElementById('obName').value     = p.name || '';
+  document.getElementById('obEmoji').value    = p.profileEmoji || '';
+  document.getElementById('obArea').value     = p.area || '';
+  const ps = document.getElementById('obPuesto');
+  ps.innerHTML = `<option value="">— Sin puesto —</option>` + PUESTOS.map(x=>`<option value="${x}">${x}</option>`).join('');
+  ps.value = p.puesto || '';
+  document.getElementById('obPronouns').value = p.pronouns || '';
+  document.getElementById('obTagline').value  = p.tagline || '';
+  document.getElementById('obBio').value      = p.bio || '';
+  _obBuildSwatches();
+  _obBuildCampList();
+  obSyncAvatar();
+  obGoStep(1);
+  document.getElementById('obScreen').classList.add('open');
+}
+
+function obGoStep(n) {
+  document.getElementById('obPanel1').classList.toggle('on', n===1);
+  document.getElementById('obPanel2').classList.toggle('on', n===2);
+  document.getElementById('obDot1').classList.toggle('on', n>=1);
+  document.getElementById('obDot2').classList.toggle('on', n>=2);
+}
+
+function obNext() {
+  const name = (document.getElementById('obName').value||'').trim();
+  if(!name) { showToast('Escribe tu nombre','error'); document.getElementById('obName').focus(); return; }
+  _obBuildCampList();
+  obGoStep(2);
+}
+
+function obCreateNewCampaign() {
+  window._obAwaitingNewCampaign = true;
+  document.getElementById('obScreen').classList.remove('open');
+  openNewCampaignModal();
+}
+
+// Llamado desde saveCampaign cuando se crea una campaña durante el onboarding
+function _obOnCampaignCreated(cid) {
+  window._obAwaitingNewCampaign = false;
+  if(cid) _obSelectedCamps.add(cid);
+  _obBuildCampList();
+  obGoStep(2);
+  document.getElementById('obScreen').classList.add('open');
+}
+
+async function obFinish() {
+  if(!currentUser) return;
+  const btn = document.getElementById('obFinishBtn');
+  if(btn) { btn.disabled = true; btn.textContent = 'Guardando…'; }
+  const updates = {
+    name:     (document.getElementById('obName').value||'').trim() || currentUserProfile.name,
+    area:     document.getElementById('obArea').value,
+    puesto:   document.getElementById('obPuesto').value,
+    profileEmoji:    (document.getElementById('obEmoji').value||'').trim(),
+    profileGradient: _obGradient,
+    pronouns: (document.getElementById('obPronouns').value||'').trim(),
+    tagline:  (document.getElementById('obTagline').value||'').trim(),
+    bio:      (document.getElementById('obBio').value||'').trim(),
+    subscribedCampaigns: [..._obSelectedCamps],
+    onboardingDone: true,
+  };
+  try {
+    const ws = db.collection('workspaces').doc(WORKSPACE);
+    await Promise.all([
+      db.collection('users').doc(currentUser.uid).set(updates, {merge:true}),
+      ws.collection('members').doc(currentUser.uid).set({
+        name: updates.name, area: updates.area, profileGradient: updates.profileGradient,
+        ...(updates.profileEmoji ? { profileEmoji: updates.profileEmoji } : {}),
+      }, {merge:true}),
+    ]);
+    Object.assign(currentUserProfile, updates);
+    document.getElementById('obScreen').classList.remove('open');
+    updateSidebarAvatar();
+    const sidebarNameEl = document.getElementById('userNameSidebar');
+    if(sidebarNameEl) { const sp=_shortPronouns(updates.pronouns); sidebarNameEl.textContent = updates.name + (sp?' '+sp:''); }
+    const roleBadge = document.getElementById('userRoleSidebar');
+    if(roleBadge) roleBadge.textContent = updates.puesto || (currentUserProfile.role==='admin'?'Admin':'Miembro');
+    renderCampaignGrid();
+    if(currentPage==='dashboard') renderDashboard();
+    showToast('¡Listo! Bienvenida a Campaign OS 🎉','success'); try { showSuccessCheck(); } catch(e){}
+  } catch(e) {
+    showToast('Error guardando: '+e.message,'error');
+  } finally {
+    if(btn) { btn.disabled = false; btn.textContent = 'Entrar a Campaign OS'; }
+  }
+}
+
+async function obSkip() {
+  if(!currentUser) return;
+  try {
+    await db.collection('users').doc(currentUser.uid).set({onboardingDone:true}, {merge:true});
+    currentUserProfile.onboardingDone = true;
+  } catch(e){}
+  document.getElementById('obScreen').classList.remove('open');
 }
 
 // ============================================================
