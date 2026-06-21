@@ -55,6 +55,7 @@
   --shadow: 0 2px 12px rgba(10,10,12,.05);
   --shadow-lg: 0 18px 44px rgba(10,10,12,.10);
   --ease: cubic-bezier(.2,.8,.2,1);
+  --ease-out: cubic-bezier(.16,1,.3,1);
 }
 /* ============================================================
    THEME PALETTES — override accent vars on body class
@@ -3254,38 +3255,19 @@ html.dark .ai-input-row textarea { background:rgba(255,255,255,.05); border-colo
   0%,100% { opacity: 1; }
   50%     { opacity: .68; }
 }
-/* ── 1. CAPA DE CONTENIDO: opaca, sin blur ──
-   Apple: "Liquid Glass seeks to bring attention to the underlying
-   content; overusing this material distracts from it."
-   Las cards dejan de ser glass: superficie sólida ligera, sin
-   backdrop-filter (gran ahorro de pintado con muchas cards). */
-.card, .stat-card, .campaign-card, .metric-card,
-.detail-header, .settings-section, .team-card, .inf-master-card {
-  background: var(--surface-bg) !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-  border: 1px solid var(--surface-border) !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.95),
-    0 2px 12px rgba(10,10,12,0.06),
-    0 1px 3px rgba(10,10,12,0.04) !important;
-}
-html.dark .card, html.dark .stat-card, html.dark .campaign-card,
-html.dark .metric-card, html.dark .detail-header, html.dark .settings-section,
-html.dark .team-card, html.dark .inf-master-card {
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.10),
-    0 2px 12px rgba(0,0,0,0.36),
-    0 1px 3px rgba(0,0,0,0.20) !important;
-}
+/* Overlays de features (panel IA, notificaciones, command palette, nav móvil)
+   e inf-master-card: v4 no los estiliza, así que les damos superficie con
+   tokens de v4 (consistentes en light y dark). El override viejo de .card de
+   prod se eliminó: v4 ya estiliza las cards. */
 .mobile-nav, .notif-panel, .cmd-palette, .ai-panel {
-  background: var(--glass-bg) !important;
-  backdrop-filter: var(--glass-blur) !important;
-  -webkit-backdrop-filter: var(--glass-blur) !important;
-  border: 1px solid var(--glass-border) !important;
-  box-shadow: var(--glass-specular), var(--glass-shadow) !important;
+  background: var(--white) !important;
+  backdrop-filter: blur(20px) saturate(160%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(160%) !important;
+  border: 1px solid var(--border) !important;
+  box-shadow: var(--shadow-lg) !important;
 }
-.notif-panel, .ai-panel { border-radius: var(--r-glass-md) !important; }
+.notif-panel, .ai-panel { border-radius: var(--radius-sm) !important; }
+.inf-master-card { background: var(--white); border:1px solid var(--border); border-radius: var(--radius-sm); }
 /* ============ ONBOARDING ============ */
 .ob-screen { position:fixed; inset:0; z-index:1200; background:var(--bg); display:none; align-items:center; justify-content:center; padding:24px; overflow-y:auto; }
 .ob-screen.open { display:flex; }
