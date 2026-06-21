@@ -3471,51 +3471,209 @@ html.dark .ob-field input, html.dark .ob-field select, html.dark .ob-field texta
 </div>
 
 <!-- LOGIN SCREEN -->
-<div class="login-screen" id="loginScreen">
-  <div class="login-hero" id="loginHero">
-    <!-- Flamingo cover: la capa de temporada corre detrás del recorte transparente -->
-    <div class="flamingo-stage">
-      <div class="flamingo-season" id="flamingoSeason" data-season="mundial"></div>
-      <img src="assets/flamingo-cover.png" alt="Thinky · Campaign OS" class="flamingo-cover" id="loginHeroLogo" onclick="loginHeroLogoClick()" draggable="false">
-    </div>
-    <div class="flamingo-overlay">
-      <div class="login-hero-title">Campaign <span>OS</span></div>
-      <div class="login-hero-sub" id="loginTaglineWrap">
-        <span class="login-tagline show" data-i="0">Tu centro de operaciones de campañas.</span>
-        <span class="login-tagline" data-i="1">Donde las ideas se vuelven campañas. 🚀</span>
-        <span class="login-tagline" data-i="2">Menos caos, más creatividad. ✨</span>
-        <span class="login-tagline" data-i="3">Todo en un solo lugar. Por fin. 🙌</span>
-        <span class="login-tagline" data-i="4">¿Lista para hacer magia hoy? 🧠</span>
-        <span class="login-tagline" data-i="5">Hecha con amor (y mucho café). ☕</span>
-        <span class="login-tagline" data-i="6">Think big. Think Y. 💅</span>
-      </div>
-    </div>
-  </div>
-  <div class="login-card">
-    <div class="login-card-logo" id="loginCardLogo" onclick="loginCardLogoClick()">
-      <img src="assets/thinky-negro.png" alt="Thinky">
-      <span class="logo-badge" id="loginCardLogoBadge">0</span>
-    </div>
-    <div class="login-tag">Bienvenido de nuevo</div>
-    <div class="login-title" id="loginTitle">Inicia sesión para continuar</div>
+<!-- LOGIN SCREEN (refreshed v3 — cinematic glass, Google-only) -->
+<style id="lr-login-css">
+#loginScreen, #loginScreen *{box-sizing:border-box;}
+#loginScreen.login-screen{
+  padding:0!important; background:#7a0436!important; overflow:hidden!important;
+  font-family:'Quicksand',sans-serif; color:#fff;
+  --lr-ease:cubic-bezier(.22,.8,.18,1); --lr-ease-out:cubic-bezier(.16,1,.3,1);
+}
+#loginScreen.login-screen:not(.hidden){display:block!important;}
 
-    <div id="loginForm">
-      <select class="login-area-select" id="loginAreaInput">
-        <option value="">Selecciona tu área</option>
-        <option value="Operaciones">Operaciones</option>
-        <option value="Cuentas">Cuentas</option>
-        <option value="Creativo">Creativo</option>
-        <option value="Data">Data</option>
-      </select>
-      <button class="login-btn login-btn-google" onclick="loginGoogle()">
-        <svg width="16" height="16" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"/><path fill="#FF3D00" d="M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z"/><path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238A11.91 11.91 0 0 1 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z"/><path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 0 1-4.087 5.571l.003-.002 6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z"/></svg>
-        Continuar con Google
-      </button>
-      <div class="login-hint">Solo cuentas @thinkydigital.com</div>
-      <div class="login-error" id="loginError"></div>
-    </div>
+/* cinematic background */
+#loginScreen .lr-stage{position:absolute;inset:0;overflow:hidden;z-index:1;}
+#loginScreen .lr-bg-cover{position:absolute;inset:-8%;
+  background:url('assets/flamingo-cover.png') center/cover no-repeat;
+  filter:saturate(1.1) brightness(.97) blur(3px);
+  transform:scale(1.08); animation:lr-kenburns 38s var(--lr-ease) infinite alternate; will-change:transform;}
+@keyframes lr-kenburns{0%{transform:scale(1.08) translate(0,0);}100%{transform:scale(1.16) translate(-1.5%,-1.5%);}}
+#loginScreen .lr-bg-grade{position:absolute;inset:0;
+  background:
+    radial-gradient(120% 90% at 80% 12%, rgba(255,150,200,.28) 0%, transparent 55%),
+    radial-gradient(130% 110% at 8% 100%, rgba(110,2,56,.62) 0%, transparent 60%),
+    linear-gradient(90deg, rgba(60,0,30,.5) 0%, rgba(60,0,30,.12) 38%, transparent 60%),
+    linear-gradient(180deg, rgba(40,0,22,.2) 0%, transparent 28%, rgba(40,0,22,.4) 100%);}
+#loginScreen .lr-orb{position:absolute;border-radius:50%;filter:blur(60px);opacity:.55;mix-blend-mode:screen;will-change:transform;}
+#loginScreen .lr-orb.a{width:46vw;height:46vw;left:-12vw;top:-10vw;background:radial-gradient(circle,#ff9ccb,transparent 70%);animation:lr-drift1 26s ease-in-out infinite alternate;}
+#loginScreen .lr-orb.b{width:40vw;height:40vw;right:-10vw;bottom:-14vw;background:radial-gradient(circle,#ff2d87,transparent 70%);animation:lr-drift2 32s ease-in-out infinite alternate;}
+#loginScreen .lr-orb.c{width:24vw;height:24vw;left:42vw;top:48vh;background:radial-gradient(circle,#ffd0e6,transparent 70%);opacity:.4;animation:lr-drift1 22s ease-in-out infinite alternate-reverse;}
+@keyframes lr-drift1{0%{transform:translate(0,0) scale(1);}100%{transform:translate(6vw,5vh) scale(1.12);}}
+@keyframes lr-drift2{0%{transform:translate(0,0) scale(1);}100%{transform:translate(-7vw,-4vh) scale(1.08);}}
+#loginScreen .lr-grain{position:absolute;inset:0;opacity:.05;pointer-events:none;mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");}
+
+/* frame */
+#loginScreen .lr-shell{position:relative;z-index:2;height:100%;display:flex;flex-direction:column;
+  padding:clamp(18px,3vw,40px) clamp(18px,4vw,64px);}
+#loginScreen .lr-topbar{display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+#loginScreen .lr-brand-pill{display:flex;align-items:center;gap:12px;padding:10px 18px 10px 12px;border-radius:100px;
+  background:rgba(20,0,12,.26);backdrop-filter:blur(18px) saturate(150%);-webkit-backdrop-filter:blur(18px) saturate(150%);
+  border:1px solid rgba(255,255,255,.22);box-shadow:0 8px 30px rgba(80,0,40,.28), inset 0 1px 0 rgba(255,255,255,.18);}
+#loginScreen .lr-brand-pill img{width:30px;height:30px;object-fit:contain;filter:drop-shadow(0 2px 6px rgba(0,0,0,.25));}
+#loginScreen .lr-bk{font-weight:700;font-size:16px;letter-spacing:.2px;color:#fff;}
+#loginScreen .lr-bk span{opacity:.7;font-weight:500;}
+#loginScreen .lr-status-pill{display:flex;align-items:center;gap:9px;white-space:nowrap;padding:9px 16px;border-radius:100px;
+  font-size:13px;font-weight:600;color:rgba(255,255,255,.92);background:rgba(20,0,12,.2);
+  backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border:1px solid rgba(255,255,255,.22);}
+#loginScreen .lr-dot{width:8px;height:8px;border-radius:50%;background:#7dffb0;box-shadow:0 0 0 0 rgba(125,255,176,.6);animation:lr-pulse 2.4s infinite;}
+@keyframes lr-pulse{0%{box-shadow:0 0 0 0 rgba(125,255,176,.55);}70%{box-shadow:0 0 0 7px rgba(125,255,176,0);}100%{box-shadow:0 0 0 0 rgba(125,255,176,0);}}
+
+#loginScreen .lr-main{flex:1;display:grid;grid-template-columns:1.05fr .95fr;align-items:center;gap:40px;max-width:1320px;width:100%;margin:0 auto;}
+#loginScreen .lr-hero{padding-right:20px;max-width:560px;}
+#loginScreen .lr-eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.78);margin-bottom:22px;}
+#loginScreen .lr-eyebrow::before{content:"";width:26px;height:1.5px;background:rgba(255,255,255,.6);}
+#loginScreen .lr-hero h1{font-family:'Fraunces',serif;font-weight:400;font-size:clamp(44px,5.2vw,76px);line-height:.98;letter-spacing:-.02em;text-shadow:0 6px 40px rgba(80,0,40,.45);margin:0;color:#fff;}
+#loginScreen .lr-hero h1 em{font-style:italic;font-weight:500;}
+#loginScreen .lr-line{display:block;overflow:hidden;}
+#loginScreen .lr-line span{display:inline-block;}
+#loginScreen .lr-taglines{position:relative;height:34px;margin-top:26px;}
+#loginScreen .lr-tagline{position:absolute;left:0;top:0;font-size:clamp(16px,1.5vw,20px);font-weight:500;color:rgba(255,255,255,.82);opacity:0;transform:translateY(8px);filter:blur(4px);transition:opacity .8s var(--lr-ease),transform .8s var(--lr-ease),filter .8s var(--lr-ease);}
+#loginScreen .lr-tagline.on{opacity:1;transform:none;filter:none;}
+#loginScreen .lr-chips{display:flex;flex-wrap:wrap;gap:10px;margin-top:34px;}
+#loginScreen .lr-chip{padding:8px 16px;border-radius:100px;font-size:13px;font-weight:600;color:rgba(255,255,255,.9);background:rgba(20,0,12,.2);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,.22);}
+
+/* auth card */
+#loginScreen .lr-card-wrap{display:flex;justify-content:flex-end;}
+#loginScreen .lr-card{position:relative;width:100%;max-width:420px;padding:38px 36px 32px;border-radius:30px;
+  background:rgba(255,255,255,.14);backdrop-filter:blur(40px) saturate(180%);-webkit-backdrop-filter:blur(40px) saturate(180%);
+  border:1px solid rgba(255,255,255,.28);
+  box-shadow:0 30px 80px rgba(60,0,30,.42), inset 0 1px 0 rgba(255,255,255,.5), inset 0 -1px 0 rgba(255,255,255,.08);overflow:hidden;}
+#loginScreen .lr-card::after{content:"";position:absolute;top:0;left:-60%;width:50%;height:100%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.22),transparent);transform:skewX(-18deg);pointer-events:none;animation:lr-sheen 7s ease-in-out 1.2s infinite;}
+@keyframes lr-sheen{0%,72%{left:-60%;}88%,100%{left:130%;}}
+#loginScreen .lr-card-logo{height:26px;width:auto;display:block;margin-bottom:22px;filter:brightness(0) invert(1) drop-shadow(0 2px 8px rgba(0,0,0,.2));}
+#loginScreen .lr-card h2{font-family:'Fraunces',serif;font-weight:500;font-size:27px;letter-spacing:-.01em;margin:0 0 4px;color:#fff;}
+#loginScreen .lr-sub{font-size:14px;font-weight:500;color:rgba(255,255,255,.72);margin:0 0 26px;}
+#loginScreen .lr-btn{width:100%;padding:16px;border:none;border-radius:15px;font-family:inherit;font-weight:700;font-size:15px;cursor:pointer;position:relative;overflow:hidden;transition:transform .25s var(--lr-ease),box-shadow .25s var(--lr-ease),background .25s;}
+#loginScreen .lr-btn:active{transform:scale(.985);}
+#loginScreen .lr-btn-google{margin-top:6px;background:rgba(255,255,255,.96);color:#1a0512;box-shadow:0 10px 26px rgba(40,0,20,.24);}
+#loginScreen .lr-btn-google .lr-lbl{display:flex;align-items:center;justify-content:center;gap:10px;transition:opacity .2s;}
+#loginScreen .lr-btn-google .lr-spin{position:absolute;inset:0;display:none;align-items:center;justify-content:center;}
+#loginScreen .lr-btn-google.lr-loading .lr-lbl{opacity:0;}
+#loginScreen .lr-btn-google.lr-loading .lr-spin{display:flex;}
+#loginScreen .lr-btn-google:hover{transform:translateY(-2px);background:#fff;box-shadow:0 16px 34px rgba(40,0,20,.32);}
+#loginScreen .lr-spin svg{animation:lr-rot .8s linear infinite;}
+@keyframes lr-rot{to{transform:rotate(360deg);}}
+#loginScreen .lr-card-note{text-align:center;margin:20px 0 0;font-size:12.5px;font-weight:500;color:rgba(255,255,255,.66);letter-spacing:.01em;}
+#loginScreen .login-error{color:#ffe0e8;font-weight:600;text-align:center;font-size:12.5px;margin-top:12px;min-height:16px;text-shadow:0 1px 6px rgba(0,0,0,.35);}
+#loginScreen .lr-footnote{flex-shrink:0;text-align:center;font-size:12.5px;font-weight:500;color:rgba(255,255,255,.6);padding-top:18px;}
+
+/* entrance */
+#loginScreen .lr-in .lr-reveal{animation:lr-riseIn .9s var(--lr-ease-out) both;}
+#loginScreen .lr-in .lr-d1{animation-delay:.05s;}
+#loginScreen .lr-in .lr-d2{animation-delay:.15s;}
+#loginScreen .lr-in .lr-d4{animation-delay:.35s;}
+#loginScreen .lr-in .lr-d5{animation-delay:.45s;}
+#loginScreen .lr-in .lr-d6{animation-delay:.55s;}
+#loginScreen .lr-in .lr-hero h1 .lr-line span{animation:lr-riseWord 1s var(--lr-ease-out) both;}
+#loginScreen .lr-in .lr-hero h1 .lr-line:nth-child(1) span{animation-delay:.18s;}
+#loginScreen .lr-in .lr-hero h1 .lr-line:nth-child(2) span{animation-delay:.28s;}
+#loginScreen .lr-in .lr-hero h1 .lr-line:nth-child(3) span{animation-delay:.38s;}
+#loginScreen .lr-in .lr-card.lr-reveal{animation:lr-riseCard 1s var(--lr-ease-out) both;animation-delay:.3s;}
+@keyframes lr-riseIn{from{opacity:0;transform:translateY(22px);}to{opacity:1;transform:none;}}
+@keyframes lr-riseWord{from{opacity:0;transform:translateY(110%);}to{opacity:1;transform:none;}}
+@keyframes lr-riseCard{from{opacity:0;transform:translateY(28px) scale(.985);}to{opacity:1;transform:none;}}
+@media (prefers-reduced-motion:reduce){#loginScreen *{animation:none!important;}}
+
+/* responsive */
+@media (max-width:900px){
+  #loginScreen .lr-main{grid-template-columns:1fr;justify-items:center;text-align:center;gap:30px;}
+  #loginScreen .lr-hero{padding-right:0;text-align:center;display:flex;flex-direction:column;align-items:center;}
+  #loginScreen .lr-eyebrow::before{display:none;}
+  #loginScreen .lr-taglines{height:auto;min-height:30px;}
+  #loginScreen .lr-card-wrap{justify-content:center;}
+  #loginScreen .lr-chips{justify-content:center;}
+}
+@media (max-width:620px){
+  #loginScreen .lr-hero{display:none;}
+  #loginScreen .lr-status-pill .lr-txt{display:none;}
+  #loginScreen .lr-status-pill{padding:9px;}
+  #loginScreen .lr-shell{justify-content:center;}
+  #loginScreen .lr-main{flex:none;}
+  #loginScreen .lr-card{max-width:none;}
+}
+</style>
+<div class="login-screen" id="loginScreen">
+  <div class="lr-stage" id="loginHero">
+    <div class="lr-bg-cover"></div>
+    <div class="lr-bg-grade"></div>
+    <div class="lr-orb a"></div>
+    <div class="lr-orb b"></div>
+    <div class="lr-orb c"></div>
+    <div class="lr-grain"></div>
+  </div>
+
+  <div class="lr-shell" id="lrShell">
+    <header class="lr-topbar">
+      <div class="lr-brand-pill lr-reveal lr-d1">
+        <img src="assets/y-white-transparent.png" alt="Thinky">
+        <div class="lr-bk"><b>Campaign</b> <span>OS</span></div>
+      </div>
+      <div class="lr-status-pill lr-reveal lr-d2">
+        <span class="lr-dot"></span><span class="lr-txt">Acceso del equipo · Thinky</span>
+      </div>
+    </header>
+
+    <main class="lr-main">
+      <section class="lr-hero">
+        <div class="lr-eyebrow lr-reveal lr-d2">Agencia de influencer marketing creativo</div>
+        <h1>
+          <span class="lr-line"><span>Donde las ideas</span></span>
+          <span class="lr-line"><span>se vuelven</span></span>
+          <span class="lr-line"><span><em>campañas.</em></span></span>
+        </h1>
+        <div class="lr-taglines lr-reveal lr-d4">
+          <div class="lr-tagline on">Menos caos, más creatividad.</div>
+          <div class="lr-tagline">Todo en un solo lugar. Por fin.</div>
+          <div class="lr-tagline">¿Lista para hacer magia hoy?</div>
+          <div class="lr-tagline">Think big. Think Y.</div>
+        </div>
+        <div class="lr-chips lr-reveal lr-d5">
+          <span class="lr-chip">Operaciones</span>
+          <span class="lr-chip">Cuentas</span>
+          <span class="lr-chip">Creativo</span>
+          <span class="lr-chip">Data</span>
+        </div>
+      </section>
+
+      <section class="lr-card-wrap">
+        <div class="lr-card lr-reveal">
+          <img src="assets/thinky-rosa.png" alt="thinky" class="lr-card-logo">
+          <h2>Bienvenida de nuevo</h2>
+          <p class="lr-sub">Inicia sesión con Google para continuar</p>
+          <button type="button" class="lr-btn lr-btn-google" id="lrGoogleBtn" onclick="lrGoogleLogin(this)">
+            <span class="lr-lbl"><svg width="18" height="18" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"/><path fill="#FF3D00" d="M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z"/><path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238A11.91 11.91 0 0 1 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z"/><path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 0 1-4.087 5.571l.003-.002 6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z"/></svg> Continuar con Google</span>
+            <span class="lr-spin"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1a0512" stroke-width="2.6" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-6.2-8.5" opacity=".9"/></svg></span>
+          </button>
+          <div class="login-error" id="loginError"></div>
+          <p class="lr-card-note">Acceso exclusivo para el equipo · influencer marketing creativo</p>
+        </div>
+      </section>
+    </main>
+
+    <footer class="lr-footnote lr-reveal lr-d6">Hecho con amor (y mucho café) · Think Y. © 2026</footer>
   </div>
 </div>
+
+<script>
+(function(){
+  var shell=document.getElementById('lrShell');
+  if(shell && !(window.matchMedia && matchMedia('(prefers-reduced-motion:reduce)').matches)){
+    requestAnimationFrame(function(){shell.classList.add('lr-in');});
+    setTimeout(function(){shell.classList.remove('lr-in');},2200);
+  }
+  var tags=[].slice.call(document.querySelectorAll('#loginScreen .lr-tagline'));
+  var ti=0;
+  if(tags.length>1){setInterval(function(){tags[ti].classList.remove('on');ti=(ti+1)%tags.length;tags[ti].classList.add('on');},3800);}
+})();
+function lrGoogleLogin(btn){
+  if(btn.classList.contains('lr-loading'))return;
+  btn.classList.add('lr-loading');
+  Promise.resolve().then(function(){ return (typeof loginGoogle==='function')?loginGoogle():null; })
+    .catch(function(){})
+    .finally(function(){ setTimeout(function(){btn.classList.remove('lr-loading');},500); });
+}
+</script>
 
 <!-- ONBOARDING -->
 <div class="ob-screen" id="obScreen">
@@ -11388,7 +11546,8 @@ async function loginGoogle() {
   const errEl = document.getElementById('loginError');
   try {
     // capture chosen area so onAuthStateChanged can seed it for new profiles
-    window._pendingArea = document.getElementById('loginAreaInput').value;
+    // El login v3 ya no tiene selector de área (se captura en el onboarding).
+    window._pendingArea = document.getElementById('loginAreaInput')?.value || '';
     const provider = new firebase.auth.GoogleAuthProvider();
     provider.setCustomParameters({hd:'thinkydigital.com'});
     provider.addScope('https://www.googleapis.com/auth/calendar.readonly');
