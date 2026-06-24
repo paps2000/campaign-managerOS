@@ -15784,14 +15784,30 @@ document.addEventListener('click', e => { if(_fabOpen && !e.target.closest('.fab
   if(reduceTransp) return; // honour the system "can't read text on glass" switch
 
   // Panel-level glass surfaces worth refracting (skip tiny chips + login)
-  // Discrete panels read best (fixed size → static map stays aligned).
-  // Full-bleed chrome (sidebar/topbar) is excluded: it resizes with the
-  // window, which would slide the static rim out of register.
+  // Every glass surface on the platform. Over-inclusion is safe: applyGlass
+  // skips anything whose computed backdrop-filter has no blur. Pure full-bleed
+  // scrims / background layers (.modal-overlay, .cmd-overlay, .content, .main,
+  // .lr-bk, .login-hero) are left out — a lens over a dim screen is pointless.
   const SEL = [
+    // panels / overlays-content
     '.modal', '.profile-modal', '.cmd-palette', '.notif-panel', '.ai-panel',
-    '.fab-action', '.stat-card.featured', '.stat-card.urgent', '.team-card',
-    '.flow-step', '.detail-header', '.settings-section', '.inf-detail-header',
-    '#infDetailContent', '.toast', '.season-switch', '.profile-tab-bar'
+    '#infDetailContent', '.inf-detail-header', '.detail-header', '.settings-section',
+    // chrome
+    '.sidebar', '.sidebar-inner', '.sidebar-user', '.topbar', '.topbar-date',
+    '.topbar-search-btn', '.mobile-nav', '.nav-item.active',
+    // cards / tiles
+    '.stat-card.featured', '.stat-card.urgent', '.team-card', '.flow-step',
+    // controls / chips / buttons / inputs
+    '.fab-action', '.btn-ghost', '.season-switch', '.profile-tab-bar',
+    '.theme-toggle-btn', '.notif-bell-btn', '.empty-glass-icon',
+    '.filter-tab:not(.active)', '.metrics-tab-pill:not(.active)',
+    '.form-input', '.gen-select', '.flow-step-select',
+    '.profile-status-preview', '.toast', '.task-area-group',
+    // login screen glass
+    '#loginScreen .lr-card', '#loginScreen .lr-card-wrap', '#loginScreen .lr-shell',
+    '#loginScreen .lr-topbar', '#loginScreen .lr-brand-pill', '#loginScreen .lr-status-pill',
+    '#loginScreen .lr-chip', '#loginScreen .lr-chips',
+    '.login-card', '.login-input'
   ].join(',');
 
   // ---- defs host ----
@@ -15916,10 +15932,11 @@ document.addEventListener('click', e => { if(_fabOpen && !e.target.closest('.fab
     if(/url\(/.test(base)) { el.dataset.lg='1'; return; }
     const rect = el.getBoundingClientRect();
     const W = Math.round(rect.width), H = Math.round(rect.height);
-    if(W < 90 || H < 40) return;         // too small to read a bend
+    if(W < 44 || H < 18) return;         // chips qualify; sub-pill noise does not
     let R = parseFloat(cs.borderTopLeftRadius) || 12;
     R = Math.min(R, W/2, H/2);
-    const scale = Math.max(8, Math.min(22, Math.round(Math.min(W,H) * 0.06)));
+    // proportional bend: gentle on chips, fuller on big panels
+    const scale = Math.max(3, Math.min(22, Math.round(Math.min(W,H) * 0.07)));
     el.dataset.lg = '1';
     ensureFilter(W, H, Math.round(R), scale, id => {
       const val = base + ' url(#' + id + ')';
@@ -15939,6 +15956,19 @@ document.addEventListener('click', e => { if(_fabOpen && !e.target.closest('.fab
     if(pending) return; pending = true;
     requestAnimationFrame(()=>{ pending=false; sweep(document); });
   });
+  // size-sensitive chrome (sidebar/topbar/login) needs its map regenerated
+  // when the viewport changes, or the static rim slides out of register
+  let rT;
+  function resweep(){
+    document.querySelectorAll('[data-lg]').forEach(el=>{
+      delete el.dataset.lg;
+      el.style.removeProperty('backdrop-filter');
+      el.style.removeProperty('-webkit-backdrop-filter');
+    });
+    sweep(document);
+  }
+  window.addEventListener('resize', ()=>{ clearTimeout(rT); rT=setTimeout(resweep, 200); });
+
   function boot(){
     sweep(document);
     obs.observe(document.body, { childList:true, subtree:true });
