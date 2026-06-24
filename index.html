@@ -3316,6 +3316,183 @@ html.dark .ob-field input, html.dark .ob-field select, html.dark .ob-field texta
 .ob-btn-ghost { background:none; color:var(--text-muted); border:1.5px solid var(--border); }
 .ob-btn-ghost:hover { color:var(--text); }
 .ob-skip { background:none; border:none; color:var(--text-muted); font-size:13px; cursor:pointer; font-family:'Quicksand',sans-serif; text-decoration:underline; }
+
+/* ============================================================
+   TRANSITIONS.DEV — micro-animations (additive, progressive)
+   Wired by initTransitions() in the app script. Namespaced
+   classes (t-*) + light enhancements on existing components.
+   ============================================================ */
+:root {
+  --tdev-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --tdev-spring: cubic-bezier(0.34, 1.25, 0.64, 1);
+}
+
+/* ── Sliding tabs pill (detail-tabs + profile-tab-bar) ── */
+.detail-tabs.tdev-tabs, .profile-tab-bar.tdev-tabs { position: relative; }
+.tdev-tab-pill {
+  position: absolute; left: 0; top: 0;
+  pointer-events: none; z-index: 0;
+  transform: translateX(0); width: 0;
+  transition: transform .28s var(--tdev-ease), width .28s var(--tdev-ease), height .28s var(--tdev-ease);
+  will-change: transform, width;
+}
+/* detail-tabs: pill is a sliding underline */
+.detail-tabs.tdev-tabs .tdev-tab-pill {
+  bottom: 0; top: auto; height: 2px;
+  background: var(--pink); border-radius: 2px 2px 0 0;
+}
+.detail-tabs.tdev-tabs .detail-tab.active { border-bottom-color: transparent; }
+/* profile-tab-bar: pill is a sliding rounded background */
+.profile-tab-bar.tdev-tabs .tdev-tab-pill {
+  background: var(--pink); border-radius: 9px;
+}
+.profile-tab-bar.tdev-tabs .profile-tab-btn { position: relative; z-index: 1; }
+.profile-tab-bar.tdev-tabs .profile-tab-btn.active {
+  background: transparent !important; color: #fff !important;
+  transition: color .28s var(--tdev-ease);
+}
+
+/* ── Accordion smooth height (task-area-group <details>) ── */
+.task-area-group.tdev-acc .task-area-body {
+  display: grid !important; grid-template-rows: 0fr; padding: 0 !important;
+  transition: grid-template-rows .25s var(--tdev-ease);
+}
+.task-area-group.tdev-acc[open] .task-area-body { grid-template-rows: 1fr; }
+.task-area-group.tdev-acc .task-area-body > .tdev-acc-inner {
+  overflow: hidden; min-height: 0; padding: 0 4px;
+  opacity: 0; filter: blur(2px);
+  transition: opacity .25s var(--tdev-ease), filter .25s var(--tdev-ease);
+}
+.task-area-group.tdev-acc[open] .task-area-body > .tdev-acc-inner {
+  opacity: 1; filter: blur(0);
+}
+.task-area-group.tdev-acc .task-area-chevron { transition: transform .25s var(--tdev-ease); }
+
+/* ── Card hover tilt (profiles / influencer cards) ── */
+.t-tilt { touch-action: none; }
+.t-tilt-card {
+  position: relative;
+  transform: perspective(1000px) rotateX(var(--tilt-rx,0deg)) rotateY(var(--tilt-ry,0deg));
+  transform-style: preserve-3d;
+  transition: transform 1000ms var(--tdev-ease);
+  will-change: transform;
+}
+.t-tilt-card.is-tilting { transition: transform 320ms var(--tdev-ease); }
+.t-tilt-glare {
+  position: absolute; inset: 0; pointer-events: none; opacity: 0;
+  mix-blend-mode: screen; border-radius: inherit; z-index: 5;
+  background:
+    radial-gradient(circle 95px at var(--tilt-gx,50%) var(--tilt-gy,50%), rgba(255,255,255,0.42), rgba(255,255,255,0.05) 52%, rgba(255,255,255,0) 84%),
+    radial-gradient(circle 220px at var(--tilt-gx,50%) var(--tilt-gy,50%), rgba(255,255,255,0.18), rgba(255,255,255,0) 78%);
+  transition: opacity 300ms var(--tdev-ease);
+}
+.t-tilt.is-hover .t-tilt-glare { opacity: 0.30; }
+
+/* ── Avatar group hover (campaign cards: people involved) ── */
+.tdev-avatars { display: flex; align-items: center; }
+.tdev-avatars .t-avatar {
+  transform: translateY(var(--shift,0px)) scale(var(--scale-active,1));
+  transition: transform 320ms cubic-bezier(0.22,1,0.36,1);
+  will-change: transform;
+}
+.camp-people {
+  display: flex; align-items: center; gap: 8px; margin: 10px 0 2px;
+}
+.camp-people-avatars { display: flex; }
+.camp-people-avatars .t-avatar {
+  width: 26px; height: 26px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700; color: #fff;
+  background: var(--pink-deep); border: 2px solid var(--white);
+  margin-left: -8px; box-shadow: 0 1px 3px rgba(10,10,12,.18);
+}
+.camp-people-avatars .t-avatar:first-child { margin-left: 0; }
+.camp-people-avatars .t-avatar.is-more { background: var(--text-muted); font-size: 10px; }
+.camp-people-label { font-size: 11px; color: var(--text-muted); font-weight: 600; }
+html.dark .camp-people-avatars .t-avatar { border-color: rgba(255,255,255,.14); }
+
+/* ── Tooltip (JS-driven floating, data-tip) ── */
+.tdev-tooltip {
+  position: fixed; z-index: 9999; pointer-events: none;
+  padding: 7px 11px; border-radius: 9px;
+  background: #1a1a1f; color: #f4f3f6;
+  font-size: 12px; font-weight: 600; white-space: nowrap;
+  box-shadow: 0 2px 6px rgba(0,0,0,.16), 0 8px 30px rgba(0,0,0,.18);
+  opacity: 0; transform: translate(-50%, 4px) scale(.97);
+  transition: opacity 50ms ease-out, transform 50ms ease-out;
+}
+.tdev-tooltip.is-shown {
+  opacity: 1; transform: translate(-50%, 0) scale(1);
+  transition: opacity 150ms ease-out 80ms, transform 150ms ease-out 80ms;
+}
+
+/* ── Texts reveal (staggered headings) ── */
+.t-stagger .t-stagger-line {
+  display: block; opacity: 0; transform: translateY(12px); filter: blur(3px);
+  transition: opacity .5s var(--tdev-ease), transform .5s var(--tdev-ease), filter .5s var(--tdev-ease);
+  will-change: transform, opacity, filter;
+}
+.t-stagger .t-stagger-line:nth-child(2) { transition-delay: 40ms; }
+.t-stagger .t-stagger-line:nth-child(3) { transition-delay: 80ms; }
+.t-stagger.is-shown .t-stagger-line { opacity: 1; transform: translateY(0); filter: blur(0); }
+
+/* ── Skeleton loader + reveal ── */
+.t-skel { position: relative; }
+.t-skel-skeleton, .t-skel-content { transition: opacity .4s ease-in-out, filter .4s ease-in-out; }
+.t-skel-skeleton { opacity: 1; filter: blur(0); }
+.t-skel.is-revealed .t-skel-skeleton { opacity: 0; filter: blur(2px); pointer-events: none; position: absolute; inset: 0; }
+.t-skel-content { opacity: 0; filter: blur(2px); }
+.t-skel.is-revealed .t-skel-content { opacity: 1; filter: blur(0); }
+.tdev-skel-bar {
+  border-radius: 10px;
+  background: linear-gradient(100deg, var(--border) 30%, rgba(255,255,255,.6) 50%, var(--border) 70%);
+  background-size: 220% 100%;
+  animation: tdevShimmer 1.2s ease-in-out infinite;
+}
+html.dark .tdev-skel-bar { background: linear-gradient(100deg, rgba(255,255,255,.06) 30%, rgba(255,255,255,.14) 50%, rgba(255,255,255,.06) 70%); background-size:220% 100%; }
+@keyframes tdevShimmer { 0% { background-position: 180% 0; } 100% { background-position: -80% 0; } }
+
+/* ── Input clear with dissolve (cmdk search) ── */
+.tdev-clear-btn {
+  position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
+  width: 22px; height: 22px; border-radius: 50%; border: none;
+  background: rgba(10,10,12,.08); color: var(--text-muted);
+  cursor: pointer; display: none; align-items: center; justify-content: center;
+  font-size: 13px; line-height: 1; z-index: 5;
+  transition: background .15s, transform .15s;
+}
+.tdev-clear-btn.is-visible { display: flex; }
+.tdev-clear-btn:hover { background: var(--pink-pale); color: var(--pink-deep); transform: translateY(-50%) scale(1.1); }
+html.dark .tdev-clear-btn { background: rgba(255,255,255,.10); }
+.tdev-dissolving {
+  animation: tdevDissolve .4s var(--tdev-ease) forwards;
+}
+@keyframes tdevDissolve {
+  to { opacity: 0; transform: translateY(-10px); filter: blur(2px); }
+}
+
+/* ── FAB plus→menu morph polish ── */
+#fabMainBtn { transition: transform .35s var(--tdev-spring), background .25s var(--ease), box-shadow .25s var(--ease); }
+#fabMainBtn.open { transform: rotate(135deg); }
+.fab-actions .fab-action {
+  opacity: 0; transform: translateX(18px) scale(.96); filter: blur(2px);
+  transition: opacity .2s var(--tdev-ease), transform .35s var(--tdev-spring), filter .2s var(--tdev-ease);
+}
+.fab-actions.open .fab-action { opacity: 1; transform: translateX(0) scale(1); filter: blur(0); }
+.fab-actions.open .fab-action:nth-child(1) { transition-delay: .02s; }
+.fab-actions.open .fab-action:nth-child(2) { transition-delay: .06s; }
+.fab-actions.open .fab-action:nth-child(3) { transition-delay: .10s; }
+.fab-actions.open .fab-action:nth-child(4) { transition-delay: .14s; }
+.fab-actions.open .fab-action:nth-child(5) { transition-delay: .18s; }
+
+@media (prefers-reduced-motion: reduce) {
+  .tdev-tab-pill, .task-area-group.tdev-acc .task-area-body,
+  .t-tilt-card, .tdev-avatars .t-avatar, .tdev-tooltip,
+  .t-stagger .t-stagger-line, .t-skel-skeleton, .t-skel-content,
+  #fabMainBtn, .fab-actions .fab-action {
+    transition: none !important; animation: none !important;
+  }
+}
 </style>
 </head>
 <body>
@@ -3717,9 +3894,9 @@ function lrGoogleLogin(btn){
       <button class="hamburger-btn" onclick="toggleMobileSidebar()" aria-label="Menú">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
       </button>
-      <div class="topbar-left">
-        <h2 id="topbarTitle">Resumen</h2>
-        <p id="topbarSub">Lo que necesita tu atención hoy.</p>
+      <div class="topbar-left t-stagger is-shown">
+        <h2 id="topbarTitle" class="t-stagger-line">Resumen</h2>
+        <p id="topbarSub" class="t-stagger-line">Lo que necesita tu atención hoy.</p>
       </div>
     </div>
     <div class="topbar-right">
@@ -5679,6 +5856,7 @@ function navigate(page) {
   const t = titles[page] || [page,'',''];
   document.getElementById('topbarTitle').textContent = t[0];
   document.getElementById('topbarSub').textContent = t[1];
+  if(typeof tdevReplay==='function') tdevReplay(document.querySelector('.topbar-left.t-stagger'));
   const btn = document.getElementById('mainActionBtn');
   if(btn) btn.style.display='none';
 
@@ -6018,6 +6196,20 @@ function renderCampaignGrid() {
     return true;
   });
   const grid = document.getElementById('campaignGrid');
+  // Skeleton while initial Firestore load is pending
+  if(!_cache._initialized && campaigns.length===0) {
+    grid.innerHTML = Array.from({length:4}).map(()=>`
+      <div class="campaign-card" style="pointer-events:none;">
+        <div class="campaign-card-header">
+          <div style="flex:1"><div class="tdev-skel-bar" style="height:16px;width:60%;margin-bottom:8px;"></div><div class="tdev-skel-bar" style="height:12px;width:40%;"></div></div>
+          <div class="tdev-skel-bar" style="height:22px;width:70px;border-radius:20px;"></div>
+        </div>
+        <div class="tdev-skel-bar" style="height:14px;width:85%;margin:12px 0;"></div>
+        <div class="tdev-skel-bar" style="height:8px;width:100%;margin-top:14px;"></div>
+        <div class="tdev-skel-bar" style="height:8px;width:100%;margin-top:14px;"></div>
+      </div>`).join('');
+    return;
+  }
   const statusBadge = (s) => {
     const map = {'En proceso':'badge-blue','Ajustes':'badge-yellow','Pendiente cliente':'badge-orange','En reporte':'badge-red','En producción':'badge-purple','Completado':'badge-green'};
     return `<span class="badge ${map[s]||'badge-gray'}">${s}</span>`;
@@ -6096,6 +6288,7 @@ function renderCampaignGrid() {
         <span class="badge badge-mint"><span class="badge-icn">${ICN_calendar}</span>${c.season||'—'}</span>
         ${(()=>{ const r=c.responsables||{}; return ['operaciones','cuentas','creativo','data'].map(k=>{ const uids=getAreaUids(r,k); return uids.map(uid=>{ const u=allUsers.find(x=>x.uid===uid); return u?`<span class="badge badge-area-${u.area||k.charAt(0).toUpperCase()+k.slice(1)}">${u.name||u.email.split('@')[0]}</span>`:''; }).join(''); }).join(''); })()||''}
       </div>
+      ${(()=>{ const ppl=(c.influencers||[]).filter(i=>i&&i.name); if(!ppl.length) return ''; const max=5; const shown=ppl.slice(0,max); const extra=ppl.length-shown.length; const av=shown.map(i=>`<div class="t-avatar" title="${_esc(i.name)}">${_esc((i.name||'?')[0].toUpperCase())}</div>`).join('')+(extra>0?`<div class="t-avatar is-more" title="+${extra} más">+${extra}</div>`:''); return `<div class="camp-people tdev-avatars"><div class="camp-people-avatars">${av}</div><span class="camp-people-label">${ppl.length} ${ppl.length===1?'persona':'personas'}</span></div>`; })()}
       <div class="campaign-progress">
         <div class="progress-label"><span>Flujo</span><span>${pct}%</span></div>
         <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
@@ -13243,7 +13436,7 @@ function renderInfluencers() {
       + (inf.campaigns.length>3 ? ` <span style="font-size:11px;color:var(--text-muted);">+${inf.campaigns.length-3}</span>` : '');
     const kw = (inf.keywords||[]).slice(0,4).map(k=>`<span style="font-size:10px;padding:1px 6px;border-radius:8px;background:var(--pink-pale);color:var(--pink);">${_esc(k)}</span>`).join(' ');
     const segTxt = inf.seguidoresTotal ? `<span style="font-size:11px;color:var(--text-muted);font-weight:700;">${formatNum(inf.seguidoresTotal)} seg.</span>` : '';
-    return `<div class="campaign-card" onclick="openInfluencerDetail('${inf.key}')" style="cursor:pointer;position:relative;">
+    return `<div class="campaign-card" data-tilt onclick="openInfluencerDetail('${inf.key}')" style="cursor:pointer;position:relative;">
       <input type="checkbox" class="inf-compare-check" title="Comparar" ${_infCompareSet.has(inf.key)?'checked':''} onclick="event.stopPropagation();toggleInfCompare('${inf.key}',this)">
       <div class="campaign-card-header">
         <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;">
@@ -14726,8 +14919,11 @@ function _ensureCmdkDom() {
   ov.id = 'cmdkOverlay';
   ov.style.cssText = 'display:none;position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.45);backdrop-filter:blur(2px);align-items:flex-start;justify-content:center;padding-top:12vh;';
   ov.innerHTML = `<div style="width:min(620px,92vw);background:var(--white,#fff);border-radius:16px;box-shadow:0 24px 70px rgba(0,0,0,.35);overflow:hidden;" onclick="event.stopPropagation()">
-    <input id="cmdkInput" type="text" placeholder="Buscar campañas, influencers, tareas, documentos..." autocomplete="off"
-      style="width:100%;border:none;outline:none;padding:18px 20px;font-size:16px;background:transparent;color:var(--text,#111);border-bottom:1px solid var(--border,#eee);">
+    <div style="position:relative;border-bottom:1px solid var(--border,#eee);">
+      <input id="cmdkInput" type="text" placeholder="Buscar campañas, influencers, tareas, documentos..." autocomplete="off"
+        style="width:100%;border:none;outline:none;padding:18px 44px 18px 20px;font-size:16px;background:transparent;color:var(--text,#111);">
+      <button type="button" id="cmdkClear" class="tdev-clear-btn" aria-label="Limpiar búsqueda">✕</button>
+    </div>
     <div id="cmdkList" style="max-height:50vh;overflow-y:auto;padding:6px;"></div>
     <div style="padding:8px 16px;font-size:11px;color:var(--text-muted,#888);border-top:1px solid var(--border,#eee);display:flex;gap:14px;">
       <span>↑↓ navegar</span><span>↵ abrir</span><span>esc cerrar</span>
@@ -14735,7 +14931,23 @@ function _ensureCmdkDom() {
   </div>`;
   ov.addEventListener('click', closeCmdk);
   document.body.appendChild(ov);
-  document.getElementById('cmdkInput').addEventListener('input', _cmdkRender);
+  const _ci = document.getElementById('cmdkInput');
+  const _cc = document.getElementById('cmdkClear');
+  const _toggleClear = () => _cc.classList.toggle('is-visible', !!_ci.value);
+  _ci.addEventListener('input', () => { _toggleClear(); _cmdkRender(); });
+  _cc.addEventListener('click', () => {
+    if(!_ci.value) return;
+    const list = document.getElementById('cmdkList');
+    // dissolve current results, then clear
+    if(list) { list.classList.add('tdev-dissolving'); }
+    _ci.value = '';
+    _toggleClear();
+    setTimeout(() => {
+      if(list) list.classList.remove('tdev-dissolving');
+      _cmdkRender();
+      _ci.focus();
+    }, 260);
+  });
 }
 function openCmdk() {
   if(typeof currentUser !== 'undefined' && !currentUser) return; // not logged in
@@ -14744,6 +14956,7 @@ function openCmdk() {
   ov.style.display = 'flex';
   const inp = document.getElementById('cmdkInput');
   inp.value = ''; _cmdkIndex = 0;
+  document.getElementById('cmdkClear')?.classList.remove('is-visible');
   _cmdkRender();
   setTimeout(()=>inp.focus(),30);
 }
@@ -15401,6 +15614,159 @@ document.addEventListener('click', e => { if(_fabOpen && !e.target.closest('.fab
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9 12l2 2 4-4"/></svg>
   <span class="t-badge" id="pendientesBadge" data-open="false"><span class="t-badge-dot nav-badge">0</span></span>
 </button>
+
+<!-- ============================================================
+     TRANSITIONS.DEV — progressive enhancement engine
+     Idempotent. Re-runs on DOM mutations so dynamically
+     rendered views keep their animations.
+     ============================================================ -->
+<script>
+(function(){
+  const RM = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ---- Stagger replay (used by navigate) ---- */
+  window.tdevReplay = function(el){
+    if(!el) return;
+    el.classList.remove('is-shown');
+    void el.offsetWidth;           // force reflow
+    requestAnimationFrame(()=>el.classList.add('is-shown'));
+  };
+
+  /* ---- Sliding tab pill ---- */
+  function positionPill(bar){
+    const active = bar.querySelector('.detail-tab.active, .profile-tab-btn.active');
+    const pill = bar.querySelector(':scope > .tdev-tab-pill');
+    if(!pill) return;
+    if(!active){ pill.style.opacity='0'; return; }
+    pill.style.opacity='1';
+    const isUnderline = bar.classList.contains('detail-tabs');
+    pill.style.width = active.offsetWidth + 'px';
+    pill.style.transform = 'translateX(' + active.offsetLeft + 'px)';
+    if(!isUnderline){ pill.style.height = active.offsetHeight + 'px'; pill.style.transform = 'translateX('+active.offsetLeft+'px) translateY('+active.offsetTop+'px)'; }
+  }
+  function enhanceTabs(bar){
+    if(bar.classList.contains('tdev-tabs')) { positionPill(bar); return; }
+    bar.classList.add('tdev-tabs');
+    const pill = document.createElement('span');
+    pill.className = 'tdev-tab-pill';
+    bar.insertBefore(pill, bar.firstChild);
+    // snap into place without animating on first paint
+    const prev = pill.style.transition; pill.style.transition='none';
+    positionPill(bar); void pill.offsetWidth; pill.style.transition = prev;
+    bar.addEventListener('click', e=>{
+      if(e.target.closest('.detail-tab, .profile-tab-btn')) requestAnimationFrame(()=>positionPill(bar));
+    });
+  }
+
+  /* ---- Accordion (task-area-group details) ---- */
+  function enhanceAccordion(d){
+    if(d.classList.contains('tdev-acc')) return;
+    const body = d.querySelector(':scope > .task-area-body');
+    if(!body) return;
+    d.classList.add('tdev-acc');
+    if(!body.querySelector(':scope > .tdev-acc-inner')){
+      const inner = document.createElement('div');
+      inner.className = 'tdev-acc-inner';
+      while(body.firstChild) inner.appendChild(body.firstChild);
+      body.appendChild(inner);
+    }
+  }
+
+  /* ---- Avatar group hover spring ---- */
+  function enhanceAvatars(group){
+    if(group.dataset.tdevAv) return;
+    group.dataset.tdevAv = '1';
+    const items = () => Array.from(group.querySelectorAll('.t-avatar'));
+    const LIFT=-5, SCALE=1.12, FALLOFF=0.45;
+    group.addEventListener('mouseleave', ()=>{
+      items().forEach(el=>{ el.style.setProperty('--shift','0px'); el.style.setProperty('--scale-active','1'); });
+    });
+    group.addEventListener('mouseover', e=>{
+      const t = e.target.closest('.t-avatar'); if(!t) return;
+      const list = items(); const idx = list.indexOf(t);
+      list.forEach((el,i)=>{
+        const dist = Math.abs(i-idx);
+        el.style.setProperty('--shift', (LIFT*Math.pow(FALLOFF,dist)).toFixed(2)+'px');
+        el.style.setProperty('--scale-active', i===idx?SCALE:1);
+      });
+    });
+  }
+
+  /* ---- Card tilt ---- */
+  function enhanceTilt(card){
+    if(card.dataset.tdevTilt) return;
+    card.dataset.tdevTilt='1';
+    card.classList.add('t-tilt','t-tilt-card');
+    if(!card.querySelector(':scope > .t-tilt-glare')){
+      const g = document.createElement('div'); g.className='t-tilt-glare'; card.appendChild(g);
+    }
+    const MAX=7;
+    let raf=null;
+    card.addEventListener('pointerenter', ()=>{ if(RM) return; card.classList.add('is-tilting','is-hover'); });
+    card.addEventListener('pointermove', e=>{
+      if(RM) return;
+      if(raf) return;
+      raf = requestAnimationFrame(()=>{
+        raf=null;
+        const r = card.getBoundingClientRect();
+        const px = (e.clientX-r.left)/r.width, py=(e.clientY-r.top)/r.height;
+        card.style.setProperty('--tilt-ry', ((px-0.5)*2*MAX).toFixed(2)+'deg');
+        card.style.setProperty('--tilt-rx', (-(py-0.5)*2*MAX).toFixed(2)+'deg');
+        card.style.setProperty('--tilt-gx', (px*100).toFixed(1)+'%');
+        card.style.setProperty('--tilt-gy', (py*100).toFixed(1)+'%');
+      });
+    });
+    card.addEventListener('pointerleave', ()=>{
+      card.classList.remove('is-tilting','is-hover');
+      card.style.setProperty('--tilt-rx','0deg'); card.style.setProperty('--tilt-ry','0deg');
+    });
+  }
+
+  /* ---- Tooltip (data-tip) ---- */
+  let tip;
+  function ensureTip(){ if(!tip){ tip=document.createElement('div'); tip.className='tdev-tooltip'; document.body.appendChild(tip); } return tip; }
+  function showTip(el){
+    const txt = el.getAttribute('data-tip'); if(!txt) return;
+    const t = ensureTip(); t.textContent = txt;
+    const r = el.getBoundingClientRect();
+    t.style.left = (r.left + r.width/2) + 'px';
+    t.style.top  = (r.top - 8) + 'px';
+    t.style.transform = 'translate(-50%, -100%) scale(.97)';
+    requestAnimationFrame(()=>{ t.classList.add('is-shown'); t.style.transform='translate(-50%, -100%) scale(1)'; });
+  }
+  function hideTip(){ if(tip) tip.classList.remove('is-shown'); }
+  document.addEventListener('mouseover', e=>{ const el=e.target.closest('[data-tip]'); if(el) showTip(el); });
+  document.addEventListener('mouseout', e=>{ if(e.target.closest('[data-tip]')) hideTip(); });
+  document.addEventListener('focusin', e=>{ const el=e.target.closest('[data-tip]'); if(el) showTip(el); });
+  document.addEventListener('focusout', hideTip);
+  window.addEventListener('scroll', hideTip, true);
+
+  /* ---- Main sweep ---- */
+  function initTransitions(root){
+    root = root || document;
+    root.querySelectorAll('.detail-tabs, .profile-tab-bar').forEach(enhanceTabs);
+    root.querySelectorAll('details.task-area-group').forEach(enhanceAccordion);
+    root.querySelectorAll('.tdev-avatars').forEach(enhanceAvatars);
+    root.querySelectorAll('[data-tilt]').forEach(enhanceTilt);
+    root.querySelectorAll('.t-stagger:not(.is-shown)').forEach(el=>requestAnimationFrame(()=>el.classList.add('is-shown')));
+  }
+  window.initTransitions = initTransitions;
+
+  /* ---- Observe DOM for dynamically rendered views ---- */
+  let pending=false;
+  const obs = new MutationObserver(()=>{
+    if(pending) return; pending=true;
+    requestAnimationFrame(()=>{ pending=false; initTransitions(document); });
+  });
+  function boot(){
+    initTransitions(document);
+    obs.observe(document.body, {childList:true, subtree:true});
+    window.addEventListener('resize', ()=>document.querySelectorAll('.tdev-tabs').forEach(positionPill));
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
+})();
+</script>
 
 </body>
 </html>
