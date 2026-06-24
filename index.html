@@ -6301,7 +6301,7 @@ function renderCampaignGrid() {
       <div class="campaign-meta">
         <span class="badge badge-lavender"><span class="badge-icn">${ICN_users}</span>${c.influencers.length} influencers</span>
         <span class="badge badge-mint"><span class="badge-icn">${ICN_calendar}</span>${c.season||'—'}</span>
-        ${(()=>{ const r=c.responsables||{}; return ['operaciones','cuentas','creativo','data'].map(k=>{ const uids=getAreaUids(r,k); return uids.map(uid=>{ const u=allUsers.find(x=>x.uid===uid); return u?`<span class="badge badge-area-${u.area||k.charAt(0).toUpperCase()+k.slice(1)}">${u.name||u.email.split('@')[0]}</span>`:''; }).join(''); }).join(''); })()||''}
+        ${(()=>{ const r=c.responsables||{}; return ['operaciones','cuentas','creativo','data'].map(k=>{ const uids=getAreaUids(r,k); return uids.map(uid=>{ const u=allUsers.find(x=>x.uid===uid); return u?`<span class="badge badge-area-${u.area||k.charAt(0).toUpperCase()+k.slice(1)}">${_esc(u.name||u.email.split('@')[0])}</span>`:'';}).join(''); }).join(''); })()||''}
       </div>
       ${(()=>{ const ppl=(c.influencers||[]).filter(i=>i&&i.name); if(!ppl.length) return ''; const max=5; const shown=ppl.slice(0,max); const extra=ppl.length-shown.length; const av=shown.map(i=>`<div class="t-avatar" title="${_esc(i.name)}">${_esc((i.name||'?')[0].toUpperCase())}</div>`).join('')+(extra>0?`<div class="t-avatar is-more" title="+${extra} más">+${extra}</div>`:''); return `<div class="camp-people tdev-avatars"><div class="camp-people-avatars">${av}</div><span class="camp-people-label">${ppl.length} ${ppl.length===1?'persona':'personas'}</span></div>`; })()}
       <div class="campaign-progress">
@@ -9101,7 +9101,7 @@ function renderPendientes() {
     const allAssignees = [...new Map(allUsers.map(u=>[u.uid,u])).values()];
     pf.innerHTML = [
       `<button class="metrics-tab-pill ${!filterByUser?'active':''}" onclick="setPendientesUser('')">Todos</button>`,
-      ...allAssignees.map(u=>`<button class="metrics-tab-pill ${filterByUser===u.uid?'active':''}" onclick="setPendientesUser('${u.uid}')">${memberAvatarHtml(u,16)} ${u.name||u.email.split('@')[0]}</button>`)
+      ...allAssignees.map(u=>`<button class="metrics-tab-pill ${filterByUser===u.uid?'active':''}" onclick="setPendientesUser('${u.uid}')">${memberAvatarHtml(u,16)} ${_esc(u.name||u.email.split('@')[0])}</button>`)
     ].join('');
   }
 
@@ -10181,8 +10181,8 @@ function renderAreaPicker(areaKey) {
         const initial = name[0]?.toUpperCase() || '?';
         return `<div class="area-dropdown-item" onclick="addToArea('${areaKey}','${u.uid}');event.stopPropagation();">
           ${memberAvatarHtml(u, 26)}
-          <span style="flex:1">${name}</span>
-          ${u.area ? `<span class="badge badge-area-${u.area}" style="font-size:9px;">${u.area}</span>` : ''}
+          <span style="flex:1">${_esc(name)}</span>
+          ${u.area ? `<span class="badge badge-area-${u.area}" style="font-size:9px;">${_esc(u.area)}</span>` : ''}
         </div>`;
       }).join('');
   el.innerHTML = chips + addBtn + `<div class="area-dropdown" id="areaDD_${areaKey}" style="display:none;">${dropdownItems}</div>`;
@@ -10316,8 +10316,8 @@ function _renderAssignModal(c) {
       <div style="display:flex;align-items:center;gap:10px;padding:9px 12px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;background:var(--lavender-pale);">
         ${avatar(u)}
         <div style="flex:1;">
-          <div style="font-size:13px;font-weight:600;">${u.name||'—'} ${u.uid===c.createdBy?'<span style="font-size:10px;color:var(--text-muted);">(creador)</span>':''}</div>
-          <div style="font-size:11px;color:var(--text-muted);">${u.email}</div>
+          <div style="font-size:13px;font-weight:600;">${_esc(u.name||'—')} ${u.uid===c.createdBy?'<span style="font-size:10px;color:var(--text-muted);">(creador)</span>':''}</div>
+          <div style="font-size:11px;color:var(--text-muted);">${_esc(u.email)}</div>
         </div>
         <span class="badge ${u.role==='admin'?'badge-pink':'badge-gray'}">${u.role==='admin'?'Admin':'Miembro'}</span>
         ${u.uid !== c.createdBy ? `<button onclick="removeAssignee('${c.id}','${u.uid}');_renderAssignModal(_cache.campaigns.find(x=>x.id==='${c.id}'))" style="background:var(--red);border:none;cursor:pointer;color:#fff;font-size:11px;font-weight:700;padding:4px 10px;border-radius:6px;flex-shrink:0;">Eliminar</button>` : ''}
@@ -10329,8 +10329,8 @@ function _renderAssignModal(c) {
         <input type="checkbox" data-uid="${u.uid}" style="width:16px;height:16px;cursor:pointer;">
         ${avatar(u)}
         <div style="flex:1;">
-          <div style="font-size:13px;font-weight:600;">${u.name||'—'}</div>
-          <div style="font-size:11px;color:var(--text-muted);">${u.email}</div>
+          <div style="font-size:13px;font-weight:600;">${_esc(u.name||'—')}</div>
+          <div style="font-size:11px;color:var(--text-muted);">${_esc(u.email)}</div>
         </div>
         <span class="badge ${u.role==='admin'?'badge-pink':'badge-gray'}">${u.role==='admin'?'Admin':'Miembro'}</span>
       </label>`).join('');
@@ -10421,13 +10421,13 @@ function renderEquipo() {
     <div class="team-card t-avatar" onclick="openProfileModal('${u.uid}')">
       ${isMe ? '<div class="team-card-you">Tú</div>' : ''}
       <div class="team-card-avatar">${memberAvatarHtml(u, 56, '16px')}</div>
-      <div class="team-card-name">${u.name||'—'}</div>
-      ${(u.puesto||u.role) ? `<div class="team-card-role">${u.puesto||(u.role==='admin'?'Admin':'Miembro')}</div>` : ''}
+      <div class="team-card-name">${_esc(u.name||'—')}</div>
+      ${(u.puesto||u.role) ? `<div class="team-card-role">${_esc(u.puesto)||(u.role==='admin'?'Admin':'Miembro')}</div>` : ''}
       <div class="team-card-badges">
-        ${u.area ? `<span class="badge badge-area-${u.area}" style="font-size:10px;">${u.area}</span>` : ''}
+        ${u.area ? `<span class="badge badge-area-${u.area}" style="font-size:10px;">${_esc(u.area)}</span>` : ''}
         ${u.role==='admin' ? `<span class="badge" style="background:var(--pink-pale);color:var(--pink-deep);font-size:10px;">Admin</span>` : ''}
       </div>
-      ${hasStatus ? `<div class="team-card-status">${u.statusEmoji||''} ${u.statusText}</div>` : ''}
+      ${hasStatus ? `<div class="team-card-status">${u.statusEmoji||''} ${_esc(u.statusText)}</div>` : ''}
       ${activeTasks.length > 0 ? `<div class="team-card-tasks">${activeTasks.length} tarea${activeTasks.length!==1?'s':''}</div>` : ''}
       ${!isMe ? `<button class="kudos-btn" onclick="sendKudos('${u.uid}',event)" style="margin-top:2px;">🏆 Kudos</button>` : ''}
     </div>`;
@@ -10521,13 +10521,13 @@ function renderTeam() {
     <div class="team-card" onclick="openProfileModal('${u.uid}')">
       ${isMe ? '<div class="team-card-you">Tú</div>' : ''}
       <div class="team-card-avatar">${avatarHtml}</div>
-      <div class="team-card-name">${u.name||'—'}</div>
-      ${(u.puesto||u.role) ? `<div class="team-card-role">${u.puesto || (u.role==='admin'?'Admin':'Miembro')}</div>` : ''}
+      <div class="team-card-name">${_esc(u.name||'—')}</div>
+      ${(u.puesto||u.role) ? `<div class="team-card-role">${_esc(u.puesto) || (u.role==='admin'?'Admin':'Miembro')}</div>` : ''}
       <div class="team-card-badges">
-        ${u.area ? `<span class="badge badge-area-${u.area}" style="font-size:10px;">${u.area}</span>` : ''}
+        ${u.area ? `<span class="badge badge-area-${u.area}" style="font-size:10px;">${_esc(u.area)}</span>` : ''}
         ${u.role==='admin' ? `<span class="badge" style="background:var(--pink-pale);color:var(--pink-deep);font-size:10px;">Admin</span>` : ''}
       </div>
-      ${hasStatus ? `<div class="team-card-status">${u.statusEmoji||''} ${u.statusText}</div>` : ''}
+      ${hasStatus ? `<div class="team-card-status">${u.statusEmoji||''} ${_esc(u.statusText)}</div>` : ''}
       ${activeTasks.length > 0 ? `<div class="team-card-tasks">${activeTasks.length} tarea${activeTasks.length!==1?'s':''}</div>` : ''}
       ${!isMe ? `<button class="kudos-btn" onclick="sendKudos('${u.uid}',event)" style="margin-top:2px;">🏆 Kudos</button>` : ''}
       ${adminSelects}
@@ -10834,7 +10834,7 @@ function populateTaskAssigneeSelect(defaultUid) {
   const sel = document.getElementById('fTaskAssignee');
   if(!sel) return;
   sel.innerHTML = `<option value="">Sin asignar</option>` +
-    allUsers.map(u => `<option value="${u.uid}">${u.name || u.email.split('@')[0]}</option>`).join('');
+    allUsers.map(u => `<option value="${u.uid}">${_esc(u.name || u.email.split('@')[0])}</option>`).join('');
   sel.value = defaultUid || currentUser.uid;
 }
 
@@ -11962,7 +11962,7 @@ async function loadCalendarEvents() {
       const msg = errData?.error?.message || 'Acceso denegado';
       showToast('Calendar API no habilitada: ' + msg, 'error');
       const el = document.getElementById('googleCalendarWidget');
-      if(el) el.innerHTML = `<div class="card"><div class="card-header"><span class="card-title">📅 Calendario de hoy</span></div><div style="padding:20px;text-align:center;color:var(--red);font-size:13px;">⚠️ Google Calendar API no está habilitada en tu proyecto de Google Cloud.<br><br><a href="https://console.cloud.google.com/apis/library/calendar-json.googleapis.com" target="_blank" class="btn btn-primary" style="margin-top:8px;">Habilitar Calendar API →</a></div></div>`;
+      if(el) el.innerHTML = `<div class="card"><div class="card-header"><span class="card-title">📅 Calendario de hoy</span></div><div style="padding:20px;text-align:center;color:var(--red);font-size:13px;">⚠️ Google Calendar API no está habilitada en tu proyecto de Google Cloud.<br><br><a href="https://console.cloud.google.com/apis/library/calendar-json.googleapis.com" target="_blank" rel="noopener noreferrer" class="btn btn-primary" style="margin-top:8px;">Habilitar Calendar API →</a></div></div>`;
       return;
     }
     const data = await res.json();
@@ -12088,7 +12088,7 @@ function renderGmailWidget() {
           `).join('')}
         </div>
         <div style="padding-top:10px;">
-          <a href="https://mail.google.com" target="_blank" style="font-size:12px;color:var(--blue);font-weight:600;">Abrir Gmail →</a>
+          <a href="https://mail.google.com" target="_blank" rel="noopener noreferrer" style="font-size:12px;color:var(--blue);font-weight:600;">Abrir Gmail →</a>
         </div>`
     }
   </div>`;
@@ -14281,7 +14281,7 @@ function memberAvatarHtml(u, size=20, radius='50%') {
   const content = u.profileEmoji || (u.name||u.email||'?')[0].toUpperCase();
   const r       = getAvatarRadius(u, size, radius);
   const fontSize = u.profileEmoji ? `${Math.round(size*0.6)}px` : `${Math.round(size*0.5)}px`;
-  return `<span style="width:${size}px;height:${size}px;border-radius:${r};background:${bg};color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:${fontSize};font-weight:700;flex-shrink:0;cursor:pointer;" onclick="openProfileModal('${u.uid||''}')" title="${u.name||u.email||''}">${content}</span>`;
+  return `<span style="width:${size}px;height:${size}px;border-radius:${r};background:${bg};color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:${fontSize};font-weight:700;flex-shrink:0;cursor:pointer;" onclick="openProfileModal('${u.uid||''}')" title="${_esc(u.name||u.email||'')}">${content}</span>`;
 }
 
 function applyAvatarEl(el, profile) {
