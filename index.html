@@ -3323,8 +3323,23 @@ html.dark .ob-field input, html.dark .ob-field select, html.dark .ob-field texta
    classes (t-*) + light enhancements on existing components.
    ============================================================ */
 :root {
-  --tdev-ease: cubic-bezier(0.22, 1, 0.36, 1);
-  --tdev-spring: cubic-bezier(0.34, 1.25, 0.64, 1);
+  /* ── Motion tokens (transitions.dev scale) — single source of truth.
+        Namespaced to avoid clobbering legacy --ease / --ease-out. ── */
+  --dur-stagger: 40ms;     /* per-item stagger offset            */
+  --dur-micro: 80ms;       /* tooltip delay                      */
+  --dur-quick: 150ms;      /* close, swaps, tooltip in           */
+  --dur-fast: 250ms;       /* tabs, accordion, icon swap, open   */
+  --dur-medium: 350ms;     /* panel/morph close                  */
+  --dur-slow: 400ms;       /* panel open, skeleton reveal        */
+  --dur-very-slow: 500ms;  /* emphasis, text reveal              */
+  --ease-smooth: cubic-bezier(0.22, 1, 0.36, 1);       /* most UI motion   */
+  --ease-bounce: cubic-bezier(0.34, 1.36, 0.64, 1);    /* playful pop      */
+  --ease-bounce-strong: cubic-bezier(0.34, 3.85, 0.64, 1); /* hover-out    */
+  --ease-linear: linear;   /* shimmer, pulse, spinner            */
+  --blur-sm: 2px;  --blur-md: 3px;  --blur-lg: 8px;    /* motion blur      */
+  /* back-compat aliases (used across this block) */
+  --tdev-ease: var(--ease-smooth);
+  --tdev-spring: var(--ease-bounce);
 }
 
 /* ── Sliding tabs pill (detail-tabs + profile-tab-bar) ── */
@@ -3333,7 +3348,7 @@ html.dark .ob-field input, html.dark .ob-field select, html.dark .ob-field texta
   position: absolute; left: 0; top: 0;
   pointer-events: none; z-index: 0;
   transform: translateX(0); width: 0;
-  transition: transform .28s var(--tdev-ease), width .28s var(--tdev-ease), height .28s var(--tdev-ease);
+  transition: transform var(--dur-fast) var(--tdev-ease), width var(--dur-fast) var(--tdev-ease), height var(--dur-fast) var(--tdev-ease);
   will-change: transform, width;
 }
 /* detail-tabs: pill is a sliding underline */
@@ -3349,24 +3364,24 @@ html.dark .ob-field input, html.dark .ob-field select, html.dark .ob-field texta
 .profile-tab-bar.tdev-tabs .profile-tab-btn { position: relative; z-index: 1; }
 .profile-tab-bar.tdev-tabs .profile-tab-btn.active {
   background: transparent !important; color: #fff !important;
-  transition: color .28s var(--tdev-ease);
+  transition: color var(--dur-fast) var(--tdev-ease);
 }
 
 /* ── Accordion smooth height (task-area-group <details>) ── */
 .task-area-group.tdev-acc .task-area-body {
   display: grid !important; grid-template-rows: 0fr; padding: 0 !important;
-  transition: grid-template-rows .25s var(--tdev-ease);
+  transition: grid-template-rows var(--dur-fast) var(--tdev-ease);
 }
 .task-area-group.tdev-acc[open] .task-area-body { grid-template-rows: 1fr; }
 .task-area-group.tdev-acc .task-area-body > .tdev-acc-inner {
   overflow: hidden; min-height: 0; padding: 0 4px;
-  opacity: 0; filter: blur(2px);
-  transition: opacity .25s var(--tdev-ease), filter .25s var(--tdev-ease);
+  opacity: 0; filter: blur(var(--blur-sm));
+  transition: opacity var(--dur-fast) var(--tdev-ease), filter var(--dur-fast) var(--tdev-ease);
 }
 .task-area-group.tdev-acc[open] .task-area-body > .tdev-acc-inner {
   opacity: 1; filter: blur(0);
 }
-.task-area-group.tdev-acc .task-area-chevron { transition: transform .25s var(--tdev-ease); }
+.task-area-group.tdev-acc .task-area-chevron { transition: transform var(--dur-fast) var(--tdev-ease); }
 
 /* ── Card hover tilt (profiles / influencer cards) ── */
 .t-tilt { touch-action: none; }
@@ -3392,7 +3407,7 @@ html.dark .ob-field input, html.dark .ob-field select, html.dark .ob-field texta
 .tdev-avatars { display: flex; align-items: center; }
 .tdev-avatars .t-avatar {
   transform: translateY(var(--shift,0px)) scale(var(--scale-active,1));
-  transition: transform 320ms cubic-bezier(0.22,1,0.36,1);
+  transition: transform var(--dur-fast) var(--ease-smooth);
   will-change: transform;
 }
 .camp-people {
@@ -3423,31 +3438,31 @@ html.dark .camp-people-avatars .t-avatar { border-color: rgba(255,255,255,.14); 
 }
 .tdev-tooltip.is-shown {
   opacity: 1; transform: translate(-50%, 0) scale(1);
-  transition: opacity 150ms ease-out 80ms, transform 150ms ease-out 80ms;
+  transition: opacity var(--dur-quick) ease-out var(--dur-micro), transform var(--dur-quick) ease-out var(--dur-micro);
 }
 
 /* ── Texts reveal (staggered headings) ── */
 .t-stagger .t-stagger-line {
-  display: block; opacity: 0; transform: translateY(12px); filter: blur(3px);
-  transition: opacity .5s var(--tdev-ease), transform .5s var(--tdev-ease), filter .5s var(--tdev-ease);
+  display: block; opacity: 0; transform: translateY(12px); filter: blur(var(--blur-md));
+  transition: opacity var(--dur-very-slow) var(--tdev-ease), transform var(--dur-very-slow) var(--tdev-ease), filter var(--dur-very-slow) var(--tdev-ease);
   will-change: transform, opacity, filter;
 }
-.t-stagger .t-stagger-line:nth-child(2) { transition-delay: 40ms; }
-.t-stagger .t-stagger-line:nth-child(3) { transition-delay: 80ms; }
+.t-stagger .t-stagger-line:nth-child(2) { transition-delay: var(--dur-stagger); }
+.t-stagger .t-stagger-line:nth-child(3) { transition-delay: var(--dur-micro); }
 .t-stagger.is-shown .t-stagger-line { opacity: 1; transform: translateY(0); filter: blur(0); }
 
 /* ── Skeleton loader + reveal ── */
 .t-skel { position: relative; }
-.t-skel-skeleton, .t-skel-content { transition: opacity .4s ease-in-out, filter .4s ease-in-out; }
+.t-skel-skeleton, .t-skel-content { transition: opacity var(--dur-slow) ease-in-out, filter var(--dur-slow) ease-in-out; }
 .t-skel-skeleton { opacity: 1; filter: blur(0); }
-.t-skel.is-revealed .t-skel-skeleton { opacity: 0; filter: blur(2px); pointer-events: none; position: absolute; inset: 0; }
-.t-skel-content { opacity: 0; filter: blur(2px); }
+.t-skel.is-revealed .t-skel-skeleton { opacity: 0; filter: blur(var(--blur-sm)); pointer-events: none; position: absolute; inset: 0; }
+.t-skel-content { opacity: 0; filter: blur(var(--blur-sm)); }
 .t-skel.is-revealed .t-skel-content { opacity: 1; filter: blur(0); }
 .tdev-skel-bar {
   border-radius: 10px;
   background: linear-gradient(100deg, var(--border) 30%, rgba(255,255,255,.6) 50%, var(--border) 70%);
   background-size: 220% 100%;
-  animation: tdevShimmer 1.2s ease-in-out infinite;
+  animation: tdevShimmer 1.2s var(--ease-linear) infinite;
 }
 html.dark .tdev-skel-bar { background: linear-gradient(100deg, rgba(255,255,255,.06) 30%, rgba(255,255,255,.14) 50%, rgba(255,255,255,.06) 70%); background-size:220% 100%; }
 @keyframes tdevShimmer { 0% { background-position: 180% 0; } 100% { background-position: -80% 0; } }
@@ -3459,24 +3474,24 @@ html.dark .tdev-skel-bar { background: linear-gradient(100deg, rgba(255,255,255,
   background: rgba(10,10,12,.08); color: var(--text-muted);
   cursor: pointer; display: none; align-items: center; justify-content: center;
   font-size: 13px; line-height: 1; z-index: 5;
-  transition: background .15s, transform .15s;
+  transition: background var(--dur-quick), transform var(--dur-quick);
 }
 .tdev-clear-btn.is-visible { display: flex; }
 .tdev-clear-btn:hover { background: var(--pink-pale); color: var(--pink-deep); transform: translateY(-50%) scale(1.1); }
 html.dark .tdev-clear-btn { background: rgba(255,255,255,.10); }
 .tdev-dissolving {
-  animation: tdevDissolve .4s var(--tdev-ease) forwards;
+  animation: tdevDissolve var(--dur-slow) var(--tdev-ease) forwards;
 }
 @keyframes tdevDissolve {
-  to { opacity: 0; transform: translateY(-10px); filter: blur(2px); }
+  to { opacity: 0; transform: translateY(-10px); filter: blur(var(--blur-sm)); }
 }
 
 /* ── FAB plus→menu morph polish ── */
-#fabMainBtn { transition: transform .35s var(--tdev-spring), background .25s var(--ease), box-shadow .25s var(--ease); }
+#fabMainBtn { transition: transform var(--dur-medium) var(--tdev-spring), background var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease); }
 #fabMainBtn.open { transform: rotate(135deg); }
 .fab-actions .fab-action {
-  opacity: 0; transform: translateX(18px) scale(.96); filter: blur(2px);
-  transition: opacity .2s var(--tdev-ease), transform .35s var(--tdev-spring), filter .2s var(--tdev-ease);
+  opacity: 0; transform: translateX(18px) scale(.96); filter: blur(var(--blur-sm));
+  transition: opacity var(--dur-quick) var(--tdev-ease), transform var(--dur-medium) var(--tdev-spring), filter var(--dur-quick) var(--tdev-ease);
 }
 .fab-actions.open .fab-action { opacity: 1; transform: translateX(0) scale(1); filter: blur(0); }
 .fab-actions.open .fab-action:nth-child(1) { transition-delay: .02s; }
