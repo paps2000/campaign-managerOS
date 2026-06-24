@@ -15768,5 +15768,185 @@ document.addEventListener('click', e => { if(_fabOpen && !e.target.closest('.fab
 })();
 </script>
 
+<!-- ============================================================
+     LIQUID GLASS — computed refraction (real optics, not frost)
+     One value per pixel: how far to bend the backdrop there.
+     Modelled as a convex squircle dome; slope refracted with
+     Snell's law (n=1.5); the sideways throw becomes the
+     displacement, aimed along the rounded-rect SDF normal.
+     Driven into ONE feDisplacementMap per size via a blob map.
+     Real bend on Chromium (backdrop-filter+SVG); Safari/FF keep
+     their blur (they drop the SVG part) — graceful, never broken.
+     ============================================================ -->
+<script>
+(function(){
+  const reduceTransp = window.matchMedia && window.matchMedia('(prefers-reduced-transparency: reduce)').matches;
+  if(reduceTransp) return; // honour the system "can't read text on glass" switch
+
+  // Panel-level glass surfaces worth refracting (skip tiny chips + login)
+  // Discrete panels read best (fixed size → static map stays aligned).
+  // Full-bleed chrome (sidebar/topbar) is excluded: it resizes with the
+  // window, which would slide the static rim out of register.
+  const SEL = [
+    '.modal', '.profile-modal', '.cmd-palette', '.notif-panel', '.ai-panel',
+    '.fab-action', '.stat-card.featured', '.stat-card.urgent', '.team-card',
+    '.flow-step', '.detail-header', '.settings-section', '.inf-detail-header',
+    '#infDetailContent', '.toast', '.season-switch', '.profile-tab-bar'
+  ].join(',');
+
+  // ---- defs host ----
+  const svgNS = 'http://www.w3.org/2000/svg';
+  const host = document.createElementNS(svgNS, 'svg');
+  host.setAttribute('width','0'); host.setAttribute('height','0');
+  host.setAttribute('aria-hidden','true');
+  host.style.cssText = 'position:absolute;width:0;height:0;overflow:hidden;pointer-events:none;';
+  const defs = document.createElementNS(svgNS, 'defs');
+  host.appendChild(defs);
+  (document.body || document.documentElement).appendChild(host);
+
+  // ---- optics: bend(x) for the squircle dome (x: 0 edge → 1 centre) ----
+  function bendAt(x){
+    x = Math.min(Math.max(x, 0.0015), 1);
+    const ix = 1 - x;
+    const slope = Math.pow(ix,3) / Math.pow(1 - Math.pow(ix,4), 0.75);
+    const ti = Math.atan(slope);
+    const tt = Math.asin(Math.min(1, Math.sin(ti) / 1.5)); // Snell, n=1.5
+    return Math.sin(ti - tt);                               // 0 centre, max rim
+  }
+  const BEND_MAX = bendAt(0.0015);
+
+  // ---- generate the displacement map for a given box, return blob URL ----
+  const blobCache = new Map();   // key -> {url, w, h}
+  function genMap(W, H, R, band, cb){
+    // cap generation resolution; feImage stretches the rest
+    const longest = Math.max(W, H);
+    const gs = longest > 512 ? 512 / longest : 1;
+    const w = Math.max(2, Math.round(W * gs));
+    const h = Math.max(2, Math.round(H * gs));
+    const r = Math.min(R * gs, w/2, h/2);
+    const bnd = Math.max(2, band * gs);
+    const key = w+'_'+h+'_'+Math.round(r)+'_'+Math.round(bnd);
+    if(blobCache.has(key)){ cb(blobCache.get(key)); return; }
+
+    const cnv = document.createElement('canvas');
+    cnv.width = w; cnv.height = h;
+    const ctx = cnv.getContext('2d');
+    const img = ctx.createImageData(w, h);
+    const d = img.data;
+    const hw = w/2, hh = h/2;
+    for(let y=0; y<h; y++){
+      for(let x=0; x<w; x++){
+        const i = (y*w + x) * 4;
+        const px = x - hw + 0.5, py = y - hh + 0.5;
+        // signed distance to rounded-rect boundary (negative inside)
+        const qx = Math.abs(px) - (hw - r);
+        const qy = Math.abs(py) - (hh - r);
+        const ax = Math.max(qx,0), ay = Math.max(qy,0);
+        const sdf = Math.hypot(ax,ay) + Math.min(Math.max(qx,qy),0) - r;
+        const dist = -sdf; // inward depth from the rim
+        if(dist <= 0){ d[i]=128; d[i+1]=128; d[i+2]=0; d[i+3]=255; continue; }
+        const xn = Math.min(dist / bnd, 1);          // 0 rim → 1 flat centre
+        const bend = bendAt(xn) / BEND_MAX;          // normalised 0..1
+        // outward normal = SDF gradient
+        let nx, ny;
+        if(qx>0 || qy>0){ nx = (px<0?-1:1)*ax; ny = (py<0?-1:1)*ay; }
+        else if(qx > qy){ nx = (px<0?-1:1); ny = 0; }
+        else { nx = 0; ny = (py<0?-1:1); }
+        const nl = Math.hypot(nx,ny) || 1; nx/=nl; ny/=nl;
+        d[i]   = Math.max(0, Math.min(255, 128 + nx * bend * 127));
+        d[i+1] = Math.max(0, Math.min(255, 128 + ny * bend * 127));
+        d[i+2] = Math.round(bend * 255); // specular height (rim light source)
+        d[i+3] = 255;
+      }
+    }
+    ctx.putImageData(img, 0, 0);
+    cnv.toBlob(b => {
+      // real WebKit refuses data: URIs inside feImage — must be a blob:
+      const url = URL.createObjectURL(b);
+      const rec = { url, w, h };
+      blobCache.set(key, rec);
+      cb(rec);
+    });
+  }
+
+  // ---- build (or reuse) a filter for an element size ----
+  let fid = 0;
+  const filterCache = new Map(); // key -> filterId
+  function ensureFilter(W, H, R, scale, cb){
+    const band = Math.max(R, 12);
+    const fkey = W+'_'+H+'_'+R+'_'+scale;
+    if(filterCache.has(fkey)){ cb(filterCache.get(fkey)); return; }
+    genMap(W, H, R, band, rec => {
+      // Safari caches filter output by id — a stable id per size is fine
+      // here because the map for a given size never changes.
+      const id = 'lg' + (fid++);
+      const m = Math.ceil(scale) + 2; // expand region so bent edges aren't clipped
+      const f = document.createElementNS(svgNS, 'filter');
+      f.setAttribute('id', id);
+      f.setAttribute('filterUnits','userSpaceOnUse');
+      f.setAttribute('color-interpolation-filters','sRGB'); // not linearRGB
+      f.setAttribute('x', -m); f.setAttribute('y', -m);
+      f.setAttribute('width', W + m*2); f.setAttribute('height', H + m*2);
+      const fe = document.createElementNS(svgNS, 'feImage');
+      fe.setAttribute('href', rec.url);
+      fe.setAttributeNS('http://www.w3.org/1999/xlink','href', rec.url);
+      fe.setAttribute('x','0'); fe.setAttribute('y','0');
+      fe.setAttribute('width', W); fe.setAttribute('height', H);
+      fe.setAttribute('preserveAspectRatio','none');
+      fe.setAttribute('result','lgmap');
+      const dm = document.createElementNS(svgNS, 'feDisplacementMap');
+      dm.setAttribute('in','SourceGraphic');
+      dm.setAttribute('in2','lgmap');
+      dm.setAttribute('scale', scale);
+      dm.setAttribute('xChannelSelector','R');
+      dm.setAttribute('yChannelSelector','G');
+      f.appendChild(fe); f.appendChild(dm);
+      defs.appendChild(f);
+      filterCache.set(fkey, id);
+      cb(id);
+    });
+  }
+
+  // ---- apply the bend to an element, preserving its own blur ----
+  function applyGlass(el){
+    if(el.dataset.lg) return;
+    const cs = getComputedStyle(el);
+    const base = cs.backdropFilter || cs.webkitBackdropFilter || '';
+    if(!/blur/.test(base)) return;       // not a glass surface (no blur)
+    if(/url\(/.test(base)) { el.dataset.lg='1'; return; }
+    const rect = el.getBoundingClientRect();
+    const W = Math.round(rect.width), H = Math.round(rect.height);
+    if(W < 90 || H < 40) return;         // too small to read a bend
+    let R = parseFloat(cs.borderTopLeftRadius) || 12;
+    R = Math.min(R, W/2, H/2);
+    const scale = Math.max(8, Math.min(22, Math.round(Math.min(W,H) * 0.06)));
+    el.dataset.lg = '1';
+    ensureFilter(W, H, Math.round(R), scale, id => {
+      const val = base + ' url(#' + id + ')';
+      el.style.setProperty('backdrop-filter', val, 'important');
+      el.style.setProperty('-webkit-backdrop-filter', val, 'important');
+    });
+  }
+
+  function sweep(root){
+    (root || document).querySelectorAll(SEL).forEach(applyGlass);
+  }
+  window.refractGlass = sweep;
+
+  // re-apply on dynamic renders
+  let pending = false;
+  const obs = new MutationObserver(()=>{
+    if(pending) return; pending = true;
+    requestAnimationFrame(()=>{ pending=false; sweep(document); });
+  });
+  function boot(){
+    sweep(document);
+    obs.observe(document.body, { childList:true, subtree:true });
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
+})();
+</script>
+
 </body>
 </html>
