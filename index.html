@@ -15,10 +15,10 @@
 <link rel="icon" type="image/png" sizes="256x256" href="assets/y-pink-filled-256.png">
 <link rel="apple-touch-icon" sizes="256x256" href="assets/y-pink-filled-256.png">
 <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.6" integrity="sha384-Sse/HDqcypGpyTDpvZOJNnG0TT3feGQUkF9H+mnRvic+LjR+K1NhTt8f51KIQ3v3" crossorigin="anonymous"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js" integrity="sha384-1hBNr0agKHNFwbheHcAJzeLri4PPLTLbaXUH5d9CauwS3A/PrkIt2tzxBJK3bHjY" crossorigin="anonymous"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js" integrity="sha384-QCZO5nLB2oUUv0yv01wZHylPt2CPzKdo0YnmSYCTIOo8XPPIlsIP3f1cikv2oiJ1" crossorigin="anonymous"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js" integrity="sha384-qhzYx5B1KizZLjRTmJkBWYES6I+tL9Qz1J8BmFNo/18Ix+AtopUC1cuY3VW43Pe0" crossorigin="anonymous"></script>
 <style>
 :root {
   /* THINKY brand palette */
@@ -8729,13 +8729,13 @@ function renderCampaignDocs(c) {
   el.innerHTML = c.documents.length===0
     ? `<div class="empty-state"><div class="empty-icon">${ICN_paperclip}</div><p>Sin documentos.</p></div>`
     : c.documents.map(d=>`
-    <div class="doc-item" ${d.url?`onclick="if(event.target.closest('button,a'))return;window.open('${_esc(d.url)}','_blank','noopener')" style="cursor:pointer;"`:''}>
+    <div class="doc-item" ${d.url?`onclick="if(event.target.closest('button,a'))return;window.open('${_esc(_safeUrl(d.url))}','_blank','noopener')" style="cursor:pointer;"`:''}>
       <div class="doc-icon ${d.type==='PDF'?'doc-pdf':'doc-sheets'}">${docIcons[d.type]||ICN_paperclip}</div>
       <div class="doc-info">
         <div class="doc-name">${d.name}</div>
         <div class="doc-campaign">${d.type} · ${formatDateShort(d.date)}</div>
       </div>
-      ${d.url?`<a href="${d.url}" target="_blank" rel="noopener" class="card-link">Ver →</a>`:''}
+      ${d.url?`<a href="${_esc(_safeUrl(d.url))}" target="_blank" rel="noopener" class="card-link">Ver →</a>`:''}
       <button onclick="event.stopPropagation();deleteDoc('${d.id}')" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:12px;padding:4px;"><span class="icn-close"></span></button>
     </div>`).join('');
 }
@@ -9018,6 +9018,8 @@ function _loadHtml2Canvas() {
   _html2canvasPromise = new Promise((resolve, reject) => {
     const s = document.createElement('script');
     s.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
+    s.integrity = 'sha384-ZZ1pncU3bQe8y31yfZdMFdSpttDoPmOZg2wguVK9almUodir1PghgT0eY7Mrty8H';
+    s.crossOrigin = 'anonymous';
     s.onload = () => resolve(window.html2canvas);
     s.onerror = () => { _html2canvasPromise = null; reject(new Error('No se pudo cargar html2canvas')); };
     document.head.appendChild(s);
@@ -11328,13 +11330,13 @@ function renderDocumentosPage() {
   }
   const docIcons={PDF:'📄',Sheets:'📊',Doc:'📝',Presentación:'📋',Drive:'📦',Otro:'📎'};
   list.innerHTML = docs.map(d=>`
-    <div class="doc-item" style="padding:12px 0;${d.url?'cursor:pointer;':''}" ${d.url?`onclick="if(event.target.closest('button,a'))return;window.open('${_esc(d.url)}','_blank','noopener')"`:''}>
+    <div class="doc-item" style="padding:12px 0;${d.url?'cursor:pointer;':''}" ${d.url?`onclick="if(event.target.closest('button,a'))return;window.open('${_esc(_safeUrl(d.url))}','_blank','noopener')"`:''}>
       <div class="doc-icon ${d.type==='PDF'?'doc-pdf':'doc-sheets'}">${docIcons[d.type]||'📎'}</div>
       <div class="doc-info">
         <div class="doc-name">${d.name}</div>
         <div class="doc-campaign">${d.type} · ${formatDateShort(d.date)||''}</div>
       </div>
-      ${d.url?`<a href="${d.url}" target="_blank" rel="noopener" class="card-link" style="margin-right:8px;">Abrir →</a>`:''}
+      ${d.url?`<a href="${_esc(_safeUrl(d.url))}" target="_blank" rel="noopener" class="card-link" style="margin-right:8px;">Abrir →</a>`:''}
       <button onclick="event.stopPropagation();deleteDocFromPage('${c.id}','${d.id}')" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:14px;padding:4px;">✕</button>
     </div>`).join('');
 }
@@ -11532,6 +11534,13 @@ function _refreshPronounChipState() {
 function _esc(s) {
   if(s == null) return '';
   return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
+// Solo permite URLs http(s); bloquea esquemas peligrosos (javascript:, data:, etc.)
+// para enlaces de documentos que escribe el usuario. Devuelve '#' si no es válida.
+function _safeUrl(u) {
+  const s = String(u == null ? '' : u).trim();
+  return /^https?:\/\//i.test(s) ? s : '#';
 }
 
 function formatNum(n) {
@@ -14987,7 +14996,7 @@ function _cmdkData() {
     (getData('globalTasks')||[]).forEach(t=>{ if(!t.done) items.push({type:'Tarea', icon:'✅', label:t.title, sub:'General', action:()=>navigate('pendientes')}); });
     (getData('campaigns')||[]).forEach(c=>(c.tasks||[]).forEach(t=>{ if(!t.done) items.push({type:'Tarea', icon:'✅', label:t.title, sub:c.name, action:()=>{navigate('campannas');setTimeout(()=>openCampaignDetail(c.id),60);}}); }));
   } catch(e){}
-  try { (getData('campaigns')||[]).forEach(c=>(c.documents||[]).forEach(d=>items.push({type:'Documento', icon:'📄', label:d.name||d.title||'Documento', sub:c.name, action:()=>{ if(d.url) window.open(d.url,'_blank'); else navigate('documentos'); }}))); } catch(e){}
+  try { (getData('campaigns')||[]).forEach(c=>(c.documents||[]).forEach(d=>items.push({type:'Documento', icon:'📄', label:d.name||d.title||'Documento', sub:c.name, action:()=>{ if(d.url) window.open(_safeUrl(d.url),'_blank','noopener'); else navigate('documentos'); }}))); } catch(e){}
   return items;
 }
 function _cmdkRender() {
