@@ -4147,6 +4147,9 @@ function lrGoogleLogin(btn){
             <span style="font-size:12px;font-weight:700;color:#3a7a5e;white-space:nowrap;">🎯 Escenario</span>
             <input type="text" id="escenarioSheetsUrl" class="form-input" style="flex:1;min-width:180px;font-size:12px;" placeholder="URL del escenario (con #gid=... de la pestaña Escenario Final)" oninput="saveEscenarioUrl()">
             <button class="btn btn-ghost btn-sm" onclick="syncEscenario()" style="white-space:nowrap;">🔄 Actualizar</button>
+            <div style="flex-basis:100%;font-size:11px;color:var(--text-muted);line-height:1.4;">
+              🌐 El sheet debe estar compartido como <b>«Cualquier persona con el enlace»</b> (con Lector basta) — la plataforma lo lee vía export CSV público. Si está restringido, la sincronización fallará.
+            </div>
             <span id="escenarioLastSync" style="font-size:11px;color:var(--text-muted);"></span>
           </div>
           <div id="escenarioAppNotice" style="display:none;background:var(--mint-pale,#eafaf1);border:1px solid #b7e4c7;border-radius:14px;padding:12px 14px;margin-bottom:16px;align-items:center;gap:10px;flex-wrap:wrap;">
@@ -5996,9 +5999,9 @@ function renderDashboard() {
       const rawDate = gst(row,'FECHA DE POST','Fecha de Post','Fecha de publicación','Fecha publicación','Fecha pub','Fecha','publish date','date','fecha');
       const pubDate = (typeof _trackerParseDate==='function') ? _trackerParseDate(rawDate, campYear) : rawDate;
       if(pubDate && pubDate >= today && pubDate <= weekEndStr) {
-        const name = gst(row,'NOMBRE','Nombre','Influencer','Perfil','Creator','name');
+        const name = gst(row, ...TRACKER_NAME_KEYS, 'Influencer', 'Creator', 'name');
         const guion = gst(row,'ESTATUS GUIÓN','ESTATUS GUION','Estatus Guión','Estatus Guion');
-        const contenido = gst(row,'ESTATUS CONTENIDO','Estatus Contenido','ESTATUS','Estatus','STATUS','Status','ESTADO','Estado','ESTATUS POST','Estatus Post','STATUS POST');
+        const contenido = (typeof _trackerStatusOf==='function') ? _trackerStatusOf(row) : gst(row,'ESTATUS CONTENIDO','Estatus Contenido','ESTATUS','Estatus');
         const creativa = gst(row,'PLATAFORMA CREATIVA','Plataforma Creativa');
         upcomingPubs.push({
           name: name || 'Publicación',
@@ -6070,7 +6073,7 @@ function renderDashboard() {
   campaigns.forEach(c => {
     (c.trackerRows||[]).forEach(row => {
       const name = (typeof _trackerGet==='function')
-        ? (_trackerGet(row,['NOMBRE','Nombre','Influencer','Creador','Creator'])||'Contenido')
+        ? (_trackerGet(row, TRACKER_NAME_KEYS.concat(['Influencer','Creator']))||'Contenido')
         : 'Contenido';
       // join the status-bearing cells so we catch the state wherever it lives
       let statusBlob = '';
@@ -6298,8 +6301,8 @@ function renderCampaignGrid() {
     if(!goalCont) goalCont = escSum;
     let trackerPub = 0;
     (c.trackerRows||[]).forEach(row => {
-      const ec = (typeof _trackerGet==='function')
-        ? _trackerGet(row, ['ESTATUS CONTENIDO','Estatus Contenido','ESTATUS','Estatus','STATUS','Status','ESTADO','Estado','ESTATUS POST'])
+      const ec = (typeof _trackerStatusOf==='function')
+        ? _trackerStatusOf(row)
         : (row['ESTATUS CONTENIDO']||row['Estatus Contenido']||'');
       if(_isPublishedStatus(ec)) trackerPub++;
     });
@@ -6483,9 +6486,9 @@ function _campaignCoherenceData(c) {
   const trackerPubByCreator = new Map();
   const trackerPubsList = []; // {creator, fecha, hasLink, raw}
   trackerRows.forEach(row => {
-    const nm = (typeof _trackerGet==='function' ? _trackerGet(row,['NOMBRE','Nombre']) : (row['NOMBRE']||row['Nombre']||'')).trim();
-    const ec = String((typeof _trackerGet==='function'
-      ? _trackerGet(row,['ESTATUS CONTENIDO','Estatus Contenido','ESTATUS','Estatus','STATUS','Status','ESTADO','Estado','ESTATUS POST'])
+    const nm = (typeof _trackerGet==='function' ? _trackerGet(row, TRACKER_NAME_KEYS) : (row['NOMBRE']||row['Nombre']||row['TALENTO']||'')).trim();
+    const ec = String((typeof _trackerStatusOf==='function'
+      ? _trackerStatusOf(row)
       : (row['ESTATUS CONTENIDO']||row['Estatus Contenido']||''))).trim();
     const link = String((typeof _trackerGet==='function' ? _trackerGet(row,['LINK TO POST','Link to Post','Link','URL']) : (row['LINK TO POST']||row['Link to Post']||''))).trim();
     const fecha = String((typeof _trackerGet==='function' ? _trackerGet(row,['FECHA DE POST','Fecha de Post','Fecha']) : (row['FECHA DE POST']||row['Fecha de Post']||''))).trim();
@@ -7397,10 +7400,32 @@ function _startTrackerAutoRefresh(campaign) {
 }
 
 // Column-key aliases: covers Rexona Men Calendar 2026 + older master trackers
+// + trackers tipo Podcastverse (TALENTO / PUBLICADO ✅ / CAMPAÑA como línea).
+const TRACKER_NAME_KEYS = ['NOMBRE','Nombre','TALENTO','Talento','CREADOR','Creador','INFLUENCER','Influencer','PERFIL','Perfil','CUENTA','Cuenta','PODCAST','Podcast'];
+// Orden importa: estatus explícito de contenido primero; PUBLICADO (col de
+// checks ✅/⚠️) al final como fallback.
+const TRACKER_STATUS_KEYS = ['ESTATUS CONTENIDO','Estatus Contenido','ESTATUS','Estatus','STATUS','Status','ESTADO','Estado','ESTATUS POST','Estatus Post','STATUS POST','PUBLICADO','Publicado'];
+const TRACKER_CREATIVA_KEYS = ['PLATAFORMA CREATIVA','Plataforma Creativa','LINEA','LÍNEA','CREATIVIDAD','CAMPAÑA','Campaña'];
+// Lee el estatus de la fila saltando celdas que son prosa/notas (algunos
+// trackers tienen una col STATUS con bullets de seguimiento — eso no es el
+// estatus del contenido; el real vive en otra col, p.ej. PUBLICADO).
+function _trackerStatusOf(row){
+  for(const k of TRACKER_STATUS_KEYS){
+    const kn = _trackerNorm(k);
+    for(const rk of Object.keys(row)){
+      if(_trackerNorm(rk)===kn && row[rk]!=null && row[rk]!==''){
+        const v = String(row[rk]).trim();
+        if(v.length > 35 || v.includes('\n') || (v.split(',').length-1) > 1) continue;
+        return v;
+      }
+    }
+  }
+  return '';
+}
 const TRACKER_COL_DEFS = [
-  {label:'Nombre',             keys:['NOMBRE','Nombre']},
+  {label:'Nombre',             keys:TRACKER_NAME_KEYS},
   {label:'Cohorts',            keys:['COHORTS','COHORT','Cohorts','Cohort','COMUNIDAD']},
-  {label:'Plataforma Creativa',keys:['PLATAFORMA CREATIVA','Plataforma Creativa','PLATAFORMA_CREATIVA','LINEA','LÍNEA','Linea de comunicación','Línea de comunicación','CREATIVIDAD']},
+  {label:'Plataforma Creativa',keys:['PLATAFORMA CREATIVA','Plataforma Creativa','PLATAFORMA_CREATIVA','LINEA','LÍNEA','Linea de comunicación','Línea de comunicación','CREATIVIDAD','CAMPAÑA','Campaña']},
   {label:'Tipo de contenido',  keys:['TIPO DE CONTENIDO','Tipo de Contenido','Tipo']},
   {label:'Platform',           keys:['PLATFORM','PLATAFORMA','Platform','Plataforma'], platform:true},
   {label:'GW',                 keys:['GW','GOODWILL','Goodwill']},
@@ -7411,7 +7436,7 @@ const TRACKER_COL_DEFS = [
   {label:'Asset',              keys:['ASSET','Asset'], link:true},
   {label:'Copy',               keys:['COPY / TUIT','COPY/TUIT','COPY','Copy / Tuit','Copy']},
   {label:'Fecha de Post',      keys:['FECHA DE POST','Fecha de Post','Fecha publicación','Fecha de publicación','Fecha Pub','Fecha'], date:true},
-  {label:'Estatus Contenido',  keys:['ESTATUS CONTENIDO','Estatus Contenido','ESTATUS','Estatus','STATUS','Status','ESTADO','Estado','ESTATUS POST','Estatus Post','STATUS POST'], status:true},
+  {label:'Estatus Contenido',  keys:TRACKER_STATUS_KEYS, status:true},
   {label:'Link to Post',       keys:['LINK TO POST','Link to Post','Link'], link:true},
   {label:'Testigo',            keys:['TESTIGO','Testigo'], link:true},
   {label:'Boost',              keys:['BOOST','Boost']},
@@ -7471,11 +7496,49 @@ function _trackerParseDate(val, defaultYear){
 function _isPublishedStatus(v) {
   const s = String(v||'').toLowerCase().trim();
   if(!s) return false;
+  // Checkmarks de trackers tipo checklist (col PUBLICADO con ✅/✔/☑/TRUE)
+  if(/[✅✔☑✓]/.test(s)) return true;
+  if(/^(true|verdadero|s[ií]|yes|done)$/.test(s)) return true;
   return /publicad/.test(s) || /\bposted\b/.test(s) || /\blive\b/.test(s) || /\bonline\b/.test(s) || /\bsali[oó]\b/.test(s) || /\bpublished\b/.test(s);
 }
 
 function _trackerRowDate(row){
   return _trackerParseDate(_trackerGet(row, ['FECHA DE POST','Fecha de Post','Fecha publicación','Fecha de publicación','Fecha Pub','Fecha']));
+}
+
+// Normaliza filas del tracker para formatos con celdas combinadas:
+// - forward-fill del nombre (TALENTO/NOMBRE vacío en filas siguientes del
+//   mismo creador hereda el último nombre visto)
+// - elimina filas que SOLO traen nombre (separadores de bloque/marca, p.ej.
+//   una fila "KNORR" sin fecha/estatus/tipo)
+function _trackerNormalizeRows(rows){
+  let lastName = '';
+  const out = [];
+  const nameKeyOf = row => {
+    for(const k of TRACKER_NAME_KEYS){
+      const kn = _trackerNorm(k);
+      for(const rk of Object.keys(row)){ if(_trackerNorm(rk)===kn) return rk; }
+    }
+    return null;
+  };
+  // Filas de leyenda/resumen al pie del sheet: la col de nombre trae labels
+  // de estatus o totales ("PUBLICADO", "EN AJUSTES", "TOTAL DE CONTENIDOS")
+  const LEGEND_RE = /^(total|subtotal|gran total|publicad|por publicar|en ajustes|esperando|pendiente|cancelad|aprobad|revisi|leyenda|status|estatus)/i;
+  (rows||[]).forEach(r => {
+    const nk = nameKeyOf(r);
+    const nm = nk ? String(r[nk]||'').trim() : '';
+    if(nm && (LEGEND_RE.test(nm) || /^[✅⚠️❌🔴🟡🟢]/.test(nm))) return; // leyenda — no toca lastName
+    const status = _trackerStatusOf(r);
+    const fecha = _trackerRowDate(r);
+    const tipo = _trackerGet(r,['TIPO DE CONTENIDO','Tipo de Contenido','PLATAFORMA','Platform','Plataforma','CONTENIDO','Contenido']);
+    const hasData = !!(status || fecha || tipo);
+    if(!nm && !hasData) return;                  // fila vacía
+    if(nm && !hasData){ lastName = nm; return; } // separador de bloque
+    if(nm) lastName = nm;
+    if(!nm && hasData && lastName && nk) r = {...r, [nk]: lastName};
+    out.push(r);
+  });
+  return out;
 }
 
 function _renderTrackerSummaryAndTable() {
@@ -7494,10 +7557,10 @@ function _renderTrackerSummaryAndTable() {
   const MONTHS_RE = /^(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)$/i;
   const BANNER_RE = /^(total|subtotal|grand total|fase|mes|semana|week|month|h1|h2|q[1-4])\b/i;
   rows = rows.filter(r => {
-    const nm = _trackerGet(r,['NOMBRE','Nombre']);
+    const nm = _trackerGet(r,TRACKER_NAME_KEYS);
     const fp = _trackerRowDate(r);
-    const pc = _trackerGet(r,['PLATAFORMA CREATIVA','Plataforma Creativa']);
-    const ec = _trackerGet(r,['ESTATUS CONTENIDO','Estatus Contenido','ESTATUS','Estatus','STATUS','Status','ESTADO','Estado','ESTATUS POST','Estatus Post','STATUS POST']);
+    const pc = _trackerGet(r,TRACKER_CREATIVA_KEYS);
+    const ec = _trackerStatusOf(r);
     const eg = _trackerGet(r,['ESTATUS GUIÓN','Estatus Guión']);
     // Need at least one strong signal of a real row
     const signals = [nm, fp, pc, ec, eg].filter(Boolean).length;
@@ -7539,37 +7602,43 @@ function _renderTrackerSummaryAndTable() {
   };
 
   const guionCounts = countStatus(['ESTATUS GUIÓN','ESTATUS GUION','Estatus Guión'], {strict:true});
-  const contenidoCounts = countStatus(['ESTATUS CONTENIDO','Estatus Contenido','ESTATUS','Estatus','STATUS','Status','ESTADO','Estado','ESTATUS POST','Estatus Post','STATUS POST'], {strict:true});
-  const creativaCounts = countStatus(['PLATAFORMA CREATIVA','Plataforma Creativa','LINEA','LÍNEA','CREATIVIDAD'], {strict:true});
+  // Estatus de contenido vía _trackerStatusOf (salta cols de prosa/notas y
+  // cae a PUBLICADO ✅/⚠️ cuando no hay estatus textual)
+  const contenidoCounts = {};
+  rows.forEach(r => {
+    const s = _trackerStatusOf(r);
+    if(!s || SKIP_VALS.has(s) || looksLikeJunk(s)) return;
+    contenidoCounts[s] = (contenidoCounts[s]||0) + 1;
+  });
+  const creativaCounts = countStatus(TRACKER_CREATIVA_KEYS, {strict:true});
 
   // Headline totals
   const totalRows = rows.length;
-  const totalPublicado = rows.filter(r=>{
-    return _isPublishedStatus(gst(r,'ESTATUS CONTENIDO','Estatus Contenido','ESTATUS','Estatus','STATUS','Status','ESTADO','Estado','ESTATUS POST','Estatus Post','STATUS POST'));
-  }).length;
+  const totalPublicado = rows.filter(r=> _isPublishedStatus(_trackerStatusOf(r))).length;
   const totalRevInt = rows.filter(r=>{
-    const v = String(gst(r,'ESTATUS CONTENIDO','Estatus Contenido','ESTATUS','Estatus','STATUS','Status','ESTADO','Estado','ESTATUS POST','Estatus Post','STATUS POST','ESTATUS GUIÓN','Estatus Guión')||'').toLowerCase();
+    const v = String(_trackerStatusOf(r) || gst(r,'ESTATUS GUIÓN','Estatus Guión')||'').toLowerCase();
     return v.includes('revisión int') || v.includes('revision int');
   }).length;
   const totalAprobado = rows.filter(r=>{
-    const v = String(gst(r,'ESTATUS CONTENIDO','Estatus Contenido','ESTATUS','Estatus','STATUS','Status','ESTADO','Estado','ESTATUS POST','Estatus Post','STATUS POST')||'').toLowerCase();
+    const v = String(_trackerStatusOf(r)||'').toLowerCase();
     return v.includes('aprobad') && !v.includes('publicad');
   }).length;
   const totalPorPublicar = rows.filter(r=>{
-    const v = String(gst(r,'ESTATUS CONTENIDO','Estatus Contenido','ESTATUS','Estatus','STATUS','Status','ESTADO','Estado','ESTATUS POST','Estatus Post','STATUS POST')||'').toLowerCase();
-    return v.includes('por publicar') || v.includes('pendiente');
+    const v = String(_trackerStatusOf(r)||'').toLowerCase();
+    return v.includes('por publicar') || v.includes('pendiente') || v.includes('⚠');
   }).length;
 
   // Apply status filter to table rows
   let tableRows = rows;
   if(_trackerStatusFilter) {
     const {field, value} = _trackerStatusFilter;
-    const keys = field==='guion'
-      ? ['ESTATUS GUIÓN','ESTATUS GUION','Estatus Guión']
-      : (field==='creativa'
-        ? ['PLATAFORMA CREATIVA','Plataforma Creativa','LINEA','LÍNEA','CREATIVIDAD']
-        : ['ESTATUS CONTENIDO','Estatus Contenido','ESTATUS','Estatus','STATUS','Status','ESTADO','Estado','ESTATUS POST','Estatus Post','STATUS POST']);
-    tableRows = rows.filter(r => gst(r,...keys) === value);
+    if(field==='contenido') tableRows = rows.filter(r => _trackerStatusOf(r) === value);
+    else {
+      const keys = field==='guion'
+        ? ['ESTATUS GUIÓN','ESTATUS GUION','Estatus Guión']
+        : TRACKER_CREATIVA_KEYS;
+      tableRows = rows.filter(r => gst(r,...keys) === value);
+    }
   }
 
   const COLS = TRACKER_COL_DEFS.map(d=>d.label);
@@ -7640,7 +7709,7 @@ function _renderTrackerSummaryAndTable() {
     const iso = _trackerRowDate(r);
     const pk = periodKey(iso);
     if(!pk) return;
-    const cv = gst(r,'PLATAFORMA CREATIVA','Plataforma Creativa','LINEA','LÍNEA','CREATIVIDAD') || 'Sin clasificar';
+    const cv = gst(r, ...TRACKER_CREATIVA_KEYS) || 'Sin clasificar';
     if(!timelineMap[pk]) timelineMap[pk] = {};
     timelineMap[pk][cv] = (timelineMap[pk][cv]||0) + 1;
     if(_isBoosted(gst(r,'BOOST','Boost'))) boostMap[pk] = (boostMap[pk]||0) + 1;
@@ -7918,6 +7987,7 @@ async function _autoFetchTracker(url, campaign, opts = {}) {
         }
       } catch(e) { /* single tab fallback — use CSV from URL gid */ }
     }
+    try { campaign.trackerRows = _trackerNormalizeRows(campaign.trackerRows); } catch(e){}
     campaign.trackerLastSync = Date.now();
     // Render only when the user is looking at this campaign. If they're on
     // another page (e.g. Calendar lazy-fetching) we just cache for later —
@@ -7990,6 +8060,12 @@ function syncEscenario() {
   const campaigns = getData('campaigns');
   const c = campaigns.find(x=>x.id===currentCampaignId);
   if(!c) return;
+  // Primera sync de esta campaña: confirmar que el sheet es público
+  if(!c.escenarioPublicOk) {
+    const ok = confirm('Para que la plataforma pueda leer el escenario, el Google Sheet debe estar compartido como "Cualquier persona con el enlace" (Lector es suficiente).\n\n¿Confirmas que el sheet ya está público?');
+    if(!ok) { showToast('Comparte el sheet como público y vuelve a intentar','error'); return; }
+    c.escenarioPublicOk = true;
+  }
   c.escenarioSheetUrl = url;
   setData('campaigns', campaigns);
   const wrap = document.getElementById('escenarioBlock');
@@ -8005,7 +8081,7 @@ async function _autoFetchEscenario(url, campaign) {
     const res = await fetch(csvUrl);
     if(!res.ok) throw new Error(`HTTP ${res.status}`);
     const text = await res.text();
-    if(text.trim().startsWith('<!')) throw new Error('Sheet no público');
+    if(text.trim().startsWith('<!')) throw new Error('El sheet no es público — compártelo como "Cualquier persona con el enlace" (Lector) y vuelve a sincronizar');
     const rows = parseCSV(text);
     campaign.escenarioRows = rows;
     campaign.escenarioLastSync = Date.now();
@@ -8055,7 +8131,7 @@ async function _autoFetchUgc(url, campaign) {
     const res = await fetch(csvUrl);
     if(!res.ok) throw new Error(`HTTP ${res.status}`);
     const text = await res.text();
-    if(text.trim().startsWith('<!')) throw new Error('Sheet no público');
+    if(text.trim().startsWith('<!')) throw new Error('El sheet no es público — compártelo como "Cualquier persona con el enlace" (Lector) y vuelve a sincronizar');
     const rows = parseCSV(text);
     campaign.ugcRows = rows;
     campaign.ugcLastSync = Date.now();
@@ -8150,6 +8226,10 @@ function _escenarioIsCreatorName(raw) {
   if(/^fee$/i.test(v)) return false;
   if(ESCENARIO_BANNER_RE.test(v)) return false;
   if(v.length < 2) return false;
+  // Filas de notas/comentarios: prosa larga o patrón "Marca: nota" — no son
+  // creadores ("Knorr: sigue con barrio", "Hellmanns: partner con NBA...").
+  if(v.length > 40) return false;
+  if(v.includes(':')) return false;
   return true;
 }
 
@@ -8165,17 +8245,19 @@ function parseEscenarioRows(rows) {
 
   const COMUNIDAD_K = ['COMUNIDADES','Comunidades','Comunidad'];
   const COHORTS_K   = ['COHORTS','COHORT','Cohorts','Cohort'];
-  const NOMBRE_K    = ['NOMBRE','Nombre','Creador','Influencer'];
-  const PLATFORM_K  = ['PLATAFORMA','Platform','PLATFORM','Red Social'];
+  // Identidad del creador: NOMBRE(S) primero; PODCAST/SHOW como fallback para
+  // escenarios de podcast donde el nombre del show es la identidad de la fila.
+  const NOMBRE_K    = ['NOMBRE','Nombre','Creador','Influencer','NOMBRES','Nombres','TALENTO','Talento','PERFIL','Perfil','CUENTA','Cuenta','PODCAST','Podcast','SHOW','Show'];
+  const PLATFORM_K  = ['PLATAFORMA','Platform','PLATFORM','Red Social','RED','Canal de publicación'];
   const TIER_K      = ['TIER','Tier'];
-  const SEG_K       = ['SEGUIDORES','Seguidores'];
-  const CONT_K      = ['CONTENIDO','Contenido'];
-  const CANT_K      = ['CANTIDAD DE CONTENIDO','Cantidad de Contenido','Cantidad'];
-  const VIEWS_EST_K = ['VIEWS ESTIMADAS TOTALES','Views Estimadas Totales','Views Estimadas'];
-  const REACH_EST_K = ['ALCANCE X POSTEO ESTIMADO','Alcance x Posteo Estimado'];
-  const ENG_EST_K   = ['INTERACCIONES ESTIMADAS TOTALES','Interacciones Estimadas Totales'];
-  const ENG_RATE_K  = ['ENGAGEMENT RATE PROMEDIO','Engagement Rate Promedio','ER'];
-  const COSTO_K     = ['COSTO','Costo'];
+  const SEG_K       = ['SEGUIDORES','Seguidores','FOLLOWERS','Followers'];
+  const CONT_K      = ['CONTENIDO','Contenido','TIPO DE CONTENIDO','Tipo de Contenido','FORMATO','Formato'];
+  const CANT_K      = ['CANTIDAD DE CONTENIDO','Cantidad de Contenido','CANTIDAD DE CONTENIDOS','Cantidad de Contenidos','# CONTENIDOS','No. Contenidos','Cantidad'];
+  const VIEWS_EST_K = ['VIEWS ESTIMADAS TOTALES','Views Estimadas Totales','VIEWS ESTIMADOS TOTALES','VIEWS TOTALES ESTIMADAS','VIEWS ESTIMADAS','Views Estimadas','VIEWS EST TOTALES'];
+  const REACH_EST_K = ['ALCANCE X POSTEO ESTIMADO','Alcance x Posteo Estimado','ALCANCE ESTIMADO','IMPRESIONES ESTIMADOS TOTALES','IMPRESIONES ESTIMADAS TOTALES'];
+  const ENG_EST_K   = ['INTERACCIONES ESTIMADAS TOTALES','Interacciones Estimadas Totales','INTERACCIONES TOTALES ESTIMADAS','INTERACCIONES ESTIMADAS','ENGAGEMENT ESTIMADO TOTAL'];
+  const ENG_RATE_K  = ['ENGAGEMENT RATE PROMEDIO','Engagement Rate Promedio','ENGAGEMENT RATE','ER PROMEDIO','ER'];
+  const COSTO_K     = ['COSTO','Costo','COSTO CERRADO','Costo Cerrado','COSTO TOTAL CAMPAÑA','Costo Total Campaña','COSTO TOTAL','Costo Total'];
   const COSTO_PAUTA_K = ['Costo pauta','COSTO PAUTA'];
   const COSTO_CONT_K  = ['Costo contenidos','COSTO CONTENIDOS'];
 
@@ -8232,7 +8314,7 @@ function parseEscenarioRows(rows) {
           totalSeguidores: num(get(r, 'TOTAL DE SEGUIDORES','Total de Seguidores')),
           viewsEstTotal:   num(get(r, ...VIEWS_EST_K)),
           engagementEst:   num(get(r, ...ENG_EST_K)),
-          engagementRate:  parseFloat(get(r, ...ENG_RATE_K))||0,
+          engagementRate:  num(get(r, ...ENG_RATE_K)),
           costoTotal:      num(get(r, ...COSTO_K)),
         };
         const score = (candidate.totalContenidos + candidate.viewsEstTotal + candidate.engagementEst + candidate.costoTotal);
@@ -8258,7 +8340,7 @@ function parseEscenarioRows(rows) {
         totalSeguidores: num(get(r, 'TOTAL DE SEGUIDORES','Total de Seguidores')),
         viewsEstTotal:   num(get(r, ...VIEWS_EST_K)),
         engagementEst:   num(get(r, ...ENG_EST_K)),
-        engagementRate:  parseFloat(get(r, ...ENG_RATE_K))||0,
+        engagementRate:  num(get(r, ...ENG_RATE_K)),
         costoTotal:      num(get(r, ...COSTO_K)),
       };
       const score = g => g ? (g.totalContenidos + g.viewsEstTotal + g.engagementEst + g.costoTotal) : 0;
@@ -8328,7 +8410,7 @@ function parseEscenarioRows(rows) {
     const viewsEst = num(get(r, ...VIEWS_EST_K));
     const reachEst = num(get(r, ...REACH_EST_K));
     const engEst   = num(get(r, ...ENG_EST_K));
-    const engRate  = parseFloat(get(r, ...ENG_RATE_K))||0;
+    const engRate  = num(get(r, ...ENG_RATE_K));
     const costoRow = num(get(r, ...COSTO_K)) || (num(get(r, ...COSTO_PAUTA_K)) + num(get(r, ...COSTO_CONT_K)));
     if(plat || cont || cantidad || viewsEst) {
       cr.platforms.push({
@@ -8346,7 +8428,12 @@ function parseEscenarioRows(rows) {
     if(!cr.tier) cr.tier = get(r, ...TIER_K);
   });
 
-  return { creators: Array.from(byCreator.values()), ugc, goal, skipped, totalRows: rows.length };
+  // Descarta "creadores" sin sustancia (filas de notas que pasaron los
+  // filtros de nombre pero no traen plataforma ni contenidos ni views).
+  const creators = Array.from(byCreator.values()).filter(cr =>
+    cr.contenidosTotal > 0 || cr.platforms.some(p => p.platform) || cr.viewsEstTotal >= 1000
+  );
+  return { creators, ugc, goal, skipped, totalRows: rows.length };
 }
 
 // Extract per-creator real metrics from previously loaded cachedMetrics rows
@@ -8481,13 +8568,13 @@ function renderEscenarioBlock(c) {
   // Augment creators with real metrics + published content count from tracker
   const trackerByCreator = new Map();
   (c.trackerRows||[]).forEach(row => {
-    const nm = (row['NOMBRE']||row['Nombre']||'').trim();
+    const nm = String(_trackerGet(row, TRACKER_NAME_KEYS)||'').trim();
     if(!nm) return;
     const key = norm(nm);
     if(!trackerByCreator.has(key)) trackerByCreator.set(key, { published:0, total:0 });
     const t = trackerByCreator.get(key);
     t.total += 1;
-    const _ec = _trackerGet(row,['ESTATUS CONTENIDO','Estatus Contenido','ESTATUS','Estatus','STATUS','Status','ESTADO','Estado','ESTATUS POST']);
+    const _ec = _trackerStatusOf(row);
     if(_isPublishedStatus(_ec)) t.published += 1;
   });
 
@@ -9685,10 +9772,25 @@ function parseCSV(text) {
   if(cur.length || row.length) { row.push(cur); rows.push(row); }
   while(rows.length && rows[rows.length-1].every(v => !v || !v.trim())) rows.pop();
   if(rows.length < 2) return [];
-  // Skip meta/category row if it has ≤4 unique values across many cols
+  // Header row detection — los sheets reales traen encima de los headers
+  // filas de banners/agrupación ("INFORMACIÓN DEL TALENTO", nombre del
+  // tracker, campañas, meses del calendario…) que están mayormente vacías.
+  // Escaneamos las primeras 8 filas y tomamos la PRIMERA cuya densidad de
+  // celdas pobladas alcance el 50% del máximo observado: esa es la fila de
+  // headers (los headers definen las columnas, así que son tan densos como
+  // las filas de datos; los banners no).
   let headerIdx = 0;
-  const uniqueFirst = new Set(rows[0].map(v=>v.trim()).filter(Boolean));
-  if(uniqueFirst.size <= 4 && rows[0].length > 5) headerIdx = 1;
+  const nonEmpty = r => r.filter(v=>v && v.trim()).length;
+  const scan = Math.min(rows.length - 1, 8);
+  let maxNE = 0;
+  for(let i=0; i<scan; i++) maxNE = Math.max(maxNE, nonEmpty(rows[i]));
+  for(let i=0; i<scan; i++){ if(nonEmpty(rows[i]) >= maxNE * 0.5){ headerIdx = i; break; } }
+  // Regla legacy: fila meta/categoría densa pero con ≤4 valores únicos
+  // repetidos sobre muchas columnas → headers en la siguiente.
+  if(headerIdx === 0 && rows.length > 2) {
+    const uniqueFirst = new Set(rows[0].map(v=>v.trim()).filter(Boolean));
+    if(uniqueFirst.size <= 4 && rows[0].length > 5) headerIdx = 1;
+  }
   if(rows.length <= headerIdx + 1) return [];
   const headers = rows[headerIdx].map(h => h.trim());
   const N = headers.length;
@@ -14017,8 +14119,8 @@ function calNav(dir) {
 // emoji prefix, normalized status key). Mirrors trackerStatusBadge palette
 // so the calendar and the tracker tab share visual language.
 const TRACKER_STATUS_STYLES = [
-  { key:'publicado',    test:/^publicad/i,                           bg:'#166534', color:'#fff', icon:'✅ ', label:'Publicado' },
-  { key:'por_publicar', test:/^por\s*publicar/i,                     bg:'#fca5a5', color:'#991b1b', icon:'📅 ', label:'Por publicar' },
+  { key:'publicado',    test:/^publicad|^[✅✔☑✓]/i,                  bg:'#166534', color:'#fff', icon:'✅ ', label:'Publicado' },
+  { key:'por_publicar', test:/^por\s*publicar|^⚠/i,                  bg:'#fca5a5', color:'#991b1b', icon:'📅 ', label:'Por publicar' },
   { key:'aprobado',     test:/^aprobad/i,                            bg:'#bbf7d0', color:'#166534', icon:'👍 ', label:'Aprobado' },
   { key:'rev_int',      test:/revisi[oó]n\s*\(?\s*int/i,             bg:'#fef08a', color:'#854d0e', icon:'🔍 ', label:'Revisión interna' },
   { key:'rev_ext',      test:/revisi[oó]n\s*\(?\s*ext/i,             bg:'#fde047', color:'#713f12', icon:'👀 ', label:'Revisión externa' },
@@ -14097,9 +14199,9 @@ function renderCalendar() {
       }
       const iso = _trackerParseDate(raw, campYear);
       if(!iso) return;
-      const name = row['NOMBRE']||row['Nombre']||'';
-      const creativa = row['PLATAFORMA CREATIVA']||row['Plataforma Creativa']||'';
-      const estatusRaw = String(row['ESTATUS CONTENIDO']||row['Estatus Contenido']||'').trim();
+      const name = _trackerGet(row, TRACKER_NAME_KEYS)||'';
+      const creativa = _trackerGet(row, TRACKER_CREATIVA_KEYS)||'';
+      const estatusRaw = String(_trackerStatusOf(row)||'').trim();
       const sty = _trackerStatusEventStyle(estatusRaw);
       // Skip cancelled rows — user request: not shown on calendar
       if(sty.statusKey === 'cancelado') return;
@@ -16096,8 +16198,6 @@ body.client-mode #loginScreen.login-screen:not(.hidden) { display:none !importan
 'use strict';
 
 // ---------- helpers ----------
-const CS_STATUS_KEYS = ['ESTATUS CONTENIDO','Estatus Contenido','ESTATUS','Estatus','STATUS','Status','ESTADO','Estado','ESTATUS POST','Estatus Post','STATUS POST'];
-
 function _genShareToken(){
   const chars='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
   const buf=new Uint8Array(24); crypto.getRandomValues(buf);
@@ -16154,8 +16254,8 @@ function _buildClientSnapshot(c){
   const statusCounts=[]; const scMap={};
   const cal=[];
   rows.forEach(r=>{
-    const nm = String(_trackerGet(r,['NOMBRE','Nombre'])||'').trim();
-    const ecRaw = String(_trackerGet(r,CS_STATUS_KEYS)||'').trim();
+    const nm = String(_trackerGet(r, TRACKER_NAME_KEYS)||'').trim();
+    const ecRaw = String(_trackerStatusOf(r)||'').trim();
     if(!nm && !ecRaw) return;
     const ec = ecRaw.toLowerCase();
     if(ecRaw && ecRaw.length<=35 && !/[,;\n]/.test(ecRaw)){
@@ -16164,13 +16264,13 @@ function _buildClientSnapshot(c){
     if(_isPublishedStatus(ec)) publicado++;
     else if(ec.includes('aprobad')) aprobado++;
     else if(ec.includes('revisi')) revision++;
-    else if(ec.includes('por publicar')||ec.includes('pendiente')||ec.includes('programad')) porPublicar++;
+    else if(ec.includes('por publicar')||ec.includes('pendiente')||ec.includes('programad')||ec.includes('⚠')) porPublicar++;
     const iso = _trackerRowDate(r);
     if(iso && cal.length<500){
       cal.push({
         d: iso,
         n: nm.slice(0,60),
-        p: String(_trackerGet(r,['PLATAFORMA','Plataforma','RED SOCIAL','Red Social','RED','CANAL','Canal'])||'').slice(0,20),
+        p: String(_trackerGet(r,['PLATAFORMA','Plataforma','RED SOCIAL','Red Social','RED','CANAL','Canal','TIPO DE CONTENIDO','Tipo de Contenido'])||'').slice(0,20),
         f: String(_trackerGet(r,['FORMATO','Formato','TIPO','Tipo'])||'').slice(0,25),
         s: ecRaw.slice(0,30)
       });
@@ -16408,7 +16508,7 @@ function _cvStatusColor(s){
   if(_isPublishedStatus(v)) return {bg:'#d3f5db', col:'#166534'};
   if(v.includes('aprobad')) return {bg:'#dbeafe', col:'#1d4ed8'};
   if(v.includes('revisi')) return {bg:'#fef08a', col:'#854d0e'};
-  if(v.includes('por publicar')||v.includes('pendiente')||v.includes('programad')) return {bg:'#fde4f0', col:'#be185d'};
+  if(v.includes('por publicar')||v.includes('pendiente')||v.includes('programad')||v.includes('⚠')) return {bg:'#fde4f0', col:'#be185d'};
   return {bg:'#eee9f0', col:'#57545e'};
 }
 function _cvChip(s){
