@@ -1,0 +1,162 @@
+/* Tests de los parsers de Google Sheets (tracker y escenario).
+ *
+ * Corre con:  node test/parsers.test.js
+ * Sin dependencias: carga los archivos reales de js/ en un contexto con
+ * stubs mínimos del navegador. Antes de separar el JS esto no se podía
+ * hacer — había que extraer las funciones del HTML con regex.
+ *
+ * Los parsers son la parte del sistema con más formatos distintos de
+ * entrada (cada equipo arma su sheet a su manera), así que son lo que
+ * más se rompe en silencio: un cambio de heurística puede seguir
+ * "funcionando" pero contar mal las publicaciones.
+ */
+const fs = require('fs');
+const path = require('path');
+const vm = require('vm');
+
+const ROOT = path.join(__dirname, '..');
+
+// --- stubs mínimos del navegador -------------------------------------------
+const noop = () => {};
+const fakeEl = { style:{}, classList:{add:noop,remove:noop,toggle:noop,contains:()=>false},
+                 addEventListener:noop, appendChild:noop, textContent:'', innerHTML:'',
+                 value:'', dataset:{}, querySelector:()=>null, querySelectorAll:()=>[] };
+const sandbox = {
+  console,
+  document: {
+    getElementById: () => null,
+    querySelector: () => null,
+    querySelectorAll: () => [],
+    addEventListener: noop,
+    createElement: () => ({ ...fakeEl }),
+    body: { ...fakeEl },
+    documentElement: { classList:{contains:()=>false,add:noop,remove:noop} },
+    readyState: 'complete',
+  },
+  localStorage: { getItem:()=>null, setItem:noop, removeItem:noop },
+  navigator: { userAgent:'node', clipboard:{writeText:noop} },
+  location: { search:'', pathname:'/', origin:'http://localhost', href:'http://localhost/' },
+  matchMedia: () => ({ matches:false, addEventListener:noop }),
+  setTimeout, clearTimeout, setInterval, clearInterval, fetch: () => Promise.reject(new Error('sin red en tests')),
+  // Firebase: lo justo para que core.js/ui.js carguen sin tocar la red
+  firebase: {
+    initializeApp: noop,
+    auth: () => ({ onAuthStateChanged: noop, signInWithPopup: noop, signOut: noop }),
+    firestore: Object.assign(() => ({ collection: () => ({ doc: () => ({ get: () => Promise.resolve({exists:false}), set: noop }) }) }),
+                             { FieldValue: { serverTimestamp: noop } }),
+  },
+};
+sandbox.window = sandbox;
+sandbox.globalThis = sandbox;
+vm.createContext(sandbox);
+
+// --- cargar los archivos reales, en el mismo orden que index.html ----------
+['core.js', 'campaigns.js', 'sheets.js', 'ui.js'].forEach(f => {
+  const src = fs.readFileSync(path.join(ROOT, 'js', f), 'utf8');
+  try { vm.runInContext(src, sandbox, { filename:'js/'+f }); }
+  catch(e) { console.error('No se pudo cargar js/'+f+': '+e.message); process.exit(1); }
+});
+
+// Las `function` declaradas a top-level sí quedan en el objeto global, pero
+// `const`/`let` no: viven en el scope léxico compartido. Para leer esas hay
+// que evaluar el identificador dentro del contexto.
+// (Es la misma razón por la que el split en scripts clásicos funciona: todos
+// comparten ese scope léxico, en el orden en que index.html los carga.)
+const lex = name => vm.runInContext(name, sandbox);
+
+// --- mini framework --------------------------------------------------------
+let pass = 0, fail = 0;
+const eq = (actual, expected, label) => {
+  const a = JSON.stringify(actual), b = JSON.stringify(expected);
+  if(a === b){ pass++; console.log('  ✓ ' + label); }
+  else { fail++; console.log('  ✗ ' + label + '\n      esperado: ' + b + '\n      obtenido: ' + a); }
+};
+const group = name => console.log('\n' + name);
+
+// ===========================================================================
+group('parseLocaleNumber — formatos numéricos de los sheets');
+eq(sandbox.parseLocaleNumber('3.240.000'), 3240000, 'miles con punto (formato europeo)');
+eq(sandbox.parseLocaleNumber('1,234,567'), 1234567, 'miles con coma (formato US)');
+eq(sandbox.parseLocaleNumber('2,70%'),     2.7,     'porcentaje con coma decimal');
+eq(sandbox.parseLocaleNumber('$2.400.000'), 2400000, 'moneda con miles');
+eq(sandbox.parseLocaleNumber('#REF!'),     0,       'error de fórmula = 0');
+eq(sandbox.parseLocaleNumber('—'),         0,       'guión largo = 0');
+eq(sandbox.parseLocaleNumber(''),          0,       'vacío = 0');
+
+group('_isPublishedStatus — "¿esta fila ya se publicó?"');
+eq(sandbox._isPublishedStatus('Publicado'), true,  'texto explícito');
+eq(sandbox._isPublishedStatus('publicadas'), true, 'tolera inflexión');
+eq(sandbox._isPublishedStatus('✅'),        true,  'checkmark (trackers tipo checklist)');
+eq(sandbox._isPublishedStatus('TRUE'),      true,  'casilla marcada');
+eq(sandbox._isPublishedStatus('⚠️'),        false, 'advertencia NO es publicado');
+eq(sandbox._isPublishedStatus('Por publicar'), false, 'programado NO es publicado');
+eq(sandbox._isPublishedStatus(''),          false, 'vacío');
+
+group('_trackerParseDate — fechas heterogéneas');
+eq(sandbox._trackerParseDate('29 de mayo', 2026), '2026-05-29', 'español sin año');
+eq(sandbox._trackerParseDate('24 de Julio', 2026), '2026-07-24', 'español con mayúscula');
+eq(sandbox._trackerParseDate('12/08/2026'),        '2026-08-12', 'dd/mm/yyyy');
+eq(sandbox._trackerParseDate('2026-08-12'),        '2026-08-12', 'ISO');
+eq(sandbox._trackerParseDate(''),                  '',           'vacío');
+
+group('_trackerStatusOf — elegir la columna de estatus correcta');
+eq(sandbox._trackerStatusOf({'ESTATUS CONTENIDO':'Aprobado'}), 'Aprobado', 'columna estándar');
+eq(sandbox._trackerStatusOf({'TALENTO':'x','PUBLICADO':'✅'}), '✅', 'cae a PUBLICADO si no hay estatus textual');
+eq(sandbox._trackerStatusOf({
+     'STATUS':'•⁠ 1° contenido: publicado YT\n•⁠ 2° contenido: pendiente',
+     'PUBLICADO':'✅'
+   }), '✅', 'ignora columna con prosa de seguimiento y usa la real');
+
+group('parseCSV — detección de la fila de headers');
+{
+  // headers en la fila 1
+  const simple = 'NOMBRE,ESTATUS CONTENIDO\nAna,Publicado\n';
+  eq(sandbox.parseCSV(simple).length, 1, 'CSV plano: 1 fila de datos');
+  eq(sandbox.parseCSV(simple)[0]['NOMBRE'], 'Ana', 'lee el valor');
+
+  // banner de agrupación encima de los headers reales
+  const conBanner = 'MI TRACKER,,,\n,,,\nNOMBRE,PLATAFORMA,FECHA DE POST,ESTATUS CONTENIDO\nAna,TikTok,12/08/2026,Publicado\n';
+  const r = sandbox.parseCSV(conBanner);
+  eq(r.length, 1, 'con banner: sigue habiendo 1 fila de datos');
+  eq(Object.keys(r[0]).includes('ESTATUS CONTENIDO'), true, 'encontró los headers reales, no el banner');
+}
+
+group('_trackerNormalizeRows — celdas combinadas y filas basura');
+{
+  const rows = [
+    {TALENTO:'KNORR'},                                                              // separador de marca
+    {TALENTO:'Chef en Proceso','FECHA DE PUBLICACIÓN':'29 de mayo',PUBLICADO:'✅'},
+    {TALENTO:'','FECHA DE PUBLICACIÓN':'26 de Junio',PUBLICADO:'✅'},               // hereda nombre
+    {TALENTO:'','FECHA DE PUBLICACIÓN':'',PUBLICADO:''},                            // vacía
+    {TALENTO:'TOTAL DE CONTENIDOS'},                                                // leyenda del pie
+  ];
+  const out = sandbox._trackerNormalizeRows(rows);
+  eq(out.length, 2, 'quedan solo las 2 filas reales');
+  eq(sandbox._trackerGet(out[1], lex('TRACKER_NAME_KEYS')), 'Chef en Proceso',
+     'la segunda fila heredó el talento de la primera');
+}
+
+group('parseEscenarioRows — creadores, totales y basura');
+{
+  const rows = [
+    {NOMBRE:'Ana Beauty', PLATAFORMA:'TikTok', 'CANTIDAD DE CONTENIDO':'4',
+     'VIEWS ESTIMADAS TOTALES':'300.000', 'INTERACCIONES ESTIMADAS TOTALES':'25.000', COSTO:'$80.000'},
+    {NOMBRE:'', PLATAFORMA:'Instagram', 'CANTIDAD DE CONTENIDO':'2',
+     'VIEWS ESTIMADAS TOTALES':'100.000', 'INTERACCIONES ESTIMADAS TOTALES':'8.000', COSTO:''},
+    {NOMBRE:'Knorr: sigue con barrio, urbano, calle'},                               // nota, no creador
+    {NOMBRE:'BIG NUMBERS', 'CANTIDAD DE CONTENIDO':'6',
+     'VIEWS ESTIMADAS TOTALES':'400.000', 'INTERACCIONES ESTIMADAS TOTALES':'33.000'},
+  ];
+  const p = sandbox.parseEscenarioRows(rows);
+  eq(p.creators.length, 1, 'un solo creador (la nota se descarta)');
+  eq(p.creators[0].nombre, 'Ana Beauty', 'nombre correcto');
+  eq(p.creators[0].contenidosTotal, 6, 'suma las 2 plataformas (celda combinada)');
+  eq(p.creators[0].viewsEstTotal, 400000, 'suma views de ambas filas');
+  eq(p.goal && p.goal.totalContenidos, 6, 'detecta la fila BIG NUMBERS como meta');
+}
+
+// ===========================================================================
+console.log('\n' + (fail === 0
+  ? '✅ ' + pass + ' pruebas OK'
+  : '❌ ' + fail + ' fallaron de ' + (pass+fail)));
+process.exit(fail === 0 ? 0 : 1);
