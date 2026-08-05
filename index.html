@@ -16305,7 +16305,18 @@ function _buildClientSnapshot(c){
   // --- documentos (solo los marcados visibles para cliente) ---
   const docs = (Array.isArray(c.documents)?c.documents:[])
     .filter(dd=>_docVisibleToClient(c, dd))
-    .map(dd=>({name:String(dd.name||'').slice(0,120), type:String(dd.type||'Otro').slice(0,20), url:String(dd.url||''), date:String(dd.date||'')}));
+    .map(dd=>{
+      // Sanea al escribir con el mismo criterio que el resto de la app
+      // (_safeUrl solo deja http/https); la vista cliente vuelve a validar
+      // al renderizar, así que el saneamiento queda en ambos extremos.
+      const safe = (typeof _safeUrl==='function') ? _safeUrl(dd.url) : String(dd.url||'');
+      return {
+        name: String(dd.name||'').slice(0,120),
+        type: String(dd.type||'Otro').slice(0,20),
+        url: safe === '#' ? '' : safe,
+        date: String(dd.date||'')
+      };
+    });
 
   return {
     v:1,
