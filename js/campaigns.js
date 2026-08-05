@@ -853,14 +853,14 @@ function renderCampaignProgress(c) {
 
   el.innerHTML = `
     <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:stretch;">
-      <button onclick="_switchCampaignTab('tracker')" style="flex:1;min-width:240px;background:var(--white);border:1.5px solid var(--border);border-radius:14px;padding:16px 18px;cursor:pointer;text-align:left;transition:all .18s;font-family:inherit;color:var(--text);" onmouseover="this.style.borderColor='var(--pink)'" onmouseout="this.style.borderColor='var(--border)'">
+      <button onclick="_switchCampaignTab('tracker')" style="flex:1;min-width:240px;background:var(--white);border:1.5px solid var(--border);border-radius:14px;padding:16px 18px;cursor:pointer;text-align:left;transition:all var(--dur-quick);font-family:inherit;color:var(--text);" onmouseover="this.style.borderColor='var(--pink)'" onmouseout="this.style.borderColor='var(--border)'">
         <div style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;">Publicaciones</div>
         <div style="display:flex;align-items:baseline;gap:8px;margin-top:6px;">
           <div style="font-size:32px;font-weight:800;line-height:1;">${pubs}</div>
           <div style="font-size:14px;color:var(--text-muted);">/ ${total||'—'} cerradas</div>
         </div>
         <div style="margin-top:10px;height:8px;background:var(--bg);border-radius:6px;overflow:hidden;">
-          <div style="height:100%;width:${Math.min(100,pct)}%;background:${s.bg};border-right:2px solid ${s.color};transition:width .3s;"></div>
+          <div style="height:100%;width:${Math.min(100,pct)}%;background:${s.bg};border-right:2px solid ${s.color};transition:width var(--dur-fast);"></div>
         </div>
         <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
           <span style="font-size:11px;color:var(--text-muted);">% Completitud</span>
@@ -869,13 +869,13 @@ function renderCampaignProgress(c) {
         ${splitLine?`<div style="font-size:10px;color:var(--text-muted);margin-top:4px;">${splitLine}</div>`:''}
         <div style="font-size:10px;color:var(--text-muted);margin-top:6px;">Click para ver el tracker →</div>
       </button>
-      <button onclick="_switchCampaignTab('influencers')" style="flex:1;min-width:200px;background:var(--white);border:1.5px solid var(--border);border-radius:14px;padding:16px 18px;cursor:pointer;text-align:left;transition:all .18s;font-family:inherit;color:var(--text);" onmouseover="this.style.borderColor='var(--pink)'" onmouseout="this.style.borderColor='var(--border)'">
+      <button onclick="_switchCampaignTab('influencers')" style="flex:1;min-width:200px;background:var(--white);border:1.5px solid var(--border);border-radius:14px;padding:16px 18px;cursor:pointer;text-align:left;transition:all var(--dur-quick);font-family:inherit;color:var(--text);" onmouseover="this.style.borderColor='var(--pink)'" onmouseout="this.style.borderColor='var(--border)'">
         <div style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;">Escenario · Goal</div>
         <div style="font-size:24px;font-weight:800;line-height:1;margin-top:6px;">${total || '—'} <span style="font-size:12px;color:var(--text-muted);font-weight:600;">contenidos</span></div>
         <div style="font-size:12px;color:var(--text-muted);margin-top:6px;">${d.escenarioViewsEst ? formatNum(d.escenarioViewsEst)+' views est.' : 'Sin escenario vinculado'}</div>
         <div style="font-size:10px;color:var(--text-muted);margin-top:6px;">Click para ver escenario →</div>
       </button>
-      <button onclick="_switchCampaignTab('metricas')" style="flex:1;min-width:200px;background:var(--white);border:1.5px solid var(--border);border-radius:14px;padding:16px 18px;cursor:pointer;text-align:left;transition:all .18s;font-family:inherit;color:var(--text);" onmouseover="this.style.borderColor='var(--pink)'" onmouseout="this.style.borderColor='var(--border)'">
+      <button onclick="_switchCampaignTab('metricas')" style="flex:1;min-width:200px;background:var(--white);border:1.5px solid var(--border);border-radius:14px;padding:16px 18px;cursor:pointer;text-align:left;transition:all var(--dur-quick);font-family:inherit;color:var(--text);" onmouseover="this.style.borderColor='var(--pink)'" onmouseout="this.style.borderColor='var(--border)'">
         <div style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;">Métricas / ROI</div>
         <div style="font-size:24px;font-weight:800;line-height:1;margin-top:6px;">${d.metricsRowsCount} <span style="font-size:12px;color:var(--text-muted);font-weight:600;">filas registradas</span></div>
         <div style="font-size:12px;color:var(--text-muted);margin-top:6px;">${d.metricsRowsCount === d.trackerPublicado && d.trackerPublicado > 0 ? '✅ Coincide con tracker' : (d.metricsRowsCount===0 ? 'Sin métricas cargadas' : '⚠ Difiere del tracker')}</div>
@@ -1726,7 +1726,7 @@ function _renderTrackerSummaryAndTable() {
 
   const makeSummaryCard = (status, count, field) =>
     `<button onclick="filterTrackerByStatus('${field}','${String(status).replace(/'/g,"&#39;")}')"
-      style="border:1.5px solid var(--border);background:var(--white);border-radius:12px;padding:10px 14px;cursor:pointer;text-align:left;transition:border-color .15s;${_trackerStatusFilter&&_trackerStatusFilter.value===status?'border-color:var(--pink);':''}"
+      style="border:1.5px solid var(--border);background:var(--white);border-radius:12px;padding:10px 14px;cursor:pointer;text-align:left;transition:border-color var(--dur-quick);${_trackerStatusFilter&&_trackerStatusFilter.value===status?'border-color:var(--pink);':''}"
       onmouseover="this.style.borderColor='var(--pink)'" onmouseout="this.style.borderColor='${_trackerStatusFilter&&_trackerStatusFilter.value===status?'var(--pink)':'var(--border)'}'">
       <div style="font-size:24px;font-weight:800;color:var(--text);line-height:1;">${count}</div>
       <div style="margin-top:6px;">${trackerStatusBadge(status)}</div>

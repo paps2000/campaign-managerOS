@@ -228,7 +228,7 @@ function renderGmailWidget() {
       ? '<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px;">¡Bandeja limpia! 🎉</div>'
       : `<div style="display:flex;flex-direction:column;gap:0;">
           ${msgs.map(m => `
-            <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s;position:relative;"
+            <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer;transition:background var(--dur-quick);position:relative;"
                  onmouseover="this.style.background='var(--bg)';this.querySelector('.gmail-trash-btn').style.opacity='1'" onmouseout="this.style.background='';this.querySelector('.gmail-trash-btn').style.opacity='0'"
                  onclick="window.open('https://mail.google.com/mail/u/0/#inbox/${m.threadId}','_blank')">
               <div style="width:32px;height:32px;border-radius:10px;background:var(--pink-pale);color:var(--pink-deep);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0;">
@@ -244,7 +244,7 @@ function renderGmailWidget() {
               </div>
               ${m.unread ? '<div style="width:7px;height:7px;border-radius:50%;background:var(--pink);flex-shrink:0;margin-top:4px;"></div>' : ''}
               <button class="gmail-trash-btn" onclick="trashGmailMessage('${m.id}',event)" title="Borrar correo"
-                style="opacity:0;transition:opacity .15s;background:none;border:none;cursor:pointer;padding:2px 4px;color:var(--text-muted);font-size:14px;flex-shrink:0;line-height:1;border-radius:6px;"
+                style="opacity:0;transition:opacity var(--dur-quick);background:none;border:none;cursor:pointer;padding:2px 4px;color:var(--text-muted);font-size:14px;flex-shrink:0;line-height:1;border-radius:6px;"
                 onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--text-muted)'">🗑</button>
             </div>
           `).join('')}

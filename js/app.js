@@ -214,7 +214,7 @@ function openProfileModal(uid) {
     </div>`;
 
   const campCard = c => `
-    <div onclick="openCampaignDetail('${c.id}');closeModal('profileModal');" style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;cursor:pointer;transition:all .15s;" onmouseover="this.style.borderColor='var(--pink)'" onmouseout="this.style.borderColor='var(--border)'">
+    <div onclick="openCampaignDetail('${c.id}');closeModal('profileModal');" style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;cursor:pointer;transition:all var(--dur-quick);" onmouseover="this.style.borderColor='var(--pink)'" onmouseout="this.style.borderColor='var(--border)'">
       <div style="flex:1;min-width:0;">
         <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_esc(c.name)}</div>
         <div style="font-size:11px;color:var(--text-muted);">${c.client||''}</div>

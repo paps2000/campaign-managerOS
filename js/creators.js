@@ -429,7 +429,7 @@ function _renderScenario() {
           <span style="color:${barColor};">${_scnMoney(g.cost)} / ${_scnMoney(budget)}</span>
         </div>
         <div style="height:10px;border-radius:6px;background:var(--bg);overflow:hidden;">
-          <div style="height:100%;width:${pct}%;background:${barColor};transition:width .3s,background .3s;"></div>
+          <div style="height:100%;width:${pct}%;background:${barColor};transition:width var(--dur-fast),background var(--dur-fast);"></div>
         </div>
         <div style="font-size:11px;margin-top:5px;color:${over?'#e5484d':'var(--text-muted)'};font-weight:${over?'700':'500'};">
           ${over ? '⚠ Te pasaste por '+_scnMoney(Math.abs(remaining)) : 'Disponible: '+_scnMoney(remaining)}
