@@ -1,0 +1,661 @@
+/* Campaign OS — Firebase, capa de datos/caché, datos de ejemplo, navegación, tema
+   Extraído de index.html. Script CLÁSICO a propósito (NO type="module"):
+   el HTML llama estas funciones desde atributos onclick/onchange, que solo
+   resuelven contra el scope global. El orden de carga en index.html replica
+   el orden original de ejecución y no debe alterarse. */
+
+const SIDEBAR_ICN = {
+  influencers: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="9" r="2.5"/><path d="M15 16c2-1 5-1 6 1"/></svg>',
+  documentos:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/></svg>',
+  calendario:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>'
+};
+
+const ICN_chart = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg>';
+const ICN_close = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6l-12 12"/></svg>';
+const ICN_copy = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="13" height="13" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></svg>';
+const ICN_mail = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 7 9-7"/></svg>';
+const ICN_edit = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4l6 6-11 11H3v-6L14 4z"/></svg>';
+const ICN_trash = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M5 6l1 14a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l1-14"/></svg>';
+const ICN_sparkle = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.5L18 9l-4.2 1.5L12 15l-1.8-4.5L6 9l4.2-1.5z"/><path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9z"/></svg>';
+const ICN_alert = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l10 17H2L12 4z"/><path d="M12 10v5M12 18v.5"/></svg>';
+const ICN_users = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="9" r="2.5"/><path d="M15 16c2-1 5-1 6 1"/></svg>';
+const ICN_calendar = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>';
+const ICN_doc = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l4 4v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M14 3v5h5"/></svg>';
+const ICN_sheet = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 10h16M4 16h16M10 4v16"/></svg>';
+const ICN_paperclip = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11l-9 9a5 5 0 0 1-7-7l9-9a3.5 3.5 0 0 1 5 5l-9 9a2 2 0 0 1-3-3l8-8"/></svg>';
+const ICN_clipboard = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9 4h6v3H9z"/></svg>';
+const ICN_check = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/></svg>';
+// Social platform icons — colored filled
+const ICN_insta = `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="ig-g" x1="0%" y1="100%" x2="100%" y2="0%"><stop offset="0%" stop-color="#FFDC80"/><stop offset="30%" stop-color="#F77737"/><stop offset="65%" stop-color="#C13584"/><stop offset="100%" stop-color="#833AB4"/></linearGradient></defs><rect x="1" y="1" width="22" height="22" rx="6" fill="url(#ig-g)"/><circle cx="12" cy="12" r="5" fill="none" stroke="white" stroke-width="2"/><circle cx="17.5" cy="6.5" r="1.2" fill="white"/></svg>`;
+const ICN_tiktok = `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><rect width="24" height="24" rx="6" fill="#010101"/><path d="M19.1 8.7a5.1 5.1 0 0 1-3.1-1V14a4.3 4.3 0 1 1-3.5-4.2v2.6a1.8 1.8 0 1 0 1.2 1.7V4h2.4a3.1 3.1 0 0 0 3 2.7v2z" fill="white"/><path d="M18.8 8.4a5.1 5.1 0 0 1-2.8-2.4A3.1 3.1 0 0 0 18.8 8.4z" fill="#69C9D0"/></svg>`;
+const ICN_youtube = `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><rect width="24" height="24" rx="6" fill="#FF0000"/><path d="M20.2 8.6s-.2-1.2-.7-1.7c-.7-.7-1.4-.7-1.8-.8C15.4 6 12 6 12 6s-3.4 0-5.7.1c-.4.1-1.1.1-1.8.8-.5.5-.7 1.7-.7 1.7S3.6 10 3.6 11.4v1.2c0 1.4.2 2.8.2 2.8s.2 1.2.7 1.7c.7.7 1.6.7 2 .8 1.5.1 5.5.1 5.5.1s3.4 0 5.7-.2c.4 0 1.1-.1 1.8-.8.5-.5.7-1.7.7-1.7s.2-1.4.2-2.8v-1.2C20.4 10 20.2 8.6 20.2 8.6zM10.2 14V9.8l4.7 2.1-4.7 2.1z" fill="white"/></svg>`;
+const ICN_twitter = `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><rect width="24" height="24" rx="6" fill="#000000"/><path d="M17.8 4.5h2.3l-5 5.7 5.9 7.8h-4.6l-3.6-4.7-4.2 4.7H5.3l5.4-6.1L5 4.5h4.7l3.2 4.3 3.9-4.3zm-.8 12h1.3L7.1 5.7H5.7L17 16.5z" fill="white"/></svg>`;
+const ICN_facebook = `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><rect width="24" height="24" rx="6" fill="#1877F2"/><path d="M15.9 13.5l.4-2.9h-2.8v-1.9c0-.8.4-1.6 1.6-1.6h1.2V4.6S15.3 4.4 14 4.4c-2.3 0-3.8 1.4-3.8 3.9v2.3H7.7v2.9h2.5V21c.5.1 1 .1 1.5.1s1 0 1.5-.1v-7.5h2.7z" fill="white"/></svg>`;
+const ICN_twitch = `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><rect width="24" height="24" rx="6" fill="#9146FF"/><path d="M7 4L5 8v10h3v2h2l2-2h3l4-4V4H7zm11 9.5L15.5 16H12l-2 2v-2H7.5V5.5H18v8z" fill="white"/><rect x="11" y="8" width="1.6" height="4.5" fill="white"/><rect x="14.5" y="8" width="1.6" height="4.5" fill="white"/></svg>`;
+
+// Normalize any platform string (IG, tiktok, YT, X, "FB REEL", etc.) → canonical key.
+function _normalizePlatform(pf) {
+  const raw = String(pf||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+  const k = raw.replace(/[^a-z0-9]/g,'').trim();
+  if(!k) return null;
+  // 1) Exact alias match
+  const map = {
+    instagram:'Instagram', ig:'Instagram', insta:'Instagram', reel:'Instagram', reels:'Instagram', story:'Instagram', stories:'Instagram', post:'Instagram',
+    tiktok:'TikTok', tt:'TikTok', tik:'TikTok',
+    youtube:'YouTube', yt:'YouTube', shorts:'YouTube', short:'YouTube', ytshorts:'YouTube',
+    twitter:'Twitter/X', x:'Twitter/X', tweet:'Twitter/X', twitterx:'Twitter/X',
+    facebook:'Facebook', fb:'Facebook', face:'Facebook', fbreel:'Facebook',
+    twitch:'Twitch', stream:'Twitch',
+  };
+  if(map[k]) return map[k];
+  if(/twitch|stream/.test(raw)) return 'Twitch';
+  // 2) Substring detection (handles "FB REEL", "TIKTOK ORGÁNICO", "SHORT (REPLICA)").
+  //    Order matters: most specific / brand-named first so "FB REEL" → Facebook.
+  if(/tiktok|tik\b|\btt\b/.test(raw)) return 'TikTok';
+  if(/youtube|\byt\b|short/.test(raw)) return 'YouTube';
+  if(/facebook|\bfb\b/.test(raw)) return 'Facebook';
+  if(/twitter|tweet|\bx\b/.test(raw)) return 'Twitter/X';
+  if(/instagram|\big\b|insta|reel|story|stories/.test(raw)) return 'Instagram';
+  return null;
+}
+
+// Platform badge — colored pill with brand icon. Accepts any alias.
+function platformBadge(pf) {
+  const icons = {Instagram:ICN_insta,TikTok:ICN_tiktok,YouTube:ICN_youtube,'Twitter/X':ICN_twitter,Facebook:ICN_facebook,Twitch:ICN_twitch};
+  const colors = {Instagram:'#C13584',TikTok:'#010101',YouTube:'#FF0000','Twitter/X':'#000000',Facebook:'#1877F2',Twitch:'#9146FF'};
+  const key = _normalizePlatform(pf);
+  const icon = key ? icons[key] : null;
+  if(!icon) { const t = String(pf||'').trim(); return `<span style="font-size:11px;color:var(--text-muted);">${t||'—'}</span>`; }
+  return `<span class="plat-badge" data-plat="${key}" style="display:inline-flex;align-items:center;gap:5px;padding:2px 8px 2px 3px;border-radius:20px;background:${colors[key]}18;font-size:11px;font-weight:700;color:${colors[key]};white-space:nowrap;"><span style="width:18px;height:18px;display:inline-flex;flex-shrink:0;">${icon}</span>${key}</span>`;
+}
+
+// Render every platform a creator is active on (array or comma string).
+function platformBadges(platforms) {
+  const arr = Array.isArray(platforms) ? platforms : String(platforms||'').split(',');
+  const seen = new Set(); const out = [];
+  arr.forEach(p => { const k = _normalizePlatform(p) || String(p||'').trim(); if(k && !seen.has(k)) { seen.add(k); out.push(platformBadge(p)); } });
+  return out.join(' ');
+}
+
+// ============================================================
+// FIREBASE INIT
+// ============================================================
+const firebaseConfig = {
+  apiKey: "AIzaSyB912pnQWSyFeRI5yuuyIZwhys_pIycBjs",
+  authDomain: "campaign-manager-os.firebaseapp.com",
+  projectId: "campaign-manager-os",
+  storageBucket: "campaign-manager-os.firebasestorage.app",
+  messagingSenderId: "144199511389",
+  appId: "1:144199511389:web:03d9c6d6b641517c570cb4",
+  measurementId: "G-9MEPFG29Z3"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+const WORKSPACE = 'default'; // shared workspace for all users
+
+// === ACCESS CONTROL ===
+const ALLOWED_DOMAINS = ['thinkydigital.com'];
+const INITIAL_ADMINS = ['paulo@thinkydigital.com'];
+
+function isAllowedEmail(email) {
+  if(!email) return false;
+  return ALLOWED_DOMAINS.some(d => email.toLowerCase().endsWith('@'+d));
+}
+
+let currentUser = null;
+let currentUserProfile = null; // {name, email, role, ...}
+let allUsers = []; // cached list of users
+let unsubscribers = [];
+
+// ============================================================
+// DATA MANAGEMENT (cache layer + Firestore sync)
+// ============================================================
+const FLOW_STEPS = ['Propuesta','Perfiles','Presupuesto','Brief','SKUs','Producción','Revisión cliente','Publicación','Métricas','Reporte','Cierre'];
+const STATUS_OPTIONS_FLOW = ['Pendiente','En proceso','Completado','Aprobado','Enviado','Pendiente aprobación','No aplica'];
+const PUESTOS = [
+  // Cuentas
+  'Account Director','Head Account','Account Manager','Account Executive',
+  // Operaciones
+  'Operations Manager','Operaciones Senior','Account Lead','Account Junior',
+  // Creativo
+  'Creative Director','Art Director','Content Creative Head','Content Creative Senior','Content Creative','Content Creative Junior','Content Design',
+];
+const COST_ACCESS_PUESTOS = new Set(['Account Director','Head Account','Account Manager','Operations Manager','Creative Director','Art Director']);
+const STATUS_OPTIONS = STATUS_OPTIONS_FLOW;
+
+// In-memory cache backed by Firestore. Reads = sync (cache). Writes = sync cache + async Firestore.
+const _cache = { campaigns:[], globalTasks:[], settings:{}, influencerRatings:[], creators:[], _initialized:false };
+
+function getData(key, def) {
+  if(key in _cache) return _cache[key];
+  // fallback for any leftover localStorage usage (claudeApiKey stays local)
+  try { return JSON.parse(localStorage.getItem(key)) || (def!==undefined?def:[]); } catch { return def!==undefined?def:[]; }
+}
+
+function setData(key, val) {
+  _cache[key] = val;
+  // Persist to Firestore based on key
+  if(key === 'campaigns') {
+    // Sync entire campaigns list — write each one
+    persistCampaigns(val);
+  } else if(key === 'globalTasks') {
+    persistGlobalTasks(val);
+  } else if(key === 'settings') {
+    persistSettings(val);
+  } else if(key === '_initialized') {
+    // local-only flag
+    localStorage.setItem('_initialized', JSON.stringify(val));
+  }
+}
+
+function getSettings() {
+  const local = {};
+  try {
+    const ck = localStorage.getItem('claudeApiKey');
+    if(ck) local.claudeApiKey = ck;
+    const ok = localStorage.getItem('openaiApiKey');
+    if(ok) local.openaiApiKey = ok;
+    const ap = localStorage.getItem('aiProvider');
+    if(ap) local.aiProvider = ap;
+  } catch{}
+  return {..._cache.settings, ...local};
+}
+
+function saveSettingsData(s) {
+  const {claudeApiKey, openaiApiKey, aiProvider, ...rest} = s;
+  if(claudeApiKey !== undefined) localStorage.setItem('claudeApiKey', claudeApiKey);
+  if(openaiApiKey !== undefined) localStorage.setItem('openaiApiKey', openaiApiKey);
+  if(aiProvider !== undefined) localStorage.setItem('aiProvider', aiProvider);
+  if(Object.keys(rest).length > 0) {
+    _cache.settings = {..._cache.settings, ...rest};
+    persistSettings(_cache.settings);
+  }
+}
+
+function id() { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
+
+// --- Firestore persistence helpers ---
+// Keys that hold large fetched sheet data — kept in memory but stripped
+// from Firestore writes because they can blow past the 1MB doc limit.
+const _CAMPAIGN_LARGE_KEYS = ['trackerRows','escenarioRows','ugcRows','cachedMetrics'];
+function _stripLargeFields(c) {
+  const out = {...c};
+  _CAMPAIGN_LARGE_KEYS.forEach(k => { delete out[k]; });
+  return out;
+}
+async function persistCampaigns(campaigns) {
+  if(!currentUser) return;
+  const col = db.collection('workspaces').doc(WORKSPACE).collection('campaigns');
+  // Get existing IDs to know what to delete
+  const snap = await col.get();
+  const existingIds = new Set(snap.docs.map(d=>d.id));
+  const newIds = new Set(campaigns.map(c=>c.id));
+  const batch = db.batch();
+  campaigns.forEach(c => {
+    batch.set(col.doc(c.id), {..._stripLargeFields(c), _updatedAt: firebase.firestore.FieldValue.serverTimestamp(), _updatedBy: currentUser.uid});
+  });
+  existingIds.forEach(eid => { if(!newIds.has(eid)) batch.delete(col.doc(eid)); });
+  try { await batch.commit(); } catch(e) { console.error('persistCampaigns error',e); }
+  // Si alguna campaña tiene Modo cliente activo, refresca su snapshot público
+  // (debounced) para que el link del cliente refleje el estado actual.
+  try { if(typeof _scheduleClientShareRepublish === 'function') _scheduleClientShareRepublish(campaigns); } catch(e){}
+}
+
+async function persistGlobalTasks(tasks) {
+  if(!currentUser) return;
+  const col = db.collection('workspaces').doc(WORKSPACE).collection('globalTasks');
+  const snap = await col.get();
+  const existingIds = new Set(snap.docs.map(d=>d.id));
+  const newIds = new Set(tasks.map(t=>t.id));
+  const batch = db.batch();
+  tasks.forEach(t => batch.set(col.doc(t.id), t));
+  existingIds.forEach(eid => { if(!newIds.has(eid)) batch.delete(col.doc(eid)); });
+  try { await batch.commit(); } catch(e) { console.error('persistGlobalTasks error',e); }
+}
+
+async function persistSettings(settings) {
+  if(!currentUser) return;
+  try {
+    await db.collection('workspaces').doc(WORKSPACE).collection('config').doc('settings').set(settings, {merge:true});
+  } catch(e) { console.error('persistSettings error',e); }
+}
+
+// Escenario load/fetch guards keyed by campaign id (NOT on the campaign object,
+// because the realtime listener rebuilds those objects on every snapshot — a
+// per-object flag would reset and cause an infinite render→load→render flash).
+const _escenarioStoreChecked = new Set();
+const _escenarioLoading = new Set();
+const _escenarioFetching = new Set();
+function _rerenderEscenarioIfActive(campaignId) {
+  if(currentCampaignId !== campaignId) return;
+  const c = (_cache.campaigns||[]).find(x=>x.id===campaignId);
+  if(c) { try { renderEscenarioBlock(c); } catch(e){} }
+}
+
+// --- Escenario sheet persistence (separate doc so the big rows array survives
+//     reloads without bloating the campaign doc). Stored under
+//     workspaces/<ws>/escenarios/<campaignId>. ---
+async function persistEscenario(campaignId, rows, url, lastSync) {
+  if(!currentUser || !campaignId) return;
+  try {
+    await db.collection('workspaces').doc(WORKSPACE).collection('escenarios').doc(campaignId)
+      .set({ rows: rows||[], url: url||'', lastSync: lastSync||Date.now(), _by: currentUser.uid }, {merge:true});
+  } catch(e) { console.error('persistEscenario error', e); }
+}
+async function loadEscenarioFromStore(campaign) {
+  if(!campaign || !campaign.id) return false;
+  try {
+    const doc = await db.collection('workspaces').doc(WORKSPACE).collection('escenarios').doc(campaign.id).get();
+    if(!doc.exists) return false;
+    const data = doc.data();
+    if(!data || !Array.isArray(data.rows) || !data.rows.length) return false;
+    campaign.escenarioRows = data.rows;
+    if(data.url && !campaign.escenarioSheetUrl) campaign.escenarioSheetUrl = data.url;
+    if(data.lastSync) campaign.escenarioLastSync = data.lastSync;
+    // mirror into cache entry
+    const cached = (_cache.campaigns||[]).find(x=>x.id===campaign.id);
+    if(cached && cached !== campaign) { cached.escenarioRows = data.rows; cached.escenarioLastSync = data.lastSync; if(data.url && !cached.escenarioSheetUrl) cached.escenarioSheetUrl = data.url; }
+    return true;
+  } catch(e) { console.error('loadEscenarioFromStore error', e); return false; }
+}
+
+// --- Realtime listeners ---
+function attachListeners() {
+  // Detach any previous
+  unsubscribers.forEach(u=>u());
+  unsubscribers = [];
+
+  const ws = db.collection('workspaces').doc(WORKSPACE);
+
+  unsubscribers.push(ws.collection('campaigns').onSnapshot(snap => {
+    // Firestore docs no longer hold the large fetched-sheet arrays (we strip
+    // them in persistCampaigns). When a snapshot arrives, preserve those
+    // fields from the in-memory cache so the UI doesn't loop:
+    //   strip → persist → snapshot → empty rows → re-fetch → write → snapshot...
+    if(!Array.isArray(_cache.campaigns)) _cache.campaigns = [];
+    const prev = new Map(_cache.campaigns.map(c => [c.id, c]));
+    _cache.campaigns = snap.docs.map(d => {
+      const incoming = d.data();
+      const existing = prev.get(incoming.id);
+      if(!existing) return incoming;
+      const merged = {...incoming};
+      ['trackerRows','escenarioRows','ugcRows','cachedMetrics',
+       'trackerLastSync','escenarioLastSync','ugcLastSync'].forEach(k => {
+        if(existing[k] !== undefined && incoming[k] === undefined) merged[k] = existing[k];
+      });
+      return merged;
+    });
+    if(typeof _invalidateInfMemo==='function') _invalidateInfMemo();
+    rerenderCurrent();
+  }, err => console.error('campaigns listener',err)));
+
+  unsubscribers.push(ws.collection('globalTasks').onSnapshot(snap => {
+    _cache.globalTasks = snap.docs.map(d => d.data());
+    rerenderCurrent();
+  }, err => console.error('globalTasks listener',err)));
+
+  unsubscribers.push(ws.collection('config').doc('settings').onSnapshot(doc => {
+    _cache.settings = doc.exists ? doc.data() : {};
+    rerenderCurrent();
+  }, err => console.error('settings listener',err)));
+
+  // Members listener — workspace-scoped so Firestore rules allow all workspace users to read
+  unsubscribers.push(ws.collection('members').onSnapshot(snap => {
+    allUsers = snap.docs.map(d => ({uid:d.id, ...d.data()}));
+    if(currentPage==='ajustes') renderTeam();
+    renderSidebarTeam();
+    rerenderCurrent();
+  }, err => console.error('members listener',err)));
+
+  // Influencer ratings listener
+  unsubscribers.push(ws.collection('influencerRatings').onSnapshot(snap => {
+    _cache.influencerRatings = snap.docs.map(d => d.data());
+    if(typeof _invalidateInfMemo==='function') _invalidateInfMemo();
+    if(currentPage==='influencers') renderInfluencers();
+  }, err => console.error('influencerRatings listener',err)));
+
+  // Portada del login: listener global (se aplica a todos los usuarios)
+  try { setupCoverSync(); } catch(e){}
+
+  // Master creators DB listener (base de datos de talento)
+  unsubscribers.push(ws.collection('creators').onSnapshot(snap => {
+    _cache.creators = snap.docs.map(d => d.data());
+    _cache._creatorsLoaded = true;
+    if(typeof _invalidateInfMemo==='function') _invalidateInfMemo();
+    if(currentPage==='influencers') renderInfluencers();
+  }, err => console.error('creators listener',err)));
+}
+
+function visibleCampaigns() {
+  return _cache.campaigns.filter(c => canSeeCampaign(c));
+}
+
+function rerenderCurrent() {
+  if(currentPage==='dashboard') renderDashboard();
+  else if(currentPage==='campannas') {
+    if(currentCampaignId) {
+      const c = _cache.campaigns.find(x=>x.id===currentCampaignId);
+      if(c) {
+        renderCampaignInfluencers(c);
+        renderCampaignTasks(c);
+        renderCampaignDocs(c);
+        renderCampaignFlow(c);
+        renderCampaignTracker(c);
+      }
+    } else {
+      renderCampaignGrid();
+    }
+  }
+  else if(currentPage==='pendientes') renderPendientes();
+  else if(currentPage==='metricas') renderMetrics();
+  else if(currentPage==='calendario') renderCalendar();
+  else if(currentPage==='influencers') renderInfluencers();
+  populateCampaignSelects();
+}
+
+// ============================================================
+// SAMPLE DATA
+// ============================================================
+function initSampleData() {
+  // Deprecated: data now seeded to Firestore via seedSampleData() after auth.
+  return;
+  if (getData('_initialized')) return;
+  const today = new Date();
+  const fmt = (d) => d.toISOString().split('T')[0];
+  const add = (d,days) => { const r=new Date(d); r.setDate(r.getDate()+days); return r; };
+
+  const campaigns = [
+    {
+      id:'c1', name:'Mundial', client:'Coppel', status:'En proceso',
+      season:'Abril - Junio 2024', objective:'Awareness', coreMessage:'Vive la pasión',
+      budget:'$250,000 MXN', responsible:'Génesis', deadline: fmt(add(today,22)),
+      flowSteps: FLOW_STEPS.map((s,i)=>({step:s, status: i<4?'Completado': i===4?'Pendiente aprobación': i===5?'En proceso':'Pendiente'})),
+      influencers:[
+        {id:id(),name:'Hanna',handle:'@hannamx',platform:'Instagram',format:'Reel',publishDate:fmt(add(today,1)),status:'Aprobado',reach:235678,impressions:456789,interactions:18765,er:'7.96%'},
+        {id:id(),name:'Fer Jalil',handle:'@ferjalil',platform:'Instagram',format:'Story',publishDate:fmt(add(today,3)),status:'En producción',reach:0,impressions:0,interactions:0,er:'—'},
+        {id:id(),name:'Mariana C.',handle:'@marianac',platform:'Instagram',format:'Story',publishDate:fmt(add(today,-3)),status:'Publicado',reach:92345,impressions:145678,interactions:5678,er:'6.15%'},
+      ],
+      documents:[
+        {id:id(),name:'PRESS MUNDIAL_v3.pdf',type:'PDF',date:fmt(add(today,-1)),url:''},
+        {id:id(),name:'BRIEF MUNDIAL.pdf',type:'PDF',date:fmt(add(today,-5)),url:''},
+      ],
+      tasks:[
+        {id:id(),title:'Enviar follow up a César por SKUs Mundial',dueDate:fmt(today),priority:'high',done:false,assignee:'Génesis'},
+        {id:id(),title:'Confirmar publicación de Hanna',dueDate:fmt(today),priority:'medium',done:false,assignee:'Génesis'},
+        {id:id(),title:'Falta aprobar SKUs de 3 perfiles',dueDate:fmt(today),priority:'high',done:false,assignee:'Génesis'},
+      ]
+    },
+    {
+      id:'c2', name:'AON', client:'Sportline', status:'Ajustes',
+      season:'Mayo 2024', objective:'Ventas', coreMessage:'Tu equipo, tu look',
+      budget:'$180,000 MXN', responsible:'Génesis', deadline: fmt(add(today,21)),
+      flowSteps: FLOW_STEPS.map((s,i)=>({step:s, status: i<3?'Completado': i===3?'Aprobado':'Pendiente'})),
+      influencers:[
+        {id:id(),name:'Fer Jalil',handle:'@ferjalil',platform:'Instagram',format:'Story',publishDate:fmt(add(today,-1)),status:'Publicado',reach:78245,impressions:120456,interactions:4321,er:'5.52%'},
+        {id:id(),name:'Pao',handle:'@paorojas',platform:'Instagram',format:'Post',publishDate:fmt(add(today,4)),status:'Pendiente',reach:0,impressions:0,interactions:0,er:'—'},
+      ],
+      documents:[
+        {id:id(),name:'BUDGET AON.xlsx',type:'Sheets',date:fmt(add(today,-2)),url:''},
+      ],
+      tasks:[
+        {id:id(),title:'Revisar ajustes de costo en budget AON',dueDate:fmt(today),priority:'high',done:false,assignee:'Génesis'},
+        {id:id(),title:'Falta enviar brief a 2 influencers',dueDate:fmt(today),priority:'medium',done:false,assignee:'Génesis'},
+      ]
+    },
+    {
+      id:'c3', name:'Semana Santa', client:'Avène', status:'En reporte',
+      season:'Abril 2024', objective:'Awareness', coreMessage:'Tu piel, tu ritual',
+      budget:'$120,000 MXN', responsible:'Génesis', deadline: fmt(add(today,25)),
+      flowSteps: FLOW_STEPS.map((s,i)=>({step:s, status: i<8?'Completado': i===8?'En proceso':'Pendiente'})),
+      influencers:[
+        {id:id(),name:'Pao',handle:'@paorojas',platform:'Instagram',format:'Post',publishDate:fmt(add(today,-2)),status:'Publicado',reach:156789,impressions:289456,interactions:12345,er:'7.87%'},
+        {id:id(),name:'Alex Tienda',handle:'@alextienda',platform:'TikTok',format:'Reel',publishDate:fmt(add(today,-2)),status:'Publicado',reach:344567,impressions:612345,interactions:28765,er:'8.33%'},
+      ],
+      documents:[
+        {id:id(),name:'BRIEF SEMANA SANTA.pdf',type:'PDF',date:fmt(add(today,-2)),url:''},
+        {id:id(),name:'REPORTE ABRIL.pdf',type:'PDF',date:fmt(add(today,-3)),url:''},
+      ],
+      tasks:[
+        {id:id(),title:'Pedir métricas a Pao (Semana Santa)',dueDate:fmt(today),priority:'medium',done:false,assignee:'Génesis'},
+        {id:id(),title:'Consolidar métricas',dueDate:fmt(add(today,5)),priority:'low',done:false,assignee:'Génesis'},
+      ]
+    }
+  ];
+
+  setData('campaigns', campaigns);
+  setData('globalTasks', [
+    {id:id(),title:'Actualizar minuta del weekly',campaignId:'',campaignName:'Interno',dueDate:fmt(today),priority:'medium',done:false,assignee:'Génesis'},
+  ]);
+  setData('_initialized', true);
+}
+
+// ============================================================
+// NAVIGATION
+// ============================================================
+let currentPage = 'dashboard';
+let currentCampaignId = null;
+let currentTaskContext = null; // 'global' or campaignId
+let editingCampaignId = null;
+let editingTaskId = null;
+let editingTaskCampaignId = null;
+
+function setPendientesBadge(count) {
+  _setTBadge('pendientesBadge', count);
+  _setTBadge('pendientesBadgeTop', count);
+  _setTBadge('mobileNavBadge', count);
+}
+// Recompute pending-task count for the FAB badge from any page (mirrors the
+// "mis pendientes" logic: my/unassigned tasks not done, across global + campaigns).
+function _refreshPendCount() {
+  if(!currentUser) return;
+  let n = 0;
+  const mine = t => !t.done && (!t.assigneeUid || t.assigneeUid === currentUser.uid);
+  (getData('globalTasks')||[]).forEach(t => { if(mine(t)) n++; });
+  (visibleCampaigns()||[]).forEach(c => (c.tasks||[]).forEach(t => { if(mine(t)) n++; }));
+  setPendientesBadge(n);
+}
+// Render a number into an element as a transitions.dev .t-digit-group,
+// replaying the staggered pop-in only when the value actually changes.
+// Idempotent: if the new value equals the previous one, do nothing.
+function _renderDigitPop(elOrId, value) {
+  const el = typeof elOrId === 'string' ? document.getElementById(elOrId) : elOrId;
+  if(!el) return;
+  const str = String(value);
+  if(el.dataset.dval === str) return; // no change → no replay
+  el.dataset.dval = str;
+  el.classList.add('t-digit-group');
+  el.classList.remove('is-animating');
+  // Build digit spans with staggered indices
+  el.innerHTML = '';
+  for(let i=0;i<str.length;i++){
+    const sp = document.createElement('span');
+    sp.className = 't-digit';
+    sp.textContent = str[i];
+    if(i > 0) sp.dataset.stagger = String(Math.min(i, 6));
+    el.appendChild(sp);
+  }
+  // Force reflow then add .is-animating so the keyframe replays
+  void el.offsetWidth;
+  el.classList.add('is-animating');
+}
+
+// Spawn a transient success check icon with the .t-success-check
+// pack animation. Usage: showSuccessCheck() (centred overlay) or
+// showSuccessCheck(anchorEl) to position it over a given element.
+function showSuccessCheck(anchor) {
+  const el = document.createElement('span');
+  el.className = 't-success-check';
+  el.setAttribute('aria-hidden','true');
+  el.setAttribute('data-state','out');
+  el.style.position = 'fixed';
+  el.style.zIndex = '100001';
+  el.style.pointerEvents = 'none';
+  if(anchor && anchor.getBoundingClientRect) {
+    const r = anchor.getBoundingClientRect();
+    el.style.left = (r.left + r.width/2 - 28)+'px';
+    el.style.top  = (r.top + r.height/2 - 28)+'px';
+  } else {
+    el.style.left = 'calc(50% - 28px)';
+    el.style.top  = 'calc(50% - 28px)';
+  }
+  el.innerHTML = `
+    <svg width="56" height="56" viewBox="0 0 48 48" fill="none">
+      <circle cx="24" cy="24" r="22" stroke="var(--pink)" stroke-width="3"/>
+      <path d="M14 25 L21 32 L34 18" stroke="var(--pink)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    </svg>`;
+  document.body.appendChild(el);
+  // Compute path length for accurate stroke-draw
+  try {
+    const path = el.querySelector('path');
+    const len = path.getTotalLength ? Math.ceil(path.getTotalLength()) : 30;
+    path.style.strokeDasharray = String(len);
+    path.style.strokeDashoffset = String(len);
+  } catch(e){}
+  // Force reflow then trigger
+  void el.offsetWidth;
+  el.setAttribute('data-state','in');
+  setTimeout(() => {
+    el.style.transition = 'opacity .35s ease';
+    el.style.opacity = '0';
+    setTimeout(()=>el.remove(), 380);
+  }, 1100);
+}
+
+// Trigger a shake on a .t-input element. Optional revert timer flips
+// .is-error back off after --revert-hold ms.
+function shakeInput(el, opts = {}) {
+  if(!el) return;
+  const wrap = el.closest('.t-input-wrap');
+  el.classList.remove('is-shaking');
+  if(wrap) wrap.classList.add('is-error');
+  el.classList.add('is-error');
+  // Force reflow so the keyframe replays
+  void el.offsetWidth;
+  el.classList.add('is-shaking');
+  if(opts.revert !== false) {
+    const hold = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--revert-hold')) || 3000;
+    setTimeout(() => {
+      if(wrap) wrap.classList.remove('is-error');
+      el.classList.remove('is-error');
+      el.classList.remove('is-shaking');
+    }, hold);
+  }
+}
+
+// Drive a .t-badge element (open/close + dot text). Wraps the
+// transitions.dev badge pack so any badge in the app can use the
+// same slide-in + pop API.
+function _setTBadge(id, count) {
+  const el = document.getElementById(id);
+  if(!el) return;
+  const dot = el.querySelector('.t-badge-dot');
+  const n = parseInt(count)||0;
+  if(dot) dot.textContent = n > 9 ? '9+' : (n || '');
+  el.setAttribute('data-open', n > 0 ? 'true' : 'false');
+}
+
+// ============================================================
+// THEME TOGGLE (dark / light / auto)
+// ============================================================
+function getThemePref() { return localStorage.getItem('themePref') || 'auto'; }
+
+// En modo auto aplicamos la clase según el sistema: muchos overrides del tema
+// (glass v2) solo existen como `html.dark` y no cubren el media query solo.
+const _sysDarkMQ = window.matchMedia('(prefers-color-scheme: dark)');
+_sysDarkMQ.addEventListener('change', () => { if(getThemePref()==='auto') applyThemePref('auto'); });
+function applyThemePref(pref) {
+  document.documentElement.classList.remove('dark', 'light');
+  const dark = pref === 'dark' || (pref !== 'light' && _sysDarkMQ.matches);
+  document.documentElement.classList.add(dark ? 'dark' : 'light');
+  localStorage.setItem('themePref', pref);
+  const btn = document.getElementById('themeToggleBtn');
+  if(!btn) return;
+  const icons  = { dark:'🌙', light:'☀️', auto:'✦' };
+  const labels = { dark:'Modo oscuro', light:'Modo claro', auto:'Modo automático (sistema)' };
+  btn.title = labels[pref] || 'Modo automático';
+  // Use the t-icon-swap container if present (animates between two icons)
+  const swap = document.getElementById('themeToggleSwap');
+  if(swap) {
+    const a = swap.querySelector('[data-icon="a"]');
+    const b = swap.querySelector('[data-icon="b"]');
+    // Cycle between two visible states; load icon strings on the inactive one.
+    const cur = swap.getAttribute('data-state') || 'a';
+    const target = cur === 'a' ? 'b' : 'a';
+    const targetEl = target === 'a' ? a : b;
+    if(targetEl) targetEl.textContent = icons[pref] || '✦';
+    swap.setAttribute('data-state', target);
+  } else {
+    btn.textContent = icons[pref] || '✦';
+  }
+}
+
+function cycleTheme() {
+  const order = ['auto', 'dark', 'light'];
+  const next = order[(order.indexOf(getThemePref()) + 1) % 3];
+  applyThemePref(next);
+}
+
+applyThemePref(getThemePref());
+// Init compact sidebar from saved pref
+(function initCompactSidebar() {
+  if(localStorage.getItem('sidebarCompact') === '1') {
+    const sb = document.getElementById('mainSidebar');
+    if(sb) sb.classList.add('compact');
+  }
+})();
+
+function toggleMobileSidebar() {
+  const sidebar = document.getElementById('mainSidebar');
+  const overlay = document.getElementById('sidebarOverlay');
+  const open = sidebar.classList.toggle('mobile-open');
+  overlay.classList.toggle('open', open);
+}
+
+function navigate(page) {
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.querySelectorAll('.mobile-nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('page-'+page).classList.add('active');
+  document.querySelector(`.nav-item[data-page="${page}"]`)?.classList.add('active');
+  document.querySelector(`.mobile-nav-item[data-page="${page}"]`)?.classList.add('active');
+  // close mobile sidebar on nav
+  document.getElementById('mainSidebar')?.classList.remove('mobile-open');
+  document.getElementById('sidebarOverlay')?.classList.remove('open');
+  currentPage = page;
+  // Persist current page so reload restores it
+  try { localStorage.setItem('cmos:lastPage', page); } catch(e){}
+
+  const titles = {
+    dashboard: ['Resumen','Lo que necesita tu atención hoy.','+ Nueva tarea'],
+    campannas: ['Campañas','Gestiona todas tus campañas activas.','+ Nueva campaña'],
+    pendientes: ['Pendientes','Todas tus tareas y pendientes.','+ Nueva tarea'],
+    metricas: ['Métricas','Resultados en tiempo real.',''],
+    generador: ['Generador de textos','Plantillas con IA para tus campañas.',''],
+    influencers: ['Influencers','Base de talento.','+ Nueva tarea'],
+    documentos: ['Documentos','Repositorio de archivos.','+ Nueva tarea'],
+    calendario: ['Calendario','Vista de publicaciones.','+ Nueva tarea'],
+    equipo: ['Equipo','Miembros del equipo Think Y.',''],
+    ajustes: ['Ajustes','Configuración de la app.',''],
+  };
+  const name = getSettings().name || 'Génesis';
+  const t = titles[page] || [page,'',''];
+  document.getElementById('topbarTitle').textContent = t[0];
+  document.getElementById('topbarSub').textContent = t[1];
+  if(typeof tdevReplay==='function') tdevReplay(document.querySelector('.topbar-left.t-stagger'));
+  const btn = document.getElementById('mainActionBtn');
+  if(btn) btn.style.display='none';
+
+  if(page==='dashboard') renderDashboard();
+  if(page==='campannas') { showCampaignList(); renderCampaignGrid(); }
+  if(page==='pendientes') renderPendientes();
+  if(page==='metricas') renderMetrics();
+  if(page==='calendario') renderCalendar();
+  if(page==='generador') populateCampaignSelects();
+  if(page==='documentos') renderDocumentosPage();
+  if(page==='equipo') renderEquipo();
+  if(page==='ajustes') loadSettingsUI();
+  if(page==='influencers') renderInfluencers();
+  try { _refreshPendCount(); } catch(e){}
+}
+

@@ -112,9 +112,9 @@ Evita venderlo como "nuestro dashboard" o "nuestra plataforma" — el foco es su
 
 ---
 
-## Pendiente técnico (una sola vez)
+## Nota técnica
 
-⚠️ **Antes de mandar el primer link**, hay que activar el permiso en Firebase Console → Firestore → Rules, agregando este bloque junto a las reglas existentes:
+El permiso en Firestore ya está aplicado y verificado (2026-08-05). La regla activa es:
 
 ```
 match /clientShares/{token} {
@@ -124,4 +124,4 @@ match /clientShares/{token} {
 }
 ```
 
-Sin esto, el cliente verá "Link no disponible". Es un cambio de una sola vez para todo el sistema, no por campaña.
+Comprobado en vivo: leer un token concreto funciona, **enumerar la colección está bloqueado** (nadie puede descubrir los links de otros clientes) y **escribir sin sesión está bloqueado** (nadie externo puede alterar lo que ve un cliente). No hay que volver a tocarlo: es una sola vez para todo el sistema, no por campaña.
