@@ -31,6 +31,54 @@ function _docVisibleToClient(c, d){
 }
 window._docVisibleToClient = _docVisibleToClient;
 
+// Botón "visible para el cliente" para las listas de documentos.
+// role="switch" en vez de un badge: el estado se cambia aquí mismo, sin
+// tener que abrir el modal de Modo cliente. Va dentro de .doc-item, cuyo
+// onclick ya ignora clicks en <button>, así que no abre el documento.
+function _docVisToggleHtml(cid, d){
+  const c = getData('campaigns').find(x=>x.id===cid) || {};
+  const on = _docVisibleToClient(c, d);
+  const label = on ? 'Visible para el cliente. Click para ocultarlo.'
+                   : 'Oculto para el cliente. Click para compartirlo.';
+  return `<button type="button" class="doc-vis" role="switch" aria-checked="${on}"
+    aria-label="${label}" title="${label}"
+    onclick="event.stopPropagation();toggleDocClientVisible('${cid}','${d.id}',this)"
+  ><span class="doc-vis-icon" aria-hidden="true">👁</span>${on?'<span>Cliente</span>':''}</button>`;
+}
+window._docVisToggleHtml = _docVisToggleHtml;
+
+// Cambia el estado in-place (sin re-render): evita el parpadeo de la lista
+// y no pierde el scroll. El snapshot del cliente se republica solo.
+window.toggleDocClientVisible = function(cid, docId, btn){
+  const campaigns = getData('campaigns');
+  const c = campaigns.find(x=>x.id===cid);
+  if(!c) return;
+  const d = (c.documents||[]).find(x=>x.id===docId);
+  if(!d) return;
+  const on = !_docVisibleToClient(c, d);
+  d.clientVisible = on;
+  // limpia el mecanismo legacy para que no contradiga al flag
+  if(c.clientShare && Array.isArray(c.clientShare.hiddenDocs)){
+    c.clientShare.hiddenDocs = c.clientShare.hiddenDocs.filter(x=>x!==docId);
+  }
+  setData('campaigns', campaigns);
+  if(btn){
+    const label = on ? 'Visible para el cliente. Click para ocultarlo.'
+                     : 'Oculto para el cliente. Click para compartirlo.';
+    btn.setAttribute('aria-checked', String(on));
+    btn.setAttribute('aria-label', label);
+    btn.title = label;
+    btn.innerHTML = '<span class="doc-vis-icon" aria-hidden="true">👁</span>' + (on ? '<span>Cliente</span>' : '');
+    btn.classList.remove('is-toggling'); void btn.offsetWidth; btn.classList.add('is-toggling');
+  }
+  if(typeof showToast === 'function'){
+    showToast(on ? 'Documento visible para el cliente' : 'Documento oculto para el cliente', 'success');
+  }
+  // si el modal de Modo cliente está abierto, refresca sus checkboxes
+  const modal = document.getElementById('clientShareModal');
+  if(modal && modal.classList.contains('open') && currentCampaignId === cid) _renderClientShareBody(c);
+};
+
 // ---------- snapshot builder (SANITIZADO: sin costos) ----------
 function _fetchMetricsRowsFor(c){
   if(Array.isArray(c.cachedMetrics) && c.cachedMetrics.length) return Promise.resolve(c.cachedMetrics);
@@ -342,13 +390,34 @@ async function _initClientMode(){
   try { document.getElementById('loginScreen').classList.add('hidden'); } catch(e){}
   const root = document.getElementById('clientView');
   root.style.display='block';
-  root.innerHTML = `<div class="cv-wrap" style="text-align:center;padding-top:120px;color:#8a8794;font-size:14px;">Cargando estado de la campaña...</div>`;
+  // Skeleton con la silueta del contenido real: la espera de Firestore deja
+  // de ser una pantalla muerta y el contenido "aterriza" donde ya se veía
+  // una forma, en vez de aparecer de golpe.
+  root.innerHTML = `
+    <div class="cv-wrap" id="cvSkeleton" aria-busy="true" aria-live="polite">
+      <span class="sr-only">Cargando el estado de la campaña…</span>
+      <div class="cv-topbar">
+        <div class="cv-brand"><img src="assets/y-pink-filled-64.png" alt=""> Think Y · Reporte de campaña</div>
+      </div>
+      <div class="cv-skel-bar cv-skel-hero"></div>
+      <div class="cv-grid">
+        <div class="cv-card" style="grid-column:span 2;min-width:220px;">
+          <div class="cv-skel-bar cv-skel-line" style="width:38%;"></div>
+          <div class="cv-skel-bar cv-skel-line" style="width:62%;height:26px;"></div>
+          <div class="cv-skel-bar cv-skel-line" style="width:100%;height:8px;margin:0;"></div>
+        </div>
+        <div class="cv-card"><div class="cv-skel-bar cv-skel-line" style="width:52%;"></div><div class="cv-skel-bar cv-skel-line" style="width:34%;height:26px;margin:0;"></div></div>
+        <div class="cv-card"><div class="cv-skel-bar cv-skel-line" style="width:60%;"></div><div class="cv-skel-bar cv-skel-line" style="width:30%;height:26px;margin:0;"></div></div>
+      </div>
+      <div class="cv-section"><div class="cv-skel-bar cv-skel-line" style="width:180px;height:16px;"></div>
+        <div class="cv-skel-bar cv-skel-card" style="height:220px;"></div></div>
+    </div>`;
   try {
     const doc = await db.collection('clientShares').doc(CLIENT_TOKEN).get();
     if(!doc.exists) throw new Error('not-found');
     const payload = doc.data();
     _cvData = payload.data;
-    _renderClientView(root, payload);
+    await _cvSwapFromSkeleton(() => _renderClientView(root, payload));
   } catch(e){
     console.error('client mode', e);
     const msg = e.message==='not-found'
@@ -361,6 +430,27 @@ async function _initClientMode(){
         <div style="font-size:13px;color:#8a8794;margin-top:8px;">${_esc(msg)}</div>
       </div>`;
   }
+}
+
+// Cruce skeleton → contenido. Si la respuesta llegó muy rápido el skeleton
+// apenas se vio, así que le damos un mínimo en pantalla: un parpadeo de
+// 40ms se percibe como glitch, no como carga.
+const _CV_SKEL_MIN_MS = 260;
+const _cvSkelBornAt = Date.now();
+function _cvSwapFromSkeleton(render){
+  const skel = document.getElementById('cvSkeleton');
+  const rm = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if(!skel || rm){ render(); return Promise.resolve(); }
+  const waited = Date.now() - _cvSkelBornAt;
+  const hold = Math.max(0, _CV_SKEL_MIN_MS - waited);
+  return new Promise(resolve => {
+    setTimeout(() => {
+      skel.classList.add('cv-fade-out');
+      // deja salir el fade antes de montar el contenido, que trae su
+      // propio stagger de entrada
+      setTimeout(() => { render(); resolve(); }, 140);
+    }, hold);
+  });
 }
 
 function _renderClientView(root, payload){

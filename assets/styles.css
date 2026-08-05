@@ -3664,3 +3664,88 @@ body.client-mode #loginScreen.login-screen:not(.hidden) { display:none !importan
 #clientView .cv-footer { margin-top:40px; text-align:center; font-size:11px; color:#8a8794; }
 #clientView .cv-empty { font-size:13px; color:#8a8794; padding:14px 4px; }
 @media (max-width:640px){ #clientView .cv-hero h1{font-size:20px;} #clientView .cv-cal-cell{min-height:44px;} }
+
+/* ===== BLOQUE 4 — Toggle de visibilidad para cliente + entrada de la vista pública =====
+   Añadido 2026-08-05. Usa los tokens existentes (--dur-*, --ease-*, --blur-*,
+   --pink-*) y replica los patrones .t-stagger / .t-skel del sistema. */
+
+/* ── Toggle "visible para el cliente" (en listas de documentos) ──
+   Jerarquía: OFF es recesivo (la mayoría de docs son privados, no deben
+   ensuciar la lista) y se revela al pasar por la fila; ON destaca porque
+   compartir es la excepción que hay que poder auditar de un vistazo. */
+.doc-vis {
+  display: inline-flex; align-items: center; gap: 5px;
+  border: 1px solid transparent; border-radius: 100px;
+  padding: 2px 9px; margin-left: 8px;
+  font-family: inherit; font-size: 10px; font-weight: 700; line-height: 1.7;
+  cursor: pointer; white-space: nowrap; vertical-align: middle;
+  background: none; color: var(--text-muted);
+  transition: background var(--dur-quick) var(--ease),
+              color      var(--dur-quick) var(--ease),
+              border-color var(--dur-quick) var(--ease),
+              opacity    var(--dur-quick) var(--ease),
+              transform  var(--dur-micro)  var(--ease);
+}
+.doc-vis .doc-vis-icon { font-size: 11px; line-height: 1; transition: transform var(--dur-fast) var(--ease-bounce); }
+.doc-vis[aria-checked="false"] { opacity: .28; border-color: var(--border); border-style: dashed; }
+.doc-item:hover .doc-vis[aria-checked="false"],
+.doc-vis[aria-checked="false"]:focus-visible { opacity: .85; }
+.doc-vis[aria-checked="true"] { background: var(--pink-pale); color: var(--pink-deep); opacity: 1; }
+.doc-vis[aria-checked="true"] .doc-vis-icon { transform: scale(1.12); }
+.doc-vis:hover  { transform: translateY(-1px); }
+.doc-vis:active { transform: translateY(0) scale(.96); }
+.doc-vis:focus-visible { outline: 2px solid var(--pink); outline-offset: 2px; }
+/* pulso al encender: confirma el cambio sin robar atención */
+@keyframes docVisOn { 0%{transform:scale(1)} 45%{transform:scale(1.13)} 100%{transform:scale(1)} }
+.doc-vis.is-toggling[aria-checked="true"] { animation: docVisOn var(--dur-fast) var(--ease-bounce); }
+
+/* ── Entrada de la vista de cliente ──
+   El render completo toma ~55ms; lo que se percibía como lentitud era el
+   corte seco de "Cargando…" a 900 nodos de golpe, sin transición. */
+@keyframes cvRise { from { opacity:0; transform:translateY(14px); filter:blur(var(--blur-sm)); }
+                    to   { opacity:1; transform:translateY(0);    filter:blur(0); } }
+#clientView .cv-wrap > * { animation: cvRise var(--dur-medium) var(--ease-out) both; }
+#clientView .cv-wrap > *:nth-child(1) { animation-delay: 0ms; }
+#clientView .cv-wrap > *:nth-child(2) { animation-delay: calc(var(--dur-stagger) * 1); }
+#clientView .cv-wrap > *:nth-child(3) { animation-delay: calc(var(--dur-stagger) * 2); }
+#clientView .cv-wrap > *:nth-child(4) { animation-delay: calc(var(--dur-stagger) * 3); }
+#clientView .cv-wrap > *:nth-child(5) { animation-delay: calc(var(--dur-stagger) * 4); }
+#clientView .cv-wrap > *:nth-child(6) { animation-delay: calc(var(--dur-stagger) * 5); }
+#clientView .cv-wrap > *:nth-child(n+7) { animation-delay: calc(var(--dur-stagger) * 6); }
+/* las tarjetas dentro de cada sección entran juntas, un pelo después */
+#clientView .cv-grid > * { animation: cvRise var(--dur-fast) var(--ease-out) both; }
+#clientView .cv-grid > *:nth-child(2) { animation-delay: calc(var(--dur-stagger) * .5); }
+#clientView .cv-grid > *:nth-child(3) { animation-delay: var(--dur-stagger); }
+#clientView .cv-grid > *:nth-child(n+4) { animation-delay: calc(var(--dur-stagger) * 1.5); }
+/* las barras de progreso crecen desde 0 en vez de aparecer llenas */
+#clientView .cv-bar > div { transform-origin: left center; animation: cvBar var(--dur-very-slow) var(--ease-out) both; animation-delay: var(--dur-fast); }
+@keyframes cvBar { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+/* ── Skeleton de carga (mientras responde Firestore) ── */
+#clientView .cv-skel-bar {
+  border-radius: 10px;
+  background: linear-gradient(100deg, #ece7ee 30%, rgba(255,255,255,.75) 50%, #ece7ee 70%);
+  background-size: 220% 100%;
+  animation: tdevShimmer 1.2s var(--ease-linear) infinite;
+}
+#clientView .cv-skel-hero { height: 132px; border-radius: 20px; margin-bottom: 18px; }
+#clientView .cv-skel-line { height: 13px; margin-bottom: 10px; }
+#clientView .cv-skel-card { height: 92px; border-radius: 16px; }
+#clientView .cv-fade-out { animation: cvFadeOut var(--dur-fast) var(--ease) both; }
+@keyframes cvFadeOut { to { opacity:0; filter:blur(var(--blur-sm)); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .doc-vis, .doc-vis .doc-vis-icon,
+  #clientView .cv-wrap > *, #clientView .cv-grid > *,
+  #clientView .cv-bar > div, #clientView .cv-fade-out {
+    animation: none !important; transition: none !important; transform: none !important; filter: none !important;
+  }
+  #clientView .cv-skel-bar { animation: none !important; }
+}
+
+/* Utilidad: texto solo para lectores de pantalla (el skeleton anuncia la
+   carga sin mostrar nada visualmente). */
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}

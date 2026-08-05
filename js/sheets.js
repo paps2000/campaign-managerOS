@@ -812,7 +812,7 @@ function renderCampaignDocs(c) {
     <div class="doc-item" ${d.url?`onclick="if(event.target.closest('button,a'))return;window.open('${_esc(_safeUrl(d.url))}','_blank','noopener')" style="cursor:pointer;"`:''}>
       <div class="doc-icon ${d.type==='PDF'?'doc-pdf':'doc-sheets'}">${docIcons[d.type]||ICN_paperclip}</div>
       <div class="doc-info">
-        <div class="doc-name">${d.name} ${(typeof _docVisibleToClient==='function' && _docVisibleToClient(c,d))?'<span class="badge" style="background:var(--pink-pale);color:var(--pink-deep);font-size:10px;vertical-align:middle;">👁 Cliente</span>':''}</div>
+        <div class="doc-name">${d.name}${(typeof _docVisToggleHtml==='function')?_docVisToggleHtml(c.id,d):''}</div>
         <div class="doc-campaign">${d.type} · ${formatDateShort(d.date)}</div>
       </div>
       ${d.url?`<a href="${_esc(_safeUrl(d.url))}" target="_blank" rel="noopener" class="card-link">Ver →</a>`:''}
