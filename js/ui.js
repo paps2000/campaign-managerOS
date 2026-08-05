@@ -112,10 +112,25 @@ function openModal(id) {
 function closeModal(id) {
   const el = document.getElementById(id);
   if(!el) return;
-  el.classList.remove('open');
-  el.style.zIndex = '';
-  // Si ya no queda ningún modal abierto, reinicia el contador.
-  if(!document.querySelector('.modal-overlay.open')) _modalZ = 1000;
+  const finish = () => {
+    el.classList.remove('open', 'is-closing');
+    el.style.zIndex = '';
+    // Si ya no queda ningún modal abierto, reinicia el contador.
+    if(!document.querySelector('.modal-overlay.open')) _modalZ = 1000;
+  };
+  const rm = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if(rm || !el.classList.contains('open')) { finish(); return; }
+  el.classList.add('is-closing');
+  // Se lee la duración real del CSS en vez de escuchar animationend: con
+  // varias animaciones compitiendo en el mismo elemento (fadeIn de .open y
+  // modalOut de .is-closing) el evento no dispara de forma fiable.
+  let ms = 150;
+  try {
+    const d = getComputedStyle(el).animationDuration.split(',')[0].trim();
+    ms = d.endsWith('ms') ? parseFloat(d) : parseFloat(d) * 1000;
+    if(!isFinite(ms) || ms <= 0) ms = 150;
+  } catch(e){}
+  setTimeout(finish, ms);
 }
 
 function applyBudgetVisibility() {

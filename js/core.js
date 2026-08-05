@@ -65,7 +65,7 @@ function platformBadge(pf) {
   const colors = {Instagram:'#C13584',TikTok:'#010101',YouTube:'#FF0000','Twitter/X':'#000000',Facebook:'#1877F2',Twitch:'#9146FF'};
   const key = _normalizePlatform(pf);
   const icon = key ? icons[key] : null;
-  if(!icon) { const t = String(pf||'').trim(); return `<span style="font-size:11px;color:var(--text-muted);">${t||'—'}</span>`; }
+  if(!icon) { const t = String(pf||'').trim(); return `<span style="font-size:11px;color:var(--text-muted);">${t?_esc(t):'—'}</span>`; }
   return `<span class="plat-badge" data-plat="${key}" style="display:inline-flex;align-items:center;gap:5px;padding:2px 8px 2px 3px;border-radius:20px;background:${colors[key]}18;font-size:11px;font-weight:700;color:${colors[key]};white-space:nowrap;"><span style="width:18px;height:18px;display:inline-flex;flex-shrink:0;">${icon}</span>${key}</span>`;
 }
 

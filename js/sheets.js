@@ -1834,15 +1834,15 @@ function _renderMetricsTable(){
     el.textContent = (el.dataset.k===_metricsSortKey) ? (_metricsSortDir==='desc'?'▼':'▲') : '';
   });
   tb.innerHTML = view.length ? view.map(r=>`<tr>
-    <td>${_mGs(r,'Influencer Name','Influencer','Creator','Creador','Cuenta')}</td>
-    <td>${_mGs(r,'Formato','Format','Tipo','Type','Content Type')}</td>
-    <td>${_mGs(r,'Post Date','Campaign Date','Fecha','Date')}</td>
+    <td>${_esc(_mGs(r,'Influencer Name','Influencer','Creator','Creador','Cuenta'))}</td>
+    <td>${_esc(_mGs(r,'Formato','Format','Tipo','Type','Content Type'))}</td>
+    <td>${_esc(_mGs(r,'Post Date','Campaign Date','Fecha','Date'))}</td>
     <td>${platformBadge(_mGs(r,'Platform','Plataforma','Red Social','Network','Canal'))}</td>
     <td>${formatNum(_mViews(r))}</td>
     <td>${formatNum(_mReach(r))}</td>
     <td>${formatNum(_mLikes(r))}</td>
     <td>${formatNum(_mEng(r))}</td>
-    <td>${_mGs(r,'ER% Profile Instagram','ER% Profile Tiktok','Engagement Rate','ER','Tasa Engagement')}</td>
+    <td>${_esc(_mGs(r,'ER% Profile Instagram','ER% Profile Tiktok','Engagement Rate','ER','Tasa Engagement'))}</td>
   </tr>`).join('') : `<tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:18px;">Sin resultados para este filtro.</td></tr>`;
 }
 

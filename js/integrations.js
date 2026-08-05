@@ -329,7 +329,9 @@ function renderCalendarWidget() {
     const rawDesc = ev.description || '';
     const desc = rawDesc.replace(/<[^>]+>/g,'').replace(/&nbsp;/g,' ').trim().substring(0,220);
     const hasMeet = !!meetLink;
-    const safeLink = meetLink ? meetLink.replace(/'/g,"\\'") : '';
+    // Escapar la comilla no basta: valida el protocolo con _safeUrl (solo
+    // http/https) igual que el resto de la app, y escapa para el atributo.
+    const safeLink = meetLink ? _esc(_safeUrl(meetLink)).replace(/'/g,"\\'") : '';
     const past = status === 'past';
     const ongoing = status === 'ongoing';
     return `

@@ -3749,3 +3749,15 @@ body.client-mode #loginScreen.login-screen:not(.hidden) { display:none !importan
   position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
   overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
 }
+
+/* ── Salida de modales ──
+   Abrían con pop/fadeIn pero cerraban con un corte seco (display:none), y esa
+   asimetría es lo que hace que la interfaz se sienta brusca. Con la clase
+   .is-closing el overlay y el modal salen antes de desmontarse. */
+@keyframes modalOut   { to { opacity:0; } }
+@keyframes modalPopOut{ to { transform:scale(.97) translateY(4px); opacity:0; } }
+.modal-overlay.is-closing { animation: modalOut var(--dur-quick) var(--ease) both; }
+.modal-overlay.is-closing .modal { animation: modalPopOut var(--dur-quick) var(--ease) both; }
+@media (prefers-reduced-motion: reduce) {
+  .modal-overlay.is-closing, .modal-overlay.is-closing .modal { animation: none !important; }
+}

@@ -1436,10 +1436,10 @@ function trackerStatusBadge(s) {
   ];
   for(const [keys,bg,col] of map) {
     if(keys.some(k => sl.includes(k) || k.includes(sl))) {
-      return `<span style="font-size:11px;padding:2px 8px;border-radius:10px;background:${bg};color:${col};font-weight:600;white-space:nowrap;display:inline-block;">${s}</span>`;
+      return `<span style="font-size:11px;padding:2px 8px;border-radius:10px;background:${bg};color:${col};font-weight:600;white-space:nowrap;display:inline-block;">${_esc(s)}</span>`;
     }
   }
-  return `<span style="font-size:11px;padding:2px 8px;border-radius:10px;background:rgba(0,0,0,.07);color:var(--text);font-weight:600;white-space:nowrap;display:inline-block;">${s}</span>`;
+  return `<span style="font-size:11px;padding:2px 8px;border-radius:10px;background:rgba(0,0,0,.07);color:var(--text);font-weight:600;white-space:nowrap;display:inline-block;">${_esc(s)}</span>`;
 }
 
 function setTrackerBatchFilter(batch, btn) {
@@ -1742,7 +1742,7 @@ function _renderTrackerSummaryAndTable() {
       style="border:1.5px solid var(--border);background:var(--white);border-radius:12px;padding:10px 14px;cursor:pointer;text-align:left;min-width:140px;${_trackerStatusFilter&&_trackerStatusFilter.value===name?'border-color:var(--pink);':''}">
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
         <span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${creativaColor(name)};"></span>
-        <span style="font-size:11px;font-weight:700;color:var(--text);white-space:nowrap;">${name}</span>
+        <span style="font-size:11px;font-weight:700;color:var(--text);white-space:nowrap;">${_esc(name)}</span>
       </div>
       <div style="font-size:22px;font-weight:800;color:var(--text);line-height:1;">${count}</div>
       <div style="font-size:10px;color:var(--text-muted);margin-top:2px;">contenidos</div>
@@ -1971,16 +1971,20 @@ function _renderTrackerSummaryAndTable() {
                   const val = _trackerGet(r, def.keys);
                   if(def.link) {
                     const sv = String(val||'');
+                    // El sheet lo puede editar cualquiera con el enlace, así
+                    // que su contenido es no confiable: URL por _safeUrl y
+                    // todo lo demás escapado antes de entrar al innerHTML.
+                    const href = sv.startsWith('www') ? 'https://'+sv : sv;
                     return sv && (sv.startsWith('http')||sv.startsWith('www'))
-                      ? `<td><a href="${sv.startsWith('www')?'https://'+sv:sv}" target="_blank" rel="noopener" style="color:var(--blue);font-size:11px;white-space:nowrap;">Ver →</a></td>`
+                      ? `<td><a href="${_esc(_safeUrl(href))}" target="_blank" rel="noopener" style="color:var(--blue);font-size:11px;white-space:nowrap;">Ver →</a></td>`
                       : (sv && sv.toUpperCase()==='LINK'
                           ? `<td style="font-size:11px;color:var(--text-muted);">LINK</td>`
-                          : `<td style="font-size:12px;">${sv||'—'}</td>`);
+                          : `<td style="font-size:12px;">${sv?_esc(sv):'—'}</td>`);
                   }
                   if(def.status) return `<td>${val?trackerStatusBadge(val):'—'}</td>`;
                   if(def.platform) return `<td style="white-space:nowrap;">${val?platformBadge(val):'—'}</td>`;
                   if(def.date) { const iso = _trackerParseDate(val); return `<td style="font-size:12px;white-space:nowrap;">${iso?formatDateShort(iso):'—'}</td>`; }
-                  return `<td style="font-size:12px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${String(val||'').replace(/"/g,'&quot;')}">${val||'—'}</td>`;
+                  return `<td style="font-size:12px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${_esc(String(val||''))}">${val?_esc(val):'—'}</td>`;
                 }).join('')}
               </tr>`).join('') + footer;
             })()}
