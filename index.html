@@ -14,11 +14,15 @@
 <link rel="icon" type="image/png" sizes="128x128" href="assets/y-pink-filled-128.png">
 <link rel="icon" type="image/png" sizes="256x256" href="assets/y-pink-filled-256.png">
 <link rel="apple-touch-icon" sizes="256x256" href="assets/y-pink-filled-256.png">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.6" integrity="sha384-Sse/HDqcypGpyTDpvZOJNnG0TT3feGQUkF9H+mnRvic+LjR+K1NhTt8f51KIQ3v3" crossorigin="anonymous"></script>
-<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js" integrity="sha384-1hBNr0agKHNFwbheHcAJzeLri4PPLTLbaXUH5d9CauwS3A/PrkIt2tzxBJK3bHjY" crossorigin="anonymous"></script>
-<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js" integrity="sha384-QCZO5nLB2oUUv0yv01wZHylPt2CPzKdo0YnmSYCTIOo8XPPIlsIP3f1cikv2oiJ1" crossorigin="anonymous"></script>
-<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js" integrity="sha384-qhzYx5B1KizZLjRTmJkBWYES6I+tL9Qz1J8BmFNo/18Ix+AtopUC1cuY3VW43Pe0" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.6" integrity="sha384-Sse/HDqcypGpyTDpvZOJNnG0TT3feGQUkF9H+mnRvic+LjR+K1NhTt8f51KIQ3v3" crossorigin="anonymous" defer></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js" integrity="sha384-1hBNr0agKHNFwbheHcAJzeLri4PPLTLbaXUH5d9CauwS3A/PrkIt2tzxBJK3bHjY" crossorigin="anonymous" defer></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js" integrity="sha384-QCZO5nLB2oUUv0yv01wZHylPt2CPzKdo0YnmSYCTIOo8XPPIlsIP3f1cikv2oiJ1" crossorigin="anonymous" defer></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js" integrity="sha384-qhzYx5B1KizZLjRTmJkBWYES6I+tL9Qz1J8BmFNo/18Ix+AtopUC1cuY3VW43Pe0" crossorigin="anonymous" defer></script>
 <link rel="stylesheet" href="assets/styles.css">
 </head>
 <body>
@@ -97,7 +101,7 @@
   </div>
 </div>
 
-<script src="js/login-shell.js"></script>
+<script src="js/login-shell.js" defer></script>
 
 <!-- ONBOARDING -->
 <div class="ob-screen" id="obScreen">
@@ -1635,13 +1639,13 @@
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
 
-<script src="js/core.js"></script>
-<script src="js/campaigns.js"></script>
-<script src="js/sheets.js"></script>
-<script src="js/ui.js"></script>
-<script src="js/integrations.js"></script>
-<script src="js/creators.js"></script>
-<script src="js/app.js"></script>
+<script src="js/core.js" defer></script>
+<script src="js/campaigns.js" defer></script>
+<script src="js/sheets.js" defer></script>
+<script src="js/ui.js" defer></script>
+<script src="js/integrations.js" defer></script>
+<script src="js/creators.js" defer></script>
+<script src="js/app.js" defer></script>
 
 <!-- AI COMPANION -->
 <button class="ai-fab" id="aiFab" onclick="toggleAgentPanel()" aria-label="Asistente IA" title="Asistente IA" style="display:none !important;">
@@ -1687,7 +1691,7 @@
   <button class="fab-main" id="fabMainBtn" onclick="toggleFab()" title="Acciones rápidas" aria-label="Acciones rápidas">+</button>
 </div>
 
-<script src="js/fab.js"></script>
+<script src="js/fab.js" defer></script>
 
 <!-- FAB PENDIENTES (moved into topbar) -->
 <button class="pend-fab" onclick="navigate('pendientes')" title="Pendientes" aria-label="Pendientes" style="display:none !important;">
@@ -1700,7 +1704,7 @@
      Idempotent. Re-runs on DOM mutations so dynamically
      rendered views keep their animations.
      ============================================================ -->
-<script src="js/motion.js"></script>
+<script src="js/motion.js" defer></script>
 
 <!-- ============================================================
      LIQUID GLASS — computed refraction (real optics, not frost)
@@ -1712,7 +1716,7 @@
      Real bend on Chromium (backdrop-filter+SVG); Safari/FF keep
      their blur (they drop the SVG part) — graceful, never broken.
      ============================================================ -->
-<script src="js/liquid-glass.js"></script>
+<script src="js/liquid-glass.js" defer></script>
 
 <!-- ============================================================
      MODO CLIENTE — share de solo lectura por link (?client=TOKEN)
@@ -1722,7 +1726,7 @@
 
 <div id="clientView"></div>
 
-<script src="js/client-mode.js"></script>
+<script src="js/client-mode.js" defer></script>
 
 </body>
 </html>

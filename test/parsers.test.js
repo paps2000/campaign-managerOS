@@ -38,14 +38,31 @@ const sandbox = {
   location: { search:'', pathname:'/', origin:'http://localhost', href:'http://localhost/' },
   matchMedia: () => ({ matches:false, addEventListener:noop }),
   setTimeout, clearTimeout, setInterval, clearInterval, fetch: () => Promise.reject(new Error('sin red en tests')),
-  // Firebase: lo justo para que core.js/ui.js carguen sin tocar la red
+  // Firebase: lo justo para que core.js/ui.js carguen sin tocar la red.
+  // El batch queda instrumentado desde el inicio porque `db` es const en
+  // core.js y no se puede reemplazar después.
   firebase: {
     initializeApp: noop,
     auth: () => ({ onAuthStateChanged: noop, signInWithPopup: noop, signOut: noop }),
-    firestore: Object.assign(() => ({ collection: () => ({ doc: () => ({ get: () => Promise.resolve({exists:false}), set: noop }) }) }),
-                             { FieldValue: { serverTimestamp: noop } }),
+    firestore: Object.assign(() => ({
+      batch: () => ({
+        set:    ref => OPS.set.push(ref.__id),
+        delete: ref => OPS.delete.push(ref.__id),
+        commit: () => { OPS.commits++; return Promise.resolve(); },
+      }),
+      collection: () => ({
+        doc: () => ({
+          get: () => Promise.resolve({exists:false}),
+          set: noop,
+          collection: () => ({ doc: id => ({ __id: id }) }),
+        }),
+      }),
+    }), { FieldValue: { serverTimestamp: noop } }),
   },
 };
+// Registro de operaciones de Firestore que hacen las pruebas
+const OPS = { set: [], delete: [], commits: 0 };
+sandbox.OPS = OPS;
 sandbox.window = sandbox;
 sandbox.globalThis = sandbox;
 vm.createContext(sandbox);
@@ -155,8 +172,59 @@ group('parseEscenarioRows — creadores, totales y basura');
   eq(p.goal && p.goal.totalContenidos, 6, 'detecta la fila BIG NUMBERS como meta');
 }
 
-// ===========================================================================
-console.log('\n' + (fail === 0
-  ? '✅ ' + pass + ' pruebas OK'
-  : '❌ ' + fail + ' fallaron de ' + (pass+fail)));
-process.exit(fail === 0 ? 0 : 1);
+
+(async function(){
+  // ===========================================================================
+  // Persistencia diferencial de campañas.
+  // persistCampaigns antes leía la colección entera y reescribía TODAS las
+  // campañas en cada uno de los 47 puntos que llaman setData('campaigns').
+  // Ahora solo escribe lo que cambió — y eso es código de escritura de datos,
+  // así que se prueba: saltarse una escritura necesaria sería pérdida silenciosa.
+  group('persistCampaigns — solo escribe lo que cambió');
+  {
+    const ops = OPS;                       // instrumentado en el stub de firebase
+    vm.runInContext('currentUser = { uid: "u1" };', sandbox);
+    const persist = sandbox.persistCampaigns;
+    const camps = [
+      { id:'a', name:'Alpha', status:'En proceso' },
+      { id:'b', name:'Beta',  status:'En proceso' },
+    ];
+
+    const reset = () => { ops.set = []; ops.delete = []; ops.commits = 0; };
+
+    // 1ª vez: sin huellas previas → escribe ambas
+    reset();
+    await persist(camps);
+    eq(ops.set.sort(), ['a','b'], 'primera escritura: persiste las 2 campañas');
+
+    // 2ª vez sin cambios → no escribe NADA, ni siquiera hace commit
+    reset();
+    await persist(camps);
+    eq(ops.set.length, 0, 'sin cambios: 0 escrituras');
+    eq(ops.commits, 0, 'sin cambios: ni siquiera abre commit');
+
+    // cambia solo una → escribe solo esa
+    reset();
+    camps[1].status = 'Completada';
+    await persist(camps);
+    eq(ops.set, ['b'], 'solo se reescribe la campaña que cambió');
+
+    // eliminar una → se borra del servidor
+    reset();
+    const menos = [camps[0]];
+    await persist(menos);
+    eq(ops.delete, ['b'], 'la campaña eliminada se borra');
+    eq(ops.set.length, 0, 'y no se reescribe la que quedó igual');
+
+    // un campo grande no cuenta como cambio (se strippea antes de escribir)
+    reset();
+    menos[0].trackerRows = [{a:1},{b:2}];
+    await persist(menos);
+    eq(ops.set.length, 0, 'cambiar trackerRows no dispara escritura (no se persiste)');
+  }
+  // ===========================================================================
+  console.log('\n' + (fail === 0
+    ? '✅ ' + pass + ' pruebas OK'
+    : '❌ ' + fail + ' fallaron de ' + (pass+fail)));
+  process.exit(fail === 0 ? 0 : 1);
+})();

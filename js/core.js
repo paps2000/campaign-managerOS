@@ -184,19 +184,56 @@ function _stripLargeFields(c) {
   _CAMPAIGN_LARGE_KEYS.forEach(k => { delete out[k]; });
   return out;
 }
+// Huella del contenido que sabemos que está en el servidor, por campaña.
+// Sirve para no reescribir documentos que no cambiaron: antes cada
+// setData('campaigns') —hay 47 puntos que lo llaman— leía la colección
+// entera y reescribía TODAS las campañas, así que un solo click costaba N
+// lecturas + N escrituras y disparaba N eventos del listener.
+const _persistedFp = new Map();
+function _campaignFingerprint(c) {
+  const o = _stripLargeFields(c);
+  delete o._updatedAt; delete o._updatedBy;   // metadatos, no contenido
+  // claves ordenadas: si no, dos objetos iguales con distinto orden de
+  // inserción darían huellas distintas
+  return JSON.stringify(o, Object.keys(o).sort());
+}
+// Llamado desde el listener: el servidor es la fuente de verdad.
+function _seedPersistedFp(docs) {
+  _persistedFp.clear();
+  docs.forEach(d => { try { _persistedFp.set(d.id, _campaignFingerprint(d)); } catch(e){} });
+}
+
 async function persistCampaigns(campaigns) {
   if(!currentUser) return;
   const col = db.collection('workspaces').doc(WORKSPACE).collection('campaigns');
-  // Get existing IDs to know what to delete
-  const snap = await col.get();
-  const existingIds = new Set(snap.docs.map(d=>d.id));
-  const newIds = new Set(campaigns.map(c=>c.id));
   const batch = db.batch();
+  const escritas = [];
+  let ops = 0;
+
   campaigns.forEach(c => {
+    const fp = _campaignFingerprint(c);
+    if(_persistedFp.get(c.id) === fp) return;   // idéntico: escribirlo sería no-op
     batch.set(col.doc(c.id), {..._stripLargeFields(c), _updatedAt: firebase.firestore.FieldValue.serverTimestamp(), _updatedBy: currentUser.uid});
+    escritas.push([c.id, fp]);
+    ops++;
   });
-  existingIds.forEach(eid => { if(!newIds.has(eid)) batch.delete(col.doc(eid)); });
-  try { await batch.commit(); } catch(e) { console.error('persistCampaigns error',e); }
+
+  // Borrados: ids que teníamos registrados y ya no están en memoria.
+  const vivos = new Set(campaigns.map(c=>c.id));
+  const borradas = [];
+  _persistedFp.forEach((_, id) => {
+    if(!vivos.has(id)) { batch.delete(col.doc(id)); borradas.push(id); ops++; }
+  });
+
+  if(ops === 0) return;   // nada cambió: ni siquiera se abre conexión
+  try {
+    await batch.commit();
+    // Solo tras confirmar la escritura se da por persistido; si falla, la
+    // próxima llamada vuelve a intentarlo en vez de saltárselo.
+    escritas.forEach(([id, fp]) => _persistedFp.set(id, fp));
+    borradas.forEach(id => _persistedFp.delete(id));
+  } catch(e) { console.error('persistCampaigns error',e); }
+
   // Si alguna campaña tiene Modo cliente activo, refresca su snapshot público
   // (debounced) para que el link del cliente refleje el estado actual.
   try { if(typeof _scheduleClientShareRepublish === 'function') _scheduleClientShareRepublish(campaigns); } catch(e){}
@@ -286,6 +323,9 @@ function attachListeners() {
       });
       return merged;
     });
+    // El servidor acaba de decirnos qué hay: se re-siembran las huellas para
+    // que persistCampaigns sepa qué NO necesita reescribir.
+    try { _seedPersistedFp(snap.docs.map(d => d.data())); } catch(e){}
     if(typeof _invalidateInfMemo==='function') _invalidateInfMemo();
     rerenderCurrent();
   }, err => console.error('campaigns listener',err)));
