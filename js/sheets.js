@@ -1092,6 +1092,25 @@ function setTrackerShowBoost(v) { _trackerShowBoost = v; _renderTrackerSummaryAn
 
 // Carga html2canvas bajo demanda (sin dependencia permanente) para exportar PNG.
 let _html2canvasPromise = null;
+// Chart.js pesa y solo se usa en Métricas, pero se cargaba en toda visita.
+// Se carga a demanda, con el mismo patrón (y SRI) que html2canvas.
+let _chartJsPromise = null;
+function _loadChartJs() {
+  if(window.Chart) return Promise.resolve(window.Chart);
+  if(_chartJsPromise) return _chartJsPromise;
+  _chartJsPromise = new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.6';
+    s.integrity = 'sha384-Sse/HDqcypGpyTDpvZOJNnG0TT3feGQUkF9H+mnRvic+LjR+K1NhTt8f51KIQ3v3';
+    s.crossOrigin = 'anonymous';
+    s.onload = () => resolve(window.Chart);
+    s.onerror = () => { _chartJsPromise = null; reject(new Error('No se pudo cargar Chart.js')); };
+    document.head.appendChild(s);
+  });
+  return _chartJsPromise;
+}
+window._loadChartJs = _loadChartJs;
+
 function _loadHtml2Canvas() {
   if(window.html2canvas) return Promise.resolve(window.html2canvas);
   if(_html2canvasPromise) return _html2canvasPromise;
@@ -1484,6 +1503,9 @@ function closeMetricsCampDetail() {
 }
 
 function initEmptyCharts() {
+  // Red de seguridad: normalmente Chart ya está (se precarga al entrar a
+  // Métricas), pero si aún no llegó se reintenta al terminar la carga.
+  if(!window.Chart) { _loadChartJs().then(initEmptyCharts).catch(()=>{}); return; }
   if(lineChartInst) { lineChartInst.destroy(); lineChartInst=null; }
   if(donutChartInst) { donutChartInst.destroy(); donutChartInst=null; }
   if(platformChartInst) { platformChartInst.destroy(); platformChartInst=null; }
@@ -1927,6 +1949,7 @@ function _renderMetricsGoal(c, realViews, realEng, realPosts) {
 }
 
 function displayMetrics(rows, campaign) {
+  if(!window.Chart) { _loadChartJs().then(()=>displayMetrics(rows, campaign)).catch(()=>{}); return; }
   _metricsRows = rows || [];
   _metricsPlatFilter = null; _metricsSortKey = null; _metricsSortDir = 'desc';
   // Case-insensitive, underscore/space-normalized key lookup

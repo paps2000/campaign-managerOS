@@ -666,6 +666,10 @@ function navigate(page) {
   // Persist current page so reload restores it
   try { localStorage.setItem('cmos:lastPage', page); } catch(e){}
 
+  // Chart.js ya no se carga en el arranque: se pide al entrar a Métricas,
+  // en paralelo con el fetch del sheet, así llega antes de que se dibuje.
+  if(page === 'metricas' && typeof _loadChartJs === 'function') _loadChartJs().catch(()=>{});
+
   const titles = {
     dashboard: ['Resumen','Lo que necesita tu atención hoy.','+ Nueva tarea'],
     campannas: ['Campañas','Gestiona todas tus campañas activas.','+ Nueva campaña'],
