@@ -379,18 +379,20 @@ function _tbGroupHtml(g) {
       <span class="tb-stack tb-group-stack">${stack}</span>
     </header>
     <div class="tb-group-body">
-      <div class="tb-row tb-head-row">
-        <div class="tb-cell tb-cell-check"></div>
-        <div class="tb-cell tb-cell-title">Tarea</div>
-        <div class="tb-meta">
-          <div class="tb-cell tb-cell-people">Involucrados</div>
-          <div class="tb-cell tb-cell-status">Estado</div>
-          <div class="tb-cell tb-cell-prio">Prioridad</div>
-          <div class="tb-cell tb-cell-date">Fecha</div>
+      <div class="tb-group-inner">
+        <div class="tb-row tb-head-row">
+          <div class="tb-cell tb-cell-check"></div>
+          <div class="tb-cell tb-cell-title">Tarea</div>
+          <div class="tb-meta">
+            <div class="tb-cell tb-cell-people">Involucrados</div>
+            <div class="tb-cell tb-cell-status">Estado</div>
+            <div class="tb-cell tb-cell-prio">Prioridad</div>
+            <div class="tb-cell tb-cell-date">Fecha</div>
+          </div>
+          <div class="tb-cell tb-cell-actions"></div>
         </div>
-        <div class="tb-cell tb-cell-actions"></div>
+        ${g.tasks.map(_tbRow).join('')}
       </div>
-      ${g.tasks.map(_tbRow).join('')}
     </div>
   </section>`;
 }
@@ -413,11 +415,11 @@ function _tbCard(t) {
   </article>`;
 }
 
-function _tbKanbanHtml(tasks) {
+function _tbKanbanHtml(tasks, fresh) {
   const byStatus = {};
   TASK_STATUSES.forEach(s => byStatus[s.id] = []);
   tasks.forEach(t => byStatus[taskStatus(t)].push(t));
-  return `<div class="tb-kanban">${TASK_STATUSES.map(s => {
+  return `<div class="tb-kanban${fresh || ''}">${TASK_STATUSES.map(s => {
     const list = _tbSort(byStatus[s.id]);
     return `<div class="tb-col" data-status="${s.id}" style="--g-color:${s.color};">
       <div class="tb-col-head"><span class="tb-col-dot"></span>${s.label}<span class="tb-col-count">${list.length}</span></div>
@@ -526,12 +528,17 @@ function renderPendientes() {
     }
   }
 
+  // Las entradas escalonadas solo corren al llegar a la página. Un re-render
+  // por filtro o por cambio de estado no debe volver a animar toda la lista.
+  const fresh = _tbFresh ? ' is-fresh' : '';
+  _tbFresh = false;
+
   if(!filtered.length) {
     el.innerHTML = `<div class="empty-state"><p>${_tbHasFilters() ? 'Ninguna tarea coincide con estos filtros.' : 'No tienes pendientes por ahora 🎉'}</p>${_tbHasFilters() ? '<button class="btn btn-ghost btn-sm" data-act="clear" style="margin-top:10px;">Limpiar filtros</button>' : ''}</div>`;
   } else if(_tb.view === 'kanban') {
-    el.innerHTML = _tbKanbanHtml(filtered);
+    el.innerHTML = _tbKanbanHtml(filtered, fresh);
   } else {
-    el.innerHTML = `<div class="tb-board">${_tbGroup(filtered).map(_tbGroupHtml).join('')}</div>`;
+    el.innerHTML = `<div class="tb-board${fresh}">${_tbGroup(filtered).map(_tbGroupHtml).join('')}</div>`;
   }
 
   // El badge siempre cuenta MIS pendientes, no lo que muestre el filtro.
@@ -609,10 +616,20 @@ function _tbOpenMenu(anchor, items, onPick) {
 // ============================================================
 // DELEGACIÓN DE EVENTOS
 // ============================================================
+// Entrar a la página vuelve a habilitar la animación de entrada; los
+// re-renders por filtro dentro de la página, no.
+let _tbFresh = true;
+
 function _tbBind() {
   const page = document.getElementById('page-pendientes');
   if(!page || page.dataset.tbBound) return;
   page.dataset.tbBound = '1';
+
+  // Se arma al SALIR de la página, no al entrar: navigate() añade .active y
+  // llama a renderPendientes en el mismo tick, antes de que el observer corra.
+  new MutationObserver(() => {
+    if(!page.classList.contains('active')) _tbFresh = true;
+  }).observe(page, { attributes:true, attributeFilter:['class'] });
 
   page.addEventListener('click', e => {
     const av = e.target.closest('.tb-av-wrap');
@@ -637,7 +654,15 @@ function _tbBind() {
       case 'prio-f':   _tbToggle('prios', val); break;
       case 'showdone': setTbShowDone(!_tb.showDone); break;
       case 'clear':    tbClearFilters(); break;
-      case 'collapse': _tbToggle('collapsed', key); break;
+      // Sin re-render: la transición de colapso solo corre si el nodo sobrevive.
+      case 'collapse': {
+        const sec = btn.closest('.tb-group');
+        const i = _tb.collapsed.indexOf(key);
+        if(i >= 0) _tb.collapsed.splice(i, 1); else _tb.collapsed.push(key);
+        _tbSave();
+        if(sec) sec.classList.toggle('collapsed', i < 0); else renderPendientes();
+        break;
+      }
     }
   });
 

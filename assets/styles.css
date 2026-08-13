@@ -191,6 +191,7 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
 .nav-item:nth-child(3){animation-delay:var(--dur-micro)} .nav-item:nth-child(4){animation-delay:var(--dur-micro)}
 .nav-item:nth-child(5){animation-delay:var(--dur-quick)} .nav-item:nth-child(6){animation-delay:var(--dur-quick)}
 .nav-item:nth-child(7){animation-delay:var(--dur-quick)} .nav-item:nth-child(8){animation-delay:var(--dur-fast)}
+.nav-item:nth-child(9){animation-delay:var(--dur-fast)}
 .modal { animation: pop var(--dur-fast) var(--ease); }
 .modal-overlay.open { animation: fadeIn var(--dur-quick) var(--ease); }
 .stat-value { animation: countUp .6s var(--ease); }
@@ -3831,7 +3832,9 @@ body.client-mode #loginScreen.login-screen:not(.hidden) { display:none !importan
 .tb-av-wrap { display:inline-flex; transition:transform var(--dur-quick) var(--ease); }
 .tb-av-creator { opacity:.55; margin-left:-4px !important; }
 #page-pendientes .tb-av-wrap { cursor:pointer; }
-#page-pendientes .tb-av-wrap:hover { transform:translateY(-2px) scale(1.08); z-index:2; }
+/* Mismos valores que el spring de .tdev-avatars para que el gesto se sienta
+   igual que en las tarjetas de campaña. */
+#page-pendientes .tb-av-wrap:hover { transform:translateY(-5px) scale(1.12); z-index:2; }
 
 .tb-person-chip {
   display:inline-flex; align-items:center; gap:8px; padding:5px 12px 5px 6px; border-radius:22px;
@@ -3854,9 +3857,13 @@ body.client-mode #loginScreen.login-screen:not(.hidden) { display:none !importan
 }
 .tb-group.collapsed .tb-group-head { border-bottom:none; }
 .tb-group-head:hover { background:var(--bg); }
-.tb-chev { color:var(--g-color); font-size:11px; transition:transform var(--dur-quick) var(--ease); }
+.tb-chev { color:var(--g-color); font-size:11px; transition:transform var(--dur-fast) var(--ease); }
 .tb-group.collapsed .tb-chev { transform:rotate(-90deg); }
-.tb-group.collapsed .tb-group-body { display:none; }
+/* Colapso animado: display:none no se puede animar, así que el cuerpo es una
+   grid de una fila que va de 1fr a 0fr. Mismo truco que el acordeón de tareas. */
+.tb-group-body { display:grid; grid-template-rows:1fr; transition:grid-template-rows var(--dur-fast) var(--ease); }
+.tb-group.collapsed .tb-group-body { grid-template-rows:0fr; }
+.tb-group-inner { min-height:0; overflow:hidden; }
 .tb-group-name { font-size:14px; font-weight:700; color:var(--g-color); }
 .tb-group-count { font-size:11.5px; color:var(--text-muted); font-weight:600; }
 .tb-group-overdue {
@@ -3941,8 +3948,8 @@ body.client-mode #loginScreen.login-screen:not(.hidden) { display:none !importan
 
 /* ── Kanban ── */
 .tb-kanban {
-  display:grid; grid-template-columns:repeat(5,minmax(212px,1fr));
-  gap:12px; overflow-x:auto; padding-bottom:8px; align-items:start;
+  display:grid; grid-template-columns:repeat(5,minmax(186px,1fr));
+  gap:10px; overflow-x:auto; padding-bottom:8px; align-items:start;
 }
 .tb-col { background:var(--bg); border:1px solid var(--border); border-radius:14px; padding:10px; }
 .tb-col.over { border-color:var(--g-color); background:var(--white); box-shadow:0 0 0 2px var(--g-color) inset; }
@@ -4010,4 +4017,116 @@ body.client-mode #loginScreen.login-screen:not(.hidden) { display:none !importan
   .tb-filter-row > * { flex-shrink:0; }
   .tb-result { margin-left:auto; padding-left:8px; }
   .tb-search { flex-basis:100%; }
+}
+
+/* ── Tablero: integración con el sistema visual ──
+   El resto de la plataforma es glass en claro y sólido en oscuro. Sin esto
+   el tablero se leía como una isla blanca encima del canvas. Los valores son
+   los mismos de .card / .filter-tab / .form-input, no aproximaciones. */
+
+/* Paneles (claro) */
+.tb-toolbar, .tb-group {
+  background: rgba(255,255,255,0.86);
+  backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  border-color: rgba(255,255,255,0.94);
+  box-shadow:
+    inset 0 1.5px 0 rgba(255,255,255,1),
+    inset 0 -0.5px 0 rgba(255,255,255,0.40),
+    0 4px 24px rgba(10,10,12,0.10),
+    0 1px 3px rgba(10,10,12,0.05);
+}
+.tb-group { border-left-color: var(--g-color); }
+.tb-col {
+  background: rgba(255,255,255,0.38);
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  border-color: rgba(255,255,255,0.60);
+}
+.tb-card {
+  background: rgba(255,255,255,0.86);
+  backdrop-filter: blur(18px) saturate(160%);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  border-color: rgba(255,255,255,0.94);
+  border-left-color: var(--g-color);
+}
+.tb-menu {
+  background: rgba(252,250,255,0.92);
+  backdrop-filter: blur(44px) saturate(180%);
+  -webkit-backdrop-filter: blur(44px) saturate(180%);
+  border-color: rgba(255,255,255,0.82);
+}
+
+/* Controles (claro) — el :not(.tb-seg-btn) deja fuera el toggle Tabla/Kanban,
+   que vive dentro de su propia píldora y no lleva superficie propia. */
+.tb-chip:not(.on):not(.tb-seg-btn), .tb-watcher:not(.on) {
+  background: rgba(255,255,255,0.52);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  border-color: rgba(255,255,255,0.72);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.9);
+}
+.tb-search, .tb-select select {
+  background: rgba(255,255,255,0.60);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  border-color: rgba(255,255,255,0.82);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.95), 0 1px 4px rgba(10,10,12,0.04);
+}
+.tb-search:focus-within {
+  background: rgba(255,255,255,0.88);
+  border-color: rgba(255,45,135,0.55);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,1), 0 0 0 3px rgba(255,45,135,0.16);
+}
+.tb-head-row, .tb-head-row:hover { background: rgba(255,255,255,0.34); }
+.tb-row:not(.tb-head-row):hover { background: rgba(255,255,255,0.55); }
+.tb-group-head:hover { background: rgba(255,255,255,0.34); }
+.tb-seg, .tb-tag, .tb-chip-n, .tb-person-chip { background: rgba(255,255,255,0.50); }
+.tb-seg .tb-seg-btn.on { background: rgba(255,255,255,0.92); }
+
+/* Oscuro: la plataforma abandona el glass y vuelve a superficies sólidas. */
+html.dark .tb-toolbar, html.dark .tb-group, html.dark .tb-card, html.dark .tb-menu {
+  background: var(--white); border-color: var(--border);
+  box-shadow: 0 14px 40px rgba(0,0,0,.30), inset 0 1px 0 rgba(255,255,255,.04);
+  backdrop-filter: none; -webkit-backdrop-filter: none;
+}
+html.dark .tb-group, html.dark .tb-card { border-left-color: var(--g-color); }
+html.dark .tb-col {
+  background: rgba(255,255,255,.04); border-color: rgba(255,255,255,.09);
+  backdrop-filter: none; -webkit-backdrop-filter: none;
+}
+html.dark .tb-chip:not(.on):not(.tb-seg-btn), html.dark .tb-watcher:not(.on) {
+  background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.13);
+  backdrop-filter: none; -webkit-backdrop-filter: none; box-shadow: none;
+}
+html.dark .tb-search, html.dark .tb-select select {
+  background: rgba(255,255,255,.06); border-color: rgba(255,255,255,.12);
+  backdrop-filter: none; -webkit-backdrop-filter: none; box-shadow: none;
+}
+html.dark .tb-search:focus-within { background: rgba(255,255,255,.09); border-color: rgba(255,45,135,.55); }
+html.dark .tb-head-row, html.dark .tb-head-row:hover,
+html.dark .tb-group-head:hover { background: rgba(255,255,255,.04); }
+html.dark .tb-row:not(.tb-head-row):hover { background: rgba(255,255,255,.05); }
+html.dark .tb-seg, html.dark .tb-tag, html.dark .tb-chip-n,
+html.dark .tb-person-chip { background: rgba(255,255,255,.07); }
+html.dark .tb-seg .tb-seg-btn.on { background: rgba(255,255,255,.14); }
+html.dark .tb-icon-danger:hover { background: rgba(226,68,92,.18); }
+
+/* Entradas escalonadas — solo con .is-fresh, que renderPendientes pone al
+   llegar a la página y no en los re-renders por filtro. */
+.tb-board.is-fresh .tb-group { animation: fadeUp var(--dur-slow) var(--ease) backwards; }
+.tb-board.is-fresh .tb-group:nth-child(2) { animation-delay: var(--dur-stagger); }
+.tb-board.is-fresh .tb-group:nth-child(3) { animation-delay: var(--dur-micro); }
+.tb-board.is-fresh .tb-group:nth-child(n+4) { animation-delay: var(--dur-quick); }
+.tb-board.is-fresh .tb-row:not(.tb-head-row) { animation: slideInLeft var(--dur-medium) var(--ease) backwards; }
+.tb-board.is-fresh .tb-row:nth-child(2) { animation-delay: var(--dur-stagger); }
+.tb-board.is-fresh .tb-row:nth-child(3) { animation-delay: calc(var(--dur-stagger) * 2); }
+.tb-board.is-fresh .tb-row:nth-child(n+4) { animation-delay: var(--dur-micro); }
+.tb-kanban.is-fresh .tb-card { animation: pop var(--dur-slow) var(--ease) backwards; }
+.tb-kanban.is-fresh .tb-card:nth-child(2) { animation-delay: var(--dur-stagger); }
+.tb-kanban.is-fresh .tb-card:nth-child(n+3) { animation-delay: var(--dur-micro); }
+
+@media (prefers-reduced-motion: reduce) {
+  .tb-board.is-fresh .tb-group, .tb-board.is-fresh .tb-row,
+  .tb-kanban.is-fresh .tb-card, .tb-menu { animation: none !important; }
+  .tb-group-body { transition: none !important; }
+  .tb-av-wrap, .tb-card, .tb-chip, .tb-pill { transition: none !important; }
+  #page-pendientes .tb-av-wrap:hover { transform: none !important; }
 }
