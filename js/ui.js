@@ -115,6 +115,12 @@ function closeModal(id) {
   const finish = () => {
     el.classList.remove('open', 'is-closing');
     el.style.zIndex = '';
+    // Cada credencial tiene su propio rAF y sus listeners globales: dejarlas
+    // montadas tras cerrar el modal deja loops corriendo sobre DOM invisible.
+    if(typeof unmountHolo === 'function') {
+      if(id === 'profileModal')     unmountHolo('profileHoloHost');
+      if(id === 'editProfileModal') unmountHolo('holoPreviewHost');
+    }
     // Si ya no queda ningún modal abierto, reinicia el contador.
     if(!document.querySelector('.modal-overlay.open')) _modalZ = 1000;
   };

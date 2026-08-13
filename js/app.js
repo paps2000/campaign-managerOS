@@ -244,6 +244,10 @@ function openProfileModal(uid) {
     </div>
     <!-- Cuerpo -->
     <div style="padding:20px 24px 24px;">
+      <!-- La credencial. Va antes que los números porque es la identidad; las
+           estadísticas son consecuencia. -->
+      <div style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">Credencial</div>
+      <div class="holo-host" id="profileHoloHost" style="margin-bottom:20px;"></div>
       <!-- Stats row -->
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px;">
         <div style="text-align:center;padding:14px 12px;background:var(--pink-pale);border-radius:16px;border:1px solid rgba(255,45,135,.12);">
@@ -272,6 +276,8 @@ function openProfileModal(uid) {
         ${done.map(t=>taskRow(t,true)).join('')}
       ` : ''}
     </div>`;
+  // Después del innerHTML: el host tiene que existir para poder medirlo.
+  try { mountHoloInto('profileHoloHost', u); } catch(e) { console.warn('holo mount', e); }
   openModal('profileModal');
 }
 
@@ -388,6 +394,60 @@ function clearMyStatus(e) {
 function switchProfileTab(tab) {
   document.querySelectorAll('.profile-tab-btn').forEach(b => b.classList.toggle('active', b.dataset.ptab === tab));
   document.querySelectorAll('.profile-tab-pane').forEach(p => p.classList.toggle('active', p.id === 'ptab-' + tab));
+  // La credencial se monta al ENTRAR a su pestaña, no al abrir el modal: en un
+  // panel oculto mide 0 de ancho, y todo su tipografía va en unidades de
+  // contenedor — montarla ahí la deja con las letras colapsadas.
+  if(tab === 'credencial') _mountHoloPreview();
+  else if(typeof unmountHolo === 'function') unmountHolo('holoPreviewHost');
+}
+
+// ── CREDENCIAL: material y tinta ──
+let _editCardFoil = 'holo';
+let _editCardTint = 'rosa';
+
+function _mountHoloPreview() {
+  if(!currentUserProfile) return;
+  // Se monta con los valores EN EDICIÓN, no con los guardados: la vista previa
+  // tiene que mostrar lo que estás eligiendo antes de guardar.
+  try {
+    mountHoloInto('holoPreviewHost', Object.assign({}, currentUserProfile, {
+      uid: currentUser?.uid,
+      profileEmoji: _editProfileEmoji,
+      profileGradient: _editProfileGradient,
+      puesto: document.getElementById('profilePuestoInput')?.value || currentUserProfile.puesto,
+      area:   document.getElementById('profileAreaInput')?.value   || currentUserProfile.area,
+      pronouns: document.getElementById('profilePronounsInput')?.value || currentUserProfile.pronouns,
+      cardFoil: _editCardFoil,
+      cardTint: _editCardTint,
+    }));
+  } catch(e) { console.warn('holo preview', e); }
+}
+
+function _buildHoloPickers() {
+  const tintEl = document.getElementById('holoTintPicker');
+  const foilEl = document.getElementById('holoFoilPicker');
+  if(tintEl) tintEl.innerHTML = HOLO_TINTS.map(t =>
+    `<button type="button" class="holo-swatch ${_editCardTint===t.key?'on':''}" data-tint="${t.key}" onclick="pickCardTint('${t.key}')"><i style="background:${t.grad}"></i>${t.label}</button>`
+  ).join('');
+  if(foilEl) foilEl.innerHTML = HOLO_FOILS.map(f =>
+    `<button type="button" class="holo-swatch ${_editCardFoil===f.key?'on':''}" data-foil="${f.key}" onclick="pickCardFoil('${f.key}')">${f.label}</button>`
+  ).join('');
+}
+
+// Cambiar material NO remonta la tarjeta: setStyle reescribe solo las variables
+// estáticas, así que la pose y la inercia sobreviven al cambio y puedes comparar
+// dos acabados sin que la tarjeta se reinicie entre uno y otro.
+function pickCardFoil(key) {
+  _editCardFoil = key;
+  document.querySelectorAll('#holoFoilPicker .holo-swatch').forEach(b => b.classList.toggle('on', b.dataset.foil === key));
+  const inst = _holoMounts.get('holoPreviewHost');
+  if(inst) inst.setStyle(_editCardFoil, _editCardTint);
+}
+function pickCardTint(key) {
+  _editCardTint = key;
+  document.querySelectorAll('#holoTintPicker .holo-swatch').forEach(b => b.classList.toggle('on', b.dataset.tint === key));
+  const inst = _holoMounts.get('holoPreviewHost');
+  if(inst) inst.setStyle(_editCardFoil, _editCardTint);
 }
 
 function _buildEmojiGrid(cat) {
@@ -447,6 +507,9 @@ function openEditProfileModal() {
   _editProfileGradient = currentUserProfile.profileGradient || 'linear-gradient(135deg,#ff2d87,#2c6dff)';
   _editProfileShape    = currentUserProfile.profileShape    || 'rounded';
   _editStatusEmoji     = currentUserProfile.statusEmoji     || '💬';
+  _editCardFoil        = currentUserProfile.cardFoil        || 'holo';
+  _editCardTint        = currentUserProfile.cardTint        || 'rosa';
+  _buildHoloPickers();
 
   // Build emoji category buttons
   const catBtns = document.getElementById('emojiCatBtns');
@@ -616,6 +679,8 @@ async function saveMyProfile() {
     profileEmoji:    emoji,
     profileGradient: _editProfileGradient,
     profileShape:    _editProfileShape,
+    cardFoil:        _editCardFoil,
+    cardTint:        _editCardTint,
     statusEmoji,
     statusText,
     bio,

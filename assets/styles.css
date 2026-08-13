@@ -4130,3 +4130,262 @@ html.dark .tb-icon-danger:hover { background: rgba(226,68,92,.18); }
   .tb-av-wrap, .tb-card, .tb-chip, .tb-pill { transition: none !important; }
   #page-pendientes .tb-av-wrap:hover { transform: none !important; }
 }
+
+/* ============================================================
+   CREDENCIAL THINKY — tarjeta holográfica
+   Cada capa es una ranura genérica: qué pinta, a qué escala, cómo compone y
+   con qué opacidad viene TODO de custom properties que escribe js/holo-card.js.
+   Esta hoja nunca sabe qué material está montado, que es lo que permite agregar
+   materiales sin tocar CSS.
+   ============================================================ */
+
+/* El hueco. `container-type` para que la tipografía de la tarjeta escale con su
+   ancho: la misma credencial se monta a 520px en el perfil y a 300px en el
+   editor, y tamaños en px la romperían en uno de los dos. */
+.holo-host {
+  container-type: inline-size;
+  perspective: 1100px;
+  width: 100%;
+}
+.holo-host > .holo-card { width: 100%; }
+
+.holo-card {
+  position: relative;
+  aspect-ratio: 1.55;
+  border-radius: 4.2cqw;
+  isolation: isolate;
+  overflow: hidden;
+  transform: rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
+  transform-style: preserve-3d;
+  will-change: transform;
+  /* CANTOS. Cada borde se ilumina por separado según cuánto encara al
+     observador, así la tarjeta se lee con espesor y no con un marco uniforme. */
+  box-shadow:
+    inset  0.35cqw 0 0 rgba(255,255,255,calc(.10 + var(--edge-l,0) * .5)),
+    inset -0.35cqw 0 0 rgba(255,255,255,calc(.10 + var(--edge-r,0) * .5)),
+    inset 0  0.35cqw 0 rgba(255,255,255,calc(.10 + var(--edge-t,0) * .5)),
+    inset 0 -0.35cqw 0 rgba(255,255,255,calc(.10 + var(--edge-b,0) * .5)),
+    0 2cqw 5cqw rgba(10,10,12,.28);
+}
+/* Sin transición en el transform: el frame loop ya escribe cada frame, y una
+   transición encima lo pelearía y arrastraría la tarjeta. */
+
+.holo-card > * { position: absolute; inset: 0; }
+
+/* LA SUPERFICIE IMPRESA. Color del usuario. Todo lo de arriba es luz cayéndole. */
+.holo-body { background: var(--body-grad, linear-gradient(115deg,#ffd9e8,#f7aecf)); }
+
+/* EL SELLO DE SEGURIDAD. Ausente en reposo (--reveal llega en 0) y enmascarado a
+   una banda que sigue la inclinación, así que sube solo del lado hacia el que
+   giraste. */
+.holo-pattern {
+  opacity: var(--reveal, 0);
+  /* Pitch ancho y alfa baja: el sello es una marca de agua que APARECE, no un
+     rayado que tape la impresión. Con la trama cerrada se comía la tarjeta
+     entera al inclinarla. */
+  background-image:
+    repeating-linear-gradient(var(--reveal-angle, 0deg),
+      rgba(255,255,255,.26) 0 .3cqw, rgba(255,255,255,0) .3cqw 4.4cqw),
+    repeating-linear-gradient(calc(var(--reveal-angle, 0deg) + 90deg),
+      rgba(255,255,255,.14) 0 .26cqw, rgba(255,255,255,0) .26cqw 5.6cqw);
+  mix-blend-mode: overlay;
+  -webkit-mask-image: radial-gradient(circle at var(--reveal-x,50%) var(--reveal-y,50%), #000 0%, rgba(0,0,0,.55) 38%, transparent 72%);
+  mask-image: radial-gradient(circle at var(--reveal-x,50%) var(--reveal-y,50%), #000 0%, rgba(0,0,0,.55) 38%, transparent 72%);
+}
+
+/* LAS TRES RANURAS DE FOIL. Idénticas entre sí a propósito: la diferencia entre
+   materiales vive completa en las variables. */
+.holo-foil, .holo-foil--b, .holo-foil--c {
+  background-repeat: repeat;
+  will-change: background-position, opacity;
+}
+.holo-foil {
+  background-image: var(--l1-img, none);
+  background-size: var(--l1-size, cover);
+  background-position: var(--l1-x, 50%) var(--l1-y, 50%);
+  background-blend-mode: var(--l1-bgblend, normal);
+  mix-blend-mode: var(--l1-blend, overlay);
+  filter: var(--l1-filter, none);
+  opacity: var(--l1-o, 0);
+}
+.holo-foil--b {
+  background-image: var(--l2-img, none);
+  background-size: var(--l2-size, cover);
+  background-position: var(--l2-x, 50%) var(--l2-y, 50%);
+  background-blend-mode: var(--l2-bgblend, normal);
+  mix-blend-mode: var(--l2-blend, overlay);
+  filter: var(--l2-filter, none);
+  opacity: var(--l2-o, 0);
+}
+.holo-foil--c {
+  background-image: var(--l3-img, none);
+  background-size: var(--l3-size, cover);
+  background-position: var(--l3-x, 50%) var(--l3-y, 50%);
+  background-blend-mode: var(--l3-bgblend, normal);
+  mix-blend-mode: var(--l3-blend, overlay);
+  filter: var(--l3-filter, none);
+  opacity: var(--l3-o, 0);
+}
+
+/* LA PASADA DE TINTA. Compone con `color`: toma matiz y croma de la tinta y
+   luminancia del foil, así que la estructura de luz del material sobrevive
+   entera mientras el color de la credencial vuelve a mandar. Sin esto, las ocho
+   tintas claras terminaban en el mismo pastel lavado al inclinar del todo. */
+.holo-tint {
+  background: var(--body-grad);
+  mix-blend-mode: color;
+  opacity: var(--tint-hold, .5);
+}
+
+/* LA VETA. Un pase rápido embarra el reflejo en la dirección del movimiento; uno
+   lento lo deja redondo. */
+.holo-smear {
+  opacity: var(--smear, 0);
+  background: linear-gradient(var(--smear-angle, 0deg),
+    transparent 34%, rgba(255,255,255,.5) 50%, transparent 66%);
+  mix-blend-mode: soft-light;
+}
+
+/* EL PUNTO DULCE: el ángulo donde todo el material se alinea. */
+.holo-spot {
+  opacity: var(--spot, 0);
+  background: radial-gradient(circle at var(--gx,50%) var(--gy,50%),
+    rgba(255,255,255,.72) 0%, rgba(255,255,255,.18) 32%, transparent 62%);
+  mix-blend-mode: soft-light;
+}
+
+/* Grano de impresión: ata la tarjeta y el recuadro al mismo medio. */
+.holo-noise {
+  opacity: .3;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20width%3D%27120%27%20height%3D%27120%27%3E%3Cfilter%20id%3D%27n%27%3E%3CfeTurbulence%20type%3D%27fractalNoise%27%20baseFrequency%3D%27.85%27%20numOctaves%3D%273%27%20stitchTiles%3D%27stitch%27%2F%3E%3CfeColorMatrix%20type%3D%27saturate%27%20values%3D%270%27%2F%3E%3C%2Ffilter%3E%3Crect%20width%3D%27120%27%20height%3D%27120%27%20filter%3D%27url%28%23n%29%27%20opacity%3D%27.4%27%2F%3E%3C%2Fsvg%3E");
+  background-size: 26% 26%;
+}
+
+/* El brillo sigue al puntero DIRECTO, sin retraso: un reflejo es donde está la
+   luz, y retrasarlo se vería como error. */
+.holo-glare {
+  opacity: var(--glare-o, .5);
+  background: radial-gradient(farthest-corner circle at var(--gx,50%) var(--gy,50%),
+    rgba(255,255,255,.62) 6%, rgba(255,255,255,.12) 26%, rgba(0,0,0,.22) 90%);
+  mix-blend-mode: overlay;
+}
+
+/* ── CONTENIDO ──
+   Encima del foil. La tipografía debajo de la hoja se la come el foil: el foil
+   es luz, y la luz cae sobre la impresión, no sobre lo escrito encima. */
+.holo-content {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 5cqw 5.5cqw;
+  color: var(--holo-ink, #1a1326);
+  font-family: 'Quicksand', sans-serif;
+  /* RELIEVE: luz de un lado, sombra del otro, ambas movidas por la inclinación,
+     así las letras atrapan luz como prensadas en el cartón. */
+  text-shadow:
+    var(--emboss-x, 0) var(--emboss-y, 0) 0 rgba(255,255,255,.55),
+    calc(var(--emboss-x, 0px) * -1) calc(var(--emboss-y, 0px) * -1) .1cqw rgba(0,0,0,.22);
+}
+.holo-card[data-ink="light"] .holo-content { --holo-ink: #fff; }
+.holo-card[data-ink="light"] .holo-content {
+  text-shadow:
+    var(--emboss-x, 0) var(--emboss-y, 0) 0 rgba(255,255,255,.30),
+    calc(var(--emboss-x, 0px) * -1) calc(var(--emboss-y, 0px) * -1) .1cqw rgba(0,0,0,.5);
+}
+
+.holo-top { display: flex; align-items: center; justify-content: space-between; gap: 2cqw; }
+.holo-brand { display: flex; align-items: center; gap: 1.6cqw; }
+.holo-brand-mark {
+  width: 5.4cqw; height: 5.4cqw; border-radius: 1.6cqw;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--holo-ink, #1a1326); color: var(--body-solid, #fff);
+  font-size: 3.4cqw; font-weight: 800; line-height: 1;
+  /* El logo toma el color de la tinta y CALA la impresión, así que se lee como
+     prensado en la misma superficie y no como sticker encima. */
+  mix-blend-mode: multiply;
+}
+.holo-card[data-ink="light"] .holo-brand-mark { mix-blend-mode: screen; color: #16121f; background: #fff; }
+.holo-brand-name { font-size: 2.9cqw; font-weight: 800; letter-spacing: .28cqw; }
+.holo-brand-dot { color: var(--pink); }
+.holo-kind {
+  font-size: 2.1cqw; font-weight: 700; letter-spacing: .5cqw; text-transform: uppercase;
+  opacity: .62;
+}
+
+.holo-main { display: flex; align-items: flex-end; justify-content: space-between; gap: 3cqw; }
+.holo-text { min-width: 0; }
+.holo-name {
+  font-size: 7.4cqw; font-weight: 700; line-height: 1.04; letter-spacing: -.12cqw;
+  margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.holo-pron { font-size: .42em; font-weight: 600; opacity: .6; margin-left: .5em; }
+.holo-role { font-size: 3.1cqw; font-weight: 600; opacity: .74; margin: .9cqw 0 0; }
+
+/* EL RECUADRO DEL AVATAR. Deliberadamente más simple que la tarjeta: recibe
+   brillo pero no arcoíris ni bandas, que es lo que mantiene las dos superficies
+   leyéndose como materiales distintos. */
+.holo-tile {
+  position: relative;
+  width: 19cqw; height: 19cqw; flex-shrink: 0;
+  border-radius: 5cqw; overflow: hidden;
+  box-shadow: 0 0 0 .6cqw rgba(255,255,255,.75), 0 1.4cqw 3cqw rgba(10,10,12,.24);
+  /* Deriva muy poco contra la cara de la tarjeta, para que los dos planos se
+     lean separados. */
+  transform: translateX(calc((var(--tile-x, 50%) - 50%) * .18));
+}
+.holo-tile > * { position: absolute; inset: 0; }
+.holo-tile__fill {
+  background: var(--av-bg, linear-gradient(135deg,#ff2d87,#a855f7));
+  /* El tono viaja conforme giras, así que el recuadro recorre un rango del
+     espectro en vez de aterrizar en un color fijo: eso es lo que separa
+     "holográfico" de "teñido". */
+  filter: hue-rotate(var(--tile-hue, 0deg)) saturate(calc(1 + var(--tile-flip, 0) * .5));
+}
+.holo-tile__face {
+  display: flex; align-items: center; justify-content: center;
+  font-size: 9cqw; line-height: 1; color: #fff; font-weight: 800;
+  text-shadow: 0 .3cqw .8cqw rgba(0,0,0,.28);
+}
+.holo-tile__gloss {
+  background: radial-gradient(farthest-corner circle at var(--gx,50%) var(--gy,50%),
+    rgba(255,255,255,.7) 0%, rgba(255,255,255,.05) 45%, rgba(0,0,0,.28) 100%);
+  mix-blend-mode: soft-light;
+}
+
+.holo-foot {
+  display: flex; align-items: center; justify-content: space-between; gap: 2cqw;
+  font-size: 2.2cqw; font-weight: 700;
+}
+.holo-chip {
+  padding: .9cqw 2.4cqw; border-radius: 4cqw;
+  background: rgba(255,255,255,.55); border: .16cqw solid rgba(255,255,255,.8);
+  letter-spacing: .1cqw;
+}
+.holo-card[data-ink="light"] .holo-chip {
+  background: rgba(255,255,255,.16); border-color: rgba(255,255,255,.3);
+}
+.holo-folio { opacity: .55; letter-spacing: .3cqw; font-variant-numeric: tabular-nums; }
+
+/* Selector de material / tinta en el editor de perfil. */
+.holo-picker { display: flex; flex-wrap: wrap; gap: 6px; }
+.holo-swatch {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 12px; border-radius: 20px; cursor: pointer;
+  border: 1.5px solid var(--border); background: var(--white);
+  font-family: 'Quicksand', sans-serif; font-size: 12px; font-weight: 600;
+  color: var(--text-muted); transition: all var(--dur-quick) var(--ease);
+}
+.holo-swatch:hover { border-color: var(--pink); color: var(--pink); }
+.holo-swatch.on { border-color: var(--pink); background: var(--pink-pale); color: var(--pink-deep); }
+.holo-swatch i {
+  width: 14px; height: 14px; border-radius: 5px; display: inline-block; flex-shrink: 0;
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.12);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* El loop ya no arranca (mountHoloCard lo respeta); esto congela además la
+     pose por si alguna variable quedó escrita antes de la consulta. */
+  .holo-card { transform: none !important; }
+  .holo-smear, .holo-spot { opacity: 0 !important; }
+}
