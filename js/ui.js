@@ -852,11 +852,36 @@ function populateTaskAssigneeSelect(defaultUid) {
   sel.value = defaultUid || currentUser.uid;
 }
 
+// Estado del tablero (Monday) dentro del modal de tarea.
+function populateTaskStatusSelect(status) {
+  const sel = document.getElementById('fTaskStatus');
+  if(!sel) return;
+  sel.innerHTML = TASK_STATUSES.map(s => `<option value="${s.id}">${s.label}</option>`).join('');
+  sel.value = TASK_STATUS_BY_ID[status] ? status : 'sin_empezar';
+}
+
+// Involucrados extra: toggles con avatar, se guardan en task.watchers.
+function populateTaskWatchers(watchers) {
+  const box = document.getElementById('fTaskWatchers');
+  if(!box) return;
+  const sel = new Set(watchers || []);
+  box.innerHTML = allUsers.map(u => {
+    const name = u.name || u.email.split('@')[0];
+    return `<button type="button" class="tb-watcher${sel.has(u.uid) ? ' on' : ''}" data-uid="${_esc(u.uid)}"
+      onclick="this.classList.toggle('on')">${memberAvatarHtml(u,18).replace(/onclick="[^"]*"/,'')} ${_esc(name)}</button>`;
+  }).join('') || '<span style="font-size:12px;color:var(--text-muted);">Sin equipo cargado</span>';
+}
+function readTaskWatchers() {
+  return [...document.querySelectorAll('#fTaskWatchers .tb-watcher.on')].map(b => b.dataset.uid);
+}
+
 function openAddTaskModal() {
   editingTaskId = null; editingTaskCampaignId = null;
   currentTaskContext = currentCampaignId || 'global';
   populateCampaignSelects();
   populateTaskAssigneeSelect(currentUser.uid);
+  populateTaskStatusSelect('sin_empezar');
+  populateTaskWatchers([]);
   document.getElementById('fTaskTitle').value='';
   document.getElementById('fTaskDate').value=new Date().toISOString().split('T')[0];
   document.getElementById('fTaskPriority').value='medium';
@@ -875,6 +900,8 @@ function openAddGlobalTaskModal() {
   currentTaskContext='global';
   populateCampaignSelects();
   populateTaskAssigneeSelect(currentUser.uid);
+  populateTaskStatusSelect('sin_empezar');
+  populateTaskWatchers([]);
   document.getElementById('fTaskTitle').value='';
   document.getElementById('fTaskDate').value=new Date().toISOString().split('T')[0];
   document.getElementById('fTaskPriority').value='medium';
@@ -904,8 +931,20 @@ function openTaskDetail(tid, cid) {
     <div style="display:flex;flex-direction:column;gap:14px;padding:4px 0;">
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
         <span style="font-size:12px;padding:3px 10px;border-radius:10px;background:${pbg};color:${pcol};font-weight:600;">${plbl}</span>
-        ${task.done ? '<span style="font-size:12px;padding:3px 10px;border-radius:10px;background:#dcfce7;color:#15803d;font-weight:600;">✓ Completada</span>' : '<span style="font-size:12px;padding:3px 10px;border-radius:10px;background:#f1f5f9;color:#475569;font-weight:600;">Pendiente</span>'}
+        <span style="font-size:12px;padding:3px 10px;border-radius:10px;background:${TASK_STATUS_BY_ID[taskStatus(task)].color};color:#fff;font-weight:600;">${TASK_STATUS_BY_ID[taskStatus(task)].label}</span>
         ${task.recurring ? `<span style="font-size:12px;padding:3px 10px;border-radius:10px;background:#ede9fe;color:#6d28d9;font-weight:600;">🔄 ${dayNames[task.recurringDay]||''}</span>` : ''}
+      </div>
+      <div>
+        <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px;">Involucrados</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;">
+          ${taskInvolved(task).map(uid => {
+            const p = allUsers.find(x=>x.uid===uid);
+            const role = uid===task.assigneeUid ? 'Responsable' : (uid===task.createdBy ? 'Creó la tarea' : 'Sigue la tarea');
+            return `<span class="tb-person-chip" onclick="closeModal('taskDetailModal');openProfileModal('${uid}')">
+              ${memberAvatarHtml(p,20).replace(/onclick="[^"]*"/,'')}
+              <span><b>${_esc(p ? (p.name||p.email.split('@')[0]) : 'Sin nombre')}</b><i>${role}</i></span></span>`;
+          }).join('') || '<span style="font-size:13px;color:var(--text-muted);">Nadie asignado todavía</span>'}
+        </div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
         <div>
@@ -942,6 +981,8 @@ function openEditTaskModal(tid, cid) {
   if(!task) { showToast('Tarea no encontrada','error'); return; }
   editingTaskId = tid; editingTaskCampaignId = cid || null;
   populateCampaignSelects(); populateTaskAssigneeSelect(task.assigneeUid || currentUser.uid);
+  populateTaskStatusSelect(taskStatus(task));
+  populateTaskWatchers(task.watchers || []);
   document.getElementById('fTaskTitle').value = task.title || '';
   document.getElementById('fTaskDate').value = task.dueDate || '';
   document.getElementById('fTaskPriority').value = task.priority || 'medium';
@@ -970,6 +1011,10 @@ function saveTask() {
   const notes = document.getElementById('fTaskNotes').value.trim();
   const recurring = document.getElementById('fTaskRecurring').checked;
   const recurringDay = recurring ? parseInt(document.getElementById('fTaskRecurringDay').value) : undefined;
+  const status = document.getElementById('fTaskStatus').value || 'sin_empezar';
+  // El responsable nunca duplica en involucrados (ya sale como responsable).
+  const watchers = readTaskWatchers().filter(uid => uid !== assigneeUid);
+  const done = !recurring && status === 'listo';
 
   let prevAssigneeUid = '';
   if(editingTaskId) {
@@ -979,13 +1024,25 @@ function saveTask() {
       const c = campaigns.find(x=>x.id===cid);
       if(c) {
         const t = c.tasks.find(x=>x.id===editingTaskId);
-        if(t) { prevAssigneeUid = t.assigneeUid||''; t.title=title; t.dueDate=dueDate; t.priority=priority; t.assigneeUid=assigneeUid; t.assignee=assigneeName; t.docLink=docLink; t.notes=notes; t.recurring=recurring; t.recurringDay=recurringDay; }
+        if(t) {
+        prevAssigneeUid = t.assigneeUid||''; t.title=title; t.dueDate=dueDate; t.priority=priority;
+        t.assigneeUid=assigneeUid; t.assignee=assigneeName; t.docLink=docLink; t.notes=notes;
+        t.recurring=recurring; t.recurringDay=recurringDay;
+        t.status=status; t.watchers=watchers;
+        if(!recurring) { t.done=done; t.doneAt = done ? (t.doneAt||Date.now()) : null; }
+      }
         setData('campaigns', campaigns);
       }
     } else {
       const tasks = getData('globalTasks');
       const t = tasks.find(x=>x.id===editingTaskId);
-      if(t) { prevAssigneeUid = t.assigneeUid||''; t.title=title; t.dueDate=dueDate; t.priority=priority; t.assigneeUid=assigneeUid; t.assignee=assigneeName; t.docLink=docLink; t.notes=notes; t.recurring=recurring; t.recurringDay=recurringDay; }
+      if(t) {
+        prevAssigneeUid = t.assigneeUid||''; t.title=title; t.dueDate=dueDate; t.priority=priority;
+        t.assigneeUid=assigneeUid; t.assignee=assigneeName; t.docLink=docLink; t.notes=notes;
+        t.recurring=recurring; t.recurringDay=recurringDay;
+        t.status=status; t.watchers=watchers;
+        if(!recurring) { t.done=done; t.doneAt = done ? (t.doneAt||Date.now()) : null; }
+      }
       setData('globalTasks', tasks);
     }
     // Notify newly-assigned user if changed
@@ -999,7 +1056,8 @@ function saveTask() {
       id:id(), title, dueDate, priority, assigneeUid,
       assignee: assigneeName, docLink, notes,
       createdBy: currentUser.uid,
-      done:false,
+      status, watchers,
+      done, doneAt: done ? Date.now() : null,
       ...(recurring ? { recurring:true, recurringDay } : {})
     };
     if(campId) {
@@ -1611,15 +1669,6 @@ document.querySelectorAll('.detail-tab').forEach(tab=>{
         try { renderEscenarioBlock(c); } catch(e){}
       }
     }
-  });
-});
-
-document.querySelectorAll('.filter-tab').forEach(tab=>{
-  tab.addEventListener('click',()=>{
-    document.querySelectorAll('.filter-tab').forEach(t=>t.classList.remove('active'));
-    tab.classList.add('active');
-    currentFilter=tab.dataset.filter;
-    renderPendientes();
   });
 });
 

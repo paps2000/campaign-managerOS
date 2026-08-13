@@ -116,7 +116,11 @@ function renderDashboard() {
       <div class="priority-dot priority-${t.priority}"></div>
       <div class="task-info">
         <div class="task-title ${t.done?'done-text':''}">${_esc(t.title)}</div>
-        <div class="task-meta">${t.campaignName||'General'}${showDate && t.dueDate ? ' · ' + formatDate(t.dueDate) : ''}</div>
+        <div class="task-meta" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+          <span class="tb-pill tb-pill-static" style="background:${TASK_STATUS_BY_ID[taskStatus(t)].color};">${TASK_STATUS_BY_ID[taskStatus(t)].label}</span>
+          ${_tbPeopleStack(t, 18)}
+          <span>${t.campaignName||'General'}${showDate && t.dueDate ? ' · ' + formatDate(t.dueDate) : ''}</span>
+        </div>
       </div>
       <button class="task-edit-btn" onclick="openEditTaskModal('${t.id}','${t.campaignId||''}')" title="Editar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></svg></button>
     </div>`;
@@ -1061,20 +1065,18 @@ function renderCampaignInfluencers(c) {
 }
 
 function _taskItemHtml(t, cid) {
-  const u = allUsers.find(x=>x.uid===t.assigneeUid);
-  const assigneeName = u ? (u.name||u.email.split('@')[0]) : (t.assignee||'');
-  const assigneeHtml = assigneeName
-    ? (u && u.uid
-        ? `<span class="user-name-link" onclick="event.stopPropagation();openProfileModal('${u.uid}')" style="display:inline-flex;align-items:center;gap:3px;cursor:pointer;">${memberAvatarHtml(u,14)} ${_esc(assigneeName)}</span>`
-        : `<span style="display:inline-flex;align-items:center;gap:3px;">${memberAvatarHtml({name:assigneeName},14)} ${_esc(assigneeName)}</span>`)
-    : '';
+  const st = TASK_STATUS_BY_ID[taskStatus(t)];
   return `
   <div class="task-item">
     <div class="task-check ${t.done?'done':''}" onclick="toggleTask('${t.id}','${cid}')"></div>
     <div class="priority-dot priority-${t.priority}"></div>
     <div class="task-info" onclick="openTaskDetail('${t.id}','${cid}')" style="cursor:pointer;">
       <div class="task-title ${t.done?'done-text':''}">${_esc(t.title)}</div>
-      <div class="task-meta" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">${assigneeHtml}${t.dueDate?`<span>${formatDate(t.dueDate)}</span>`:''}</div>
+      <div class="task-meta" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+        <span class="tb-pill tb-pill-static" style="background:${st.color};">${st.label}</span>
+        ${_tbPeopleStack(t, 18)}
+        ${t.dueDate?`<span>${formatDate(t.dueDate)}</span>`:''}
+      </div>
     </div>
     <button class="task-edit-btn" onclick="openEditTaskModal('${t.id}','${cid}')" title="Editar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></svg></button>
     <button onclick="deleteTask('${t.id}','${cid}')" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:12px;padding:4px;"><span class="icn-close"></span></button>

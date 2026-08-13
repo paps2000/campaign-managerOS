@@ -455,6 +455,12 @@ function renderEscenarioBlock(c) {
   // Derivar escenarioRows desde un escenario armado en plataforma si hace falta
   // (cubre escenarios guardados antes de esta feature).
   _ensureEscenarioRows(c);
+  // Con escenario cargado, la tabla "Influencers en esta campaña" repite a los
+  // mismos creadores con menos datos: se oculta y queda solo como alta manual
+  // para campañas sin escenario. Va aquí (no en renderCampaignInfluencers)
+  // porque el escenario llega async y esta función se re-ejecuta al llegar.
+  const _infSection = document.getElementById('campaignInfluencersSection');
+  if(_infSection) _infSection.style.display = (c.escenarioRows && c.escenarioRows.length) ? 'none' : '';
   // Lock Google-Sheets input when the scenario was built in-platform
   const _sheetsBar = document.getElementById('escenarioSheetsBar');
   const _appNotice = document.getElementById('escenarioAppNotice');
@@ -1186,126 +1192,9 @@ function downloadTrackerChartPng() {
   }
 }
 let _trackerAutoRefreshTimer = null;
-let currentFilter = 'todos';
-let filterByUser = '';
 
-function renderPendientes() {
-  const campaigns = visibleCampaigns();
-  const globalTasks = getData('globalTasks');
-  const today = new Date().toISOString().split('T')[0];
-  const weekEnd = new Date(); weekEnd.setDate(weekEnd.getDate()+7);
-  const weekEndStr = weekEnd.toISOString().split('T')[0];
-
-  // Person filter UI
-  const pf = document.getElementById('pendientesPersonFilter');
-  if(pf) {
-    const allAssignees = [...new Map(allUsers.map(u=>[u.uid,u])).values()];
-    pf.innerHTML = [
-      `<button class="metrics-tab-pill ${!filterByUser?'active':''}" onclick="setPendientesUser('')">Todos</button>`,
-      ...allAssignees.map(u=>`<button class="metrics-tab-pill ${filterByUser===u.uid?'active':''}" onclick="setPendientesUser('${u.uid}')">${memberAvatarHtml(u,16)} ${_esc(u.name||u.email.split('@')[0])}</button>`)
-    ].join('');
-  }
-
-  const allTasks = [...globalTasks.map(t=>({...t,source:'global'}))];
-  campaigns.forEach(c=>c.tasks.forEach(t=>allTasks.push({...t,campaignId:c.id,campaignName:c.name,source:'campaign'})));
-
-  // Recurring task expansion
-  const expanded = [];
-  allTasks.forEach(t => {
-    if(t.recurring && t.recurringDay !== undefined) {
-      // Generate virtual instance for current week
-      const dayOfWeek = new Date(today).getDay();
-      const diff = ((t.recurringDay - dayOfWeek) + 7) % 7;
-      const occDate = new Date(today); occDate.setDate(occDate.getDate() + (diff === 0 ? 0 : diff));
-      const occStr = occDate.toISOString().split('T')[0];
-      const alreadyDoneThisOccurrence = t.lastDoneDate === occStr;
-      expanded.push({...t, dueDate: occStr, done: alreadyDoneThisOccurrence, _isRecurring: true});
-    } else {
-      expanded.push(t);
-    }
-  });
-
-  // Filter by assigned user
-  let myTasks = filterByUser
-    ? expanded.filter(t => t.assigneeUid === filterByUser)
-    : expanded.filter(t => !t.assigneeUid || t.assigneeUid === currentUser.uid);
-
-  let filtered = myTasks;
-  if(currentFilter==='hoy') filtered = myTasks.filter(t=>t.dueDate===today||t._isRecurring&&t.dueDate===today);
-  else if(currentFilter==='semana') filtered = myTasks.filter(t=>t.dueDate>=today&&t.dueDate<=weekEndStr);
-
-  // Split into pending and done
-  const pending = filtered.filter(t=>!t.done).sort((a,b)=>{
-    const p={high:0,medium:1,low:2};
-    return (p[a.priority]||1)-(p[b.priority]||1);
-  });
-  const done = filtered.filter(t=>t.done).sort((a,b)=>{
-    const p={high:0,medium:1,low:2};
-    return (p[a.priority]||1)-(p[b.priority]||1);
-  });
-
-  const prioBadge = (p) => {
-    const map = {high:['#fee2e2','#991b1b','Alta'], medium:['#fef9c3','#854d0e','Media'], low:['#dcfce7','#15803d','Baja']};
-    const [bg,col,lbl] = map[p]||map.medium;
-    return `<span style="font-size:11px;padding:2px 8px;border-radius:10px;background:${bg};color:${col};flex-shrink:0;">${lbl}</span>`;
-  };
-  const assigneeChip = (t) => {
-    if(!t.assignee && !t.assigneeUid) return '';
-    const u = allUsers.find(x=>x.uid===t.assigneeUid);
-    const name = u ? (u.name||u.email.split('@')[0]) : (t.assignee||'');
-    return `<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;background:var(--lavender-pale);color:#6a5a9a;border-radius:20px;padding:2px 8px 2px 4px;">
-      ${memberAvatarHtml(u||{name,profileEmoji:'',profileGradient:''}, 16)}
-      ${name}</span>`;
-  };
-
-  const taskRow = (t) => `
-    <div class="task-item">
-      <div class="task-check ${t.done?'done':''}" onclick="toggleTask('${t.id}','${t.campaignId||''}')"></div>
-      <div class="priority-dot priority-${t.priority}"></div>
-      <div class="task-info">
-        <div class="task-title ${t.done?'done-text':''}">${_esc(t.title)}${t._isRecurring?` <span style="font-size:10px;color:var(--text-muted);">🔄 Semanal</span>`:''}${t.done&&t._isRecurring?` <span style="font-size:10px;color:var(--text-muted);">· listo esta semana</span>`:''}</div>
-        <div class="task-meta" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-          ${t.campaignName?`<a onclick="openCampaignDetail('${t.campaignId}')" style="color:var(--pink);cursor:pointer;font-weight:600">${t.campaignName}</a>`:''}
-          ${t.campaignName?'·':''}
-          ${assigneeChip(t)}
-          <span>${formatDate(t.dueDate)||'Sin fecha'}</span>
-        </div>
-      </div>
-      ${prioBadge(t.priority)}
-      <button class="task-edit-btn" onclick="openEditTaskModal('${t.id}','${t.campaignId||''}')" title="Editar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></svg></button>
-      <button onclick="deleteTask('${t.id}','${t.campaignId||''}')" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:12px;padding:4px;"><span class="icn-close"></span></button>
-    </div>`;
-
-  const el = document.getElementById('allTasksList');
-  if(!el) return;
-
-  let html = '';
-  if(pending.length === 0 && done.length === 0) {
-    html = `<div class="empty-state"><p>No tienes pendientes por ahora</p></div>`;
-  } else {
-    if(pending.length) {
-      html += `<div class="card" style="margin-bottom:12px;">
-        <div class="card-header"><span class="card-title" style="color:var(--text);">Por resolver (${pending.length})</span></div>
-        ${pending.map(t=>taskRow(t)).join('')}
-      </div>`;
-    }
-    if(done.length) {
-      html += `<details style="margin-top:4px;">
-        <summary style="list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--bg);border-radius:12px;border:1px solid var(--border);font-size:13px;font-weight:600;color:var(--text-muted);user-select:none;">
-          <span style="font-size:11px;margin-right:2px;">▶</span> Resueltos (${done.length})
-        </summary>
-        <div class="card" style="margin-top:6px;">${done.map(t=>taskRow(t)).join('')}</div>
-      </details>`;
-    }
-  }
-  el.innerHTML = html;
-  setPendientesBadge(pending.length);
-}
-
-function setPendientesUser(uid) {
-  filterByUser = uid;
-  renderPendientes();
-}
+// renderPendientes() y el filtro por persona viven ahora en js/tasks-board.js
+// (tablero estilo Monday: agrupación, involucrados, estados y kanban).
 
 function toggleTask(tid, cid) {
   let wentDone = false;
@@ -1320,7 +1209,11 @@ function toggleTask(tid, cid) {
           const wasDone = t.lastDoneDate===today;
           t.lastDoneDate = wasDone ? '' : today;
           wentDone = !wasDone;
-        } else { wentDone = !t.done; t.done=!t.done; t.doneAt = t.done ? Date.now() : null; }
+        } else {
+        wentDone = !t.done; t.done=!t.done; t.doneAt = t.done ? Date.now() : null;
+        // Mantener `status` (tablero) en sync con el check de toda la vida.
+        t.status = t.done ? 'listo' : (t.status && t.status !== 'listo' ? t.status : 'trabajando');
+      }
       }
       setData('campaigns',campaigns);
     }
@@ -1333,7 +1226,11 @@ function toggleTask(tid, cid) {
         const wasDone = t.lastDoneDate===today;
         t.lastDoneDate = wasDone ? '' : today;
         wentDone = !wasDone;
-      } else { wentDone = !t.done; t.done=!t.done; t.doneAt = t.done ? Date.now() : null; }
+      } else {
+        wentDone = !t.done; t.done=!t.done; t.doneAt = t.done ? Date.now() : null;
+        // Mantener `status` (tablero) en sync con el check de toda la vida.
+        t.status = t.done ? 'listo' : (t.status && t.status !== 'listo' ? t.status : 'trabajando');
+      }
     }
     setData('globalTasks',tasks);
   }

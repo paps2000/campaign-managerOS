@@ -480,9 +480,11 @@ let editingCampaignId = null;
 let editingTaskId = null;
 let editingTaskCampaignId = null;
 
+// Pendientes vive en el sidebar (escritorio) y en la nav inferior (móvil).
+// El botón del topbar y el FAB duplicado se eliminaron: mismo destino, mismo
+// badge, tres lugares distintos.
 function setPendientesBadge(count) {
-  _setTBadge('pendientesBadge', count);
-  _setTBadge('pendientesBadgeTop', count);
+  _setTBadge('sidebarPendBadge', count);
   _setTBadge('mobileNavBadge', count);
 }
 // Recompute pending-task count for the FAB badge from any page (mirrors the
