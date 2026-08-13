@@ -1530,25 +1530,44 @@ function _extractSheetId(url) {
   return m ? m[1] : null;
 }
 
+// La respuesta de htmlview pesa ~45KB y tarda ~500ms: se cachea por hoja
+// mientras dure la sesión (las pestañas de un workbook no cambian a media
+// jornada, y si cambian basta con recargar).
+const _sheetTabsCache = new Map();
 async function _fetchSheetTabs(sheetId) {
-  // Old Sheets v3 feeds API is deprecated/dead. Discover tabs by scraping
-  // public HTML for {name,gid} pairs. Falls back gracefully if blocked.
-  const url = `https://docs.google.com/spreadsheets/d/${sheetId}/htmlview`;
-  const res = await fetch(url);
-  if(!res.ok) throw new Error(`tabs HTTP ${res.status}`);
-  const html = await res.text();
-  if(html.trim().startsWith('<!DOCTYPE') === false && !html.includes('sheet-button')) throw new Error('tabs not public');
-  const tabs = [];
-  const seen = new Set();
-  // Pattern: <li ... id="sheet-button-XXXX" ...>NAME</li>
-  const re = /id="sheet-button-(\d+)"[^>]*>([^<]+)</g;
-  let m;
-  while((m = re.exec(html)) !== null) {
-    const gid = m[1], title = m[2].trim();
-    if(!seen.has(gid)) { seen.add(gid); tabs.push({title, gid}); }
-  }
-  if(!tabs.length) throw new Error('no tabs parsed');
-  return tabs;
+  if(_sheetTabsCache.has(sheetId)) return _sheetTabsCache.get(sheetId);
+  const p = (async () => {
+    // La API v3 de feeds está muerta; se raspa el HTML público buscando
+    // pares {name, gid}.
+    const url = `https://docs.google.com/spreadsheets/d/${sheetId}/htmlview`;
+    const res = await fetch(url);
+    if(!res.ok) throw new Error(`tabs HTTP ${res.status}`);
+    const html = await res.text();
+    const tabs = [];
+    const seen = new Set();
+    const add = (title, gid) => { if(gid && !seen.has(gid)){ seen.add(gid); tabs.push({title:(title||'').trim(), gid}); } };
+    // Formato actual (2026): items.push({name: "X", pageUrl: "...", gid: "123"})
+    let m;
+    const reNuevo = /items\.push\(\{\s*name:\s*"((?:[^"\\]|\\.)*)"[^}]*?gid:\s*"(\d+)"/g;
+    // Google escapa dentro del JS: \x27 = apóstrofo, é = é. Sin decodificar,
+    // "Master Hellmann's" llega como "Master Hellmannx27s" y deja de coincidir
+    // con el nombre de pestaña que configuró el usuario.
+    const desescapar = s => s
+      .replace(/\\x([0-9a-fA-F]{2})/g, (_,h)=>String.fromCharCode(parseInt(h,16)))
+      .replace(/\\u([0-9a-fA-F]{4})/g, (_,h)=>String.fromCharCode(parseInt(h,16)))
+      .replace(/\\(.)/g, '$1');
+    while((m = reNuevo.exec(html)) !== null) add(desescapar(m[1]), m[2]);
+    // Formato antiguo: <li id="sheet-button-XXXX" ...>NOMBRE</li>
+    if(!tabs.length) {
+      const reViejo = /id="sheet-button-(\d+)"[^>]*>([^<]+)</g;
+      while((m = reViejo.exec(html)) !== null) add(m[2], m[1]);
+    }
+    if(!tabs.length) throw new Error('no tabs parsed');
+    return tabs;
+  })();
+  _sheetTabsCache.set(sheetId, p);
+  p.catch(() => _sheetTabsCache.delete(sheetId));   // un fallo no se cachea
+  return p;
 }
 
 async function _fetchTabRows(sheetId, gid) {

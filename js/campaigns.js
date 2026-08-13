@@ -2047,27 +2047,32 @@ async function _autoFetchTracker(url, campaign, opts = {}) {
     // Tag rows as AON by default
     rows = rows.map(r=>({...r, _batch:'aon'}));
     campaign.trackerRows = rows;
-    const sid = _extractSheetId(url);
+    // Descubrir pestañas cuesta ~500ms (se baja el htmlview entero) y solo
+    // hace falta cuando la campaña declara pestañas AON/Nano. Sin filtro, el
+    // gid que trae la URL ya apunta a la pestaña correcta: pedir el resto
+    // sería lento y además mezclaría hojas ajenas del mismo workbook
+    // (Overview, POCS, Master de otra marca…) dentro del tracker.
+    const aonTabName  = (campaign.trackerAonTab||'').toLowerCase();
+    const nanoTabName = (campaign.trackerNanoTab||'').toLowerCase();
+    const sid = (aonTabName || nanoTabName) ? _extractSheetId(url) : null;
     if(sid) {
       try {
         const tabs = await _fetchSheetTabs(sid);
-        const aonTabName = (campaign.trackerAonTab||'').toLowerCase();
-        const nanoTabName = (campaign.trackerNanoTab||'').toLowerCase();
         if(tabs.length > 0) {
+          const elegidas = tabs.filter(t => {
+            const tname = (t.title||t.name||'').toLowerCase();
+            return (aonTabName && tname.includes(aonTabName)) ||
+                   (nanoTabName && (tname.includes(nanoTabName) || tname.includes('nano') || tname.includes('cgc') || tname.includes('ugc')));
+          });
+          // Las pestañas se piden en paralelo: antes era un await por vuelta,
+          // así que N pestañas costaban N viajes en serie.
+          const lotes = await Promise.all(elegidas.map(t => _fetchTabRows(sid, t.gid).catch(()=>[])));
           const allRows = [];
-          for(const t of tabs) {
-            const tabRows = await _fetchTabRows(sid, t.gid);
+          elegidas.forEach((t, i) => {
             const tname = (t.title||t.name||'').toLowerCase();
             const isNano = nanoTabName && (tname.includes(nanoTabName) || tname.includes('nano') || tname.includes('cgc') || tname.includes('ugc'));
-            const batch = isNano ? 'nano' : 'aon';
-            // Only include if: no tab filter set (include all), or matches filter
-            if(!aonTabName && !nanoTabName) {
-              allRows.push(...tabRows.map(r=>({...r, _batch:batch, _tabName:t.title||t.name})));
-            } else {
-              const isAon = aonTabName && tname.includes(aonTabName);
-              if(isAon || isNano) allRows.push(...tabRows.map(r=>({...r, _batch:batch, _tabName:t.title||t.name})));
-            }
-          }
+            allRows.push(...lotes[i].map(r=>({...r, _batch: isNano?'nano':'aon', _tabName:t.title||t.name})));
+          });
           if(allRows.length) campaign.trackerRows = allRows;
         }
       } catch(e) { /* single tab fallback — use CSV from URL gid */ }
