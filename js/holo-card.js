@@ -572,6 +572,9 @@ function _holoNameSize(name) {
 /* El HTML de la tarjeta. La estructura es idéntica en el perfil y en el editor:
    solo cambia de dónde salen sus números. */
 function holoCardHtml(u) {
+  // El logo se elige por tinta, así que hace falta saberla antes de armar el
+  // HTML (applyHoloFoil corre después y ya sería tarde para cambiar el src).
+  u = Object.assign({}, u, { __ink: holoTint(u.cardTint).ink });
   const name    = u.name || (u.email ? u.email.split('@')[0] : 'Miembro');
   const puesto  = u.puesto || 'Think Y.';
   const area    = u.area || '';
@@ -607,7 +610,10 @@ function holoCardHtml(u) {
     <div class="holo-content">
       <div class="holo-top">
         <div class="holo-brand">
-          <span class="holo-brand-mark">Y</span>
+          <!-- La Y original. Dos archivos porque son dos marcas distintas: sobre
+               tinta clara va el badge rosa (la Y calada en su cuadro), y sobre
+               tinta oscura la Y blanca suelta, que ahí sí tiene contraste. -->
+          <img class="holo-brand-mark" src="assets/${u.__ink === 'light' ? 'y-white-transparent-128.png' : 'y-pink-transparent-128.png'}" alt="" width="128" height="128">
           <span class="holo-brand-name">THINK Y<span class="holo-brand-dot">.</span></span>
         </div>
         <span class="holo-kind">Credencial</span>
@@ -633,6 +639,11 @@ function holoCardHtml(u) {
         <span class="holo-folio">N.º ${_holoFolio(u.uid)}</span>
       </div>
     </div>
+
+    <!-- Los stickers van ENCIMA del contenido y dentro de la tarjeta, así que
+         comparten su plano 3D y se inclinan con ella. Fuera de .holo-content
+         para que el relieve del texto no les aplique sombra. -->
+    <div class="holo-stickers"></div>
   </div>`;
 }
 
@@ -673,6 +684,10 @@ function mountHoloCard(host, u, opts) {
      derivado, así que tomarlo como objetivo de golpe es un salto de casi todo el
      recorrido en un frame. */
   let grab = 1, grabFrom = { x: 0, y: 0 }, aim = { x: 0, y: 0 };
+  /* Mientras se arrastra un sticker la tarjeta deja de seguir al puntero:
+     arrastrar un sticker y girar la credencial son dos gestos distintos sobre
+     el mismo pixel, y hacer ambos a la vez marea. */
+  let stickerDrag = false;
 
   const frame = () => {
     raf = 0;
@@ -735,7 +750,7 @@ function mountHoloCard(host, u, opts) {
   };
 
   const onPointer = (e) => {
-    if (reduced) return;
+    if (reduced || stickerDrag) return;
     aim = _holoFromPointer(host.getBoundingClientRect(), e.clientX, e.clientY);
     if (!touched) {
       // PRIMER contacto: arranca la mezcla de recogida desde la pose actual.
@@ -789,15 +804,40 @@ function mountHoloCard(host, u, opts) {
   // instante antes de animarse se ve como carga fallida.
   applyHoloFrame(card, { x: 0, y: 0 }, { x: 0, y: 0 }, foil, {});
 
+  // ── Stickers ──
+  // Se montan después de que las webfonts estén listas: rasterizar el troquel
+  // contra la fuente de respaldo lo deja pegado a los glifos equivocados, y eso
+  // no se corrige solo cuando la fuente real llega.
+  let board = null;
+  const stickerHost = card.querySelector('.holo-stickers');
+  if (stickerHost && typeof HoloStickerBoard === 'function') {
+    board = new HoloStickerBoard(stickerHost, {
+      editable: !!o.editable,
+      onChange: o.onStickersChange,
+      onDragChange: (v) => { stickerDrag = v; },
+    });
+    holoStickerFontsReady().then(() => {
+      if (board) board.setStickers(u.cardStickers || []);
+    });
+  }
+
   return {
     card,
+    board,
     setStyle(foilKey, tintKey) {
       foil = holoFoil(foilKey);
       tint = holoTint(tintKey);
       applyHoloFoil(card, foil, tint);
+      // El logo cambia con la tinta (badge rosa sobre claro, Y blanca sobre
+      // oscuro); es lo único del contenido que depende del material.
+      const mark = card.querySelector('.holo-brand-mark');
+      if (mark) mark.src = 'assets/' + (tint.ink === 'light' ? 'y-white-transparent-128.png' : 'y-pink-transparent-128.png');
       wake();
     },
+    setStickers(list) { if (board) board.setStickers(list); },
+    getStickers() { return board ? board.getStickers() : []; },
     destroy() {
+      if (board) { board.destroy(); board = null; }
       running = false;
       if (raf) cancelAnimationFrame(raf);
       io.disconnect();
@@ -814,15 +854,245 @@ function mountHoloCard(host, u, opts) {
    tiene su propio rAF y sus propios listeners globales. */
 const _holoMounts = new Map();
 
-function mountHoloInto(hostId, u) {
+function mountHoloInto(hostId, u, opts) {
   unmountHolo(hostId);
   const host = document.getElementById(hostId);
   if (!host) return null;
-  const inst = mountHoloCard(host, u);
-  if (inst) _holoMounts.set(hostId, inst);
+  const inst = mountHoloCard(host, u, opts);
+  if (inst) { _holoMounts.set(hostId, inst); inst.user = u; }
   return inst;
 }
 function unmountHolo(hostId) {
   const prev = _holoMounts.get(hostId);
   if (prev) { prev.destroy(); _holoMounts.delete(hostId); }
+}
+
+// ============================================================
+// COMPARTIR
+// ============================================================
+/* La imagen para redes se DIBUJA, no se captura.
+   html2canvas no entiende mix-blend-mode ni backdrop-filter, que es
+   literalmente todo el efecto: una captura saldría como un rectángulo de color
+   plano. Así que se repinta la tarjeta en canvas, donde
+   globalCompositeOperation sí soporta 'overlay', 'color-dodge' y 'color' — los
+   mismos modos que usa el CSS.
+
+   Es una RENDICIÓN, no una copia pixel a pixel: la exportación congela un solo
+   ángulo y aplana el foil a una hoja espectral, en vez de reproducir las tres
+   capas con sus velocidades. Lo que se comparte es una foto de la credencial,
+   no la credencial. */
+
+/* Los degradados de las tintas están escritos como CSS. Para el canvas hacen
+   falta los colores sueltos. */
+function _holoGradStops(css) {
+  const hex = String(css).match(/#[0-9a-fA-F]{3,8}/g);
+  return hex && hex.length ? hex : ['#ffb3d3', '#e96fa6'];
+}
+
+function _holoRoundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+function _holoLoadImg(src) {
+  return new Promise((res) => {
+    const im = new Image();
+    im.onload = () => res(im);
+    im.onerror = () => res(null);
+    im.src = src;
+  });
+}
+
+/* Devuelve un <canvas> con la credencial de `u` lista para compartir. */
+async function holoRenderShare(u, width) {
+  const W = width || 1200;
+  const H = Math.round(W / 1.55);
+  const tint = holoTint(u.cardTint);
+  const foil = holoFoil(u.cardFoil);
+  const ink = tint.ink === 'light' ? '#ffffff' : '#1a1326';
+
+  const cv = document.createElement('canvas');
+  cv.width = W; cv.height = H;
+  const ctx = cv.getContext('2d');
+  const u2 = W / 100; // 1 unidad de contenedor, igual que los cqw del CSS
+
+  _holoRoundRect(ctx, 0, 0, W, H, 4.2 * u2);
+  ctx.clip();
+
+  // 1. La impresión.
+  const stops = _holoGradStops(tint.grad);
+  const g = ctx.createLinearGradient(0, H, W, 0);
+  stops.forEach((c, i) => g.addColorStop(i / (stops.length - 1), c));
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+
+  // 2. La hoja espectral, aplanada a un solo ángulo.
+  const sheet = ctx.createLinearGradient(0, H, W, 0);
+  const hues = HOLO_SUNPILLARS;
+  for (let i = 0; i <= hues.length * 2; i++) {
+    sheet.addColorStop(Math.min(1, i / (hues.length * 2)), hues[i % hues.length]);
+  }
+  ctx.globalCompositeOperation = 'overlay';
+  ctx.globalAlpha = 0.72;
+  ctx.fillStyle = sheet;
+  ctx.fillRect(0, 0, W, H);
+
+  // 3. La pasada de tinta: devuelve el color del dueño encima del foil.
+  if (tint.hold) {
+    ctx.globalCompositeOperation = 'color';
+    ctx.globalAlpha = tint.hold;
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  // 4. El brillo, en el punto dulce.
+  ctx.globalCompositeOperation = 'overlay';
+  ctx.globalAlpha = foil.glare;
+  const gl = ctx.createRadialGradient(W * 0.3, H * 0.3, 0, W * 0.3, H * 0.3, W * 0.8);
+  gl.addColorStop(0, 'rgba(255,255,255,.62)');
+  gl.addColorStop(0.26, 'rgba(255,255,255,.12)');
+  gl.addColorStop(1, 'rgba(0,0,0,.22)');
+  ctx.fillStyle = gl;
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.globalAlpha = 1;
+
+  // 5. El contenido.
+  const name   = u.name || (u.email ? u.email.split('@')[0] : 'Miembro');
+  const puesto = u.puesto || 'Think Y.';
+  const area   = u.area || '';
+  const padX = 5.5 * u2, padY = 5 * u2;
+
+  const logo = await _holoLoadImg('assets/' + (tint.ink === 'light' ? 'y-white-transparent-128.png' : 'y-pink-transparent-128.png'));
+  if (logo) ctx.drawImage(logo, padX, padY, 5.4 * u2, 5.4 * u2);
+
+  ctx.fillStyle = ink;
+  ctx.textBaseline = 'middle';
+  ctx.font = `800 ${2.9 * u2}px Quicksand, sans-serif`;
+  ctx.fillText('THINK Y.', padX + 7 * u2, padY + 2.9 * u2);
+
+  ctx.globalAlpha = .62;
+  ctx.font = `700 ${2.1 * u2}px Quicksand, sans-serif`;
+  const kind = 'CREDENCIAL';
+  ctx.fillText(kind, W - padX - ctx.measureText(kind).width, padY + 2.9 * u2);
+  ctx.globalAlpha = 1;
+
+  // Nombre y puesto, alineados abajo como en la tarjeta viva.
+  const nameSize = parseFloat(_holoNameSize(name)) * u2;
+  ctx.font = `700 ${nameSize}px Quicksand, sans-serif`;
+  ctx.fillText(name, padX, H * 0.56);
+  ctx.globalAlpha = .74;
+  ctx.font = `600 ${3.1 * u2}px Quicksand, sans-serif`;
+  ctx.fillText(puesto, padX, H * 0.56 + nameSize * 0.62 + 1.6 * u2);
+  ctx.globalAlpha = 1;
+
+  // El recuadro del avatar.
+  const tw = 19 * u2, tx = W - padX - tw, ty = H * 0.5 - tw / 2;
+  ctx.save();
+  _holoRoundRect(ctx, tx, ty, tw, tw, 5 * u2);
+  ctx.clip();
+  const av = _holoGradStops(u.profileGradient || 'linear-gradient(135deg,#ff2d87,#a855f7)');
+  const ag = ctx.createLinearGradient(tx, ty, tx + tw, ty + tw);
+  av.forEach((c, i) => ag.addColorStop(i / Math.max(1, av.length - 1), c));
+  ctx.fillStyle = ag;
+  ctx.fillRect(tx, ty, tw, tw);
+  ctx.fillStyle = '#fff';
+  ctx.font = `800 ${9 * u2}px Quicksand, sans-serif`;
+  ctx.textAlign = 'center';
+  const face = u.profileEmoji || (name[0] || '?').toUpperCase();
+  ctx.fillText(face, tx + tw / 2, ty + tw / 2);
+  ctx.textAlign = 'left';
+  ctx.restore();
+  ctx.strokeStyle = 'rgba(255,255,255,.75)';
+  ctx.lineWidth = .6 * u2;
+  _holoRoundRect(ctx, tx, ty, tw, tw, 5 * u2);
+  ctx.stroke();
+
+  // Pie: área y folio.
+  const footY = H - padY - 1.4 * u2;
+  ctx.font = `700 ${2.2 * u2}px Quicksand, sans-serif`;
+  if (area) {
+    const chip = `${HOLO_AREA_ABBR[area] || area} · ${area}`;
+    const cw = ctx.measureText(chip).width + 4.8 * u2;
+    ctx.fillStyle = tint.ink === 'light' ? 'rgba(255,255,255,.16)' : 'rgba(255,255,255,.55)';
+    _holoRoundRect(ctx, padX, footY - 2.4 * u2, cw, 4.8 * u2, 2.4 * u2);
+    ctx.fill();
+    ctx.fillStyle = ink;
+    ctx.fillText(chip, padX + 2.4 * u2, footY);
+  }
+  ctx.globalAlpha = .55;
+  ctx.fillStyle = ink;
+  const folio = 'N.º ' + _holoFolio(u.uid);
+  ctx.fillText(folio, W - padX - ctx.measureText(folio).width, footY);
+  ctx.globalAlpha = 1;
+
+  // 6. Los stickers, con su troquel real: se rasterizan igual que en la
+  // tarjeta viva, solo que al tamaño de la exportación.
+  if (typeof renderStickerCanvas === 'function' && (u.cardStickers || []).length) {
+    await holoStickerFontsReady();
+    const fontPx = Math.max(13, Math.min(34, W * 0.062));
+    (u.cardStickers || []).forEach(d => {
+      const f = HOLO_STICKER_FONT_BY_KEY[d.f] || HOLO_STICKER_FONTS[0];
+      const c = HOLO_STICKER_COLOR_BY_KEY[d.c] || HOLO_STICKER_COLORS[0];
+      const r = renderStickerCanvas({
+        word: d.w, font: f.css, weight: f.weight, style: f.style,
+        fill: c.fill, outline: c.outline, fontSizePx: fontPx, dpr: 1,
+      });
+      ctx.save();
+      ctx.translate(d.x * W, d.y * H);
+      ctx.rotate((d.r || 0) * Math.PI / 180);
+      ctx.shadowColor = 'rgba(10,10,12,.3)';
+      ctx.shadowBlur = 1.2 * u2;
+      ctx.shadowOffsetY = .5 * u2;
+      ctx.drawImage(r.canvas, -r.width / 2, -r.height / 2, r.width, r.height);
+      ctx.restore();
+    });
+  }
+
+  return cv;
+}
+
+/* Comparte la credencial. Usa el diálogo nativo del sistema cuando existe
+   (móvil y Safari/Chrome recientes) y cae a descarga en el resto. */
+async function holoShareCard(uid) {
+  const u = (typeof allUsers !== 'undefined' && allUsers.find(x => x.uid === uid)) || null;
+  if (!u) { showToast('Perfil no encontrado', 'error'); return; }
+  return holoShareUser(u);
+}
+
+async function holoShareUser(u) {
+  if (!u) { showToast('Perfil no encontrado', 'error'); return; }
+  try {
+    showToast('Preparando tu credencial…');
+    const cv = await holoRenderShare(u, 1200);
+    const blob = await new Promise(r => cv.toBlob(r, 'image/png'));
+    if (!blob) throw new Error('No se pudo generar la imagen');
+    const slug = String(u.name || 'credencial').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    const file = new File([blob], `credencial-${slug}.png`, { type: 'image/png' });
+
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({
+        files: [file],
+        title: `Credencial Thinky — ${u.name || ''}`,
+        text: `${u.name || ''}${u.puesto ? ' · ' + u.puesto : ''} · Think Y.`,
+      });
+      return;
+    }
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = file.name;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    showToast('Credencial descargada ✓', 'success');
+  } catch (e) {
+    // Cancelar el diálogo nativo lanza AbortError; no es un error que reportar.
+    if (e && e.name === 'AbortError') return;
+    showToast('No se pudo compartir: ' + e.message, 'error');
+  }
 }

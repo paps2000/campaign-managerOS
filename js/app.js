@@ -223,31 +223,35 @@ function openProfileModal(uid) {
     </div>`;
 
   document.getElementById('profileModalContent').innerHTML = `
-    <!-- Header full-bleed con degradado del usuario -->
-    <div style="position:relative;margin:0;padding:30px 28px 22px;overflow:hidden;background:linear-gradient(180deg,rgba(255,255,255,.10) 0%,rgba(0,0,0,.06) 45%,rgba(0,0,0,.30) 100%),${u.profileGradient||'linear-gradient(135deg,#ff2d87,#a855f7)'};">
-      <div style="display:flex;align-items:center;gap:16px;position:relative;z-index:1;">
-        <div style="border-radius:18px;box-shadow:0 0 0 4px rgba(255,255,255,.92),0 8px 22px rgba(0,0,0,.22);flex-shrink:0;line-height:0;">${memberAvatarHtml(u, 60, '16px')}</div>
-        <div style="flex:1;min-width:0;color:#fff;">
-          <div style="font-size:21px;font-weight:700;text-shadow:0 1px 10px rgba(0,0,0,.25);">${_esc(u.name||'—')}</div>
-          <div style="font-size:12px;color:rgba(255,255,255,.82);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_esc(u.email||'')}</div>
-          ${u.pronouns ? `<div style="font-size:11px;color:rgba(255,255,255,.8);margin-top:3px;font-weight:600;">${_esc(_shortPronouns(u.pronouns)||u.pronouns)}</div>` : ''}
-          ${(u.statusText) ? `<div style="display:inline-flex;align-items:center;gap:5px;padding:4px 12px;background:rgba(255,255,255,.22);border:1px solid rgba(255,255,255,.32);border-radius:20px;font-size:12px;color:#fff;font-weight:600;margin-top:9px;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);">${u.statusEmoji||'💬'} ${_esc(u.statusText)}</div>` : ''}
-        </div>
-      </div>
-      ${u.tagline ? `<div style="position:relative;z-index:1;font-size:12.5px;color:rgba(255,255,255,.9);margin-top:13px;font-style:italic;">${_esc(u.tagline)}</div>` : ''}
-      ${u.bio ? `<div style="position:relative;z-index:1;font-size:13px;color:rgba(255,255,255,.88);margin-top:8px;">“${_esc(u.bio)}”</div>` : ''}
-      <div style="display:flex;gap:6px;margin-top:13px;flex-wrap:wrap;position:relative;z-index:1;">
-        ${u.puesto?`<span style="background:rgba(255,255,255,.92);color:#1a1326;font-size:11px;font-weight:700;padding:4px 11px;border-radius:20px;">${_esc(u.puesto)}</span>`:''}
-        ${u.area?`<span style="background:rgba(255,255,255,.2);color:#fff;border:1px solid rgba(255,255,255,.36);font-size:11px;font-weight:700;padding:4px 11px;border-radius:20px;">${_esc(u.area)}</span>`:''}
-        ${u.role==='admin'?`<span style="background:rgba(255,255,255,.2);color:#fff;border:1px solid rgba(255,255,255,.36);font-size:11px;font-weight:700;padding:4px 11px;border-radius:20px;">Admin</span>`:''}
+    <!-- LA CREDENCIAL ES LA PORTADA. Antes había aquí un header con degradado
+         que repetía avatar, nombre, puesto y área — exactamente lo que la
+         tarjeta ya certifica. Ahora la tarjeta es lo primero y lo único que
+         presenta a la persona; lo que no cabe en una credencial (correo,
+         estado, bio) va debajo, en texto. -->
+    <div class="profile-cred-band" style="--band:${u.profileGradient||'linear-gradient(135deg,#ff2d87,#a855f7)'};">
+      <div class="holo-host" id="profileHoloHost"></div>
+      <div class="profile-cred-actions">
+        <button class="btn btn-ghost btn-sm" onclick="holoShareCard('${u.uid}')" style="display:inline-flex;align-items:center;gap:7px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"/><path d="M16 6l-4-4-4 4"/><path d="M12 2v14"/></svg>
+          Compartir
+        </button>
+        ${u.uid === currentUser?.uid ? `<button class="btn btn-ghost btn-sm" onclick="closeModal('profileModal');openEditProfileModal();">Personalizar</button>` : ''}
       </div>
     </div>
+
     <!-- Cuerpo -->
     <div style="padding:20px 24px 24px;">
-      <!-- La credencial. Va antes que los números porque es la identidad; las
-           estadísticas son consecuencia. -->
-      <div style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">Credencial</div>
-      <div class="holo-host" id="profileHoloHost" style="margin-bottom:20px;"></div>
+      <!-- Lo que una credencial no lleva: contacto, estado y bio. -->
+      <div class="profile-meta">
+        <div class="profile-meta-main">
+          <div class="profile-meta-name">${_esc(u.name||'—')}${u.pronouns?` <span>${_esc(_shortPronouns(u.pronouns)||u.pronouns)}</span>`:''}</div>
+          <a href="mailto:${_esc(u.email||'')}" class="profile-meta-mail">${_esc(u.email||'')}</a>
+        </div>
+        ${u.role==='admin'?'<span class="badge badge-lavender">Admin</span>':''}
+      </div>
+      ${u.statusText ? `<div class="profile-meta-status">${u.statusEmoji||'💬'} ${_esc(u.statusText)}</div>` : ''}
+      ${u.tagline ? `<div class="profile-meta-line" style="font-style:italic;">${_esc(u.tagline)}</div>` : ''}
+      ${u.bio ? `<div class="profile-meta-line">“${_esc(u.bio)}”</div>` : ''}
       <!-- Stats row -->
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px;">
         <div style="text-align:center;padding:14px 12px;background:var(--pink-pale);border-radius:16px;border:1px solid rgba(255,45,135,.12);">
@@ -401,9 +405,10 @@ function switchProfileTab(tab) {
   else if(typeof unmountHolo === 'function') unmountHolo('holoPreviewHost');
 }
 
-// ── CREDENCIAL: material y tinta ──
+// ── CREDENCIAL: material, tinta y stickers ──
 let _editCardFoil = 'holo';
 let _editCardTint = 'rosa';
+let _editCardStickers = [];
 
 function _mountHoloPreview() {
   if(!currentUserProfile) return;
@@ -419,7 +424,13 @@ function _mountHoloPreview() {
       pronouns: document.getElementById('profilePronounsInput')?.value || currentUserProfile.pronouns,
       cardFoil: _editCardFoil,
       cardTint: _editCardTint,
-    }));
+      cardStickers: _editCardStickers,
+    }), {
+      editable: true,
+      // Los stickers se mueven arrastrándolos sobre la tarjeta, no con campos:
+      // la posición final la reporta el tablero cuando cada uno se detiene.
+      onStickersChange: (list) => { _editCardStickers = list; },
+    });
   } catch(e) { console.warn('holo preview', e); }
 }
 
@@ -432,6 +443,73 @@ function _buildHoloPickers() {
   if(foilEl) foilEl.innerHTML = HOLO_FOILS.map(f =>
     `<button type="button" class="holo-swatch ${_editCardFoil===f.key?'on':''}" data-foil="${f.key}" onclick="pickCardFoil('${f.key}')">${f.label}</button>`
   ).join('');
+
+  const fontSel = document.getElementById('holoStickerFont');
+  if(fontSel && !fontSel.options.length) {
+    fontSel.innerHTML = HOLO_STICKER_FONTS.map(f=>`<option value="${f.key}">${f.label}</option>`).join('');
+  }
+  const colSel = document.getElementById('holoStickerColor');
+  if(colSel && !colSel.options.length) {
+    colSel.innerHTML = HOLO_STICKER_COLORS.map(c=>`<option value="${c.key}">${c.label}</option>`).join('');
+  }
+  const dl = document.getElementById('holoStickerWords');
+  if(dl && !dl.children.length) {
+    dl.innerHTML = HOLO_STICKER_WORDS.map(w=>`<option value="${_esc(w)}">`).join('');
+  }
+  _renderStickerList();
+}
+
+function _renderStickerList() {
+  const el = document.getElementById('holoStickerList');
+  if(!el) return;
+  el.innerHTML = _editCardStickers.length
+    ? _editCardStickers.map((s,i)=>`<span class="holo-sticker-chip">${_esc(s.w)}<button type="button" onclick="removeCardSticker(${i})" title="Quitar">✕</button></span>`).join('')
+    : '<span style="font-size:12px;color:var(--text-muted);">Sin stickers todavía.</span>';
+  const full = document.getElementById('holoStickerFull');
+  if(full) full.style.display = _editCardStickers.length >= HOLO_STICKER_MAX ? '' : 'none';
+}
+
+function addCardSticker() {
+  const inp = document.getElementById('holoStickerWord');
+  const word = (inp?.value || '').trim();
+  if(!word) { showToast('Escribe una palabra','error'); return; }
+  if(_editCardStickers.length >= HOLO_STICKER_MAX) { showToast(`Máximo ${HOLO_STICKER_MAX} stickers`,'error'); return; }
+  // Cae en un punto disperso con rotación ligera: apilarlos todos en el centro
+  // obligaría a separarlos a mano antes de poder verlos.
+  const n = _editCardStickers.length;
+  _editCardStickers.push({
+    w: word,
+    f: document.getElementById('holoStickerFont')?.value || 'quick',
+    c: document.getElementById('holoStickerColor')?.value || 'fresa',
+    x: 0.22 + (n % 3) * 0.28,
+    y: 0.28 + Math.floor(n / 3) * 0.34,
+    r: (n % 2 ? 1 : -1) * (4 + (n * 3) % 9),
+  });
+  if(inp) inp.value = '';
+  _renderStickerList();
+  _holoMounts.get('holoPreviewHost')?.setStickers(_editCardStickers);
+}
+
+function removeCardSticker(i) {
+  _editCardStickers.splice(i, 1);
+  _renderStickerList();
+  _holoMounts.get('holoPreviewHost')?.setStickers(_editCardStickers);
+}
+
+// Comparte con lo que está EN EDICIÓN, no con lo guardado: si acabas de cambiar
+// la tinta, la imagen tiene que salir con esa tinta aunque no hayas guardado.
+function shareMyCard() {
+  const inst = _holoMounts.get('holoPreviewHost');
+  if(inst && inst.board) _editCardStickers = inst.getStickers();
+  const u = Object.assign({}, currentUserProfile, {
+    uid: currentUser?.uid,
+    profileEmoji: _editProfileEmoji,
+    profileGradient: _editProfileGradient,
+    puesto: document.getElementById('profilePuestoInput')?.value || currentUserProfile?.puesto,
+    area:   document.getElementById('profileAreaInput')?.value   || currentUserProfile?.area,
+    cardFoil: _editCardFoil, cardTint: _editCardTint, cardStickers: _editCardStickers,
+  });
+  holoShareUser(u);
 }
 
 // Cambiar material NO remonta la tarjeta: setStyle reescribe solo las variables
@@ -509,6 +587,11 @@ function openEditProfileModal() {
   _editStatusEmoji     = currentUserProfile.statusEmoji     || '💬';
   _editCardFoil        = currentUserProfile.cardFoil        || 'holo';
   _editCardTint        = currentUserProfile.cardTint        || 'rosa';
+  // Quien nunca puso stickers arranca con un par: una tarjeta vacía no enseña
+  // que se les puede pegar nada.
+  _editCardStickers    = Array.isArray(currentUserProfile.cardStickers)
+    ? currentUserProfile.cardStickers.map(s => Object.assign({}, s))
+    : holoDefaultStickers();
   _buildHoloPickers();
 
   // Build emoji category buttons
@@ -566,8 +649,9 @@ function openEditProfileModal() {
   document.getElementById('profileEmojiInput').value = _editProfileEmoji;
   _syncProfilePreview();
 
-  // Reset to apariencia tab
-  switchProfileTab('info');
+  // La credencial es lo primero que se ve: es la identidad, y el resto de la
+  // ficha son datos que la sostienen.
+  switchProfileTab('credencial');
   openModal('editProfileModal');
 }
 
@@ -674,6 +758,10 @@ async function saveMyProfile() {
   _editProfileEmoji = emoji;
   const pronouns  = (document.getElementById('profilePronounsInput')?.value||'').trim();
   const tagline   = (document.getElementById('profileTaglineInput')?.value||'').trim();
+  // Los stickers se colocan arrastrándolos, así que la verdad está en el
+  // tablero vivo, no en el arreglo que quedó de la última vez que se detuvieron.
+  const _hp = _holoMounts.get('holoPreviewHost');
+  if(_hp && _hp.board) _editCardStickers = _hp.getStickers();
   const updates = {
     area, puesto,
     profileEmoji:    emoji,
@@ -681,6 +769,7 @@ async function saveMyProfile() {
     profileShape:    _editProfileShape,
     cardFoil:        _editCardFoil,
     cardTint:        _editCardTint,
+    cardStickers:    _editCardStickers,
     statusEmoji,
     statusText,
     bio,

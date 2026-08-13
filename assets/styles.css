@@ -4306,16 +4306,13 @@ html.dark .tb-icon-danger:hover { background: rgba(226,68,92,.18); }
 
 .holo-top { display: flex; align-items: center; justify-content: space-between; gap: 2cqw; }
 .holo-brand { display: flex; align-items: center; gap: 1.6cqw; }
+/* La Y original de Thinky. El archivo cambia con la tinta (badge rosa sobre
+   claro, Y blanca sobre oscuro), así que aquí solo va la caja. */
 .holo-brand-mark {
-  width: 5.4cqw; height: 5.4cqw; border-radius: 1.6cqw;
-  display: flex; align-items: center; justify-content: center;
-  background: var(--holo-ink, #1a1326); color: var(--body-solid, #fff);
-  font-size: 3.4cqw; font-weight: 800; line-height: 1;
-  /* El logo toma el color de la tinta y CALA la impresión, así que se lee como
-     prensado en la misma superficie y no como sticker encima. */
-  mix-blend-mode: multiply;
+  width: 5.4cqw; height: 5.4cqw; border-radius: 1.5cqw;
+  display: block; object-fit: contain;
+  filter: drop-shadow(0 .2cqw .5cqw rgba(10,10,12,.22));
 }
-.holo-card[data-ink="light"] .holo-brand-mark { mix-blend-mode: screen; color: #16121f; background: #fff; }
 .holo-brand-name { font-size: 2.9cqw; font-weight: 800; letter-spacing: .28cqw; }
 .holo-brand-dot { color: var(--pink); }
 .holo-kind {
@@ -4408,3 +4405,93 @@ html.dark .tb-icon-danger:hover { background: rgba(226,68,92,.18); }
   .holo-card { transform: none !important; }
   .holo-smear, .holo-spot { opacity: 0 !important; }
 }
+
+/* ── Stickers de vinil sobre la credencial ──
+   Cada sticker es un <canvas> posicionado en absoluto dentro de la tarjeta, así
+   que hereda su plano 3D y se inclina con ella. La sombra va en CSS y no en el
+   canvas: una sola sombra suave bajo la pieza entera es lo que la despega del
+   papel; dibujarla dentro del bitmap la recortaría al llegar al borde. */
+.holo-stickers {
+  position: absolute; inset: 0;
+  /* La capa no intercepta nada; cada sticker sí. Así el resto de la tarjeta
+     sigue recibiendo el puntero para inclinarse. */
+  pointer-events: none;
+  z-index: 3;
+  /* Recorta aquí y no solo en .holo-card: la tarjeta lleva preserve-3d, y un
+     hijo transformado en ese contexto se escapa del overflow del padre. Un
+     sticker colgando fuera del canto arruina la ilusión de que está pegado
+     sobre la tarjeta. */
+  overflow: hidden;
+  border-radius: inherit;
+}
+.holo-sticker {
+  position: absolute; left: 0; top: 0;
+  transform-origin: 50% 50%;
+  pointer-events: auto;
+  cursor: grab;
+  touch-action: none;
+  filter: drop-shadow(0 .8cqw 1.4cqw rgba(10,10,12,.34));
+  will-change: transform;
+  -webkit-user-select: none; user-select: none;
+}
+.holo-sticker:active { cursor: grabbing; }
+@media (prefers-reduced-motion: reduce) { .holo-sticker { cursor: default; } }
+
+/* Editor de stickers en el modal de perfil. */
+.holo-sticker-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.holo-sticker-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 8px 5px 12px; border-radius: 20px; cursor: default;
+  border: 1.5px solid var(--border); background: var(--white);
+  font-family: 'Quicksand', sans-serif; font-size: 12px; font-weight: 700; color: var(--text);
+}
+.holo-sticker-chip button {
+  border: none; background: none; cursor: pointer; color: var(--text-muted);
+  font-size: 13px; line-height: 1; padding: 2px 4px; border-radius: 6px;
+}
+.holo-sticker-chip button:hover { background: #fee2e2; color: #e2445c; }
+.holo-sticker-add {
+  display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; margin-top: 10px;
+}
+.holo-sticker-add .form-input { font-size: 13px; padding: 8px 12px; }
+.holo-sticker-add select.form-input { min-width: 108px; }
+.holo-sticker-full { font-size: 11px; color: var(--text-muted); margin-top: 6px; }
+
+/* ── Portada del perfil: la credencial ── */
+.profile-cred-band {
+  position: relative;
+  padding: 26px 24px 18px;
+  /* Fondo oscuro derivado del color del usuario. Oscuro a propósito: el botón
+     de cerrar del modal es blanco translúcido y sobre un fondo claro
+     desaparecía; y una tarjeta necesita un plano detrás que la haga leerse como
+     objeto y no como bloque de la página. */
+  background:
+    linear-gradient(180deg, rgba(0,0,0,.42) 0%, rgba(0,0,0,.68) 100%),
+    var(--band, linear-gradient(135deg,#ff2d87,#a855f7));
+}
+.profile-cred-actions {
+  display: flex; gap: 8px; justify-content: center; margin-top: 14px; flex-wrap: wrap;
+}
+.profile-cred-actions .btn-ghost {
+  background: rgba(255,255,255,.14) !important;
+  border: 1px solid rgba(255,255,255,.26) !important;
+  color: #fff !important;
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+}
+.profile-cred-actions .btn-ghost:hover { background: rgba(255,255,255,.26) !important; }
+
+.profile-meta { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+.profile-meta-main { flex: 1; min-width: 0; }
+.profile-meta-name { font-size: 17px; font-weight: 700; color: var(--text); }
+.profile-meta-name span { font-size: 12px; font-weight: 600; color: var(--text-muted); }
+.profile-meta-mail {
+  display: block; font-size: 12.5px; color: var(--text-muted); text-decoration: none;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.profile-meta-mail:hover { color: var(--pink); text-decoration: underline; }
+.profile-meta-status {
+  display: inline-flex; align-items: center; gap: 6px; margin: 8px 0 2px;
+  padding: 5px 13px; border-radius: 20px; font-size: 12.5px; font-weight: 600;
+  background: var(--bg); border: 1px solid var(--border); color: var(--text);
+}
+.profile-meta-line { font-size: 13px; color: var(--text-muted); margin-top: 7px; line-height: 1.5; }

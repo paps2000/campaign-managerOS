@@ -1335,9 +1335,9 @@
 
     <!-- Tab bar -->
     <div class="profile-tab-bar">
-      <button class="profile-tab-btn active" data-ptab="info" onclick="switchProfileTab('info')">👤 Info</button>
+      <button class="profile-tab-btn active" data-ptab="credencial" onclick="switchProfileTab('credencial')">🪪 Credencial</button>
+      <button class="profile-tab-btn" data-ptab="info" onclick="switchProfileTab('info')">👤 Info</button>
       <button class="profile-tab-btn" data-ptab="apariencia" onclick="switchProfileTab('apariencia')">✦ Apariencia</button>
-      <button class="profile-tab-btn" data-ptab="credencial" onclick="switchProfileTab('credencial')">🪪 Credencial</button>
     </div>
 
     <!-- Tab: Credencial -->
@@ -1350,10 +1350,31 @@
         <div class="holo-picker" id="holoTintPicker"></div>
       </div>
 
-      <div class="form-group">
+      <div class="form-group" style="margin-bottom:16px;">
         <label class="form-label" style="margin-bottom:8px;">Acabado (foil)</label>
         <div class="holo-picker" id="holoFoilPicker"></div>
-        <div class="form-hint">El nombre y el puesto salen de la pestaña Info. El emoji y el color del recuadro, de Apariencia.</div>
+      </div>
+
+      <div class="form-group" style="margin-bottom:16px;">
+        <label class="form-label" style="margin-bottom:8px;">Stickers</label>
+        <div class="holo-sticker-row" id="holoStickerList"></div>
+        <div class="holo-sticker-add">
+          <input type="text" class="form-input" id="holoStickerWord" list="holoStickerWords" placeholder="Palabra…" maxlength="10" style="flex:1;min-width:120px;">
+          <datalist id="holoStickerWords"></datalist>
+          <select class="form-input" id="holoStickerFont"></select>
+          <select class="form-input" id="holoStickerColor"></select>
+          <button type="button" class="btn btn-primary btn-sm" onclick="addCardSticker()">Pegar</button>
+        </div>
+        <div class="form-hint">Arrástralos sobre la tarjeta y suéltalos con impulso: rebotan en los cantos y se quedan donde caigan.</div>
+        <div class="holo-sticker-full" id="holoStickerFull" style="display:none;">Máximo 6 stickers. Quita uno para pegar otro.</div>
+      </div>
+
+      <div class="form-group">
+        <button type="button" class="btn btn-ghost btn-sm" onclick="shareMyCard()" style="display:inline-flex;align-items:center;gap:7px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"/><path d="M16 6l-4-4-4 4"/><path d="M12 2v14"/></svg>
+          Compartir credencial
+        </button>
+        <div class="form-hint">Genera un PNG con tu tarjeta y stickers. En móvil abre el menú de compartir; en escritorio la descarga.</div>
       </div>
     </div>
 
@@ -1388,7 +1409,7 @@
     </div>
 
     <!-- Tab: Info -->
-    <div class="profile-tab-pane active" id="ptab-info">
+    <div class="profile-tab-pane" id="ptab-info">
       <!-- Estado -->
       <div class="form-group">
         <label class="form-label">Estado</label>
@@ -1669,6 +1690,7 @@
 <script src="js/campaigns.js" defer></script>
 <script src="js/sheets.js" defer></script>
 <script src="js/tasks-board.js" defer></script>
+<script src="js/holo-stickers.js" defer></script>
 <script src="js/holo-card.js" defer></script>
 <script src="js/ui.js" defer></script>
 <script src="js/integrations.js" defer></script>
