@@ -3511,7 +3511,7 @@ html.dark .tdev-clear-btn { background: rgba(255,255,255,.10); }
 /* cinematic background */
 #loginScreen .lr-stage{position:absolute;inset:0;overflow:hidden;z-index:1;}
 #loginScreen .lr-bg-cover{position:absolute;inset:-8%;
-  background:url('flamingo-cover.png') center/cover no-repeat;
+  background:url('flamingo-cover-960.png') center/cover no-repeat;
   filter:saturate(1.1) brightness(.97) blur(3px);
   transform:scale(1.08); animation:lr-kenburns 38s var(--lr-ease) infinite alternate; will-change:transform;}
 @keyframes lr-kenburns{0%{transform:scale(1.08) translate(0,0);}100%{transform:scale(1.16) translate(-1.5%,-1.5%);}}
