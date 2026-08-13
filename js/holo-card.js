@@ -439,7 +439,10 @@ function applyHoloFrame(card, tilt, sheet, foil, motion) {
   // Va sobre `sheet` y no sobre `tilt`: la hoja es el seguidor pesado, así que
   // el sello hereda su retraso gratis y nunca puede aparecer en un solo frame.
   const softOff = Math.min(1, Math.hypot(sheet.x, sheet.y));
-  const SEAL_FROM = .34;
+  // Por encima del máximo de la deriva en reposo (hypot(.28,.2) ≈ .344). A .34
+  // el sello asomaba solo, y sin giro se leía como suciedad sobre la impresión
+  // en vez de como algo que aparece cuando la giras.
+  const SEAL_FROM = .46;
   const t = Math.max(0, Math.min(1, (softOff - SEAL_FROM) / (1 - SEAL_FROM)));
   // Smoothstep en vez de rampa lineal, para que entre suave en el umbral en vez
   // de encenderse con una esquina visible.
@@ -552,6 +555,20 @@ function _holoFolio(uid) {
 
 const HOLO_AREA_ABBR = { Cuentas:'CTA', Operaciones:'OPS', Creativo:'CRE', Data:'DAT' };
 
+/* El nombre se escala por largo en vez de recortarse con puntos suspensivos.
+   "Paulo Andres Perez Sanchez" no cabe al tamaño de "Ana Ruiz", y una credencial
+   que dice "Paulo Andres Per…" está rota: el nombre completo es justamente lo
+   que la credencial certifica. Tamaños en unidades de contenedor, así que el
+   corte por largo vale igual en la tarjeta grande y en la vista previa. */
+function _holoNameSize(name) {
+  const n = String(name || '').length;
+  if (n <= 13) return '7.4cqw';
+  if (n <= 18) return '6.2cqw';
+  if (n <= 24) return '5.2cqw';
+  if (n <= 32) return '4.4cqw';
+  return '3.8cqw';
+}
+
 /* El HTML de la tarjeta. La estructura es idéntica en el perfil y en el editor:
    solo cambia de dónde salen sus números. */
 function holoCardHtml(u) {
@@ -598,8 +615,8 @@ function holoCardHtml(u) {
 
       <div class="holo-main">
         <div class="holo-text">
-          <p class="holo-name">${_esc(name)}${pron ? `<span class="holo-pron">${_esc(pron)}</span>` : ''}</p>
-          <p class="holo-role">${_esc(puesto)}</p>
+          <p class="holo-name" style="--name-size:${_holoNameSize(name)}">${_esc(name)}</p>
+          <p class="holo-role">${_esc(puesto)}${pron ? `<span class="holo-pron">${_esc(pron)}</span>` : ''}</p>
         </div>
         <!-- El recuadro del avatar: deliberadamente más simple que la tarjeta.
              Recibe brillo pero no arcoíris, que es lo que mantiene las dos

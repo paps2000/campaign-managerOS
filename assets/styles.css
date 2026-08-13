@@ -843,7 +843,7 @@ html.light {
 .profile-modal { padding:0; overflow:hidden; width:560px; }
 .profile-modal-hero {
   --g1:#ff2d87; --g2:#a855f7;
-  position:relative; padding:38px 28px 34px;
+  position:relative; padding:26px 28px 22px;
   background:
     linear-gradient(180deg, rgba(255,255,255,.12) 0%, rgba(0,0,0,.04) 48%, rgba(0,0,0,.34) 100%),
     linear-gradient(135deg, var(--g1) 0%, var(--g2) 100%);
@@ -874,7 +874,7 @@ html.light {
 .profile-modal-hero-close:hover { background:rgba(255,255,255,.36); color:#fff; transform:rotate(90deg); }
 .profile-modal-avatar-wrap { position:relative; display:inline-block; z-index:1; }
 .profile-modal-avatar {
-  width:84px; height:84px; border-radius:24px; display:flex; align-items:center;
+  width:72px; height:72px; border-radius:22px; display:flex; align-items:center;
   justify-content:center; font-size:36px; font-weight:700; color:#fff;
   transition:transform var(--dur-medium) cubic-bezier(.2,.8,.2,1), border-radius var(--dur-fast), background var(--dur-fast);
   box-shadow:0 0 0 4px rgba(255,255,255,.92), 0 12px 30px rgba(0,0,0,.28);
@@ -905,8 +905,18 @@ html.light {
   color:#fff; background:linear-gradient(135deg,var(--pink),var(--pink-deep));
   border-color:transparent; box-shadow:0 5px 16px rgba(255,45,135,.36);
 }
-.profile-tab-pane { display:none; padding:22px 28px 10px; overflow-y:auto; max-height:calc(80vh - 252px); }
-.profile-tab-pane.active { display:block; animation:profilePaneIn var(--dur-fast) var(--ease); }
+/* El alto del panel lo reparte el flex del modal, NO una resta a ojo.
+   Antes era `max-height: calc(80vh - 252px)`: 252px era una estimación de
+   hero + tabs + footer, y en cuanto el hero crecía (nombre a dos líneas, chip
+   de estado, subtítulo largo) el total pasaba del 90vh del modal. Como el modal
+   tiene overflow:hidden y el hero era encogible, lo que se recortaba era el
+   hero — de ahí el chip de estado cortado a la mitad debajo de las pestañas. */
+.profile-modal-hero, .profile-tab-bar { flex-shrink:0; }
+.profile-tab-pane { display:none; padding:22px 28px 10px; }
+.profile-tab-pane.active {
+  display:block; flex:1 1 auto; min-height:0; overflow-y:auto;
+  animation:profilePaneIn var(--dur-fast) var(--ease);
+}
 @keyframes profilePaneIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
 
 /* Refined inputs inside the profile modal */
@@ -4315,12 +4325,21 @@ html.dark .tb-icon-danger:hover { background: rgba(226,68,92,.18); }
 
 .holo-main { display: flex; align-items: flex-end; justify-content: space-between; gap: 3cqw; }
 .holo-text { min-width: 0; }
+/* El tamaño lo pone _holoNameSize() por largo del nombre; dos líneas como
+   máximo, y recién ahí puntos suspensivos. */
 .holo-name {
-  font-size: 7.4cqw; font-weight: 700; line-height: 1.04; letter-spacing: -.12cqw;
-  margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-size: var(--name-size, 7.4cqw);
+  font-weight: 700; line-height: 1.06; letter-spacing: -.12cqw; margin: 0;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden; overflow-wrap: anywhere;
 }
-.holo-pron { font-size: .42em; font-weight: 600; opacity: .6; margin-left: .5em; }
-.holo-role { font-size: 3.1cqw; font-weight: 600; opacity: .74; margin: .9cqw 0 0; }
+/* Los pronombres viajan con el puesto, no con el nombre: colgados del nombre le
+   robaban el ancho que necesita para no partirse. */
+.holo-pron { font-weight: 600; opacity: .62; margin-left: .6em; }
+.holo-role {
+  font-size: 3.1cqw; font-weight: 600; opacity: .74; margin: .9cqw 0 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
 
 /* EL RECUADRO DEL AVATAR. Deliberadamente más simple que la tarjeta: recibe
    brillo pero no arcoíris ni bandas, que es lo que mantiene las dos superficies
