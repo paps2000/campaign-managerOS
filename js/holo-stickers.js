@@ -201,6 +201,18 @@ class HoloStickerBoard {
      bitmap en vez de repintarlo dejaría el troquel borroso. */
   _relayout() {
     if (this.W < 2 || this.H < 2) return;
+    // Un relayout reemplaza el <canvas> de cada sticker, y con él los listeners
+    // de move/up del arrastre en curso: el sticker se quedaría pegado al cursor
+    // sin poder soltarse. Se cancela el gesto antes de repintar.
+    if (this.dragging) {
+      const it = this.dragging.it;
+      it.drag = false;
+      it.el.removeEventListener('pointermove', this._onMove);
+      it.el.removeEventListener('pointerup', this._onUp);
+      it.el.removeEventListener('pointercancel', this._onUp);
+      this.dragging = null;
+      if (this.opts.onDragChange) this.opts.onDragChange(false);
+    }
     const fontPx = this._fontPx();
     for (const it of this.items) {
       const f = HOLO_STICKER_FONT_BY_KEY[it.def.f] || HOLO_STICKER_FONTS[0];

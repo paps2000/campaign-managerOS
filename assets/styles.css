@@ -2275,7 +2275,10 @@ html.dark .cmd-footer { border-top-color: rgba(255,255,255,0.10); }
 
 /* ── QUICK-ADD FAB ── */
 .fab-wrap {
-  position: fixed; bottom: 28px; right: 28px; z-index: 2000;
+  /* Por DEBAJO del rango de modales (arrancan en 1000 y suben de dos en dos).
+     A 2000 el botón flotaba encima de cualquier diálogo abierto y tapaba sus
+     acciones — se veía como un botón pegado sobre la ventana equivocada. */
+  position: fixed; bottom: 28px; right: 28px; z-index: 900;
   display: flex; flex-direction: column; align-items: flex-end; gap: 10px;
   /* el wrap es más grande que el botón visible y quedaba ENCIMA de los
      modales (z 1002), tragándose clicks — solo los hijos reciben pointer */
@@ -3010,21 +3013,6 @@ html.dark .login-card-logo img { filter: brightness(0) invert(1); }
 .user-name-link:hover { color: var(--pink-deep); }
 .user-name-link:hover * { color: inherit; }
 .profile-card-modal { border-radius:22px; }
-.profile-card-hero {
-  position:relative; padding:38px 28px 24px;
-  background: linear-gradient(160deg, #120720 0%, #1a0a1e 60%, #0d0420 100%);
-  color:#fff; overflow:hidden;
-}
-.profile-card-hero::before {
-  content:''; position:absolute; bottom:-60px; left:50%; transform:translateX(-50%);
-  width:320px; height:180px; pointer-events:none;
-  background: radial-gradient(ellipse, rgba(255,45,135,.35) 0%, transparent 70%);
-}
-.profile-card-hero::after {
-  content:''; position:absolute; top:-40px; right:-40px;
-  width:160px; height:160px; pointer-events:none;
-  background: radial-gradient(ellipse, rgba(44,109,255,.18) 0%, transparent 70%);
-}
 .profile-card-close {
   position:absolute; top:14px; right:14px; z-index:2;
   background:rgba(255,255,255,.14); color:rgba(255,255,255,.85); border:none;
@@ -3032,50 +3020,6 @@ html.dark .login-card-logo img { filter: brightness(0) invert(1); }
   display:flex; align-items:center; justify-content:center; transition:all var(--dur-quick);
 }
 .profile-card-close:hover { background:rgba(255,255,255,.25); color:#fff; transform:scale(1.06); }
-.profile-card-hero-row { position:relative; z-index:1; display:flex; align-items:center; gap:18px; }
-.profile-card-avatar {
-  width:84px; height:84px; flex-shrink:0; border-radius:22px;
-  box-shadow:0 10px 32px rgba(255,45,135,.35), 0 2px 12px rgba(0,0,0,.4);
-}
-.profile-card-name { font-size:22px; font-weight:800; line-height:1.1; letter-spacing:-.3px; color:#fff; }
-.profile-card-sub { font-size:12px; color:rgba(255,255,255,.6); margin-top:3px; }
-.profile-card-status-chip {
-  display:inline-flex; align-items:center; gap:5px; padding:4px 10px;
-  background:rgba(255,255,255,.1); border:1px solid rgba(255,255,255,.12); border-radius:20px;
-  font-size:11px; color:rgba(255,255,255,.85); margin-top:8px;
-}
-.profile-card-tags { display:flex; flex-wrap:wrap; gap:5px; margin-top:10px; }
-.profile-card-tags .badge { font-size:10px; }
-.profile-card-section { padding:18px 24px; }
-.profile-card-section + .profile-card-section { border-top:1px solid var(--border); }
-.profile-card-section-label {
-  font-size:11px; font-weight:700; color:var(--text-muted);
-  text-transform:uppercase; letter-spacing:.8px; margin-bottom:10px;
-}
-.profile-card-stats { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
-.profile-card-stat {
-  text-align:center; padding:14px 8px; border-radius:14px; border:1px solid var(--border);
-  background:var(--white); transition: transform var(--dur-quick) var(--ease), border-color var(--dur-quick) var(--ease);
-}
-.profile-card-stat:hover { transform:translateY(-2px); border-color:var(--pink); }
-.profile-card-stat-value { font-size:24px; font-weight:800; line-height:1; font-family:'Quicksand',sans-serif; }
-.profile-card-stat-label { font-size:10px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.5px; margin-top:4px; }
-.profile-card-bio {
-  font-size:13px; color:var(--text); line-height:1.55;
-  padding:14px 16px; border-left:3px solid var(--pink); background:var(--pink-pale);
-  border-radius:0 12px 12px 0; font-style:italic;
-}
-.profile-card-row {
-  display:flex; align-items:center; gap:10px;
-  padding:10px 12px; border:1px solid var(--border); border-radius:10px;
-  cursor:pointer; transition:all var(--dur-quick) var(--ease); margin-bottom:6px; background:var(--white);
-}
-.profile-card-row:hover { border-color:var(--pink); transform:translateX(2px); }
-.profile-card-row-title { font-size:13px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.profile-card-row-sub   { font-size:11px; color:var(--text-muted); }
-html.dark .profile-card-stat { background:var(--white); }
-html.dark .profile-card-row  { background:var(--white); }
-html.dark .profile-card-bio  { background:rgba(255,45,135,.1); color:var(--text); }
 .app-fade-in { animation: appFadeIn .65s var(--ease) both; }
 @keyframes appFadeIn {
   from { opacity:0; transform:translateY(8px); filter:blur(4px); }
@@ -4460,7 +4404,10 @@ html.dark .tb-icon-danger:hover { background: rgba(226,68,92,.18); }
 /* ── Portada del perfil: la credencial ── */
 .profile-cred-band {
   position: relative;
-  padding: 26px 24px 18px;
+  /* El aire de arriba lo pide el botón de cerrar del modal (top:14 + 32 de
+     alto): con menos, el ✕ aterrizaba sobre la esquina de la credencial y
+     tapaba la palabra CREDENCIAL. */
+  padding: 52px 24px 18px;
   /* Fondo oscuro derivado del color del usuario. Oscuro a propósito: el botón
      de cerrar del modal es blanco translúcido y sobre un fondo claro
      desaparecía; y una tarjeta necesita un plano detrás que la haga leerse como
