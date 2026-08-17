@@ -202,6 +202,22 @@
     const base = cs.backdropFilter || cs.webkitBackdropFilter || '';
     if(!/blur/.test(base)) return false;   // not a glass surface (no blur) — todavía
     if(/url\(/.test(base)) { el.dataset.lg='1'; return true; }
+    // Lo que scrollea de verdad se queda con el blur plano, sin bend. Un filtro
+    // SVG encadenado al backdrop-filter saca al scroller de la ruta compuesta y
+    // el desplazamiento pasa a resolverse en el hilo principal frame a frame:
+    // es lo que hace que bajar dentro de un modal o de un textarea largo vaya a
+    // tirones. Y es donde menos se nota: el bend vive en el canto y en un panel
+    // grande el desplazamiento ya está topado.
+    // Se mira el desbordamiento REAL, no solo `overflow:auto`. Media app lleva
+    // `auto` por si acaso — el sidebar, sin ir más lejos — y casi nunca
+    // desborda; esos no scrollean y se quedan con su lente.
+    const oy = cs.overflowY, ox = cs.overflowX;
+    const canScrollY = (oy === 'auto' || oy === 'scroll') && el.scrollHeight > el.clientHeight + 1;
+    const canScrollX = (ox === 'auto' || ox === 'scroll') && el.scrollWidth > el.clientWidth + 1;
+    if(canScrollY || canScrollX){
+      el.dataset.lg = '1';
+      return true;
+    }
     const W = Math.round(rect.width), H = Math.round(rect.height);
     if(W < 44 || H < 18) return false;     // chips qualify; sub-pill noise does not
     let R = parseFloat(cs.borderTopLeftRadius) || 12;

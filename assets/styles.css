@@ -2545,17 +2545,21 @@ html.dark .card:hover, html.dark .stat-card:hover, html.dark .campaign-card:hove
 }
 
 /* ── SKELETON LOADER ── */
+/* ::after que se traslada en vez de background-position; ver .tdev-skel-bar */
 .skeleton {
-  border-radius: 8px;
-  background: linear-gradient(90deg, rgba(0,0,0,0.05) 25%, rgba(0,0,0,0.10) 50%, rgba(0,0,0,0.05) 75%);
-  background-size: 200% 100%;
+  border-radius: 8px; position: relative; overflow: hidden;
+  background: rgba(0,0,0,0.05);
+}
+.skeleton::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(90deg, transparent 25%, rgba(0,0,0,0.06) 50%, transparent 75%);
   animation: skeletonShimmer 1.5s ease infinite;
 }
-html.dark .skeleton {
-  background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.09) 50%, rgba(255,255,255,0.04) 75%);
-  background-size: 200% 100%;
+html.dark .skeleton { background: rgba(255,255,255,0.04); }
+html.dark .skeleton::after {
+  background: linear-gradient(90deg, transparent 25%, rgba(255,255,255,0.06) 50%, transparent 75%);
 }
-@keyframes skeletonShimmer { to { background-position: -200% 0; } }
+@keyframes skeletonShimmer { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
 
 /* ════════════════════════════════════════════════════════════
    FLAMINGO COVER — login hero (seasonal GIF behind the cutout)
@@ -3423,14 +3427,22 @@ html.dark .camp-people-avatars .t-avatar { border-color: rgba(255,255,255,.14); 
 .t-skel.is-revealed .t-skel-skeleton { opacity: 0; filter: blur(var(--blur-sm)); pointer-events: none; position: absolute; inset: 0; }
 .t-skel-content { opacity: 0; filter: blur(var(--blur-sm)); }
 .t-skel.is-revealed .t-skel-content { opacity: 1; filter: blur(0); }
+/* Mismo patrón que .skel: el brillo es un ::after que se traslada, no un
+   background-position animado. Animar background-position repinta la barra
+   entera cada frame, y estas barras salen de a seis por tarjeta esqueleto —
+   justo mientras la app carga, que es cuando menos sobra el hilo principal. */
 .tdev-skel-bar {
-  border-radius: 10px;
-  background: linear-gradient(100deg, var(--border) 30%, rgba(255,255,255,.6) 50%, var(--border) 70%);
-  background-size: 220% 100%;
+  border-radius: 10px; position: relative; overflow: hidden;
+  background: var(--border);
+}
+.tdev-skel-bar::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(100deg, transparent 30%, rgba(255,255,255,.6) 50%, transparent 70%);
   animation: tdevShimmer 1.2s var(--ease-linear) infinite;
 }
-html.dark .tdev-skel-bar { background: linear-gradient(100deg, rgba(255,255,255,.06) 30%, rgba(255,255,255,.14) 50%, rgba(255,255,255,.06) 70%); background-size:220% 100%; }
-@keyframes tdevShimmer { 0% { background-position: 180% 0; } 100% { background-position: -80% 0; } }
+html.dark .tdev-skel-bar { background: rgba(255,255,255,.06); }
+html.dark .tdev-skel-bar::after { background: linear-gradient(100deg, transparent 30%, rgba(255,255,255,.14) 50%, transparent 70%); }
+@keyframes tdevShimmer { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
 
 /* ── Input clear with dissolve (cmdk search) ── */
 .tdev-clear-btn {
@@ -3503,10 +3515,16 @@ html.dark .tdev-clear-btn { background: rgba(255,255,255,.10); }
     radial-gradient(130% 110% at 8% 100%, rgba(110,2,56,.62) 0%, transparent 60%),
     linear-gradient(90deg, rgba(60,0,30,.5) 0%, rgba(60,0,30,.12) 38%, transparent 60%),
     linear-gradient(180deg, rgba(40,0,22,.2) 0%, transparent 28%, rgba(40,0,22,.4) 100%);}
-#loginScreen .lr-orb{position:absolute;border-radius:50%;filter:blur(60px);opacity:.55;mix-blend-mode:screen;will-change:transform;}
+/* Sin mix-blend-mode. `screen` obliga al navegador a leer el fondo y mezclar
+   en el mismo pase de raster, así que estos tres orbes de 44-52vw con
+   blur(60px) no podían componerse como capas propias — era lo más caro de la
+   primera pantalla que ve el usuario. Con mezcla normal se compone cada uno en
+   GPU; la opacidad baja de .55 a .34 porque sin el aclarado del screen el
+   mismo rosa tapaba la portada en vez de iluminarla. */
+#loginScreen .lr-orb{position:absolute;border-radius:50%;filter:blur(60px);opacity:.34;will-change:transform;}
 #loginScreen .lr-orb.a{width:52vw;height:52vw;left:-15vw;top:-13vw;background:radial-gradient(circle,#ff9ccb,transparent 70%);animation:lr-drift1 26s ease-in-out infinite alternate;}
 #loginScreen .lr-orb.b{width:44vw;height:44vw;right:-12vw;bottom:-16vw;background:radial-gradient(circle,#ff2d87,transparent 70%);animation:lr-drift2 32s ease-in-out infinite alternate;}
-#loginScreen .lr-orb.c{width:27vw;height:27vw;left:41vw;top:47vh;background:radial-gradient(circle,#ffd0e6,transparent 70%);opacity:.4;animation:lr-drift1 22s ease-in-out infinite alternate-reverse;}
+#loginScreen .lr-orb.c{width:27vw;height:27vw;left:41vw;top:47vh;background:radial-gradient(circle,#ffd0e6,transparent 70%);opacity:.24;animation:lr-drift1 22s ease-in-out infinite alternate-reverse;}
 /* Sin scale(): el orbe ya nace al tamaño que tenía en su fotograma más grande
    y solo se desplaza. Escalar un elemento con blur(60px) fuerza un blur nuevo
    por frame — es lo más caro de la pantalla de login, que es justo la primera
@@ -4506,6 +4524,15 @@ html.dark .tb-icon-danger:hover { background: rgba(226,68,92,.18); }
    -------------------------------------------------------------- */
 body:has(#loginScreen:not(.hidden)) #glass-canvas,
 body:has(#loginScreen:not(.hidden)) .sidebar-bg-orbs { display:none; }
+
+/* Mientras se scrollea, el fondo se queda quieto. Un orbe moviéndose detrás de
+   la topbar o del sidebar cambia su backdrop en cada frame y obliga a rehacer
+   el blur; parados, el filtro se reutiliza. La clase la pone y la quita
+   motion.js, 140 ms después del último evento de scroll. */
+html.is-scrolling .glass-orb,
+html.is-scrolling .sidebar-orb-a,
+html.is-scrolling .sidebar-orb-b,
+html.is-scrolling .sidebar-orb-c { animation-play-state:paused; }
 
 /* El chrome de la app detrás del login: sin cristal no hay que resolver el
    backdrop (leer lo de detrás, difuminarlo, componer) de algo tapado. */

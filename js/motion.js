@@ -204,8 +204,23 @@
     pending = true;
     requestAnimationFrame(flush);
   });
+  /* ---- Congelar el fondo mientras se scrollea ----
+     Los orbes van en position:fixed y se mueven sin parar detrás del sidebar y
+     de la topbar, que son superficies con backdrop-filter. Un backdrop que
+     cambia cada frame obliga a rehacer el blur cada frame, y eso se paga
+     entero justo cuando el usuario está scrolleando. Quietos, el resultado del
+     filtro se puede reutilizar. Se vuelven a soltar al parar. */
+  let scrollIdle = null;
+  function onAnyScroll(){
+    const r = document.documentElement;
+    if(!scrollIdle) r.classList.add('is-scrolling');
+    else clearTimeout(scrollIdle);
+    scrollIdle = setTimeout(()=>{ scrollIdle = null; r.classList.remove('is-scrolling'); }, 140);
+  }
+
   let resizeRaf = null;
   function boot(){
+    window.addEventListener('scroll', onAnyScroll, { capture:true, passive:true });
     initTransitions(document);
     obs.observe(document.body, {childList:true, subtree:true});
     window.addEventListener('resize', ()=>{

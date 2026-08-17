@@ -1038,7 +1038,26 @@ function _infSearchDebounced() {
   _infSearchTimer = setTimeout(() => { _infShowLimit = 60; renderInfluencers(); }, 160);
 }
 let _infShowLimit = 60;
-function _infShowMore() { _infShowLimit += 120; renderInfluencers(); }
+// Paginar AÑADE, no re-renderiza. Antes cada "mostrar más" (o cada vez que el
+// sentinel entraba en viewport al bajar) hacía grid.innerHTML con TODAS las
+// tarjetas visibles: al llegar a 300 se destruían 180 nodos para reconstruir
+// 300, más un .t-tilt-glare por tarjeta y un lote de mutaciones enorme para los
+// dos MutationObserver. Con ~700 creadores eso es lo que se sentía como que la
+// lista "se traba y tarda" justo al bajar.
+function _infShowMore() {
+  const grid = document.getElementById('infGrid');
+  if(!grid) { _infShowLimit += 120; renderInfluencers(); return; }
+  const { infs } = _infComputeList();
+  const from = _infShowLimit;
+  _infShowLimit += 120;
+  const slice = infs.slice(from, _infShowLimit);
+  const oldBtn = document.getElementById('infMoreBtn');
+  if(oldBtn) oldBtn.remove();
+  const hasMore = infs.length > _infShowLimit;
+  grid.insertAdjacentHTML('beforeend',
+    slice.map(_infCardHtml).join('') + _infMoreBtnHtml(infs.length - _infShowLimit, hasMore));
+  _infSetupInfiniteScroll(hasMore);
+}
 function _infResetAndRender() { _infShowLimit = 60; renderInfluencers(); }
 
 function _infClearFilters() {
@@ -1069,16 +1088,10 @@ function _infSetupInfiniteScroll(hasMore) {
   _infScrollObserver.observe(sentinel);
 }
 
-function renderInfluencers() {
-  const grid = document.getElementById('infGrid');
-  if (!grid) return;
-  // Skeletons mientras Firestore no ha respondido
-  if(!_cache._creatorsLoaded && !_cache.creators.length && !_cache.campaigns.length) {
-    grid.innerHTML = Array(8).fill(_INF_SKELETON).join('');
-    return;
-  }
+// Filtro + orden, sin tocar el DOM. Lo comparten el render completo y el
+// paginado: éste necesita la misma lista para saber qué rebanada añadir.
+function _infComputeList() {
   const all = getAllInfluencers();
-  _infFillFilterOptions(all);
   const _deacc = s => String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').trim();
   const q = _deacc(document.getElementById('infSearch')?.value);
   const fCat = document.getElementById('infFilterCategoria')?.value || '';
@@ -1100,32 +1113,23 @@ function renderInfluencers() {
     const mc = i => (i.campaigns||[]).length + (((i.master||{}).manualCampaigns)||[]).length;
     return mc(b)-mc(a);
   });
-  const counter = document.getElementById('infCount');
-  if(counter) counter.textContent = `${infs.length} de ${all.length} creadores`;
-  if (!infs.length) {
-    const filtered = (q||fCat||fTier||fPlat);
-    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;">
-      <p>${filtered ? 'Sin resultados con esos filtros.' : 'Agrega influencers a tus campañas para verlos aquí.'}</p>
-      ${filtered ? '<button class="btn btn-ghost btn-sm" style="margin-top:10px;" onclick="_infClearFilters()">Limpiar filtros</button>' : ''}
-    </div>`;
-    _infSetupInfiniteScroll(false);
-    return;
-  }
-  const visible = infs.slice(0, _infShowLimit);
-  const hasMore = infs.length > _infShowLimit;
-  const moreBtn = hasMore
-    ? `<div style="grid-column:1/-1;text-align:center;padding:8px 0 20px;"><button class="btn btn-ghost" onclick="_infShowMore()">Mostrar más (${infs.length - _infShowLimit} restantes)</button></div>`
+  return { all, infs, filtered: !!(q||fCat||fTier||fPlat) };
+}
+
+function _infMoreBtnHtml(remaining, hasMore) {
+  return hasMore
+    ? `<div id="infMoreBtn" style="grid-column:1/-1;text-align:center;padding:8px 0 20px;"><button class="btn btn-ghost" onclick="_infShowMore()">Mostrar más (${remaining} restantes)</button></div>`
     : '';
-  // Primer render anima con stagger; filtros/búsqueda/paginar ya no re-animan
-  if(!grid._animatedOnce) { grid._animatedOnce = true; setTimeout(()=>grid.classList.add('no-reanim'), 700); }
-  grid.innerHTML = visible.map(inf => {
-    const ratings = infRatingsFor(inf.key);
-    const avg = avgStars(ratings);
-    const campList = inf.campaigns.slice(0,3).map(c => `<span style="font-size:11px;padding:2px 7px;border-radius:12px;background:var(--bg);color:var(--text-muted);border:1px solid var(--border);">${_esc(c.name)}</span>`).join(' ')
-      + (inf.campaigns.length>3 ? ` <span style="font-size:11px;color:var(--text-muted);">+${inf.campaigns.length-3}</span>` : '');
-    const kw = (inf.keywords||[]).slice(0,4).map(k=>`<span style="font-size:10px;padding:1px 6px;border-radius:8px;background:var(--pink-pale);color:var(--pink);">${_esc(k)}</span>`).join(' ');
-    const segTxt = inf.seguidoresTotal ? `<span style="font-size:11px;color:var(--text-muted);font-weight:700;">${formatNum(inf.seguidoresTotal)} seg.</span>` : '';
-    return `<div class="campaign-card" data-tilt onclick="openInfluencerDetail('${inf.key}')" style="cursor:pointer;position:relative;">
+}
+
+function _infCardHtml(inf) {
+  const ratings = infRatingsFor(inf.key);
+  const avg = avgStars(ratings);
+  const campList = inf.campaigns.slice(0,3).map(c => `<span style="font-size:11px;padding:2px 7px;border-radius:12px;background:var(--bg);color:var(--text-muted);border:1px solid var(--border);">${_esc(c.name)}</span>`).join(' ')
+    + (inf.campaigns.length>3 ? ` <span style="font-size:11px;color:var(--text-muted);">+${inf.campaigns.length-3}</span>` : '');
+  const kw = (inf.keywords||[]).slice(0,4).map(k=>`<span style="font-size:10px;padding:1px 6px;border-radius:8px;background:var(--pink-pale);color:var(--pink);">${_esc(k)}</span>`).join(' ');
+  const segTxt = inf.seguidoresTotal ? `<span style="font-size:11px;color:var(--text-muted);font-weight:700;">${formatNum(inf.seguidoresTotal)} seg.</span>` : '';
+  return `<div class="campaign-card" data-tilt onclick="openInfluencerDetail('${inf.key}')" style="cursor:pointer;position:relative;">
       <input type="checkbox" class="inf-compare-check" title="Comparar" ${_infCompareSet.has(inf.key)?'checked':''} onclick="event.stopPropagation();toggleInfCompare('${inf.key}',this)">
       <div class="campaign-card-header">
         <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;">
@@ -1145,7 +1149,34 @@ function renderInfluencers() {
         ${ratings.length ? `<span style="font-size:11px;color:var(--text-muted);">${avg.toFixed(1)} (${ratings.length})</span>` : `<span style="font-size:11px;color:var(--text-muted);">Sin calificaciones</span>`}
       </div>
     </div>`;
-  }).join('') + moreBtn;
+}
+
+function renderInfluencers() {
+  const grid = document.getElementById('infGrid');
+  if (!grid) return;
+  // Skeletons mientras Firestore no ha respondido
+  if(!_cache._creatorsLoaded && !_cache.creators.length && !_cache.campaigns.length) {
+    grid.innerHTML = Array(8).fill(_INF_SKELETON).join('');
+    return;
+  }
+  const { all, infs, filtered } = _infComputeList();
+  _infFillFilterOptions(all);
+  const counter = document.getElementById('infCount');
+  if(counter) counter.textContent = `${infs.length} de ${all.length} creadores`;
+  if (!infs.length) {
+    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;">
+      <p>${filtered ? 'Sin resultados con esos filtros.' : 'Agrega influencers a tus campañas para verlos aquí.'}</p>
+      ${filtered ? '<button class="btn btn-ghost btn-sm" style="margin-top:10px;" onclick="_infClearFilters()">Limpiar filtros</button>' : ''}
+    </div>`;
+    _infSetupInfiniteScroll(false);
+    return;
+  }
+  const visible = infs.slice(0, _infShowLimit);
+  const hasMore = infs.length > _infShowLimit;
+  // Primer render anima con stagger; filtros/búsqueda/paginar ya no re-animan
+  if(!grid._animatedOnce) { grid._animatedOnce = true; setTimeout(()=>grid.classList.add('no-reanim'), 700); }
+  grid.innerHTML = visible.map(_infCardHtml).join('')
+    + _infMoreBtnHtml(infs.length - _infShowLimit, hasMore);
   _infSetupInfiniteScroll(hasMore);
 }
 
