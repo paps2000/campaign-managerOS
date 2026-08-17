@@ -15,20 +15,47 @@
     requestAnimationFrame(()=>el.classList.add('is-shown'));
   };
 
-  /* ---- Sliding tab pill ---- */
-  function positionPill(bar){
+  /* ---- Sliding tab pill ----
+     Medir y escribir en el mismo bucle (offsetWidth -> style.width -> siguiente
+     barra) fuerza un layout sincrónico por barra. Aquí se lee todo primero y se
+     escribe después, y solo se escribe si la geometría cambió de verdad: el
+     observador de DOM llamaba a esto en cada render y la píldora casi nunca se
+     mueve. */
+  const pillGeom = new WeakMap();
+  function measurePill(bar){
     const active = bar.querySelector('.detail-tab.active, .profile-tab-btn.active');
     const pill = bar.querySelector(':scope > .tdev-tab-pill');
-    if(!pill) return;
-    if(!active){ pill.style.opacity='0'; return; }
-    pill.style.opacity='1';
-    const isUnderline = bar.classList.contains('detail-tabs');
-    pill.style.width = active.offsetWidth + 'px';
-    pill.style.transform = 'translateX(' + active.offsetLeft + 'px)';
-    if(!isUnderline){ pill.style.height = active.offsetHeight + 'px'; pill.style.transform = 'translateX('+active.offsetLeft+'px) translateY('+active.offsetTop+'px)'; }
+    if(!pill) return null;
+    if(!active) return { bar, pill, active:null };
+    return { bar, pill, active,
+      underline: bar.classList.contains('detail-tabs'),
+      w: active.offsetWidth, l: active.offsetLeft,
+      h: active.offsetHeight, t: active.offsetTop };
+  }
+  function writePill(m){
+    if(!m) return;
+    if(!m.active){ m.pill.style.opacity = '0'; pillGeom.delete(m.bar); return; }
+    const prev = pillGeom.get(m.bar);
+    if(prev && prev.active === m.active && prev.w === m.w && prev.l === m.l &&
+       prev.h === m.h && prev.t === m.t) return;
+    pillGeom.set(m.bar, m);
+    m.pill.style.opacity = '1';
+    m.pill.style.width = m.w + 'px';
+    if(m.underline){
+      m.pill.style.transform = 'translateX(' + m.l + 'px)';
+    } else {
+      m.pill.style.height = m.h + 'px';
+      m.pill.style.transform = 'translateX(' + m.l + 'px) translateY(' + m.t + 'px)';
+    }
+  }
+  function positionPill(bar){ writePill(measurePill(bar)); }
+  function positionPills(bars){
+    const measured = [];
+    for(const b of bars) measured.push(measurePill(b));  // todas las lecturas
+    for(const m of measured) writePill(m);               // luego las escrituras
   }
   function enhanceTabs(bar){
-    if(bar.classList.contains('tdev-tabs')) { positionPill(bar); return; }
+    if(bar.classList.contains('tdev-tabs')) return;
     bar.classList.add('tdev-tabs');
     const pill = document.createElement('span');
     pill.className = 'tdev-tab-pill';
@@ -98,7 +125,7 @@
         card.style.setProperty('--tilt-gx', (px*100).toFixed(1)+'%');
         card.style.setProperty('--tilt-gy', (py*100).toFixed(1)+'%');
       });
-    });
+    }, { passive:true });
     card.addEventListener('pointerleave', ()=>{
       card.classList.remove('is-tilting','is-hover');
       card.style.setProperty('--tilt-rx','0deg'); card.style.setProperty('--tilt-ry','0deg');
@@ -122,29 +149,72 @@
   document.addEventListener('mouseout', e=>{ if(e.target.closest('[data-tip]')) hideTip(); });
   document.addEventListener('focusin', e=>{ const el=e.target.closest('[data-tip]'); if(el) showTip(el); });
   document.addEventListener('focusout', hideTip);
-  window.addEventListener('scroll', hideTip, true);
+  window.addEventListener('scroll', hideTip, { capture:true, passive:true });
 
   /* ---- Main sweep ---- */
+  const ENH_SEL = '.detail-tabs, .profile-tab-bar, details.task-area-group, .tdev-avatars, [data-tilt], .t-stagger:not(.is-shown)';
+  function enhance(el){
+    if(el.matches('.detail-tabs, .profile-tab-bar')) enhanceTabs(el);
+    else if(el.matches('details.task-area-group')) enhanceAccordion(el);
+    else if(el.matches('.tdev-avatars')) enhanceAvatars(el);
+    if(el.hasAttribute('data-tilt')) enhanceTilt(el);
+    if(el.classList.contains('t-stagger') && !el.classList.contains('is-shown')){
+      requestAnimationFrame(()=>el.classList.add('is-shown'));
+    }
+  }
   function initTransitions(root){
     root = root || document;
-    root.querySelectorAll('.detail-tabs, .profile-tab-bar').forEach(enhanceTabs);
-    root.querySelectorAll('details.task-area-group').forEach(enhanceAccordion);
-    root.querySelectorAll('.tdev-avatars').forEach(enhanceAvatars);
-    root.querySelectorAll('[data-tilt]').forEach(enhanceTilt);
-    root.querySelectorAll('.t-stagger:not(.is-shown)').forEach(el=>requestAnimationFrame(()=>el.classList.add('is-shown')));
+    if(root.nodeType === 1 && root.matches && root.matches(ENH_SEL)) enhance(root);
+    root.querySelectorAll(ENH_SEL).forEach(enhance);
+    // la píldora sí puede haberse movido si cambió el contenido del root
+    positionPills(root.querySelectorAll ? root.querySelectorAll('.tdev-tabs') : []);
   }
   window.initTransitions = initTransitions;
 
-  /* ---- Observe DOM for dynamically rendered views ---- */
-  let pending=false;
-  const obs = new MutationObserver(()=>{
-    if(pending) return; pending=true;
-    requestAnimationFrame(()=>{ pending=false; initTransitions(document); });
+  /* ---- Observe DOM for dynamically rendered views ----
+     Solo los subárboles añadidos. Antes cada lote de mutaciones relanzaba
+     cinco querySelectorAll sobre todo el documento más un reposicionamiento de
+     píldora con lectura y escritura de layout intercaladas: renderizar una
+     lista costaba un layout sincrónico por frame. */
+  const added = [];
+  let pending = false;
+  function flush(){
+    pending = false;
+    const batch = added.splice(0, added.length);
+    const bars = new Set();
+    for(const node of batch){
+      if(!node.isConnected) continue;
+      initTransitionsNoPills(node);
+      const bar = node.closest && node.closest('.tdev-tabs');
+      if(bar) bars.add(bar);
+      if(node.querySelectorAll) node.querySelectorAll('.tdev-tabs').forEach(b=>bars.add(b));
+    }
+    if(bars.size) positionPills(bars);
+  }
+  function initTransitionsNoPills(root){
+    if(root.nodeType === 1 && root.matches && root.matches(ENH_SEL)) enhance(root);
+    if(root.querySelectorAll) root.querySelectorAll(ENH_SEL).forEach(enhance);
+  }
+  const obs = new MutationObserver(records=>{
+    for(const rec of records){
+      const nodes = rec.addedNodes;
+      for(let i=0;i<nodes.length;i++) if(nodes[i].nodeType === 1) added.push(nodes[i]);
+    }
+    if(!added.length || pending) return;
+    pending = true;
+    requestAnimationFrame(flush);
   });
+  let resizeRaf = null;
   function boot(){
     initTransitions(document);
     obs.observe(document.body, {childList:true, subtree:true});
-    window.addEventListener('resize', ()=>document.querySelectorAll('.tdev-tabs').forEach(positionPill));
+    window.addEventListener('resize', ()=>{
+      if(resizeRaf) return;
+      resizeRaf = requestAnimationFrame(()=>{
+        resizeRaf = null;
+        positionPills(document.querySelectorAll('.tdev-tabs'));
+      });
+    }, { passive:true });
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();

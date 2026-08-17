@@ -1364,12 +1364,15 @@ function _initLoginSparkles() {
   const hero = document.getElementById('loginHero');
   if(!hero || hero._sparkInit) return;
   hero._sparkInit = true;
+  // El hero es fijo a pantalla completa: su rect solo cambia al redimensionar.
+  // Medirlo en cada mousemove forzaba un layout sincrónico por chispa.
+  let rect = hero.getBoundingClientRect();
+  window.addEventListener('resize', () => { rect = hero.getBoundingClientRect(); }, { passive: true });
   hero.addEventListener('mousemove', (e) => {
     if(Math.random() > .3) return;
     const now = Date.now();
     if(now - _lastSparkle < 80) return;
     _lastSparkle = now;
-    const rect = hero.getBoundingClientRect();
     const s = document.createElement('span');
     s.className = 'login-sparkle';
     const sz = 3 + Math.random()*5;
@@ -1383,7 +1386,7 @@ function _initLoginSparkles() {
     s.style.setProperty('--dy', Math.sin(ang)*dist+'px');
     hero.appendChild(s);
     setTimeout(()=>s.remove(), 700);
-  });
+  }, { passive: true });
 }
 
 // ---- Login: hero logo (5 clicks) ----
