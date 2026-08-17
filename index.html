@@ -251,6 +251,12 @@
     <div class="nav-item" data-page="equipo">
       <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="7" r="3"/><path d="M2 21c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="8" r="2.5"/><path d="M14 20c0-2.5 1.8-4.5 4-4.5"/></svg></span> Equipo
     </div>
+    <!-- Pestaña temporal: vive hasta la premiación de los Effie® México 2026 -->
+    <div class="nav-sep"></div>
+    <div class="nav-item nav-item-effie" data-page="effies">
+      <span class="nav-icon" style="font-size:15px;">🏆</span> EFFies
+      <span class="nav-badge">7</span>
+    </div>
   </div>
   <div style="margin-top:auto; padding:12px 0; border-top:1px solid rgba(255,255,255,.08);">
     <div class="nav-item" data-page="ajustes">
@@ -291,6 +297,7 @@
 
 <!-- MAIN -->
 <div class="main">
+  <canvas id="effieConfetti" aria-hidden="true"></canvas>
   <div class="topbar">
     <div style="display:flex;align-items:center;gap:10px;">
       <button class="hamburger-btn" onclick="toggleMobileSidebar()" aria-label="Menú">
@@ -302,6 +309,7 @@
       </div>
     </div>
     <div class="topbar-right">
+      <button class="effie-confetti-btn" id="effieConfettiBtn" onclick="effieBurst()" title="Tirar confeti">🎉 Tirar confeti</button>
       <button class="topbar-search-btn" onclick="openCmdk()" title="Buscar (⌘K)">
         <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="6"/><path d="M15 15l3 3"/></svg>
         <span>Buscar o ir a...</span>
@@ -964,6 +972,65 @@
           </div>
         </div>
         <button class="btn btn-primary" onclick="saveApiKeys()">Guardar</button>
+      </div>
+
+    </div>
+
+    <!-- EFFIES (pestaña temporal: Effie® México 2026) -->
+    <div class="page" id="page-effies">
+
+      <div class="effie-hero">
+        <div class="effie-hero-row">
+          <div class="effie-logo-plate">
+            <img src="assets/effie-awards-mx.png" alt="Effie Awards México">
+          </div>
+          <div class="effie-hero-copy">
+            <div class="effie-eyebrow">Shortlist 2026 · Think Y.</div>
+            <h1 class="effie-h1">Tenemos 7 casos finalistas en Effie® México</h1>
+            <p class="effie-sub">Y no podemos más de la emoción.</p>
+            <div class="effie-trophies" aria-hidden="true">
+              <span>🏆</span><span>🏆</span><span>🏆</span><span>🏆</span><span>🏆</span><span>🏆</span><span>🏆</span>
+            </div>
+          </div>
+          <div class="effie-hero-num">
+            <div class="effie-num">7</div>
+            <div class="effie-num-label">Nominaciones</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="effie-grid">
+        <div class="effie-list">
+          <div class="effie-list-head">
+            <span class="t">Casos nominados</span>
+            <span class="n" id="effieCasesCount"></span>
+          </div>
+          <div class="effie-list" id="effieCases"></div>
+        </div>
+
+        <div class="effie-side">
+          <div class="effie-cd">
+            <div class="effie-cd-head">
+              <span class="effie-cd-title">Cuenta regresiva</span>
+              <span class="effie-cd-status"><span class="effie-cd-dot"></span><span id="effieCdStatus">Octubre TBD</span></span>
+            </div>
+            <div id="effieCdBody"></div>
+            <div class="effie-cd-field">
+              <label for="effieDateInput">Fecha de la premiación</label>
+              <input type="datetime-local" class="effie-cd-input" id="effieDateInput" onchange="effieSetDate(this.value)">
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header"><span class="card-title">Nominaciones por marca</span></div>
+            <div style="display:flex;flex-direction:column;gap:10px;" id="effieBrands"></div>
+          </div>
+
+          <div class="card">
+            <div class="card-header"><span class="card-title">Nota del equipo</span></div>
+            <p class="effie-note-txt">Siete casos, siete categorías distintas. Esta pestaña es temporal: vive hasta la premiación y luego se guarda con los resultados.</p>
+          </div>
+        </div>
       </div>
 
     </div>
@@ -1702,6 +1769,7 @@
 <script src="js/ui.js" defer></script>
 <script src="js/integrations.js" defer></script>
 <script src="js/creators.js" defer></script>
+<script src="js/effies.js" defer></script>
 <script src="js/app.js" defer></script>
 
 <!-- AI COMPANION -->

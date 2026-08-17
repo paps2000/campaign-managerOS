@@ -4565,3 +4565,192 @@ body:has(#loginScreen:not(.hidden)) .nav-item.active {
   #loginScreen .lr-bg-cover, #loginScreen .lr-card::after { animation:none; }
   .glass-orb, .sidebar-orb-a, .sidebar-orb-b, .sidebar-orb-c { will-change:auto; }
 }
+
+/* ============================================================
+   EFFIES — pestaña temporal (Effie® México 2026)
+   Vive hasta la premiación. Oro Effie tomado del logo; el resto
+   se apoya en los tokens del repo para que el modo oscuro siga
+   funcionando sin duplicar paletas.
+   ============================================================ */
+:root {
+  --effie-dark: #7d6129;
+  --effie-deep: #8a6d2f;
+  --effie: #c8a352;
+  --effie-light: #f0dca8;
+  --effie-grad: linear-gradient(100deg,#7d6129 0%,#c8a352 55%,#8a6d2f 100%);
+  --effie-chip-bg: #f4f2f7;
+}
+
+@keyframes trophyPop { 0%,100%{transform:translateY(0) rotate(0)} 40%{transform:translateY(-7px) rotate(-6deg)} 70%{transform:translateY(-2px) rotate(4deg)} }
+@keyframes shine     { 0%{background-position:-160% 0} 100%{background-position:260% 0} }
+@keyframes pulseSoft { 0%,100%{opacity:.5;transform:scale(1)} 50%{opacity:1;transform:scale(1.35)} }
+
+/* El dorado es el estado permanente del item: es una pestaña de campaña,
+   no una sección más del producto. */
+/* Doble clase + !important: el rosa de `.nav-item.active` viene de la capa de
+   glass, que ya usa `background: ... !important` (y otra variante en oscuro).
+   Sin esto el item se pinta rosa en cuanto está activo. */
+.nav-item.nav-item-effie,
+html.dark .nav-item.nav-item-effie {
+  color:#fff !important; font-weight:700;
+  background:var(--effie-grad) !important;
+  border:1px solid rgba(255,255,255,.22) !important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.28), 0 4px 14px rgba(138,109,47,.42) !important;
+}
+.nav-item.nav-item-effie:hover { color:#fff; }
+.nav-item:nth-child(11){ animation-delay:var(--dur-fast); }
+.nav-item-effie .nav-badge { background:rgba(255,255,255,.25); }
+/* el halo rosa del badge de Pendientes desentona con el oro */
+.nav-item-effie .nav-badge::before { display:none; }
+.nav-sep { height:1px; background:rgba(255,255,255,.08); margin:10px 6px; }
+
+/* Confeti: cubre el área de contenido por debajo del sidebar (z-index 100)
+   y de los modales. Absolute dentro de .main, que no scrollea. */
+#effieConfetti {
+  position:absolute; inset:0; width:100%; height:100%;
+  pointer-events:none; z-index:60; display:none;
+}
+.main.effie-on #effieConfetti { display:block; }
+
+.effie-confetti-btn {
+  display:none; align-items:center; gap:7px;
+  padding:10px 18px; border-radius:14px; font-size:13px; font-weight:700;
+  cursor:pointer; border:none; color:#fff; font-family:inherit;
+  background-image:var(--effie-grad); box-shadow:0 4px 14px rgba(138,109,47,.35);
+  transition:transform var(--dur-quick) var(--ease);
+}
+.main.effie-on .effie-confetti-btn { display:inline-flex; }
+.effie-confetti-btn:active { transform:scale(.97); }
+
+/* HERO */
+.effie-hero {
+  position:relative; overflow:hidden;
+  border-radius:var(--radius); padding:28px 30px;
+  border:1px solid rgba(200,163,82,.35); box-shadow:var(--shadow-lg);
+  background:linear-gradient(135deg,#141418 0%,#1d1a14 45%,#2a2216 100%);
+}
+.effie-hero::before {
+  content:''; position:absolute; inset:0; pointer-events:none;
+  background:
+    radial-gradient(ellipse 60% 70% at 85% 20%, rgba(200,163,82,.22) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 60% at 10% 90%, rgba(255,45,135,.16) 0%, transparent 60%);
+}
+.effie-hero-row { position:relative; display:flex; gap:30px; align-items:center; flex-wrap:wrap; }
+.effie-logo-plate {
+  background:#fff; border-radius:18px; padding:16px 20px; flex-shrink:0;
+  box-shadow:0 10px 30px rgba(0,0,0,.35);
+}
+.effie-logo-plate img { height:74px; width:auto; display:block; }
+.effie-hero-copy { flex:1; min-width:300px; }
+.effie-eyebrow { font-size:10px; font-weight:700; letter-spacing:1.8px; text-transform:uppercase; color:var(--effie); }
+.effie-h1 {
+  font-family:'Fraunces',serif; font-size:38px; font-weight:600; color:#fff;
+  line-height:1.08; margin-top:10px; letter-spacing:-0.5px; text-wrap:pretty;
+}
+.effie-sub { font-size:15px; color:rgba(255,255,255,.72); margin-top:10px; }
+.effie-trophies { display:flex; gap:6px; margin-top:16px; font-size:26px; }
+.effie-trophies span { animation:trophyPop 2.4s ease-in-out infinite; }
+.effie-trophies span:nth-child(2){animation-delay:.18s} .effie-trophies span:nth-child(3){animation-delay:.36s}
+.effie-trophies span:nth-child(4){animation-delay:.54s} .effie-trophies span:nth-child(5){animation-delay:.72s}
+.effie-trophies span:nth-child(6){animation-delay:.9s}  .effie-trophies span:nth-child(7){animation-delay:1.08s}
+.effie-hero-num { flex-shrink:0; text-align:right; }
+.effie-num {
+  font-family:'Fraunces',serif; font-size:76px; line-height:.9; font-weight:600;
+  background-image:linear-gradient(100deg,#7d6129 0%,#f0dca8 45%,#8a6d2f 100%);
+  background-size:200% 100%; -webkit-background-clip:text; background-clip:text;
+  color:transparent; animation:shine 4.5s linear infinite;
+}
+.effie-num-label {
+  font-size:11px; font-weight:700; letter-spacing:1.6px; text-transform:uppercase;
+  color:rgba(255,255,255,.6); margin-top:6px;
+}
+
+/* GRID */
+.effie-grid { display:grid; grid-template-columns:1fr 340px; gap:20px; margin-top:20px; align-items:start; }
+.effie-list { display:flex; flex-direction:column; gap:12px; }
+.effie-list-head { display:flex; align-items:center; justify-content:space-between; padding:0 4px; }
+.effie-list-head .t { font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:1.2px; color:var(--text); }
+.effie-list-head .n { font-size:12px; color:var(--text-muted); font-weight:600; }
+.effie-side { display:flex; flex-direction:column; gap:20px; }
+
+/* TARJETA DE CASO */
+.effie-case {
+  background:var(--white); border-radius:var(--radius); padding:18px 20px;
+  box-shadow:var(--shadow); border:1px solid var(--border);
+  display:flex; align-items:center; gap:18px;
+  animation:fadeUp .5s var(--ease) backwards;
+  transition-property:box-shadow,transform,border-color;
+  transition-duration:var(--dur-fast); transition-timing-function:var(--ease);
+}
+.effie-case:hover { box-shadow:var(--shadow-lg); transform:translateY(-2px); border-color:rgba(200,163,82,.5); }
+.effie-case img { width:52px; height:auto; flex-shrink:0; filter:drop-shadow(0 6px 12px rgba(138,109,47,.35)); }
+.effie-case-body { flex:1; min-width:0; }
+.effie-case-name { font-size:17px; font-weight:700; letter-spacing:-0.3px; color:var(--text); }
+.effie-chips { display:flex; align-items:center; gap:8px; margin-top:7px; flex-wrap:wrap; }
+.effie-chip {
+  font-size:11px; font-weight:700; color:var(--text);
+  background:var(--effie-chip-bg); border:1px solid var(--border);
+  padding:4px 10px; border-radius:10px;
+}
+.effie-chip-cat {
+  color:var(--effie-dark); background:rgba(200,163,82,.14);
+  border-color:rgba(200,163,82,.35);
+}
+
+/* CONTADOR */
+.effie-cd {
+  border-radius:var(--radius); padding:22px; box-shadow:var(--shadow);
+  border:1px solid rgba(200,163,82,.3);
+  background:linear-gradient(160deg,#17161a 0%,#221d15 100%);
+}
+.effie-cd-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; }
+.effie-cd-title { font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:1.2px; color:var(--effie); }
+.effie-cd-status {
+  display:inline-flex; align-items:center; gap:6px; font-size:10px; font-weight:700;
+  text-transform:uppercase; letter-spacing:.8px; color:rgba(255,255,255,.55);
+}
+.effie-cd-dot { width:6px; height:6px; border-radius:50%; background:var(--effie); animation:pulseSoft 2s infinite; }
+.effie-cd-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
+.effie-cd-cell {
+  background:rgba(255,255,255,.05); border:1px solid rgba(200,163,82,.22);
+  border-radius:var(--radius-sm); padding:12px 6px; text-align:center;
+}
+.effie-cd-num { font-family:'Fraunces',serif; font-size:28px; font-weight:600; color:#fff; line-height:1; }
+.effie-cd-cell:last-child .effie-cd-num { color:var(--effie); }
+.effie-cd-lab {
+  font-size:9px; font-weight:700; letter-spacing:1px; text-transform:uppercase;
+  color:rgba(255,255,255,.5); margin-top:6px;
+}
+.effie-cd-date { font-size:12px; color:rgba(255,255,255,.6); margin-top:12px; }
+.effie-tbd { text-align:center; padding:14px 6px 4px; }
+.effie-tbd-txt { font-family:'Fraunces',serif; font-size:26px; color:#fff; line-height:1.15; }
+.effie-cd-field { margin-top:16px; padding-top:14px; border-top:1px solid rgba(255,255,255,.08); }
+.effie-cd-field label {
+  display:block; font-size:10px; font-weight:700; letter-spacing:1px;
+  text-transform:uppercase; color:rgba(255,255,255,.45); margin-bottom:7px;
+}
+.effie-cd-input {
+  width:100%; background:rgba(255,255,255,.06); border:1px solid rgba(200,163,82,.3);
+  border-radius:12px; padding:9px 11px; color:#fff; font-family:inherit;
+  font-size:13px; font-weight:600; color-scheme:dark;
+}
+
+/* NOMINACIONES POR MARCA */
+.effie-brand-row { display:flex; align-items:center; gap:10px; }
+.effie-brand-name { font-size:13px; font-weight:700; width:78px; flex-shrink:0; color:var(--text); }
+.effie-bar { flex:1; height:10px; border-radius:6px; background:var(--effie-chip-bg); overflow:hidden; }
+.effie-bar-fill { display:block; height:100%; border-radius:6px; background-image:linear-gradient(90deg,#7d6129,#c8a352); }
+.effie-brand-n { font-size:12px; font-weight:700; color:var(--text-muted); width:14px; text-align:right; }
+
+.effie-note-txt { font-size:13.5px; line-height:1.55; color:#3a3844; text-wrap:pretty; }
+
+@media (max-width:1100px) {
+  .effie-grid { grid-template-columns:1fr; }
+}
+
+/* El modo oscuro real del repo es `html.dark` (lo pone applyThemePref, también
+   en auto), no el media query: usarlo aquí evita pintar oscuro cuando alguien
+   forzó el modo claro con el sistema en oscuro. */
+html.dark { --effie-chip-bg: rgba(255,255,255,.06); }
+html.dark .effie-chip-cat { color:var(--effie-light); }
+html.dark .effie-note-txt { color:var(--text); }

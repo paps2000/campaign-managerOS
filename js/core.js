@@ -682,6 +682,7 @@ function navigate(page) {
     documentos: ['Documentos','Repositorio de archivos.','+ Nueva tarea'],
     calendario: ['Calendario','Vista de publicaciones.','+ Nueva tarea'],
     equipo: ['Equipo','Miembros del equipo Think Y.',''],
+    effies: ['EFFies','7 casos finalistas en Effie® México.',''],
     ajustes: ['Ajustes','Configuración de la app.',''],
   };
   const name = getSettings().name || 'Génesis';
@@ -702,6 +703,9 @@ function navigate(page) {
   if(page==='equipo') renderEquipo();
   if(page==='ajustes') loadSettingsUI();
   if(page==='influencers') renderInfluencers();
+  if(page==='effies') renderEffies();
+  // El confeti y el contador de EFFies se apagan al salir de la pestaña.
+  else if(typeof effiesTeardown==='function') effiesTeardown();
   try { _refreshPendCount(); } catch(e){}
 }
 
