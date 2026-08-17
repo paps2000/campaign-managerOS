@@ -55,6 +55,18 @@ const HOLO_STICKER_WORDS = [
   'ship it', 'crack', 'jefa', 'jefe', 'café', 'creativo', 'data', 'ya quedó',
 ];
 
+/* Stickers de IMAGEN. Un sticker de palabra se rasteriza; este parte de un PNG
+   y lo único que se genera es el troquel alrededor de su silueta. Es el mismo
+   material de vinil, solo que la forma la trae el archivo.
+
+   `w` en el catálogo es el ancho relativo al tamaño de letra de los stickers de
+   texto: así el trofeo crece y se encoge junto con ellos cuando la credencial
+   se monta a 520px o a 300px. */
+const HOLO_STICKER_IMAGES = [
+  { key:'effie', label:'Effie', src:'assets/effie-trophy.png', w:2.4 },
+];
+const HOLO_STICKER_IMAGE_BY_KEY = Object.fromEntries(HOLO_STICKER_IMAGES.map(i => [i.key, i]));
+
 const HOLO_STICKER_MAX = 6;
 
 // ============================================================
@@ -76,6 +88,74 @@ function holoStickerFontsReady() {
     document.fonts.load("600 40px 'Fraunces'"),
   ]).catch(() => {});
   return _holoFontsReady;
+}
+
+/* Los PNG de los stickers de imagen, precargados. Mismo motivo que las fuentes:
+   dibujar un <img> a medio cargar da un canvas vacío, y ese vacío no se vuelve
+   a pintar solo cuando la imagen llega. */
+const _holoStickerImgCache = {};
+let _holoImagesReady = null;
+function holoStickerImagesReady() {
+  if (_holoImagesReady) return _holoImagesReady;
+  _holoImagesReady = Promise.all(HOLO_STICKER_IMAGES.map(def => new Promise(res => {
+    const im = new Image();
+    im.onload = () => { _holoStickerImgCache[def.key] = im; res(); };
+    im.onerror = () => res();
+    im.src = def.src;
+  })));
+  return _holoImagesReady;
+}
+
+/* Fuentes + imágenes: lo que hay que tener antes de rasterizar cualquier
+   sticker, sea de palabra o de estampa. */
+function holoStickerAssetsReady() {
+  return Promise.all([holoStickerFontsReady(), holoStickerImagesReady()]);
+}
+
+/* Troquela un PNG. El contorno se genera igual que en los de palabra —
+   estampando la SILUETA alrededor de anillos — porque el resultado tiene que
+   seguir la forma real del recorte, contraformas incluidas; un `stroke` sobre
+   el rectángulo de la imagen daría un marco, no un troquel.
+
+   La silueta se saca con `source-in`: se pinta la imagen y encima un rectángulo
+   del color del borde, que solo sobrevive donde la imagen tiene alfa. */
+function renderImageStickerCanvas(opts) {
+  const im = _holoStickerImgCache[opts.key];
+  if (!im || !im.naturalWidth) return null;
+
+  const dpr = opts.dpr || Math.min(window.devicePixelRatio || 1, 2);
+  const w = Math.round(opts.widthPx);
+  const h = Math.round(w * (im.naturalHeight / im.naturalWidth));
+  const border = opts.border == null ? Math.max(3, Math.round(w * 0.075)) : opts.border;
+  const pad = border + 2;
+  const cssW = w + pad * 2;
+  const cssH = h + pad * 2;
+
+  const sil = document.createElement('canvas');
+  sil.width = Math.ceil(cssW * dpr);
+  sil.height = Math.ceil(cssH * dpr);
+  const sctx = sil.getContext('2d');
+  sctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  sctx.drawImage(im, pad, pad, w, h);
+  sctx.globalCompositeOperation = 'source-in';
+  sctx.fillStyle = opts.outline;
+  sctx.fillRect(0, 0, cssW, cssH);
+
+  const canvas = document.createElement('canvas');
+  canvas.width = sil.width;
+  canvas.height = sil.height;
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  for (let r = border; r > 0.5; r -= 1) {
+    const stamps = Math.max(16, Math.ceil(r * 3));
+    for (let a = 0; a < stamps; a++) {
+      const ang = (a / stamps) * Math.PI * 2;
+      ctx.drawImage(sil, Math.cos(ang) * r, Math.sin(ang) * r, cssW, cssH);
+    }
+  }
+  ctx.drawImage(im, pad, pad, w, h);
+
+  return { canvas, width: cssW, height: cssH };
 }
 
 /* Dibuja UN sticker a un canvas propio y lo devuelve con su tamaño en CSS px. */
@@ -141,6 +221,31 @@ function renderStickerCanvas(opts) {
   ctx.fillText(opts.word, bx, by);
 
   return { canvas, width: cssW, height: cssH };
+}
+
+/* La entrada única: un def puede ser palabra (`w`) o estampa (`i`), y quien
+   pinta stickers — el tablero y la exportación — no debería tener que saber
+   cuál de las dos le tocó. Devuelve null si la estampa todavía no cargó. */
+function holoRenderStickerDef(def, fontPx, dpr) {
+  const c = HOLO_STICKER_COLOR_BY_KEY[def.c] || HOLO_STICKER_COLORS[0];
+  if (def.i) {
+    const d = HOLO_STICKER_IMAGE_BY_KEY[def.i];
+    if (!d) return null;
+    return renderImageStickerCanvas({
+      key: d.key, outline: c.outline, widthPx: fontPx * (d.w || 2.4), dpr,
+    });
+  }
+  const f = HOLO_STICKER_FONT_BY_KEY[def.f] || HOLO_STICKER_FONTS[0];
+  return renderStickerCanvas({
+    word: def.w, font: f.css, weight: f.weight, style: f.style,
+    fill: c.fill, outline: c.outline, fontSizePx: fontPx, dpr,
+  });
+}
+
+/* Etiqueta legible de un def, para las listas del editor. */
+function holoStickerLabel(def) {
+  if (def.i) return (HOLO_STICKER_IMAGE_BY_KEY[def.i] || {}).label || def.i;
+  return def.w;
 }
 
 // ============================================================
@@ -215,12 +320,8 @@ class HoloStickerBoard {
     }
     const fontPx = this._fontPx();
     for (const it of this.items) {
-      const f = HOLO_STICKER_FONT_BY_KEY[it.def.f] || HOLO_STICKER_FONTS[0];
-      const c = HOLO_STICKER_COLOR_BY_KEY[it.def.c] || HOLO_STICKER_COLORS[0];
-      const r = renderStickerCanvas({
-        word: it.def.w, font: f.css, weight: f.weight, style: f.style,
-        fill: c.fill, outline: c.outline, fontSizePx: fontPx,
-      });
+      const r = holoRenderStickerDef(it.def, fontPx);
+      if (!r) continue;
       const old = it.el;
       r.canvas.className = 'holo-sticker';
       r.canvas.style.width = r.width + 'px';
@@ -257,12 +358,8 @@ class HoloStickerBoard {
     const fontPx = this._fontPx();
 
     arr.forEach(def => {
-      const f = HOLO_STICKER_FONT_BY_KEY[def.f] || HOLO_STICKER_FONTS[0];
-      const c = HOLO_STICKER_COLOR_BY_KEY[def.c] || HOLO_STICKER_COLORS[0];
-      const r = renderStickerCanvas({
-        word: def.w, font: f.css, weight: f.weight, style: f.style,
-        fill: c.fill, outline: c.outline, fontSizePx: fontPx,
-      });
+      const r = holoRenderStickerDef(def, fontPx);
+      if (!r) return;
       const el = r.canvas;
       el.className = 'holo-sticker';
       el.style.width = r.width + 'px';
@@ -298,7 +395,13 @@ class HoloStickerBoard {
         it.def.y = +(((it.y + it.h / 2) / this.H).toFixed(4));
         it.def.r = Math.round(it.rot * 10) / 10;
       }
-      return { w: it.def.w, f: it.def.f, c: it.def.c, x: it.def.x, y: it.def.y, r: it.def.r };
+      const out = { c: it.def.c, x: it.def.x, y: it.def.y, r: it.def.r };
+      // Estampa o palabra: se guarda solo la clave que corresponde. Un def con
+      // `w: undefined` acaba en Firestore como campo nulo y luego se rasteriza
+      // como texto vacío.
+      if (it.def.i) out.i = it.def.i;
+      else { out.w = it.def.w; out.f = it.def.f; }
+      return out;
     });
   }
 

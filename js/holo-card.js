@@ -555,6 +555,62 @@ function _holoFolio(uid) {
 
 const HOLO_AREA_ABBR = { Cuentas:'CTA', Operaciones:'OPS', Creativo:'CRE', Data:'DAT' };
 
+/* Cuántas campañas caben en el pie antes de resumirse en un "+N". Tres: con
+   cuatro los nombres se recortan tanto que dejan de distinguirse entre sí, y la
+   tira deja de servir para lo único que sirve — ver de un vistazo qué lleva
+   cada quien. */
+const HOLO_CAMPS_MAX = 3;
+
+/* Las campañas donde la persona aparece: asignada (assignedTo), responsable de
+   un área, o suscrita. Las tres cuentan porque las tres significan que esa
+   campaña es suya en algún sentido.
+
+   La suscripción vive en DOS lados por historia del producto: `user
+   .subscribedCampaigns` (la que mete la campaña a tu dashboard) y
+   `campaign.subscribers` (la que te manda notificaciones). Se leen las dos: para
+   quien las usa significan lo mismo.
+
+   Se filtra además por lo que puede ver QUIEN MIRA la credencial, no su dueño:
+   la tarjeta de otra persona no puede volverse un índice de campañas
+   restringidas.
+
+   Lee de la caché en memoria y tolera no encontrarla: la credencial también se
+   monta antes de que Firestore conteste, y ahí la tira simplemente no aparece. */
+function holoUserCampaigns(u) {
+  const uid = u && u.uid;
+  if (!uid) return [];
+  let list = [];
+  try {
+    if (typeof _cache !== 'undefined' && Array.isArray(_cache.campaigns)) list = _cache.campaigns;
+    else if (typeof getData === 'function') list = getData('campaigns') || [];
+  } catch (e) { return []; }
+  const subs = Array.isArray(u.subscribedCampaigns) ? u.subscribedCampaigns : [];
+  return list.filter(c => {
+    if (typeof canSeeCampaign === 'function' && !canSeeCampaign(c)) return false;
+    if ((c.assignedTo || []).includes(uid)) return true;
+    if ((c.subscribers || []).includes(uid)) return true;
+    if (subs.includes(c.id)) return true;
+    const r = c.responsables || {};
+    return Object.values(r).some(v => Array.isArray(v) ? v.includes(uid) : v === uid);
+  });
+}
+
+/* La tira de campañas del pie. Va vacía — no oculta — cuando el dueño la apagó
+   o cuando no hay campañas: quien no lleva ninguna no debería ver un hueco con
+   una etiqueta vacía. */
+function _holoCampsHtml(u) {
+  if (u.cardCampaigns === false) return '';
+  const camps = holoUserCampaigns(u);
+  if (!camps.length) return '';
+  const shown = camps.slice(0, HOLO_CAMPS_MAX);
+  const rest = camps.length - shown.length;
+  return `
+      <div class="holo-camps">
+        ${shown.map(c => `<span class="holo-camp">${_esc(c.name)}</span>`).join('')}
+        ${rest ? `<span class="holo-camp holo-camp--more">+${rest}</span>` : ''}
+      </div>`;
+}
+
 /* El nombre se escala por largo en vez de recortarse con puntos suspensivos.
    "Paulo Andres Perez Sanchez" no cabe al tamaño de "Ana Ruiz", y una credencial
    que dice "Paulo Andres Per…" está rota: el nombre completo es justamente lo
@@ -633,6 +689,8 @@ function holoCardHtml(u) {
           <div class="holo-tile__gloss"></div>
         </div>
       </div>
+
+      ${_holoCampsHtml(u)}
 
       <div class="holo-foot">
         ${area ? `<span class="holo-chip">${_esc(HOLO_AREA_ABBR[area] || area)} · ${_esc(area)}</span>` : ''}
@@ -816,7 +874,7 @@ function mountHoloCard(host, u, opts) {
       onChange: o.onStickersChange,
       onDragChange: (v) => { stickerDrag = v; },
     });
-    holoStickerFontsReady().then(() => {
+    holoStickerAssetsReady().then(() => {
       if (board) board.setStickers(u.cardStickers || []);
     });
   }
@@ -1016,6 +1074,31 @@ async function holoRenderShare(u, width) {
 
   // Pie: área y folio.
   const footY = H - padY - 1.4 * u2;
+
+  // La tira de campañas, encima del pie. Mismo recorte que en la tarjeta viva.
+  if (u.cardCampaigns !== false) {
+    const camps = holoUserCampaigns(u);
+    if (camps.length) {
+      const shown = camps.slice(0, HOLO_CAMPS_MAX).map(c => c.name);
+      if (camps.length > shown.length) shown.push('+' + (camps.length - shown.length));
+      ctx.font = `700 ${2 * u2}px Quicksand, sans-serif`;
+      let cx = padX;
+      const cy = footY - 6.2 * u2;
+      shown.forEach(txt => {
+        const cw = ctx.measureText(txt).width + 3.6 * u2;
+        if (cx + cw > W - padX) return;
+        ctx.fillStyle = tint.ink === 'light' ? 'rgba(255,255,255,.14)' : 'rgba(255,255,255,.48)';
+        _holoRoundRect(ctx, cx, cy - 2.1 * u2, cw, 4.2 * u2, 2.1 * u2);
+        ctx.fill();
+        ctx.fillStyle = ink;
+        ctx.globalAlpha = .82;
+        ctx.fillText(txt, cx + 1.8 * u2, cy);
+        ctx.globalAlpha = 1;
+        cx += cw + 1.2 * u2;
+      });
+    }
+  }
+
   ctx.font = `700 ${2.2 * u2}px Quicksand, sans-serif`;
   if (area) {
     const chip = `${HOLO_AREA_ABBR[area] || area} · ${area}`;
@@ -1034,16 +1117,16 @@ async function holoRenderShare(u, width) {
 
   // 6. Los stickers, con su troquel real: se rasterizan igual que en la
   // tarjeta viva, solo que al tamaño de la exportación.
-  if (typeof renderStickerCanvas === 'function' && (u.cardStickers || []).length) {
-    await holoStickerFontsReady();
-    const fontPx = Math.max(13, Math.min(34, W * 0.062));
+  if (typeof holoRenderStickerDef === 'function' && (u.cardStickers || []).length) {
+    await holoStickerAssetsReady();
+    // Sin el tope de 34px del tablero: ese existe para que en una tarjeta muy
+    // ancha los stickers no se vuelvan carteles, pero la exportación es la MISMA
+    // tarjeta a 1200px, así que topándolo salían a menos de la mitad del tamaño
+    // con el que se acomodaron.
+    const fontPx = Math.max(13, W * 0.062);
     (u.cardStickers || []).forEach(d => {
-      const f = HOLO_STICKER_FONT_BY_KEY[d.f] || HOLO_STICKER_FONTS[0];
-      const c = HOLO_STICKER_COLOR_BY_KEY[d.c] || HOLO_STICKER_COLORS[0];
-      const r = renderStickerCanvas({
-        word: d.w, font: f.css, weight: f.weight, style: f.style,
-        fill: c.fill, outline: c.outline, fontSizePx: fontPx, dpr: 1,
-      });
+      const r = holoRenderStickerDef(d, fontPx, 1);
+      if (!r) return;
       ctx.save();
       ctx.translate(d.x * W, d.y * H);
       ctx.rotate((d.r || 0) * Math.PI / 180);

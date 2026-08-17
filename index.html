@@ -1439,8 +1439,18 @@
           <select class="form-input" id="holoStickerColor"></select>
           <button type="button" class="btn btn-primary btn-sm" onclick="addCardSticker()">Pegar</button>
         </div>
+        <div class="holo-stamp-row" id="holoStickerImgs"></div>
         <div class="form-hint">Arrástralos sobre la tarjeta y suéltalos con impulso: rebotan en los cantos y se quedan donde caigan.</div>
         <div class="holo-sticker-full" id="holoStickerFull" style="display:none;">Máximo 6 stickers. Quita uno para pegar otro.</div>
+      </div>
+
+      <div class="form-group" style="margin-bottom:16px;">
+        <label class="form-label" style="margin-bottom:8px;">Campañas</label>
+        <label class="holo-toggle">
+          <input type="checkbox" id="holoCampsToggle" checked onchange="toggleCardCampaigns(this.checked)">
+          <span>Mostrar mis campañas en la credencial</span>
+        </label>
+        <div class="form-hint">Las campañas donde apareces asignado, llevas un área o te suscribiste. Aparecen hasta 3, el resto se resume en “+N”.</div>
       </div>
 
       <div class="form-group">

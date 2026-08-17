@@ -409,6 +409,10 @@ function switchProfileTab(tab) {
 let _editCardFoil = 'holo';
 let _editCardTint = 'rosa';
 let _editCardStickers = [];
+/* Si la credencial muestra las campañas de su dueño. Encendido por defecto:
+   la tira existe para que se vea de un vistazo qué lleva cada quien, y una
+   opción apagada por defecto no la vería nadie. */
+let _editCardCampaigns = true;
 
 function _mountHoloPreview() {
   if(!currentUserProfile) return;
@@ -425,6 +429,7 @@ function _mountHoloPreview() {
       cardFoil: _editCardFoil,
       cardTint: _editCardTint,
       cardStickers: _editCardStickers,
+      cardCampaigns: _editCardCampaigns,
     }), {
       editable: true,
       // Los stickers se mueven arrastrándolos sobre la tarjeta, no con campos:
@@ -456,38 +461,89 @@ function _buildHoloPickers() {
   if(dl && !dl.children.length) {
     dl.innerHTML = HOLO_STICKER_WORDS.map(w=>`<option value="${_esc(w)}">`).join('');
   }
+  // Estampas: van aparte del campo de palabra porque no se escriben, se eligen.
+  const imgs = document.getElementById('holoStickerImgs');
+  if(imgs && !imgs.children.length) {
+    imgs.innerHTML = HOLO_STICKER_IMAGES.map(i =>
+      `<button type="button" class="holo-stamp-btn" onclick="addCardImageSticker('${i.key}')" title="Pegar ${_esc(i.label)}">
+         <img src="${i.src}" alt="" loading="lazy">${_esc(i.label)}
+       </button>`).join('');
+  }
+  const campsChk = document.getElementById('holoCampsToggle');
+  if(campsChk) campsChk.checked = _editCardCampaigns !== false;
   _renderStickerList();
+}
+
+/* La tira de campañas cambia el HTML de la tarjeta, así que aquí sí toca
+   remontar: setStyle solo reescribe variables. Los stickers se rescatan del
+   tablero vivo antes, o el remonte los devolvería a donde estaban al abrir. */
+/* Los stickers se colocan arrastrándolos, así que la verdad está en el tablero
+   vivo. PERO el tablero se puebla en cuanto cargan las fuentes y las estampas,
+   así que hasta ese momento está vacío: leerlo antes borraba los stickers
+   guardados en cuanto alguien guardaba, compartía o cambiaba una opción con el
+   modal recién abierto. Solo se cree lo que diga si ya tiene algo montado. */
+function _syncStickersFromBoard() {
+  const inst = _holoMounts.get('holoPreviewHost');
+  if(inst && inst.board && inst.board.items.length) _editCardStickers = inst.getStickers();
+  return _editCardStickers;
+}
+
+function toggleCardCampaigns(on) {
+  _editCardCampaigns = !!on;
+  _syncStickersFromBoard();
+  _mountHoloPreview();
 }
 
 function _renderStickerList() {
   const el = document.getElementById('holoStickerList');
   if(!el) return;
   el.innerHTML = _editCardStickers.length
-    ? _editCardStickers.map((s,i)=>`<span class="holo-sticker-chip">${_esc(s.w)}<button type="button" onclick="removeCardSticker(${i})" title="Quitar">✕</button></span>`).join('')
+    ? _editCardStickers.map((s,i)=>{
+        const img = s.i ? (HOLO_STICKER_IMAGE_BY_KEY[s.i]||null) : null;
+        const face = img ? `<img src="${img.src}" alt="" class="holo-chip-stamp">` : '';
+        return `<span class="holo-sticker-chip">${face}${_esc(holoStickerLabel(s)||'')}<button type="button" onclick="removeCardSticker(${i})" title="Quitar">✕</button></span>`;
+      }).join('')
     : '<span style="font-size:12px;color:var(--text-muted);">Sin stickers todavía.</span>';
   const full = document.getElementById('holoStickerFull');
   if(full) full.style.display = _editCardStickers.length >= HOLO_STICKER_MAX ? '' : 'none';
+}
+
+/* Dónde cae el próximo sticker: un punto disperso con rotación ligera.
+   Apilarlos todos en el centro obligaría a separarlos a mano antes de poder
+   verlos. */
+function _stickerDrop(n) {
+  return {
+    x: 0.22 + (n % 3) * 0.28,
+    y: 0.28 + Math.floor(n / 3) * 0.34,
+    r: (n % 2 ? 1 : -1) * (4 + (n * 3) % 9),
+  };
+}
+
+function _pushCardSticker(def) {
+  if(_editCardStickers.length >= HOLO_STICKER_MAX) { showToast(`Máximo ${HOLO_STICKER_MAX} stickers`,'error'); return false; }
+  _editCardStickers.push(Object.assign(def, _stickerDrop(_editCardStickers.length)));
+  _renderStickerList();
+  _holoMounts.get('holoPreviewHost')?.setStickers(_editCardStickers);
+  return true;
 }
 
 function addCardSticker() {
   const inp = document.getElementById('holoStickerWord');
   const word = (inp?.value || '').trim();
   if(!word) { showToast('Escribe una palabra','error'); return; }
-  if(_editCardStickers.length >= HOLO_STICKER_MAX) { showToast(`Máximo ${HOLO_STICKER_MAX} stickers`,'error'); return; }
-  // Cae en un punto disperso con rotación ligera: apilarlos todos en el centro
-  // obligaría a separarlos a mano antes de poder verlos.
-  const n = _editCardStickers.length;
-  _editCardStickers.push({
+  const ok = _pushCardSticker({
     w: word,
     f: document.getElementById('holoStickerFont')?.value || 'quick',
     c: document.getElementById('holoStickerColor')?.value || 'fresa',
-    x: 0.22 + (n % 3) * 0.28,
-    y: 0.28 + Math.floor(n / 3) * 0.34,
-    r: (n % 2 ? 1 : -1) * (4 + (n * 3) % 9),
   });
-  if(inp) inp.value = '';
-  _renderStickerList();
-  _holoMounts.get('holoPreviewHost')?.setStickers(_editCardStickers);
+  if(ok && inp) inp.value = '';
+}
+
+/* Estampa (PNG troquelado). Comparte el catálogo de color con los de palabra,
+   pero de ese par solo usa el CONTORNO: el relleno lo trae la imagen. */
+function addCardImageSticker(key) {
+  if(!HOLO_STICKER_IMAGE_BY_KEY[key]) return;
+  _pushCardSticker({ i: key, c: document.getElementById('holoStickerColor')?.value || 'fresa' });
 }
 
 function removeCardSticker(i) {
@@ -499,8 +555,7 @@ function removeCardSticker(i) {
 // Comparte con lo que está EN EDICIÓN, no con lo guardado: si acabas de cambiar
 // la tinta, la imagen tiene que salir con esa tinta aunque no hayas guardado.
 function shareMyCard() {
-  const inst = _holoMounts.get('holoPreviewHost');
-  if(inst && inst.board) _editCardStickers = inst.getStickers();
+  _syncStickersFromBoard();
   const u = Object.assign({}, currentUserProfile, {
     uid: currentUser?.uid,
     profileEmoji: _editProfileEmoji,
@@ -508,6 +563,7 @@ function shareMyCard() {
     puesto: document.getElementById('profilePuestoInput')?.value || currentUserProfile?.puesto,
     area:   document.getElementById('profileAreaInput')?.value   || currentUserProfile?.area,
     cardFoil: _editCardFoil, cardTint: _editCardTint, cardStickers: _editCardStickers,
+    cardCampaigns: _editCardCampaigns,
   });
   holoShareUser(u);
 }
@@ -592,6 +648,7 @@ function openEditProfileModal() {
   _editCardStickers    = Array.isArray(currentUserProfile.cardStickers)
     ? currentUserProfile.cardStickers.map(s => Object.assign({}, s))
     : holoDefaultStickers();
+  _editCardCampaigns   = currentUserProfile.cardCampaigns !== false;
   _buildHoloPickers();
 
   // Build emoji category buttons
@@ -758,10 +815,7 @@ async function saveMyProfile() {
   _editProfileEmoji = emoji;
   const pronouns  = (document.getElementById('profilePronounsInput')?.value||'').trim();
   const tagline   = (document.getElementById('profileTaglineInput')?.value||'').trim();
-  // Los stickers se colocan arrastrándolos, así que la verdad está en el
-  // tablero vivo, no en el arreglo que quedó de la última vez que se detuvieron.
-  const _hp = _holoMounts.get('holoPreviewHost');
-  if(_hp && _hp.board) _editCardStickers = _hp.getStickers();
+  _syncStickersFromBoard();
   const updates = {
     area, puesto,
     profileEmoji:    emoji,
@@ -770,6 +824,7 @@ async function saveMyProfile() {
     cardFoil:        _editCardFoil,
     cardTint:        _editCardTint,
     cardStickers:    _editCardStickers,
+    cardCampaigns:   _editCardCampaigns,
     statusEmoji,
     statusText,
     bio,

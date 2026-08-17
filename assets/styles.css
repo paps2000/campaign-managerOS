@@ -4396,6 +4396,45 @@ html.dark .tb-icon-danger:hover { background: rgba(226,68,92,.18); }
 }
 .holo-folio { opacity: .55; letter-spacing: .3cqw; font-variant-numeric: tabular-nums; }
 
+/* La tira de campañas. Una línea sola, sin wrap: la credencial tiene alto fijo
+   (aspect-ratio 1.55) y una segunda fila empujaría el pie fuera de la tarjeta.
+   Por eso los nombres se recortan y el sobrante se resume en un "+N". */
+.holo-camps {
+  display: flex; align-items: center; gap: 1.2cqw;
+  margin-top: 1.6cqw; min-width: 0; overflow: hidden;
+}
+.holo-camp {
+  flex: 0 1 auto; min-width: 0;
+  padding: .7cqw 2cqw; border-radius: 4cqw;
+  font-size: 2cqw; font-weight: 700; letter-spacing: .05cqw;
+  background: rgba(255,255,255,.48); border: .14cqw solid rgba(255,255,255,.7);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  opacity: .92;
+}
+.holo-camp--more { flex: 0 0 auto; opacity: .7; }
+.holo-card[data-ink="light"] .holo-camp {
+  background: rgba(255,255,255,.14); border-color: rgba(255,255,255,.28);
+}
+
+/* Estampas del editor: el catálogo de stickers de imagen. */
+.holo-stamp-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.holo-stamp-btn {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 5px 12px 5px 7px; border-radius: 20px; cursor: pointer;
+  border: 1.5px solid var(--border); background: var(--white);
+  font-family: 'Quicksand', sans-serif; font-size: 12px; font-weight: 700; color: var(--text);
+  transition-property: var(--t-ui); transition-duration: var(--dur-quick); transition-timing-function: var(--ease);
+}
+.holo-stamp-btn:hover { border-color: var(--pink); transform: translateY(-1px); }
+.holo-stamp-btn img { width: 22px; height: 22px; object-fit: contain; }
+.holo-sticker-chip .holo-chip-stamp { width: 16px; height: 16px; object-fit: contain; }
+
+.holo-toggle {
+  display: inline-flex; align-items: center; gap: 8px; cursor: pointer;
+  font-size: 13px; font-weight: 600; color: var(--text);
+}
+.holo-toggle input { width: 16px; height: 16px; accent-color: var(--pink); cursor: pointer; }
+
 /* Selector de material / tinta en el editor de perfil. */
 .holo-picker { display: flex; flex-wrap: wrap; gap: 6px; }
 .holo-swatch {
