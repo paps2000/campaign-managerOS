@@ -193,12 +193,10 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
 .campaign-card:nth-child(3) { animation-delay:var(--dur-quick); }
 .campaign-card:nth-child(4) { animation-delay:var(--dur-fast); }
 .task-item, .influencer-row, .alert-item, .doc-item, .flow-step { animation: slideInLeft var(--dur-medium) var(--ease) backwards; }
-.nav-item { animation: slideInLeft var(--dur-fast) var(--ease) backwards; }
-.nav-item:nth-child(1){animation-delay:var(--dur-stagger)} .nav-item:nth-child(2){animation-delay:var(--dur-stagger)}
-.nav-item:nth-child(3){animation-delay:var(--dur-micro)} .nav-item:nth-child(4){animation-delay:var(--dur-micro)}
-.nav-item:nth-child(5){animation-delay:var(--dur-quick)} .nav-item:nth-child(6){animation-delay:var(--dur-quick)}
-.nav-item:nth-child(7){animation-delay:var(--dur-quick)} .nav-item:nth-child(8){animation-delay:var(--dur-fast)}
-.nav-item:nth-child(9){animation-delay:var(--dur-fast)}
+/* El retardo lo pone el JS en --nav-delay contando solo items de navegación.
+   Con :nth-child se descuadraba en cuanto entraba al markup algo que no fuera
+   un item (el marcador deslizante, las etiquetas de sección). */
+.nav-item { animation: slideInLeft var(--dur-fast) var(--ease) backwards; animation-delay:var(--nav-delay, var(--dur-stagger)); }
 .modal { animation: pop var(--dur-fast) var(--ease); }
 .modal-overlay.open { animation: fadeIn var(--dur-quick) var(--ease); }
 .stat-value { animation: countUp .6s var(--ease); }
@@ -4853,7 +4851,6 @@ html.dark .nav-item.nav-item-effie {
   box-shadow:inset 0 1px 0 rgba(255,255,255,.28), 0 4px 14px rgba(138,109,47,.42) !important;
 }
 .nav-item.nav-item-effie:hover { color:#fff; }
-.nav-item:nth-child(11){ animation-delay:var(--dur-fast); }
 .nav-item-effie .nav-badge { background:rgba(255,255,255,.25); }
 /* el halo rosa del badge de Pendientes desentona con el oro */
 .nav-item-effie .nav-badge::before { display:none; }
@@ -5038,6 +5035,11 @@ html.dark .effie-note-txt { color:var(--text); }
 .sidebar.sb-auto:focus-within .sidebar-inner {
   width:212px; z-index:300;
   box-shadow:0 24px 60px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.07);
+  /* Pegada al borde de la página, el vidrio de la barra no estorba: detrás no
+     hay nada. Flotando sobre el tablero sí — el texto de las tareas se
+     transparenta a través del menú. Abierta se vuelve sólida. */
+  background:#141418 !important;
+  backdrop-filter:none !important; -webkit-backdrop-filter:none !important;
 }
 .sidebar.sb-auto:hover .nav-text,
 .sidebar.sb-auto:focus-within .nav-text,
@@ -5211,3 +5213,30 @@ html.dark .sb-mode-fig b { background:rgba(255,255,255,.12); }
     inset 0 0 6px 6px rgba(255,255,255,.10),
     0 4px 14px rgba(255,45,135,.35);
 }
+
+/* ── EFFies en modo riel ──
+   En el riel todo es un icono. Un item con relleno dorado de lado a lado se
+   lee como un error de render, no como una pestaña destacada. El oro se queda,
+   pero como aro y color del trofeo. Al abrirse en modo 'auto' vuelve la placa. */
+.sidebar.compact .nav-item.nav-item-effie,
+html.dark .sidebar.compact .nav-item.nav-item-effie {
+  background:transparent !important;
+  border:1px solid rgba(200,163,82,.55) !important;
+  box-shadow:none !important;
+}
+.sidebar.compact .nav-item-effie .nav-icon { font-size:17px !important; }
+.sidebar.compact .nav-item.nav-item-effie:hover,
+html.dark .sidebar.compact .nav-item.nav-item-effie:hover {
+  background:rgba(200,163,82,.18) !important;
+  border-color:rgba(200,163,82,.9) !important;
+}
+.sidebar.sb-auto:hover .nav-item.nav-item-effie,
+.sidebar.sb-auto:focus-within .nav-item.nav-item-effie,
+html.dark .sidebar.sb-auto:hover .nav-item.nav-item-effie,
+html.dark .sidebar.sb-auto:focus-within .nav-item.nav-item-effie {
+  background:var(--effie-grad) !important;
+  border:1px solid rgba(255,255,255,.22) !important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.28), 0 4px 14px rgba(138,109,47,.42) !important;
+}
+.sidebar.sb-auto:hover .nav-item-effie .nav-icon,
+.sidebar.sb-auto:focus-within .nav-item-effie .nav-icon { font-size:15px !important; }

@@ -680,7 +680,12 @@ function _initSidebarUI() {
   // El texto de cada item viene como nodo suelto en el HTML. Se envuelve para
   // poder esconderlo en modo riel sin que el renglón se parta: sin el span,
   // "Influencers" hace wrap dentro de un item de 44px y descuadra la columna.
-  document.querySelectorAll('#mainSidebar .nav-item').forEach(item => {
+  const NAV_DELAYS = ['var(--dur-stagger)','var(--dur-stagger)','var(--dur-micro)','var(--dur-micro)',
+                     'var(--dur-quick)','var(--dur-quick)','var(--dur-quick)','var(--dur-fast)','var(--dur-fast)'];
+  document.querySelectorAll('#mainSidebar .nav-item').forEach((item, i) => {
+    // El escalonado de entrada va por variable, no por :nth-child: el marcador
+    // y las etiquetas de sección también son hijos y corrían los índices.
+    item.style.setProperty('--nav-delay', NAV_DELAYS[i] || 'var(--dur-fast)');
     if(item.querySelector('.nav-text')) return;
     [...item.childNodes].forEach(n => {
       if(n.nodeType !== 3 || !n.textContent.trim()) return;
