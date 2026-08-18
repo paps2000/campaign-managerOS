@@ -451,6 +451,9 @@ function visibleCampaigns() {
 }
 
 function rerenderCurrent() {
+  // La credencial puede estar abierta encima de cualquier página: su tira de
+  // campañas depende de estos mismos datos.
+  try { if(typeof refreshHoloCamps==='function') refreshHoloCamps(); } catch(e){}
   if(currentPage==='dashboard') renderDashboard();
   else if(currentPage==='campannas') {
     if(currentCampaignId) {

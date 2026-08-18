@@ -925,6 +925,32 @@ function unmountHolo(hostId) {
   if (prev) { prev.destroy(); _holoMounts.delete(hostId); }
 }
 
+/* La tira de campañas se arma al montar y ahí se quedaba: si te quitaban de una
+   campaña con la credencial abierta —o si la quitas tú mismo desde otra
+   pestaña— seguía enseñándola hasta cerrar y volver a abrir el perfil. Se
+   repinta SOLO ese trozo, no la tarjeta: remontarla reiniciaría la inclinación
+   y el foil a media pasada del cursor. */
+function refreshHoloCamps() {
+  _holoMounts.forEach(inst => {
+    if (!inst || !inst.card || !inst.user) return;
+    const content = inst.card.querySelector('.holo-content');
+    if (!content) return;
+    const actual = content.querySelector('.holo-camps');
+    const html = _holoCampsHtml(inst.user).trim();
+    if (!html) { if (actual) actual.remove(); return; }
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html;
+    const nueva = tmp.firstElementChild;
+    if (!nueva) return;
+    if (actual) { if (actual.outerHTML !== nueva.outerHTML) actual.replaceWith(nueva); }
+    else {
+      const foot = content.querySelector('.holo-foot');
+      if (foot) content.insertBefore(nueva, foot); else content.appendChild(nueva);
+    }
+  });
+}
+window.refreshHoloCamps = refreshHoloCamps;
+
 // ============================================================
 // COMPARTIR
 // ============================================================
