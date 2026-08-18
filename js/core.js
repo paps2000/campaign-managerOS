@@ -133,6 +133,11 @@ function getData(key, def) {
   try { return JSON.parse(localStorage.getItem(key)) || (def!==undefined?def:[]); } catch { return def!==undefined?def:[]; }
 }
 
+// Solo caché. Para cuando el llamador se encarga él mismo de la escritura
+// (persistCampaignNow): pasar por setData dispararía además persistCampaigns y
+// el mismo documento se escribiría dos veces en paralelo.
+function setDataLocal(key, val) { _cache[key] = val; }
+
 function setData(key, val) {
   _cache[key] = val;
   // Persist to Firestore based on key
@@ -257,6 +262,12 @@ async function persistCampaignNow(campaign) {
     await db.collection('workspaces').doc(WORKSPACE).collection('campaigns')
       .doc(campaign.id).set(payload);
     _persistedFp.set(campaign.id, _campaignFingerprint(campaign));
+    // El republish del Modo cliente vive en persistCampaigns; por esta vía
+    // también tiene que correr, si no el link del cliente se queda viejo.
+    try {
+      if(typeof _scheduleClientShareRepublish === 'function')
+        _scheduleClientShareRepublish(_cache.campaigns || [campaign]);
+    } catch(e){}
     return true;
   } catch(e) {
     console.error('persistCampaignNow', e);
@@ -311,16 +322,36 @@ async function persistCampaigns(campaigns) {
   try { if(typeof _scheduleClientShareRepublish === 'function') _scheduleClientShareRepublish(campaigns); } catch(e){}
 }
 
+// Mismo agujero que tenía persistCampaigns: batch.set() lanza de forma
+// SÍNCRONA ante un `undefined` —y `recurringDay` queda undefined en cuanto una
+// tarea deja de ser recurrente, que es el caso normal—. El throw se escapaba
+// del try, que solo envolvía el commit, así que la promesa se rompía entera:
+// ninguna tarea global llegaba al servidor y la app seguía diciendo "Tarea
+// actualizada". Se sanea antes de escribir y cada doc va en su propio try.
 async function persistGlobalTasks(tasks) {
   if(!currentUser) return;
   const col = db.collection('workspaces').doc(WORKSPACE).collection('globalTasks');
-  const snap = await col.get();
-  const existingIds = new Set(snap.docs.map(d=>d.id));
+  let existingIds;
+  try {
+    const snap = await col.get();
+    existingIds = new Set(snap.docs.map(d=>d.id));
+  } catch(e) {
+    console.error('persistGlobalTasks read error',e);
+    try { showToast('No se pudieron leer los pendientes del servidor: ' + (e.message||e), 'error'); } catch(_){}
+    return;
+  }
   const newIds = new Set(tasks.map(t=>t.id));
   const batch = db.batch();
-  tasks.forEach(t => batch.set(col.doc(t.id), t));
+  tasks.forEach(t => {
+    if(!t || !t.id) return;
+    try { batch.set(col.doc(t.id), _sanitizeForFirestore(t)); }
+    catch(e) { console.error('persistGlobalTasks: tarea inválida', t.id, e); }
+  });
   existingIds.forEach(eid => { if(!newIds.has(eid)) batch.delete(col.doc(eid)); });
-  try { await batch.commit(); } catch(e) { console.error('persistGlobalTasks error',e); }
+  try { await batch.commit(); } catch(e) {
+    console.error('persistGlobalTasks error',e);
+    try { showToast('No se pudieron guardar los pendientes: ' + (e.message||e), 'error'); } catch(_){}
+  }
 }
 
 async function persistSettings(settings) {

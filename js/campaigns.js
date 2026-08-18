@@ -1337,8 +1337,16 @@ function myEmailPref() { return currentUserProfile?.emailNotifs !== false; }
 async function setMyEmailPref(on) {
   if(!currentUser || !db) return;
   try {
-    await db.collection('workspaces').doc(WORKSPACE).collection('users')
-      .doc(currentUser.uid).set({ emailNotifs: !!on }, { merge:true });
+    // La preferencia se guardaba en workspaces/<ws>/users, una colección que
+    // nadie lee: _queueEmail busca al destinatario en `allUsers`, que sale de
+    // workspaces/<ws>/members, y currentUserProfile sale de users/<uid>. Así
+    // que apagar el correo no apagaba nada. Se escribe donde sí se lee.
+    const _pref = { emailNotifs: !!on };
+    await Promise.all([
+      db.collection('workspaces').doc(WORKSPACE).collection('members')
+        .doc(currentUser.uid).set(_pref, { merge:true }),
+      db.collection('users').doc(currentUser.uid).set(_pref, { merge:true }),
+    ]);
     if(currentUserProfile) currentUserProfile.emailNotifs = !!on;
     showToast(on ? 'Te llegarán correos de tus tareas' : 'Ya no te llegarán correos', 'success');
   } catch(e) { showToast('No se pudo guardar la preferencia', 'error'); }

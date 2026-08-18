@@ -303,12 +303,14 @@ function openEditCampaignModal() {
   if(escUrlInp) escUrlInp.value = c.escenarioSheetUrl || '';
   const nanoChk = document.getElementById('fCampHasNano');
   if(nanoChk) { nanoChk.checked = !!c.hasNano; toggleNanoSection(); }
-  if(c.hasNano) {
-    const aonInp = document.getElementById('fCampAonTab');
-    const nanoInp = document.getElementById('fCampNanoTab');
-    if(aonInp) aonInp.value = c.trackerAonTab||'';
-    if(nanoInp) nanoInp.value = c.trackerNanoTab||'';
-  }
+  // Se escriben SIEMPRE, aunque la campaña no tenga nano: si solo se llenaban
+  // cuando hasNano, editar una campaña con nano y luego una sin él dejaba los
+  // inputs con las pestañas de la anterior, y saveCampaign las guardaba en la
+  // campaña equivocada.
+  const aonInp2 = document.getElementById('fCampAonTab');
+  const nanoInp = document.getElementById('fCampNanoTab');
+  if(aonInp2) aonInp2.value = c.trackerAonTab||'';
+  if(nanoInp) nanoInp.value = c.trackerNanoTab||'';
   applyBudgetVisibility();
   openModal('campaignModal');
 }
@@ -340,7 +342,7 @@ function _renderAssignModal(c) {
           <div style="font-size:11px;color:var(--text-muted);">${_esc(u.email)}</div>
         </div>
         <span class="badge ${u.role==='admin'?'badge-pink':'badge-gray'}">${u.role==='admin'?'Admin':'Miembro'}</span>
-        <button onclick="removeAssignee('${c.id}','${u.uid}');_renderAssignModal(_cache.campaigns.find(x=>x.id==='${c.id}'))" style="background:var(--red);border:none;cursor:pointer;color:#fff;font-size:11px;font-weight:700;padding:4px 10px;border-radius:6px;flex-shrink:0;">Eliminar</button>
+        <button onclick="removeAssigneeFromModal('${c.id}','${u.uid}')" style="background:var(--red);border:none;cursor:pointer;color:#fff;font-size:11px;font-weight:700;padding:4px 10px;border-radius:6px;flex-shrink:0;">Eliminar</button>
       </div>`).join('');
   const availableHtml = available.length === 0
     ? '<p style="font-size:12px;color:var(--text-muted);padding:8px 0;">Todos los usuarios ya están asignados.</p>'
@@ -371,13 +373,26 @@ function saveAssignees() {
   const current = new Set(Array.isArray(c.assignedTo) ? c.assignedTo : []);
   // Add newly checked users from the "agregar" section
   document.querySelectorAll('#assignList input[type="checkbox"]:checked').forEach(cb => current.add(cb.dataset.uid));
-  // Always keep creator
-  if(c.createdBy) current.add(c.createdBy);
+  // El creador NO se vuelve a meter a la fuerza: quien arma la campaña no es
+  // necesariamente quien la lleva, y reimponerlo aquí deshacía el quitarlo con
+  // el botón Eliminar en cuanto se le daba a Guardar.
   campaigns[idx] = {...c, assignedTo: [...current]};
   setData('campaigns', campaigns);
   closeModal('assignModal');
   showToast('Participantes actualizados','success');
   openCampaignDetail(currentCampaignId);
+}
+
+// Quitar a alguien desde el modal de participantes. Se separa del removeAssignee
+// suelto porque hay que decidir qué hacer con el modal DESPUÉS: si me quité a mí
+// mismo y ya no puedo entrar a la campaña, repintar la lista de participantes
+// deja un modal abierto encima del listado al que openCampaignDetail me acaba de
+// mandar.
+function removeAssigneeFromModal(cid, uid) {
+  removeAssignee(cid, uid);
+  const c = _cache.campaigns.find(x => x.id === cid);
+  if(!c || !canSeeCampaign(c)) { closeModal('assignModal'); return; }
+  _renderAssignModal(c);
 }
 
 function removeAssignee(cid, uid) {
@@ -713,7 +728,7 @@ async function confirmDeleteUser(uid, newUid) {
     closeModal('deleteUserModal');
     showToast('Perfil eliminado'+(newUid?' y reasignado':''),'success');
     if(typeof renderTeam==='function') renderTeam();
-    if(typeof renderCampaigns==='function') renderCampaigns();
+    if(typeof renderCampaignGrid==='function') renderCampaignGrid();
     if(typeof renderDashboard==='function') renderDashboard();
   } catch(e) {
     console.error('confirmDeleteUser', e);
@@ -773,7 +788,10 @@ async function saveCampaign() {
         trackerAonTab: document.getElementById('fCampAonTab')?.value?.trim()||'',
         trackerNanoTab: document.getElementById('fCampNanoTab')?.value?.trim()||'',
         goal: _goal,
-        ...(_escUrl ? { escenarioSheetUrl: _escUrl } : {}),
+        // Se escribe aunque venga vacío: el input siempre se llena al abrir el
+        // modal, así que un vacío significa "quítame el link", no "no sé".
+        // Con el guard anterior era imposible desligar una campaña de su sheet.
+        escenarioSheetUrl: _escUrl,
       };
     }
   } else {
@@ -807,12 +825,15 @@ async function saveCampaign() {
       influencers:[], documents:[], tasks:[]
     });
   }
-  setData('campaigns',campaigns);
+  const _saved = campaigns.find(x => x.id === (editingCampaignId || _newCampId));
+  // Solo se toca la caché: la escritura la hace persistCampaignNow, que es una
+  // sola y esperada. Con setData() salían DOS escrituras en paralelo del mismo
+  // documento (persistCampaigns por su lado y persistCampaignNow por el otro).
+  if(_saved) setDataLocal('campaigns',campaigns); else setData('campaigns',campaigns);
   closeModal('campaignModal');
   // Guardar es una acción explícita: se confirma contra el servidor antes de
   // decir "actualizada". Si el doc no llega, persistCampaignNow lo grita en
   // pantalla en vez de dejar al usuario creyendo que se guardó.
-  const _saved = campaigns.find(x => x.id === (editingCampaignId || _newCampId));
   const _ok = _saved ? await persistCampaignNow(_saved) : true;
   if(_ok) { showToast(editingCampaignId?'Campaña actualizada':'Campaña creada','success'); try { showSuccessCheck(); } catch(e){} }
   // Si la campaña se creó durante el onboarding, volver a ese flujo con la nueva ya seleccionada
@@ -1193,7 +1214,10 @@ function saveTask() {
     prev.watchers = (t.watchers || []).slice();
     t.title=title; t.dueDate=dueDate; t.clientDueDate=clientDueDate; t.priority=priority;
     t.assigneeUid=assigneeUid; t.assignee=assigneeName; t.docLink=docLink; t.docLinks=docLinks; t.notes=notes;
-    t.recurring=recurring; t.recurringDay=recurringDay;
+    t.recurring=recurring;
+    // Nunca dejar `undefined` en el objeto: Firestore lo rechaza con un throw
+    // síncrono y tumbaba el guardado completo de globalTasks.
+    if(recurring) t.recurringDay = recurringDay; else delete t.recurringDay;
     t.status=status; t.supervisors=supervisors; t.watchers=watchers;
     if(!recurring) { t.done=done; t.doneAt = done ? (t.doneAt||Date.now()) : null; }
   };

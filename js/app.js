@@ -989,8 +989,14 @@ async function obFinish() {
     const ws = db.collection('workspaces').doc(WORKSPACE);
     await Promise.all([
       db.collection('users').doc(currentUser.uid).set(updates, {merge:true}),
+      // `members` es de donde sale allUsers, y de ahí leen el Equipo, la
+      // credencial de los demás y el selector de personas. Faltaba el puesto:
+      // recién onboardeado, el equipo te veía sin puesto y tu credencial decía
+      // "Think Y." hasta que entraras a editar el perfil.
       ws.collection('members').doc(currentUser.uid).set({
-        name: updates.name, area: updates.area, profileGradient: updates.profileGradient,
+        name: updates.name, area: updates.area, puesto: updates.puesto,
+        profileGradient: updates.profileGradient,
+        pronouns: updates.pronouns, tagline: updates.tagline,
         ...(updates.profileEmoji ? { profileEmoji: updates.profileEmoji } : {}),
       }, {merge:true}),
     ]);
