@@ -260,7 +260,7 @@ function renderDashboard() {
       </span>`:''}
       <span class="inf-date">${formatDateShort(p.publishDate)}</span>
     </div>`;
-  }).join('') || '<div class="empty-state"><p>Sin publicaciones esta semana.</p></div>';
+  }).join('') || '<div class="empty-state"><p>Nadie publicó esta semana. En cuanto el tracker registre un post, aparece aquí.</p></div>';
 
   // Recent docs
   const allDocs = [];
@@ -276,7 +276,7 @@ function renderDashboard() {
         <div class="doc-campaign">${d.campaignName}</div>
       </div>
       <span class="doc-date">${formatDateShort(d.date)}</span>
-    </div>`).join('') || '<div class="empty-state"><p>Sin documentos.</p></div>';
+    </div>`).join('') || '<div class="empty-state"><p>Sin documentos todavía. Sube el brief o el reporte y queda a la mano de toda la campaña.</p></div>';
 
   renderCalendarWidget();
   populateCampaignSelects();
@@ -535,7 +535,7 @@ function openCampaignDetail(cid) {
   const c = campaigns.find(x=>x.id===cid);
   if(!c) return;
   if(!canSeeCampaign(c)) {
-    showToast('No tienes acceso a esta campaña','error');
+    showToast('No estás en esta campaña. Pide que te agreguen como participante.','error');
     showCampaignList();
     return;
   }
@@ -836,8 +836,14 @@ function saveClientContact() {
   if(currentCampaignId === campaignId) renderCampaignClients(c);
 }
 
-function deleteClientContact(cid, idx) {
-  if(!confirm('¿Eliminar este contacto?')) return;
+async function deleteClientContact(cid, idx) {
+  if(!await confirmar({
+    title: '¿Eliminar este contacto?',
+    body: 'Se quita de la campaña. Puedes volver a capturarlo cuando quieras.',
+    confirmLabel: 'Eliminar contacto',
+    cancelLabel: 'Conservar',
+    danger: true,
+  })) return;
   const campaigns = getData('campaigns');
   const c = campaigns.find(x => x.id === cid);
   if(!c || !Array.isArray(c.clientContacts)) return;
@@ -1052,7 +1058,7 @@ function renderCampaignInfluencers(c) {
 
   const rows = Object.values(groups);
   document.getElementById('campaignInfluencerTable').innerHTML = rows.length===0
-    ? `<tr><td colspan="10"><div class="empty-state"><p>Sin influencers. Agrega el primero.</p></div></td></tr>`
+    ? `<tr><td colspan="10"><div class="empty-state"><p>Sin creadores en esta campaña. Agrega el primero para seguir sus entregas y métricas.</p></div></td></tr>`
     : rows.map(g=>{
       const inf = g.ref;
       const platsHtml = g.platforms.size ? platformBadges([...g.platforms]) : (inf.platform?platformBadge(inf.platform):'—');
@@ -2316,7 +2322,7 @@ function saveTrackerUrl() {
 
 function syncTracker() {
   const url = document.getElementById('trackerSheetsUrl')?.value?.trim();
-  if(!url) { showToast('Pega el URL del master tracker primero','error'); return; }
+  if(!url) { showToast('Pega la URL del master tracker.','error'); return; }
   const campaigns = getData('campaigns');
   const c = campaigns.find(x=>x.id===currentCampaignId);
   if(!c) return;
@@ -2324,7 +2330,7 @@ function syncTracker() {
   setData('campaigns',campaigns);
   const wrap = document.getElementById('trackerTableWrap');
   if(wrap) wrap.innerHTML = `<div class="empty-state"><p>Cargando...</p></div>`;
-  showToast('Sincronizando tracker...','success');
+  showToast('Sincronizando tracker…','success');
   _autoFetchTracker(url, c);
 }
 

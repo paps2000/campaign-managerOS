@@ -102,6 +102,52 @@ function copyGenText(scope) {
 // modales anidados (p.ej. "creadores anteriores" sobre el editor de escenario)
 // no quedan tapados por el de atrás.
 let _modalZ = 1000;
+// ============================================================
+// CONFIRMAR
+// ============================================================
+// Sustituye a confirm(). El nativo rotula sus botones Aceptar/Cancelar, así que
+// en una acción destructiva se confirma sin leer qué se acepta; aquí el botón
+// dice la acción ("Borrar las 14 campañas") y el cuerpo dice qué se pierde.
+// Devuelve una promesa: `if(!await confirmar({...})) return;`
+function confirmar({ title, body, confirmLabel, cancelLabel, danger } = {}) {
+  return new Promise(resolve => {
+    const modal  = document.getElementById('confirmModal');
+    const okBtn  = document.getElementById('confirmOkBtn');
+    const noBtn  = document.getElementById('confirmCancelBtn');
+    // Sin el diálogo en el DOM no se puede preguntar; negar es lo seguro en una
+    // acción destructiva, que es para lo único que se usa esto.
+    if(!modal || !okBtn || !noBtn) { resolve(false); return; }
+
+    document.getElementById('confirmTitle').textContent = title || '¿Continuar?';
+    document.getElementById('confirmBody').textContent  = body  || '';
+    okBtn.textContent = confirmLabel || 'Continuar';
+    noBtn.textContent = cancelLabel  || 'Cancelar';
+    okBtn.className = 'btn ' + (danger ? 'btn-danger' : 'btn-primary');
+
+    const cerrar = (valor) => {
+      okBtn.removeEventListener('click', siClick);
+      noBtn.removeEventListener('click', noClick);
+      document.removeEventListener('keydown', onKey);
+      closeModal('confirmModal');
+      resolve(valor);
+    };
+    const siClick = () => cerrar(true);
+    const noClick = () => cerrar(false);
+    const onKey = (e) => {
+      if(e.key === 'Escape') { e.preventDefault(); cerrar(false); }
+      if(e.key === 'Enter')  { e.preventDefault(); cerrar(true); }
+    };
+
+    okBtn.addEventListener('click', siClick);
+    noBtn.addEventListener('click', noClick);
+    document.addEventListener('keydown', onKey);
+    openModal('confirmModal');
+    // El foco arranca en Cancelar: en un diálogo destructivo, la tecla que se
+    // aprieta sin pensar no debe ser la que borra.
+    setTimeout(() => { try { noBtn.focus(); } catch(e){} }, 30);
+  });
+}
+
 function openModal(id) {
   const el = document.getElementById(id);
   if(!el) return;
@@ -330,7 +376,7 @@ function openEditCampaignModal() {
   if(!c) return;
   // Permission: only admin or creator can edit
   if(!isAdmin() && c.createdBy !== currentUser.uid) {
-    showToast('No tienes permisos para editar esta campaña','error'); return;
+    showToast('Solo un admin o quien creó la campaña puede editarla.','error'); return;
   }
   editingCampaignId = c.id;
   document.getElementById('campaignModalTitle').textContent='Editar campaña';
@@ -373,7 +419,7 @@ function openAssignModal() {
   const c = _cache.campaigns.find(x=>x.id===currentCampaignId);
   if(!c) return;
   if(!isAdmin() && c.createdBy !== currentUser.uid) {
-    showToast('Solo el creador o admin puede asignar','error'); return;
+    showToast('Solo un admin o quien creó la campaña puede asignar participantes.','error'); return;
   }
   _renderAssignModal(c);
   openModal('assignModal');
@@ -456,7 +502,7 @@ function removeAssignee(cid, uid) {
   if(idx===-1) return;
   const c = campaigns[idx];
   if(!isAdmin() && c.createdBy !== currentUser.uid) {
-    showToast('Sin permisos','error'); return;
+    showToast('Solo un admin o quien creó la campaña puede quitar participantes.','error'); return;
   }
   campaigns[idx] = {...c, assignedTo: (c.assignedTo||[]).filter(x=>x!==uid)};
   setData('campaigns', campaigns);
@@ -510,7 +556,7 @@ function renderEquipo() {
   });
 
   if(!sorted.length) {
-    grid.innerHTML = '<div class="empty-state"><p>Sin miembros en esta área.</p></div>';
+    grid.innerHTML = '<div class="empty-state"><p>Nadie en esta área todavía. Cambia el área de alguien desde su perfil para verlo aquí.</p></div>';
     return;
   }
 
@@ -560,7 +606,7 @@ function renderOrganigrama() {
   const niveles = [...porNivel.keys()].sort((a,b) => a-b);
 
   if(!niveles.length) {
-    host.innerHTML = '<div class="empty-state"><p>Sin equipo cargado.</p></div>';
+    host.innerHTML = '<div class="empty-state"><p>Sin equipo cargado. En cuanto alguien entre con su correo de Think Y., aparece aquí.</p></div>';
     return;
   }
 
@@ -657,7 +703,7 @@ function renderTeam() {
   if(!list) return;
 
   if(allUsers.length === 0) {
-    list.innerHTML = '<div class="empty-state"><p>Sin miembros aún.</p></div>';
+    list.innerHTML = '<div class="empty-state"><p>Sin miembros todavía. En cuanto alguien entre con su correo de Think Y., aparece aquí.</p></div>';
     return;
   }
 
@@ -714,7 +760,7 @@ function renderTeam() {
 }
 
 async function changeArea(uid, newArea) {
-  if(!isAdmin()) { showToast('Solo admin puede cambiar área','error'); return; }
+  if(!isAdmin()) { showToast('Cambiar el área es cosa de admins. Pídeselo a alguien con ese rol.','error'); return; }
   try {
     const ws = db.collection('workspaces').doc(WORKSPACE);
     await Promise.all([
@@ -725,11 +771,11 @@ async function changeArea(uid, newArea) {
     if(u) u.area = newArea;
     showToast('Área actualizada','success');
     renderTeam();
-  } catch(e) { showToast('Error: '+e.message,'error'); }
+  } catch(e) { avisarError(e, 'cambiar el área', 'changeArea'); }
 }
 
 async function changeRole(uid, newRole) {
-  if(!isAdmin()) { showToast('Solo admin puede cambiar roles','error'); return; }
+  if(!isAdmin()) { showToast('Cambiar roles es cosa de admins. Pídeselo a alguien con ese rol.','error'); return; }
   try {
     const ws = db.collection('workspaces').doc(WORKSPACE);
     await Promise.all([
@@ -739,7 +785,7 @@ async function changeRole(uid, newRole) {
     const u = allUsers.find(x=>x.uid===uid); if(u) u.role = newRole;
     showToast('Rol actualizado','success');
     renderTeam();
-  } catch(e) { showToast('Error: '+e.message,'error'); }
+  } catch(e) { avisarError(e, 'cambiar el rol', 'changeRole'); }
 }
 
 // ---- Eliminar perfil (admin) ----
@@ -762,8 +808,8 @@ function _countUserRefs(uid) {
 }
 
 function openDeleteUserModal(uid) {
-  if(!isAdmin()) { showToast('Solo admin','error'); return; }
-  if(uid === currentUser?.uid) { showToast('No puedes eliminar tu propio perfil','error'); return; }
+  if(!isAdmin()) { showToast('Eliminar perfiles es cosa de admins. Pídeselo a alguien con ese rol.','error'); return; }
+  if(uid === currentUser?.uid) { showToast('No puedes eliminar tu propio perfil. Pídele a otro admin que lo haga.','error'); return; }
   const target = allUsers.find(u=>u.uid===uid);
   if(!target) { showToast('Usuario no encontrado','error'); return; }
   const refs = _countUserRefs(uid);
@@ -809,8 +855,8 @@ function openDeleteUserModal(uid) {
 }
 
 async function confirmDeleteUser(uid, newUid) {
-  if(!isAdmin()) { showToast('Solo admin','error'); return; }
-  if(uid === currentUser?.uid) { showToast('No puedes eliminar tu propio perfil','error'); return; }
+  if(!isAdmin()) { showToast('Eliminar perfiles es cosa de admins. Pídeselo a alguien con ese rol.','error'); return; }
+  if(uid === currentUser?.uid) { showToast('No puedes eliminar tu propio perfil. Pídele a otro admin que lo haga.','error'); return; }
   const btn = document.getElementById('deleteUserConfirmBtn');
   if(btn) { btn.disabled = true; btn.textContent = 'Eliminando…'; }
   try {
@@ -877,15 +923,14 @@ async function confirmDeleteUser(uid, newUid) {
     if(typeof renderCampaignGrid==='function') renderCampaignGrid();
     if(typeof renderDashboard==='function') renderDashboard();
   } catch(e) {
-    console.error('confirmDeleteUser', e);
-    showToast('Error: '+e.message,'error');
+    avisarError(e, 'eliminar el perfil', 'confirmDeleteUser');
   } finally {
     if(btn) { btn.disabled = false; btn.textContent = 'Eliminar perfil'; }
   }
 }
 
 async function changePuesto(uid, newPuesto) {
-  if(!isAdmin()) { showToast('Solo admin puede cambiar puestos','error'); return; }
+  if(!isAdmin()) { showToast('Cambiar puestos es cosa de admins. Pídeselo a alguien con ese rol.','error'); return; }
   try {
     const ws = db.collection('workspaces').doc(WORKSPACE);
     await Promise.all([
@@ -895,7 +940,7 @@ async function changePuesto(uid, newPuesto) {
     const u = allUsers.find(x=>x.uid===uid); if(u) u.puesto = newPuesto;
     showToast('Puesto actualizado','success');
     renderTeam();
-  } catch(e) { showToast('Error: '+e.message,'error'); }
+  } catch(e) { avisarError(e, 'cambiar el puesto', 'changePuesto'); }
 }
 
 async function saveCampaign() {
@@ -1000,8 +1045,13 @@ async function saveCampaign() {
   populateCampaignSelects();
   // Campaña nueva sin link de escenario: ofrecer armarlo de una vez.
   if(!editingCampaignId && !_escUrl) {
-    setTimeout(() => {
-      if(confirm('La campaña no tiene link de escenario en Google Sheets.\n\n¿Quieres armar el escenario en la plataforma ahora?')) {
+    setTimeout(async () => {
+      if(await confirmar({
+        title: 'Esta campaña no tiene escenario todavía',
+        body: 'No pegaste un link de Google Sheets. Puedes armar el escenario aquí mismo, creador por creador, y vincular un Sheet después si lo necesitas.',
+        confirmLabel: 'Armar escenario ahora',
+        cancelLabel: 'Más tarde',
+      })) {
         openScenarioEditorForCampaign(_newCampId);
       }
     }, 250);
@@ -1468,7 +1518,7 @@ function saveInfluencer() {
 
 // --- Import masivo de influencers (pegar CSV/TSV) ---
 function openBulkImportModal() {
-  if(!currentCampaignId) { showToast('Abre una campaña primero','error'); return; }
+  if(!currentCampaignId) { showToast('Elige una campaña arriba para continuar.','error'); return; }
   const ov = document.createElement('div');
   ov.className = 'modal-overlay open';
   ov.id = 'bulkImportModal';
@@ -1534,13 +1584,13 @@ function saveCampaignSheetsUrl() {
 async function syncInfluencersFromSheets() {
   if(!currentCampaignId) return;
   const url = document.getElementById('campaignSheetsUrl').value.trim();
-  if(!url) { showToast('Pega primero la URL del Google Sheet','error'); return; }
+  if(!url) { showToast('Pega la URL del Google Sheet. La copias de la barra del navegador con el Sheet abierto.','error'); return; }
   // Extract spreadsheet ID
   const match = url.match(/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
   if(!match) { showToast('URL de Google Sheets inválida','error'); return; }
   const sheetId = match[1];
   const gvizUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json`;
-  showToast('Sincronizando desde Sheets...');
+  showToast('Sincronizando desde Sheets…');
   try {
     const res = await fetch(gvizUrl);
     const raw = await res.text();
@@ -1697,7 +1747,7 @@ function saveDoc() {
   const targetCid = (grp && grp.style.display !== 'none')
     ? document.getElementById('fDocCampaign').value
     : currentCampaignId;
-  if(!targetCid) { showToast('Selecciona una campaña','error'); return; }
+  if(!targetCid) { showToast('Elige una campaña arriba para continuar.','error'); return; }
 
   const campaigns=getData('campaigns');
   const c=campaigns.find(x=>x.id===targetCid);
@@ -1770,7 +1820,7 @@ function deleteDocFromPage(cid, docId) {
   const c = campaigns.find(x=>x.id===cid);
   if(!c) return;
   if(!isAdmin() && c.createdBy !== currentUser.uid && !(c.assignedTo||[]).includes(currentUser.uid)) {
-    showToast('Sin permisos','error'); return;
+    showToast('Solo un admin, quien creó la campaña o sus participantes pueden borrar documentos.','error'); return;
   }
   c.documents = (c.documents||[]).filter(d=>d.id!==docId);
   setData('campaigns', campaigns);
@@ -1821,8 +1871,13 @@ function saveApiKeys() {
 }
 function saveApiKey() { saveApiKeys(); }
 
-function resetAllData() {
-  if(!confirm('¿Seguro? Se borrarán TODOS los datos. Esta acción no se puede deshacer.')) return;
+async function resetAllData() {
+  if(!await confirmar({
+    title: '¿Borrar los datos guardados en este navegador?',
+    body: 'Se van tus preferencias locales y las llaves de API que tengas guardadas. Las campañas y tareas del workspace NO se tocan: viven en el servidor.\n\nLa página se va a recargar.',
+    confirmLabel: 'Borrar y recargar',
+    danger: true,
+  })) return;
   localStorage.clear();
   location.reload();
 }
@@ -1835,7 +1890,13 @@ async function deleteCampaign() {
   if(!isAdmin() && c.createdBy !== currentUser.uid) {
     showToast('Solo admin o creador puede eliminar','error'); return;
   }
-  if(!confirm(`¿Eliminar la campaña "${c.name}"? Esta acción no se puede deshacer.`)) return;
+  if(!await confirmar({
+    title: `¿Eliminar la campaña "${c.name}"?`,
+    body: 'Se va para todo el equipo, con sus tareas, documentos y creadores. No hay forma de recuperarla.',
+    confirmLabel: 'Eliminar campaña',
+    cancelLabel: 'Conservar',
+    danger: true,
+  })) return;
   const filtered = campaigns.filter(x=>x.id!==currentCampaignId);
   setData('campaigns', filtered);
   showCampaignList();
@@ -1843,9 +1904,19 @@ async function deleteCampaign() {
 }
 
 async function nukeAllCampaigns() {
-  if(!isAdmin()) { showToast('Solo admin','error'); return; }
-  if(!confirm('⚠️ Esto BORRARÁ TODAS las campañas y tareas globales del workspace para todos los usuarios. ¿Continuar?')) return;
-  if(!confirm('Última confirmación. ¿Seguro?')) return;
+  if(!isAdmin()) { showToast('Borrar el workspace entero es cosa de admins.','error'); return; }
+  // Antes eran dos confirms encadenados; el segundo no aportaba información
+  // nueva y solo entrenaba a darle Aceptar sin leer. Uno solo, con el número
+  // exacto de lo que se va, informa más que preguntar dos veces.
+  const _nCamps = (getData('campaigns')||[]).length;
+  const _nTasks = (getData('globalTasks')||[]).length;
+  if(!await confirmar({
+    title: `¿Borrar ${_nCamps} campañas y ${_nTasks} pendientes del workspace?`,
+    body: 'Se van para TODO el equipo, no solo para ti, y no hay forma de recuperarlos.',
+    confirmLabel: `Borrar las ${_nCamps} campañas`,
+    cancelLabel: 'Cancelar',
+    danger: true,
+  })) return;
   setData('campaigns', []);
   setData('globalTasks', []);
   showToast('Todas las campañas eliminadas','success');

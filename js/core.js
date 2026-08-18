@@ -215,6 +215,39 @@ function saveSettingsData(s) {
   }
 }
 
+// ============================================================
+// ERRORES EN CASTELLANO
+// ============================================================
+// Firestore devuelve mensajes en inglés escritos para quien programa
+// ("Missing or insufficient permissions"). Volcarlos en un toast no le sirve a
+// nadie: el detalle técnico va a la consola y en pantalla va qué pasó y cómo
+// salir. `accion` es lo que se estaba intentando, en infinitivo y en minúscula
+// ("guardar el puesto"), para que el aviso empiece diciendo qué falló.
+const _ERRORES_FIRESTORE = {
+  'permission-denied':  'no tienes permiso para hacerlo. Si crees que sí deberías, pídele a un admin que lo revise.',
+  'unauthenticated':    'tu sesión caducó. Vuelve a entrar y reintenta.',
+  'unavailable':        'parece que estás sin conexión. Revisa tu internet y reintenta.',
+  'deadline-exceeded':  'el servidor tardó demasiado en responder. Reintenta en un momento.',
+  'not-found':          'ya no existe en el servidor. Recarga la página para ver el estado real.',
+  'already-exists':     'ya existe algo con ese identificador.',
+  'resource-exhausted': 'se agotó la cuota de Firestore por hoy. Avísale a quien administra el proyecto.',
+  'invalid-argument':   'hay un dato con un formato que el servidor no acepta.',
+  'failed-precondition':'falta un índice o una condición del servidor. Revisa la consola para el detalle.',
+  'cancelled':          'la operación se canceló antes de terminar.',
+};
+function errorHumano(e, accion) {
+  const cod = e && (e.code || '');
+  const clave = String(cod).replace(/^firestore\//, '');
+  const cola = _ERRORES_FIRESTORE[clave]
+    || (e && e.message ? 'falló con: ' + e.message : 'falló por una razón que no supimos leer.');
+  return 'No se pudo ' + (accion || 'completar la acción') + ': ' + cola;
+}
+// Atajo: registra el detalle técnico y avisa en pantalla en un solo paso.
+function avisarError(e, accion, etiqueta) {
+  try { console.error(etiqueta || accion || 'error', e); } catch(_){}
+  try { showToast(errorHumano(e, accion), 'error'); } catch(_){}
+}
+
 function id() { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
 
 // --- Firestore persistence helpers ---
@@ -910,7 +943,7 @@ function navigate(page) {
     pendientes: ['Pendientes','Todas tus tareas y pendientes.','+ Nueva tarea'],
     metricas: ['Métricas','Resultados en tiempo real.',''],
     generador: ['Generador de textos','Plantillas con IA para tus campañas.',''],
-    influencers: ['Influencers','Base de talento.','+ Nueva tarea'],
+    influencers: ['Creadores','Toda la base de talento de Think Y.','+ Nueva tarea'],
     documentos: ['Documentos','Repositorio de archivos.','+ Nueva tarea'],
     calendario: ['Calendario','Vista de publicaciones.','+ Nueva tarea'],
     equipo: ['Equipo','Miembros del equipo Think Y.',''],

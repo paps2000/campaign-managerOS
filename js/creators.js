@@ -321,7 +321,7 @@ function _scenarioBudgetFor(c, source) {
 function openScenarioStart() {
   const camps = visibleCampaigns();
   const sel = document.getElementById('scenarioCampSelect');
-  if(!camps.length) { showToast('Primero crea una campaña','error'); return; }
+  if(!camps.length) { showToast('Todavía no hay campañas. Crea una y vuelve aquí.','error'); return; }
   sel.innerHTML = camps.map(c=>`<option value="${c.id}">${_esc(c.name)}${c.client?' · '+_esc(c.client):''}</option>`).join('');
   _scenarioStartPreview();
   openModal('scenarioStartModal');
@@ -360,7 +360,7 @@ function _scenarioStartPreview() {
 function confirmScenarioStart() {
   const cid = document.getElementById('scenarioCampSelect').value;
   const c = _cache.campaigns.find(x=>x.id===cid);
-  if(!c) { showToast('Selecciona una campaña','error'); return; }
+  if(!c) { showToast('Elige una campaña arriba para continuar.','error'); return; }
   const source = document.querySelector('input[name="scnBudgetSrc"]:checked')?.value || 'ops';
   if(c.scenario && c.scenario.creators && c.scenario.creators.length) {
     _scenarioState = JSON.parse(JSON.stringify(c.scenario));
@@ -446,7 +446,7 @@ function _renderScenario() {
 
   const body = document.getElementById('scenarioBody');
   if(!_scenarioState.creators.length) {
-    body.innerHTML = '<div class="empty-state"><p>Agrega tu primer creador para empezar.</p></div>';
+    body.innerHTML = '<div class="empty-state"><p>Tu base de creadores está vacía. Agrega el primero o importa desde un Sheet.</p></div>';
     return;
   }
   body.innerHTML = _scenarioState.creators.map((cr,ci)=>_scnCreatorCard(cr,ci)).join('') + _scnStatsSection();
@@ -873,10 +873,15 @@ function _ensureEscenarioRows(c) {
 }
 
 // Reabrir la carga por Google Sheets sobre un escenario armado en plataforma.
-function enableEscenarioSheets() {
+async function enableEscenarioSheets() {
   const c = _cache.campaigns.find(x=>x.id===currentCampaignId);
   if(!c) return;
-  if(!confirm('¿Habilitar la carga desde Google Sheets? El escenario armado en la plataforma queda guardado, pero si sincronizas un Sheet lo sobreescribirá.')) return;
+  if(!await confirmar({
+    title: '¿Cargar el escenario desde Google Sheets?',
+    body: 'El escenario que armaste aquí se queda guardado, pero en cuanto sincronices un Sheet lo va a sobrescribir.',
+    confirmLabel: 'Activar carga desde Sheets',
+    cancelLabel: 'Dejarlo como está',
+  })) return;
   c.escenarioSource = 'sheets';
   const campaigns = getData('campaigns');
   const idx = campaigns.findIndex(x=>x.id===c.id);
@@ -1290,7 +1295,7 @@ async function _loadInfluencerPrivateInfo(key) {
   } catch(e) { console.warn('private info load failed', e.message); return null; }
 }
 async function saveInfluencerPrivateInfo(key) {
-  if(!canSeeCreatorPrivateInfo()) { showToast('Sin permisos','error'); return; }
+  if(!canSeeCreatorPrivateInfo()) { showToast('Los datos privados del creador solo los ve el área de Operaciones.','error'); return; }
   const telefono = (document.getElementById('infPrivPhone')?.value||'').trim();
   const agencia  = (document.getElementById('infPrivAgency')?.value||'').trim();
   const email    = (document.getElementById('infPrivEmail')?.value||'').trim();
@@ -1306,7 +1311,7 @@ async function saveInfluencerPrivateInfo(key) {
     _creatorPrivateCache.set(key, {...data, updatedAt: new Date()});
     showToast('Datos guardados','success'); try { showSuccessCheck(); } catch(e){}
   } catch(e) {
-    showToast('Error: '+e.message,'error');
+    avisarError(e, 'guardar los datos privados del creador', 'saveCreatorPrivate');
   }
 }
 let _infDetailReqId = 0;
@@ -1600,7 +1605,7 @@ async function addManualCampaignToCreator(key) {
     showToast('Campaña agregada al perfil','success');
     const updated = getAllInfluencers().find(x => x.key === key);
     if(updated && _infDetailKey === key) renderInfluencerDetailContent(updated);
-  } catch(e) { showToast('Error: '+e.message,'error'); }
+  } catch(e) { avisarError(e, 'agregar la campaña al perfil', 'addManualCampaign'); }
 }
 
 async function removeManualCampaign(key, entryId) {
@@ -1619,7 +1624,7 @@ async function removeManualCampaign(key, entryId) {
       await _persistManualCampaigns(key, cr.name, [...list, removed]);
       rerender();
     }} : undefined);
-  } catch(e) { showToast('Error: '+e.message,'error'); }
+  } catch(e) { avisarError(e, 'quitar la campaña del perfil', 'removeManualCampaign'); }
 }
 
 function selectStar(n) {

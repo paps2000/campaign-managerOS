@@ -61,7 +61,6 @@ document.addEventListener('click', e => { if(_fabOpen && !e.target.closest('.fab
         navigate(page);
         gPressed = false;
         clearTimeout(gTimer);
-        try { showToast('Navegando a ' + page.charAt(0).toUpperCase()+page.slice(1) + ' ↗'); } catch(_){}
       }
     }
   });

@@ -15,23 +15,28 @@ function saveEscenarioUrl() {
   if(c) { c.escenarioSheetUrl = url; setData('campaigns', campaigns); }
 }
 
-function syncEscenario() {
+async function syncEscenario() {
   const url = document.getElementById('escenarioSheetsUrl')?.value?.trim();
-  if(!url) { showToast('Pega el URL del escenario primero','error'); return; }
+  if(!url) { showToast('Pega la URL del escenario.','error'); return; }
   const campaigns = getData('campaigns');
   const c = campaigns.find(x=>x.id===currentCampaignId);
   if(!c) return;
   // Primera sync de esta campaña: confirmar que el sheet es público
   if(!c.escenarioPublicOk) {
-    const ok = confirm('Para que la plataforma pueda leer el escenario, el Google Sheet debe estar compartido como "Cualquier persona con el enlace" (Lector es suficiente).\n\n¿Confirmas que el sheet ya está público?');
-    if(!ok) { showToast('Comparte el sheet como público y vuelve a intentar','error'); return; }
+    const ok = await confirmar({
+      title: '¿El Sheet ya está compartido?',
+      body: 'Para leer el escenario, el Google Sheet tiene que estar en Compartir → Cualquier persona con el enlace → Lector.',
+      confirmLabel: 'Sí, ya está compartido',
+      cancelLabel: 'Todavía no',
+    });
+    if(!ok) { showToast('Compártelo como "Cualquier persona con el enlace" y vuelve a intentar.','error'); return; }
     c.escenarioPublicOk = true;
   }
   c.escenarioSheetUrl = url;
   setData('campaigns', campaigns);
   const wrap = document.getElementById('escenarioBlock');
   if(wrap) wrap.innerHTML = `<div class="empty-state"><p>Cargando escenario...</p></div>`;
-  showToast('Sincronizando escenario...','success');
+  showToast('Sincronizando escenario…','success');
   _autoFetchEscenario(url, c);
 }
 
@@ -75,13 +80,13 @@ function saveUgcUrl() {
 
 function syncUgcResults() {
   const url = document.getElementById('ugcSheetsUrl')?.value?.trim();
-  if(!url) { showToast('Pega el URL del sheet de resultados UGC primero','error'); return; }
+  if(!url) { showToast('Pega la URL del Sheet de resultados UGC.','error'); return; }
   const campaigns = getData('campaigns');
   const c = campaigns.find(x=>x.id===currentCampaignId);
   if(!c) return;
   c.ugcSheetUrl = url;
   setData('campaigns', campaigns);
-  showToast('Sincronizando UGC...','success');
+  showToast('Sincronizando UGC…','success');
   _autoFetchUgc(url, c);
 }
 
@@ -813,7 +818,7 @@ function renderCampaignDocs(c) {
   const docIcons={PDF:ICN_doc,Sheets:ICN_sheet,Doc:ICN_doc,'Presentación':ICN_clipboard,Otro:ICN_paperclip};
   const el = document.getElementById('campaignDocsList');
   el.innerHTML = c.documents.length===0
-    ? `<div class="empty-state"><div class="empty-icon">${ICN_paperclip}</div><p>Sin documentos.</p></div>`
+    ? `<div class="empty-state"><div class="empty-icon">${ICN_paperclip}</div><p>Sin documentos todavía. Sube el brief o el reporte y queda a la mano de toda la campaña.</p></div>`
     : c.documents.map(d=>`
     <div class="doc-item" ${d.url?`onclick="if(event.target.closest('button,a'))return;window.open('${_esc(_safeUrl(d.url))}','_blank','noopener')" style="cursor:pointer;"`:''}>
       <div class="doc-icon ${d.type==='PDF'?'doc-pdf':'doc-sheets'}">${docIcons[d.type]||ICN_paperclip}</div>
@@ -976,7 +981,7 @@ function deleteApprovalItem(cid, itemId) {
 function downloadCampaignReport(cid) {
   const targetId = cid || currentCampaignId || currentMetricsCampaignId;
   const c = (getData('campaigns')||[]).find(x=>x.id===targetId);
-  if(!c) { showToast('Abre una campaña primero','error'); return; }
+  if(!c) { showToast('Elige una campaña arriba para continuar.','error'); return; }
   if(typeof _ensureEscenarioRows==='function') _ensureEscenarioRows(c);
   const fmt = n => formatNum(Math.round(n||0));
   const money = n => n>0 ? '$'+Math.round(n).toLocaleString('es-MX') : '—';
@@ -1341,7 +1346,7 @@ function renderMetrics() {
   }
   const grid = document.getElementById('metricsCampGrid');
   const camps = visibleCampaigns().filter(c => c.status !== 'Completado');
-  if(!camps.length) { grid.innerHTML='<div class="empty-state"><p>Sin campañas activas.</p></div>'; return; }
+  if(!camps.length) { grid.innerHTML='<div class="empty-state"><p>Ninguna campaña activa. Crea la primera y aquí verás su avance.</p></div>'; return; }
   grid.innerHTML = camps.map(c=>`
     <div class="campaign-card" onclick="openMetricsCampaign('${c.id}')">
       <div class="campaign-card-header">
@@ -1634,10 +1639,11 @@ async function loadMetrics() {
     displayMetrics(rows, campaign);
     showToast('Datos cargados','success');
   } catch(e) {
-    const hint = e.message.includes('HTTP')||e.message.includes('público')
-      ? 'Asegúrate de que el sheet sea público: Compartir → Cualquier persona con el enlace puede ver.'
-      : e.message;
-    showToast('Error: '+hint,'error');
+    console.error('cargar métricas', e);
+    const publico = String(e.message||'').includes('HTTP') || String(e.message||'').includes('público');
+    showToast(publico
+      ? 'No se pudo leer el Sheet. Ábrelo en Compartir → Cualquier persona con el enlace → Lector, y vuelve a intentar.'
+      : errorHumano(e, 'cargar las métricas'), 'error');
     initEmptyCharts();
   }
 }

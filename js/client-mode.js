@@ -229,7 +229,7 @@ window._scheduleClientShareRepublish = function(campaigns){
 // ---------- UI equipo: modal ----------
 window.openClientShareModal = function(){
   const c = _currentCampaign();
-  if(!c){ showToast('Abre una campaña primero','error'); return; }
+  if(!c){ showToast('Elige una campaña arriba para continuar.','error'); return; }
   _renderClientShareBody(c);
   openModal('clientShareModal');
 };

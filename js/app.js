@@ -847,7 +847,7 @@ async function saveMyProfile() {
     }
     const roleBadge = document.getElementById('userRoleSidebar');
     if(roleBadge) roleBadge.textContent = puesto || (currentUserProfile.role==='admin'?'Admin':'Miembro');
-    showToast('Perfil actualizado ✓','success'); try { showSuccessCheck(); } catch(e){}
+    showToast('Perfil actualizado','success'); try { showSuccessCheck(); } catch(e){}
     closeModal('editProfileModal');
   } catch(e) {
     showToast('Error guardando perfil: '+e.message,'error');

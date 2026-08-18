@@ -239,7 +239,7 @@
       <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V9M9 21V3M15 21v-9M21 21V6"/></svg></span> Métricas
     </div>
     <div class="nav-item" data-page="influencers">
-      <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="9" r="2.5"/><path d="M15 16c2-1 5-1 6 1"/></svg></span> Influencers
+      <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="9" r="2.5"/><path d="M15 16c2-1 5-1 6 1"/></svg></span> Creadores
     </div>
     <div class="nav-label">Recursos</div>
     <div class="nav-item" data-page="documentos">
@@ -289,7 +289,7 @@
   </button>
   <button class="mobile-nav-item" data-page="influencers" onclick="navigate('influencers')">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="9" r="2.5"/><path d="M15 16c2-1 5-1 6 1"/></svg>
-    Influencers
+    Creadores
   </button>
   <button class="mobile-nav-item" data-page="metricas" onclick="navigate('metricas')">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V9M9 21V3M15 21v-9M21 21V6"/></svg>
@@ -335,7 +335,7 @@
           <span class="t-icon" data-icon="b">🌙</span>
         </span>
       </button>
-      <button class="logout-btn" onclick="logout()" title="Cerrar sesión">⎋ Salir</button>
+      <button class="logout-btn" onclick="logout()" title="Cerrar sesión">Salir</button>
     </div>
     <!-- NOTIFICATION PANEL -->
     <div class="notif-panel" id="notifPanel">
@@ -411,7 +411,7 @@
               <table class="table">
                 <thead>
                   <tr>
-                    <th>Campaña</th><th>Cliente</th><th>Status</th><th>Próximo paso</th><th>Duración</th>
+                    <th>Campaña</th><th>Cliente</th><th>Estado</th><th>Próximo paso</th><th>Duración</th>
                   </tr>
                 </thead>
                 <tbody id="dashCampaignTable"></tbody>
@@ -556,9 +556,9 @@
                reales, y verlos dos veces confunde. -->
           <div id="campaignInfluencersSection">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-              <h4 style="font-size:13px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;">Influencers en esta campaña</h4>
+              <h4 style="font-size:13px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;">Creadores en esta campaña</h4>
               <div style="display:flex;gap:8px;">
-                <button class="btn btn-primary btn-sm" onclick="openAddInfluencerModal()">+ Agregar influencer</button>
+                <button class="btn btn-primary btn-sm" onclick="openAddInfluencerModal()">+ Agregar creador</button>
               </div>
             </div>
             <div class="card">
@@ -566,7 +566,7 @@
               <table class="table">
                 <thead><tr>
                   <th>Influencer</th><th>Formato</th><th>Fecha pub.</th><th>Plataforma</th>
-                  <th>Status</th><th>Cerrados</th><th>Boosteados</th><th>Alcance</th><th>Interacciones</th><th>ER</th>
+                  <th>Estado</th><th>Cerrados</th><th>Boosteados</th><th>Alcance</th><th>Interacciones</th><th>ER</th>
                 </tr></thead>
                 <tbody id="campaignInfluencerTable"></tbody>
               </table>
@@ -1159,7 +1159,7 @@
         <input type="text" class="form-input" id="fCampSeason" placeholder="Ej: Junio 2024">
       </div>
       <div class="form-group">
-        <label class="form-label">Status</label>
+        <label class="form-label">Estado</label>
         <select class="form-input" id="fCampStatus">
           <option>En proceso</option>
           <option>Ajustes</option>
@@ -1416,6 +1416,22 @@
 </div>
 
 <!-- MODAL: ELIMINAR PERFIL (admin) -->
+<!-- Diálogo de confirmación propio. El confirm() nativo rotula sus botones
+     Aceptar/Cancelar, así que en una acción destructiva la persona confirma sin
+     leer qué acepta. Aquí el botón dice la acción y el cuerpo dice qué se pierde. -->
+<div class="modal-overlay" id="confirmModal">
+  <div class="modal" style="max-width:440px;">
+    <div class="modal-body" style="padding:26px 28px 8px;">
+      <div class="confirm-title" id="confirmTitle">¿Continuar?</div>
+      <div class="confirm-body" id="confirmBody"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" id="confirmCancelBtn">Cancelar</button>
+      <button class="btn btn-primary" id="confirmOkBtn">Continuar</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="deleteUserModal">
   <div class="modal" style="width:520px;">
     <div class="modal-header">
@@ -1508,7 +1524,7 @@
     <div id="scenarioBudgetBar" style="padding:12px 22px;border-bottom:1px solid var(--border);"></div>
     <div id="scenarioBody" style="overflow-y:auto;flex:1;padding:16px 22px;"></div>
     <div class="modal-footer" style="padding:14px 22px;flex-wrap:wrap;gap:8px;">
-      <button class="btn btn-ghost btn-sm" onclick="scenarioAddCreator()">+ Agregar creador nuevo</button>
+      <button class="btn btn-ghost btn-sm" onclick="scenarioAddCreator()">+ Crear desde cero</button>
       <button class="btn btn-ghost btn-sm" onclick="scenarioPickExisting()">+ Desde creadores anteriores</button>
       <button class="btn btn-ghost btn-sm" onclick="scenarioSuggestByKeywords()">✨ Sugerir por keywords</button>
       <div style="flex:1;"></div>
@@ -1716,7 +1732,7 @@
 <div class="modal-overlay" id="influencerModal">
   <div class="modal" style="width:600px;">
     <div class="modal-header">
-      <div class="modal-title">Agregar influencer</div>
+      <div class="modal-title">Agregar creador</div>
       <button class="modal-close" onclick="closeModal('influencerModal')"><span class="icn-close"></span></button>
     </div>
     <div class="form-row">
@@ -1757,7 +1773,7 @@
         <input type="date" class="form-input" id="fInfDate">
       </div>
       <div class="form-group">
-        <label class="form-label">Status</label>
+        <label class="form-label">Estado</label>
         <select class="form-input" id="fInfStatus">
           <option>Pendiente</option>
           <option>En producción</option>
@@ -1778,7 +1794,7 @@
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('influencerModal')">Cancelar</button>
-      <button class="btn btn-primary" onclick="saveInfluencer()">Agregar influencer</button>
+      <button class="btn btn-primary" onclick="saveInfluencer()">Agregar creador</button>
     </div>
   </div>
 </div>

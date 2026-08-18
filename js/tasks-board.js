@@ -41,6 +41,21 @@ function taskPrio(t) { return TASK_PRIO_BY_ID[t.priority] ? t.priority : 'medium
 //   colaboradores -> watchers[] (participan sin cargar con la entrega)
 // El creador va aparte (se marca en el tooltip) para que se lea quién pidió la
 // tarea sin ensuciar el conteo.
+// El borrado desde el tablero pregunta con el TÍTULO de la tarea: "¿Eliminar
+// esta tarea?" obliga a confiar en que el clic fue en la fila correcta.
+async function _tbConfirmarBorrado(tid, cid) {
+  const t = _tbCollectTasks().find(x => x.id === tid);
+  const titulo = t && t.title ? `"${t.title}"` : 'esta tarea';
+  if(!await confirmar({
+    title: `¿Eliminar ${titulo}?`,
+    body: 'Se va para todo el equipo y no hay forma de recuperarla.',
+    confirmLabel: 'Eliminar tarea',
+    cancelLabel: 'Conservar',
+    danger: true,
+  })) return;
+  deleteTask(tid, cid);
+}
+
 function taskSupervisors(t) { return (t.supervisors || []).filter(Boolean); }
 function taskWatchers(t)    { return (t.watchers    || []).filter(Boolean); }
 function taskPeople(t) {
@@ -889,7 +904,7 @@ function _tbBind() {
       case 'toggle':   toggleTask(tid, cid || ''); break;
       case 'open':     openTaskDetail(tid, cid || ''); break;
       case 'edit':     openEditTaskModal(tid, cid || ''); break;
-      case 'del':      if(confirm('¿Eliminar esta tarea?')) deleteTask(tid, cid || ''); break;
+      case 'del':      _tbConfirmarBorrado(tid, cid || ''); break;
       case 'status':   _tbOpenMenu(btn, TASK_STATUSES, v => setTaskStatus(tid, cid || '', v)); break;
       case 'prio':     _tbOpenMenu(btn, TASK_PRIOS, v => setTaskPriority(tid, cid || '', v)); break;
       case 'scope':    setTbScope(val); break;
