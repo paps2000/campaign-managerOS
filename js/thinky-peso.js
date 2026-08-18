@@ -18,7 +18,14 @@
    así que el abono ocurre solo por el paso del calendario, sin job, sin
    backend y sin riesgo de doble abono o de un mes que se salte porque nadie
    abrió la app. Cambiar de mes basta para que todos amanezcan con 10.
-   El único documento que existe es la transferencia. */
+
+   EL TOPE DE 10 LO COBRA EL SERVIDOR
+   ----------------------------------
+   Una regla de Firestore no puede contar documentos, así que el tope no se
+   verifica contando entregas: se cobra contra un contador con techo, el doc
+   `thinkyPesoBalances/{uid}_{periodo}`, que la regla acota a 0–10 y que TIENE
+   que moverse en el mismo commit que la entrega. Por eso cada entrega se
+   commitea por separado y no en un lote. Detalle en THINKYPESO.md. */
 
 (function(){
 'use strict';
@@ -237,6 +244,18 @@ window.tpCancelSend = function(){
   renderFooter();
 };
 
+// El saldo del mes como documento. Existe para que la REGLA de Firestore pueda
+// hacer cumplir el tope de 10: contar entregas no se puede desde una regla, así
+// que el tope se cobra contra este contador, que tiene techo de 10 y que ningún
+// commit de entrega puede dejar quieto. Ver firestore.rules y THINKYPESO.md.
+function _balRef(){
+  return db.collection('workspaces').doc(WORKSPACE)
+           .collection('thinkyPesoBalances').doc(_me() + '_' + currentPeriod());
+}
+function _txCol(){
+  return db.collection('workspaces').doc(WORKSPACE).collection('thinkyPesos');
+}
+
 window.tpSend = async function(){
   const blocker = draftBlocker();
   if(blocker){ showToast(blocker, 'warning'); _confirming = false; renderFooter(); return; }
@@ -245,6 +264,7 @@ window.tpSend = async function(){
 
   const btn = document.getElementById('tpSendBtn');
   if(btn){ btn.disabled = true; btn.textContent = 'Enviando…'; }
+  const reactivar = () => { const b = document.getElementById('tpSendBtn'); if(b){ b.disabled = false; b.textContent = 'Sí, entregar'; } };
 
   const p = currentPeriod();
   const now = Date.now();
@@ -252,11 +272,35 @@ window.tpSend = async function(){
   const fromName = (typeof currentUserProfile!=='undefined' && currentUserProfile)
     ? (currentUserProfile.name || currentUserProfile.email) : (currentUser.email || '');
 
+  const col = _txCol();
+  const balRef = _balRef();
+
+  // El contador del servidor manda. La regla compara contra LO QUE HAY ALLÁ,
+  // no contra lo que la UI dedujo de la lista de entregas.
+  let spent;
   try {
-    const col = db.collection('workspaces').doc(WORKSPACE).collection('thinkyPesos');
-    const batch = db.batch();
-    entries.forEach(([uid, d], i) => {
-      const tid = (typeof id === 'function' ? id() : String(now) + '-' + i);
+    const snap = await balRef.get();
+    spent = snap.exists ? (parseInt(snap.data().spent) || 0) : 0;
+  } catch(err){
+    console.error('tpSend saldo', err);
+    showToast('No se pudo leer tu saldo. Intenta otra vez.', 'error');
+    reactivar();
+    return;
+  }
+  // Puede haber entregas de este mes anteriores al contador (el mes en que se
+  // estrenó). Se toma la cuenta más alta para no regalar saldo de más.
+  spent = Math.max(spent, sentThisPeriod(me, p));
+
+  // Cada entrega va en su PROPIO commit. La regla verifica que el contador suba
+  // exactamente lo que vale la entrega que viene en ese commit; un lote con
+  // varias no se puede verificar documento por documento.
+  let hechas = 0, dados = 0, personas = 0;
+  let fallo = null;
+  for(const [uid, d] of entries){
+    if(spent + d.amount > GRANT){ fallo = new Error('Te pasarías de tus ' + GRANT + ' ThinkyPesos del mes.'); break; }
+    const tid = (typeof id === 'function' ? id() : String(now) + '-' + hechas);
+    try {
+      const batch = db.batch();
       batch.set(col.doc(tid), {
         id: tid,
         period: p,
@@ -266,27 +310,45 @@ window.tpSend = async function(){
         toName: nameOf(uid),
         amount: d.amount,
         reason: d.reason.trim(),
-        createdAt: now + i     // +i mantiene el orden dentro del mismo envío
+        createdAt: now + hechas     // +hechas mantiene el orden dentro del mismo envío
       });
-    });
-    await batch.commit();
-
-    const total = entries.reduce((a,[,d]) => a + d.amount, 0);
-    _draft = {};
-    _confirming = false;
-    showToast(total + (total===1?' ThinkyPeso entregado':' ThinkyPesos entregados') +
-              ' a ' + entries.length + (entries.length===1?' persona':' personas'), 'success');
-    renderThinkyPeso();
-  } catch(err){
-    console.error('tpSend', err);
-    showToast('No se pudo entregar. Revisa tu conexión e intenta otra vez.', 'error');
-    if(btn){ btn.disabled = false; }
-    renderFooter();
+      // Sin merge: el overwrite limpia el `undoTx` de una devolución anterior,
+      // que si no se quedaría autorizando el borrado de esa entrega.
+      batch.set(balRef, { uid: me, period: p, spent: spent + d.amount, undoTx: '' });
+      await batch.commit();
+    } catch(err){
+      console.error('tpSend', err);
+      fallo = err;
+      break;
+    }
+    spent += d.amount;
+    dados += d.amount;
+    personas++;
+    hechas++;
+    delete _draft[uid];   // lo ya entregado sale del borrador aunque lo demás falle
   }
+
+  _confirming = false;
+
+  if(dados > 0){
+    showToast(dados + (dados===1?' ThinkyPeso entregado':' ThinkyPesos entregados') +
+              ' a ' + personas + (personas===1?' persona':' personas'), 'success');
+  }
+  if(fallo){
+    // Se dice qué SÍ salió: callarlo haría que la gente reintentara el envío
+    // completo y duplicara lo que ya se entregó.
+    showToast(dados > 0
+      ? 'Lo demás no se pudo entregar y se quedó en el borrador.'
+      : 'No se pudo entregar. Revisa tu conexión e intenta otra vez.', 'error');
+    reactivar();
+  }
+  renderThinkyPeso();
 };
 
 // Devolver un envío propio mientras la ventana siga abierta: el peso regresa
 // al saldo. Cerrada la ventana ya no se toca — el mes quedó como quedó.
+// El borrado y la baja del contador van en el MISMO commit: la regla no deja
+// borrar una entrega si el saldo del commit no la nombra en `undoTx`.
 window.tpUndo = async function(txId){
   const tx = _txs().find(t => t.id === txId);
   if(!tx) return;
@@ -296,9 +358,20 @@ window.tpUndo = async function(txId){
     showToast('Ese mes ya cerró: los ThinkyPesos entregados no se devuelven', 'warning');
     return;
   }
+  const amount = parseInt(tx.amount) || 0;
   try {
-    await db.collection('workspaces').doc(WORKSPACE).collection('thinkyPesos').doc(txId).delete();
-    showToast('Devolvimos ' + tx.amount + (tx.amount===1?' ThinkyPeso':' ThinkyPesos') + ' a tu saldo', 'success');
+    const balRef = _balRef();
+    const snap = await balRef.get();
+    const before = snap.exists ? (parseInt(snap.data().spent) || 0) : 0;
+    const batch = db.batch();
+    batch.delete(_txCol().doc(txId));
+    batch.set(balRef, {
+      uid: _me(), period: currentPeriod(),
+      spent: Math.max(0, before - amount),
+      undoTx: txId,
+    });
+    await batch.commit();
+    showToast('Devolvimos ' + amount + (amount===1?' ThinkyPeso':' ThinkyPesos') + ' a tu saldo', 'success');
   } catch(err){
     console.error('tpUndo', err);
     showToast('No se pudo deshacer. Intenta otra vez.', 'error');

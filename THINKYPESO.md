@@ -55,7 +55,26 @@ Colección: `workspaces/default/thinkyPesos/{id}`
 }
 ```
 
-Un envío a varias personas se escribe en un solo `batch`: o entran todas las entregas o no entra ninguna.
+Un envío a varias personas ya **no** va en un solo `batch`: cada entrega se
+commitea por separado, junto con su movimiento del contador de saldo. Es lo que
+permite que la regla verifique el tope (ver abajo). Si una falla a media lista,
+las que ya salieron se quedan hechas, las demás vuelven al borrador y la app lo
+dice — callarlo haría que la gente reintentara el envío completo y duplicara.
+
+### Colección `workspaces/default/thinkyPesoBalances/{uid}_{periodo}`
+
+```js
+{
+  uid:    'abc123',   // dueño; tiene que coincidir con el id del doc
+  period: '2026-08',  // idem
+  spent:  7,          // entero 0–10, lo repartido este mes
+  undoTx: ''          // id de la entrega que se está devolviendo en este commit
+}
+```
+
+Este documento **no es la fuente de verdad de la UI** — el saldo que se ve
+sigue saliendo de sumar las entregas del periodo. Existe solo para que la regla
+tenga contra qué cobrar el tope.
 
 `fromName` / `toName` se guardan como respaldo para que el historial siga legible si alguien se va del workspace y desaparece de `members`. La UI siempre prefiere el nombre vivo de `allUsers`.
 
@@ -82,7 +101,41 @@ Lo que hace cumplir la regla:
 
 **Zona horaria:** `request.time` es UTC. Sin corregir, un envío del día 31 a las 7 pm hora de México ya sería día 1 para el servidor y la regla lo rechazaría — justo en las horas de más prisa. `mxNow()` resta 6 horas (México no cambia horario desde 2022). Si alguien reparte desde otro huso, su navegador puede calcular un periodo distinto al del servidor y la entrega se rechaza; para el equipo en México no aplica.
 
-**Lo que la regla NO puede hacer cumplir:** el tope de **10 pesos al mes por persona**. Verificarlo exige contar documentos, y una regla de Firestore no cuenta. Hoy ese límite vive solo en el cliente. Si algún día importa de verdad, el camino es un documento contador por persona y periodo, escrito en la misma transacción que la entrega.
+### El tope de 10 al mes, ahora sí del lado del servidor
+
+Verificarlo exige contar documentos y una regla de Firestore no cuenta. Se
+resuelve al revés: en vez de contar entregas, se cobra cada una contra un
+contador con techo.
+
+- El doc de saldo `{uid}_{periodo}` tiene `spent` acotado a **0–10** por la
+  regla, y su id lo fija la propia regla (`request.auth.uid + '_' + mxPeriod()`),
+  así que nadie escribe el saldo de otro ni revive el de un mes cerrado.
+- Crear una entrega **exige** que el contador suba al menos su `amount` **en el
+  mismo commit** (`tpSpentAfter >= tpSpentBefore + amount`). Sin ese movimiento,
+  la entrega se rechaza.
+- Como el contador nunca pasa de 10, el total entregado en el periodo no puede
+  pasar de 10. No importa cuántas veces se intente ni desde dónde.
+- El contador **no se puede borrar** (`allow delete: if false`): borrarlo sería
+  resetear el mes.
+- Para **bajarlo** hay que nombrar en `undoTx` la entrega que se está borrando,
+  que tiene que ser tuya, del mes en curso, y desaparecer en ese mismo commit
+  (`exists` + `!existsAfter`). Y no se puede devolver más de lo que esa entrega
+  valía. Así el "Deshacer" refunda de verdad sin abrir la puerta a resetear el
+  saldo a mano.
+
+Por eso el cliente **commitea una entrega a la vez**: la regla compara el alza
+del contador contra el monto de la entrega de ese commit, y un lote con varias
+no se puede verificar documento por documento.
+
+**Punto ciego de la transición:** el mes en que se estrenó el contador, las
+entregas anteriores a él no están contadas. `tpSend` arranca desde
+`max(contador del servidor, suma de entregas del periodo)` para no regalar
+saldo, pero un cliente modificado podría reclamar ese hueco una sola vez, ese
+mes. A partir del siguiente periodo no existe.
+
+**Costo en lecturas:** el commit de una entrega gasta 4 accesos de regla
+(`exists`/`get`/`existsAfter`/`getAfter` del saldo); el de una devolución, 7.
+El límite de Firestore es 20 por request multi-documento.
 
 ## Archivos
 
@@ -93,6 +146,9 @@ Lo que hace cumplir la regla:
 | `index.html` | Item del riel `data-page="thinkypeso"` y la página `#page-thinkypeso`. |
 | `js/core.js` | Listener de `thinkyPesos`, título de la pestaña y enganche en `navigate()`. |
 | `firestore.rules` | Espejo de las reglas de la consola. |
+
+> Las reglas de este repo son **espejo**: hay que pegarlas en Firebase →
+> Firestore → Reglas para que surtan efecto. Vercel no las despliega.
 
 API pública para otras vistas (dashboard, perfil), sin duplicar el calendario:
 

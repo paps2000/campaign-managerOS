@@ -23,6 +23,33 @@ service cloud.firestore {
            + (mxNow().month() < 10 ? '0' : '') + string(mxNow().month());
     }
 
+    // La ventana de reparto: "hoy + 8 días cae en el mes siguiente" equivale a
+    // estar en los últimos 8 días del mes. La ventana real es de 7; el día
+    // extra es colchón para relojes desfasados, y de todos modos el cliente no
+    // deja repartir fuera de los 7.
+    function tpWindowOpen() {
+      return (mxNow() + duration.value(8, 'd')).month() != mxNow().month();
+    }
+
+    // ── El saldo del mes, como documento ──
+    // El tope de 10 al mes no se puede verificar contando entregas: una regla
+    // de Firestore no cuenta documentos. Se verifica contra un doc de saldo por
+    // persona y periodo, que TIENE que moverse en el mismo commit que la
+    // entrega. El id lo fija la regla (uid + '_' + periodo), así que nadie
+    // puede escribir el saldo de alguien más ni revivir el de un mes cerrado.
+    function tpBalPath(ws) {
+      return /databases/$(database)/documents/workspaces/$(ws)/thinkyPesoBalances/$(request.auth.uid + '_' + mxPeriod());
+    }
+    function tpSpentBefore(ws) {
+      return exists(tpBalPath(ws)) ? get(tpBalPath(ws)).data.spent : 0;
+    }
+    function tpSpentAfter(ws) {
+      return existsAfter(tpBalPath(ws)) ? getAfter(tpBalPath(ws)).data.spent : 0;
+    }
+    function tpTxPath(ws, tx) {
+      return /databases/$(database)/documents/workspaces/$(ws)/thinkyPesos/$(tx);
+    }
+
     match /users/{uid} {
       allow read: if isThinky();
       allow write: if isThinky() && request.auth.uid == uid;
@@ -33,20 +60,66 @@ service cloud.firestore {
       allow read, write: if isThinky();
     }
 
-    // Todas las subcolecciones del workspace MENOS thinkyPesos.
+    // Todas las subcolecciones del workspace MENOS las del ThinkyPeso.
     // Ojo: las reglas de Firestore se SUMAN, no se pisan por especificidad.
-    // Si este bloque dejara escribir thinkyPesos, la regla estricta de abajo
-    // no serviría de nada — por eso la excepción está aquí y no allá.
+    // Si este bloque dejara escribir thinkyPesos o thinkyPesoBalances, las
+    // reglas estrictas de abajo no servirían de nada — el saldo sería
+    // editable a mano y el tope mensual, decorativo.
     // Se usa {coll}/{doc=**} en vez de {document=**} para poder nombrar la
     // colección sin tener que enumerar las demás (campaigns, members, config,
     // creators, escenarios, notifications, creatorPrivateInfo, globalTasks,
     // influencerRatings… y las que vengan).
     match /workspaces/{ws}/{coll}/{doc=**} {
       allow read: if isThinky();
-      allow write: if isThinky() && coll != 'thinkyPesos';
+      allow write: if isThinky()
+        && coll != 'thinkyPesos'
+        && coll != 'thinkyPesoBalances';
     }
 
-    // ThinkyPesos — una entrega por documento. Inmutable una vez escrita.
+    // ── Saldo del mes ──
+    // spent = cuántos ThinkyPesos lleva repartidos esta persona este periodo.
+    // Nunca pasa de 10, y ahí queda cerrado el tope mensual: como ninguna
+    // entrega se puede crear sin subir este número, el total del mes no puede
+    // superar 10 por más veces que se intente.
+    match /workspaces/{ws}/thinkyPesoBalances/{bal} {
+      allow read: if isThinky();
+
+      // No se borra. Si se pudiera, borrarlo sería resetear el saldo del mes.
+      allow delete: if false;
+
+      allow create, update: if isThinky()
+        // el id manda: solo tu saldo, solo del mes en curso
+        && bal == request.auth.uid + '_' + mxPeriod()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.period == mxPeriod()
+        && request.resource.data.spent is int
+        && request.resource.data.spent >= 0
+        && request.resource.data.spent <= 10
+        && (
+          // SUBIR: solo dentro de la ventana de reparto.
+          (request.resource.data.spent >= (resource == null ? 0 : resource.data.spent)
+             && tpWindowOpen())
+          ||
+          // BAJAR: solo emparejado con el borrado de la entrega que nombra
+          // `undoTx`, y nunca devolviendo más de lo que esa entrega valía.
+          // `resource != null` va primero porque en un create no hay doc
+          // previo y leer resource.data reventaría la evaluación; el
+          // `.size() > 0` porque un undoTx vacío armaría una ruta con un
+          // segmento en blanco (tpSend escribe undoTx:'' justamente).
+          (resource != null
+             && request.resource.data.undoTx is string
+             && request.resource.data.undoTx.size() > 0
+             && exists(tpTxPath(ws, request.resource.data.undoTx))
+             && !existsAfter(tpTxPath(ws, request.resource.data.undoTx))
+             && get(tpTxPath(ws, request.resource.data.undoTx)).data.fromUid == request.auth.uid
+             && get(tpTxPath(ws, request.resource.data.undoTx)).data.period == mxPeriod()
+             && request.resource.data.spent >=
+                  resource.data.spent - get(tpTxPath(ws, request.resource.data.undoTx)).data.amount)
+        );
+    }
+
+    // ── Entregas ──
+    // Una entrega por documento. Inmutable una vez escrita.
     match /workspaces/{ws}/thinkyPesos/{tx} {
       allow read: if isThinky();
 
@@ -56,7 +129,7 @@ service cloud.firestore {
         // ni darte a ti mismo
         && request.resource.data.toUid is string
         && request.resource.data.toUid != request.auth.uid
-        // montos sanos (el tope mensual de 10 no es verificable aquí, ver nota)
+        // montos sanos
         && request.resource.data.amount is int
         && request.resource.data.amount >= 1
         && request.resource.data.amount <= 10
@@ -66,20 +139,23 @@ service cloud.firestore {
         && request.resource.data.reason.size() <= 280
         // el periodo no se puede falsear para revivir un mes cerrado
         && request.resource.data.period == mxPeriod()
-        // y solo dentro de la ventana: "hoy + 8 días cae en el mes siguiente"
-        // equivale a estar en los últimos 8 días del mes. La ventana real es
-        // de 7; el día extra es colchón para relojes desfasados, y de todos
-        // modos el cliente no deja repartir fuera de los 7.
-        && (mxNow() + duration.value(8, 'd')).month() != mxNow().month();
+        // y solo dentro de la ventana
+        && tpWindowOpen()
+        // el saldo del mes sube al menos lo que vale esta entrega, en este
+        // mismo commit. Como el saldo tiene techo de 10, esto cierra el tope:
+        // no hay forma de entregar sin pagarlo contra el contador.
+        && tpSpentAfter(ws) >= tpSpentBefore(ws) + request.resource.data.amount;
 
       // Una entrega no se edita: se deshace y se vuelve a hacer.
       allow update: if false;
 
-      // Deshacer solo lo tuyo y solo del mes en curso. Los meses cerrados
-      // quedan como quedaron.
+      // Deshacer solo lo tuyo, solo del mes en curso, y solo si el saldo del
+      // mismo commit reconoce la devolución nombrando esta entrega.
       allow delete: if isThinky()
         && resource.data.fromUid == request.auth.uid
-        && resource.data.period == mxPeriod();
+        && resource.data.period == mxPeriod()
+        && existsAfter(tpBalPath(ws))
+        && getAfter(tpBalPath(ws)).data.undoTx == tx;
     }
 
     match /clientShares/{token} {
