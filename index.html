@@ -1006,12 +1006,16 @@
     <div class="page" id="page-thinkypeso">
 
       <div class="tp-hero">
+        <div class="tp-hero-confetti" aria-hidden="true">
+          <span>🪙</span><span>✨</span><span>🪙</span><span>💫</span><span>🪙</span>
+        </div>
         <div class="tp-hero-row">
-          <div class="tp-coin tp-coin-spin" aria-hidden="true">TP</div>
+          <div class="tp-coin tp-coin-spin" id="tpHeroCoin" aria-hidden="true">TP</div>
           <div class="tp-hero-copy">
             <div class="tp-eyebrow">
               <span>ThinkyPeso</span>
               <span class="tp-chip tp-chip-shut" id="tpHeroChip">Reparto cerrado</span>
+              <span class="tp-greet" id="tpHeroGreet"></span>
             </div>
             <h1 class="tp-h1"><b id="tpHeroBalance">0</b> · <span id="tpHeroLead">Cargando tu saldo…</span></h1>
             <p class="tp-sub" id="tpHeroSub"></p>
@@ -1054,14 +1058,17 @@
 
           <div class="card">
             <div class="card-header">
-              <span class="card-title">Más reconocidos</span>
+              <span class="card-title">🏆 Top 5 del mes</span>
               <select class="tp-rank-select" id="tpRankPeriod" onchange="tpHistoryPeriod(this.value)" aria-label="Mes del ranking"></select>
             </div>
             <div id="tpRanking"></div>
           </div>
 
           <div class="card">
-            <div class="card-header"><span class="card-title">Cómo funciona</span></div>
+            <div class="card-header">
+              <span class="card-title">Cómo funciona</span>
+              <button type="button" class="tp-replay" onclick="tpOnboardOpen()">🎬 Ver el tutorial</button>
+            </div>
             <div class="tp-rules">
               <div class="tp-rule"><span class="tp-rule-n">1</span><span class="tp-rule-t">Cada quien recibe <b>10 ThinkyPesos</b> al mes. Se abonan solos.</span></div>
               <div class="tp-rule"><span class="tp-rule-n">2</span><span class="tp-rule-t">Solo se reparten en la <b>última semana del mes</b>. Son 7 días.</span></div>
@@ -1857,6 +1864,14 @@
 </div>
 
 <!-- MODAL: MODO CLIENTE (share de solo lectura) -->
+<!-- MODAL: TUTORIAL DE THINKYPESO (primera visita a la pestaña) -->
+<div class="modal-overlay tp-onb-overlay" id="tpOnboardModal">
+  <div class="modal tp-onb-modal">
+    <div class="tp-onb-dots" id="tpOnbDots"></div>
+    <div id="tpOnbBody"></div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="clientShareModal">
   <div class="modal" style="max-width:560px;">
     <div class="modal-header">

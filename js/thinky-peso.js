@@ -331,8 +331,9 @@ window.tpSend = async function(){
   _confirming = false;
 
   if(dados > 0){
-    showToast(dados + (dados===1?' ThinkyPeso entregado':' ThinkyPesos entregados') +
+    showToast('🎉 ' + dados + (dados===1?' ThinkyPeso entregado':' ThinkyPesos entregados') +
               ' a ' + personas + (personas===1?' persona':' personas'), 'success');
+    tpCelebrate();
   }
   if(fallo){
     // Se dice qué SÍ salió: callarlo haría que la gente reintentara el envío
@@ -423,6 +424,12 @@ function renderHero(){
   if(chip){
     chip.className = 'tp-chip ' + (st.open ? 'tp-chip-open' : 'tp-chip-shut');
     chip.textContent = st.open ? 'Reparto abierto' : 'Reparto cerrado';
+  }
+
+  const greet = document.getElementById('tpHeroGreet');
+  if(greet){
+    const first = (nameOf(_me(), '') || '').split(' ')[0];
+    greet.textContent = first ? '· Hola, ' + first + ' 👋' : '';
   }
 
   const cd = document.getElementById('tpCountdown');
@@ -624,13 +631,18 @@ function renderLedger(){
     : `<div class="tp-empty"><div class="tp-empty-t">${esc(empty.t)}</div><div class="tp-empty-s">${esc(empty.s)}</div></div>`;
 }
 
+// Solo el lugar, nunca el monto: el ranking es un reconocimiento, no un
+// marcador de cuánto le dieron a cada quien. Por eso se corta en 5 y las
+// filas no cargan ni número de pesos ni barra proporcional (delataría montos).
+const RANK_SIZE = 5;
+const MEDALS = ['🥇','🥈','🥉'];
+
 function renderRanking(){
   const host = document.getElementById('tpRanking');
   if(!host) return;
   const p = host.dataset.period || currentPeriod();
   const map = receivedMap(p);
-  const rows = [...map.entries()].sort((a,b) => b[1]-a[1]).slice(0, 10);
-  const top = rows.length ? rows[0][1] : 1;
+  const rows = [...map.entries()].sort((a,b) => b[1]-a[1]).slice(0, RANK_SIZE);
 
   const sel = document.getElementById('tpRankPeriod');
   if(sel){
@@ -639,16 +651,101 @@ function renderRanking(){
     sel.innerHTML = opts.map(o => `<option value="${esc(o)}" ${o===p?'selected':''}>${esc(periodLabel(o))}</option>`).join('');
   }
 
-  host.innerHTML = rows.length ? rows.map(([uid, n], i) => `
+  host.innerHTML = rows.length ? rows.map(([uid], i) => `
     <div class="tp-rank-row">
-      <span class="tp-rank-n">${i+1}</span>
-      <span class="tp-rank-av">${avatar(uid, 26)}</span>
+      <span class="tp-rank-n ${MEDALS[i]?'tp-rank-medal':''}">${MEDALS[i] || (i+1)}</span>
+      <span class="tp-rank-av">${avatar(uid, 28)}</span>
       <span class="tp-rank-name">${esc(nameOf(uid))}</span>
-      <span class="tp-rank-bar"><span class="tp-rank-fill" style="width:${Math.round((n/top)*100)}%"></span></span>
-      <span class="tp-rank-num">${n}</span>
     </div>`).join('')
     : `<div class="tp-empty"><div class="tp-empty-t">Nadie ha recibido nada</div><div class="tp-empty-s">${periodLabel(p)} sigue sin movimientos.</div></div>`;
 }
+
+// ============================================================
+// TUTORIAL — mini onboarding la primera vez que alguien entra
+// ============================================================
+// Se guarda por uid en localStorage: cada quien lo ve una sola vez, en SU
+// navegador. No es un dato del workspace (no vale la pena una escritura a
+// Firestore por un flag de UI), así que si cambia de dispositivo lo vuelve
+// a ver — más vale eso que molestar a todo el equipo por un registro que a
+// nadie más le importa.
+
+const ONB_STEPS = [
+  { emoji:'🪙', title:'¡Bienvenido a ThinkyPeso!',
+    body:'Es la moneda con la que el equipo se dice "gracias" en público. Nada de dinero real: es reconocimiento con nombre y con motivo.' },
+  { emoji:'💸', title:'Cada mes te tocan 10',
+    body:'Se abonan solos, sin que nadie los pida. Repártelos como quieras: todo a una persona o de uno en uno entre varias.' },
+  { emoji:'⏳', title:'Una semana para repartirlos',
+    body:'El reparto solo abre en la última semana del mes. Lo que no repartas en esos días se pierde: no se acumula para el siguiente.' },
+  { emoji:'📝', title:'Sin motivo no hay ThinkyPeso',
+    body:'Cuenta qué pasó de verdad: "se quedó a cerrar el reporte conmigo un viernes a las 9" dice mucho más que "buen trabajo".' },
+  { emoji:'🏆', title:'El Top 5 del mes',
+    body:'Los más reconocidos aparecen en un ranking — pero solo su lugar, nunca cuántos pesos llevan. Aquí se reconoce, no se compite por número.' },
+];
+
+let _onbStep = 0;
+
+function tpOnboardKey(){ return 'cmos:tpOnboardSeen:' + (_me() || 'anon'); }
+function tpOnboardSeen(){
+  try { return localStorage.getItem(tpOnboardKey()) === '1'; } catch(e){ return true; }
+}
+function tpOnboardMarkSeen(){
+  try { localStorage.setItem(tpOnboardKey(), '1'); } catch(e){}
+}
+
+function renderOnboard(){
+  const dots = document.getElementById('tpOnbDots');
+  const body = document.getElementById('tpOnbBody');
+  if(!dots || !body) return;
+  dots.innerHTML = ONB_STEPS.map((_, i) =>
+    `<span class="tp-onb-dot ${i===_onbStep?'active':''} ${i<_onbStep?'done':''}"></span>`).join('');
+  const s = ONB_STEPS[_onbStep];
+  const last = _onbStep === ONB_STEPS.length - 1;
+  body.innerHTML = `
+    <div class="tp-onb-emoji">${s.emoji}</div>
+    <div class="tp-onb-title">${esc(s.title)}</div>
+    <div class="tp-onb-text">${esc(s.body)}</div>
+    <div class="tp-onb-nav">
+      ${_onbStep>0 ? `<button type="button" class="tp-btn-ghost" onclick="tpOnboardBack()">Atrás</button>` : `<span></span>`}
+      <button type="button" class="tp-btn-go" onclick="tpOnboardNext()">${last ? '¡Vamos a repartir! 🎉' : 'Siguiente'}</button>
+    </div>`;
+}
+
+// Sin botón de cerrar ni click-fuera: son 5 pantallas de un renglón, y que
+// alguien lo cierre a la mitad sin enterarse de la ventana o del motivo es
+// justo lo que este tutorial existe para evitar.
+window.tpOnboardOpen = function(){
+  _onbStep = 0;
+  renderOnboard();
+  openModal('tpOnboardModal');
+};
+
+window.tpOnboardNext = function(){
+  if(_onbStep >= ONB_STEPS.length - 1){
+    tpOnboardMarkSeen();
+    closeModal('tpOnboardModal');
+    return;
+  }
+  _onbStep++;
+  renderOnboard();
+};
+
+window.tpOnboardBack = function(){
+  if(_onbStep <= 0) return;
+  _onbStep--;
+  renderOnboard();
+};
+
+// Chispa de fiesta al entregar: la misma moneda del hero rebota y el confeti
+// de fondo vuelve a arrancar. Puramente decorativo, nunca bloquea nada.
+window.tpCelebrate = function(){
+  const coin = document.getElementById('tpHeroCoin');
+  if(coin){ coin.classList.remove('tp-coin-cheer'); void coin.offsetWidth; coin.classList.add('tp-coin-cheer'); }
+  const hero = document.querySelector('.tp-hero');
+  if(hero){
+    hero.classList.remove('tp-hero-cheer'); void hero.offsetWidth; hero.classList.add('tp-hero-cheer');
+    setTimeout(() => hero.classList.remove('tp-hero-cheer'), 1200);
+  }
+};
 
 // ============================================================
 // ENTRADA / SALIDA DE LA PESTAÑA
@@ -660,6 +757,7 @@ window.renderThinkyPeso = function(){
   renderRanking();
   if(!_tick) _tick = setInterval(() => { renderHero(); tpSidebarBadge(); }, 1000);
   tpSidebarBadge();
+  if(_me() && !tpOnboardSeen()) tpOnboardOpen();
 };
 
 window.tpTeardown = function(){

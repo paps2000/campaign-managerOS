@@ -5484,21 +5484,18 @@ html.dark .tp-tx-amt { color:#ffb3d3; }
   font-size:11px; font-weight:700; color:var(--tp-coin); text-decoration:underline;
 }
 
-/* RANKING */
-.tp-rank-row { display:flex; align-items:center; gap:9px; padding:7px 0; }
+/* RANKING — solo lugar, nunca monto: sin barra ni número de pesos a propósito */
+.tp-rank-row { display:flex; align-items:center; gap:10px; padding:8px 0; }
 .tp-rank-n {
-  width:18px; font-size:11px; font-weight:800; color:var(--text-muted);
-  font-variant-numeric:tabular-nums; flex-shrink:0;
+  width:22px; font-size:13px; font-weight:800; color:var(--text-muted);
+  font-variant-numeric:tabular-nums; flex-shrink:0; text-align:center;
 }
-.tp-rank-row:nth-child(1) .tp-rank-n { color:var(--tp-coin); }
+.tp-rank-n.tp-rank-medal { font-size:17px; }
 .tp-rank-av { display:inline-flex; flex-shrink:0; }
 .tp-rank-name {
-  font-size:12px; font-weight:600; width:88px; flex-shrink:0;
+  font-size:12.5px; font-weight:600; flex:1; min-width:0;
   white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
 }
-.tp-rank-bar { flex:1; height:6px; border-radius:20px; background:var(--bg); overflow:hidden; }
-.tp-rank-fill { display:block; height:100%; border-radius:20px; background:var(--tp-grad); }
-.tp-rank-num { font-size:12px; font-weight:800; width:22px; text-align:right; font-variant-numeric:tabular-nums; }
 .tp-rank-select {
   padding:5px 8px; border-radius:9px; border:1px solid var(--border);
   background:var(--white); font-family:inherit; font-size:11px; color:var(--text); cursor:pointer;
@@ -5528,6 +5525,83 @@ html.dark .tp-rule-n { color:#ffb3d3; }
   .tp-why { padding-left:0; }
   .tp-row-head { flex-wrap:wrap; }
 }
+
+/* SALUDO PERSONALIZADO */
+.tp-greet { font-size:10px; font-weight:700; color:rgba(255,255,255,.7); letter-spacing:.2px; text-transform:none; }
+
+/* CONFETI DE FONDO — decorativo, monedas flotando muy despacio */
+.tp-hero-confetti {
+  position:absolute; inset:0; overflow:hidden; pointer-events:none; z-index:0;
+}
+.tp-hero-confetti span {
+  position:absolute; bottom:-10%; font-size:15px; opacity:0;
+  animation:tpFloatUp 13s linear infinite;
+}
+.tp-hero-confetti span:nth-child(1) { left:14%; animation-delay:0s;   font-size:13px; }
+.tp-hero-confetti span:nth-child(2) { left:34%; animation-delay:2.6s; font-size:11px; }
+.tp-hero-confetti span:nth-child(3) { left:58%; animation-delay:5.2s; font-size:16px; }
+.tp-hero-confetti span:nth-child(4) { left:76%; animation-delay:7.8s; font-size:12px; }
+.tp-hero-confetti span:nth-child(5) { left:92%; animation-delay:10.4s; font-size:14px; }
+@keyframes tpFloatUp {
+  0%   { transform:translateY(0) rotate(0deg); opacity:0; }
+  10%  { opacity:.5; }
+  90%  { opacity:.35; }
+  100% { transform:translateY(-320%) rotate(50deg); opacity:0; }
+}
+@media (prefers-reduced-motion: reduce) { .tp-hero-confetti span { animation:none; opacity:0; } }
+.tp-hero-row, .tp-hero-side { z-index:1; }
+
+/* CELEBRACIÓN al entregar */
+.tp-coin-cheer { animation:tpCheerCoin .7s var(--ease); }
+@keyframes tpCheerCoin {
+  0%   { transform:scale(1) rotate(0deg); }
+  30%  { transform:scale(1.22) rotate(-8deg); }
+  60%  { transform:scale(.96) rotate(6deg); }
+  100% { transform:scale(1) rotate(0deg); }
+}
+.tp-hero-cheer::before {
+  animation:tpCheerGlow 1.2s var(--ease);
+}
+@keyframes tpCheerGlow {
+  0%   { filter:brightness(1); }
+  35%  { filter:brightness(1.6) saturate(1.3); }
+  100% { filter:brightness(1); }
+}
+@media (prefers-reduced-motion: reduce) { .tp-coin-cheer, .tp-hero-cheer::before { animation:none; } }
+
+/* BOTÓN "VER TUTORIAL" en la tarjeta de reglas */
+.tp-replay {
+  margin-left:auto; padding:5px 11px; border:1px solid var(--border); border-radius:20px; cursor:pointer;
+  font-family:inherit; font-size:11px; font-weight:700; color:var(--tp-coin-deep);
+  background:rgba(255,45,135,.08); transition-property:var(--t-ui); transition-duration:var(--dur-quick);
+}
+html.dark .tp-replay { color:#ffb3d3; }
+.tp-replay:hover { background:var(--tp-coin); color:#fff; border-color:transparent; }
+
+/* ============================================================
+   TUTORIAL — mini onboarding de la primera visita a la pestaña
+   ============================================================ */
+.tp-onb-modal {
+  max-width:420px; text-align:center; padding:8px 4px 4px; overflow:hidden;
+  background:linear-gradient(160deg, var(--white) 0%, var(--white) 60%, rgba(255,45,135,.06) 100%);
+}
+.tp-onb-dots { display:flex; justify-content:center; gap:6px; padding:18px 0 4px; }
+.tp-onb-dot { width:7px; height:7px; border-radius:50%; background:var(--border); transition:all var(--dur-quick) var(--ease); }
+.tp-onb-dot.done { background:var(--tp-coin-2); }
+.tp-onb-dot.active { background:var(--tp-coin); width:18px; border-radius:20px; }
+.tp-onb-emoji {
+  width:74px; height:74px; margin:8px auto 14px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center; font-size:34px;
+  background:var(--tp-grad); box-shadow:0 10px 26px rgba(255,45,135,.34);
+  animation:pop var(--dur-medium) var(--ease);
+}
+.tp-onb-title { font-size:18px; font-weight:800; letter-spacing:-.3px; padding:0 26px; margin-bottom:10px; }
+.tp-onb-text { font-size:13px; line-height:1.6; color:var(--text-muted); padding:0 26px 26px; max-width:38ch; margin:0 auto; }
+.tp-onb-nav {
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+  padding:16px 22px 22px; border-top:1px solid var(--border);
+}
+.tp-onb-nav .tp-btn-go { flex-shrink:0; margin-left:auto; }
 
 
 /* ================================================================
