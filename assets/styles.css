@@ -167,6 +167,7 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
 .badge-area-Cuentas { background:var(--pink-pale); color:var(--pink-deep); }
 .badge-area-Creativo { background:var(--lavender-pale); color:var(--blue); }
 .badge-area-Data { background:#f0ebff; color:#5a2bbf; }
+.badge-area-Administración { background:#fff2e0; color:#9a5b12; }
 .login-area-select { display:none; width:100%; padding:12px 16px; border:1.5px solid var(--border); border-radius:10px; font-family:'Quicksand',sans-serif; font-size:14px; background:var(--white); color:var(--text); margin-top:0; cursor:pointer; }
 .login-area-select:focus { outline:none; border-color:var(--pink-deep); }
 
@@ -712,6 +713,7 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
   .badge-area-Cuentas { background:rgba(255,45,135,.13); color:var(--pink); }
   .badge-area-Creativo { background:rgba(44,109,255,.13); color:#6fa3ff; }
   .badge-area-Data { background:rgba(122,61,240,.12); color:#a57bff; }
+  .badge-area-Administración { background:rgba(230,150,40,.14); color:#e0a852; }
   .stat-card.featured { background:var(--pink); }
   .stat-card.urgent { background:#1a2a0a; }
   .stat-card.urgent .stat-label, .stat-card.urgent .stat-value, .stat-card.urgent .stat-sub { color:#9ac43a; }
@@ -790,6 +792,7 @@ html.dark .badge-lavender { background:rgba(44,109,255,.12); color:#8ab0ff; }
 html.dark .badge-mint { background:rgba(85,196,98,.12); color:#55c462; }
 html.dark .badge-area-Operaciones { background:rgba(85,196,98,.12); color:#55c462; }
 html.dark .badge-area-Cuentas { background:rgba(255,45,135,.13); color:var(--pink); }
+html.dark .badge-area-Administración { background:rgba(230,150,40,.14); color:#e0a852; }
 html.dark .badge-area-Creativo { background:rgba(44,109,255,.13); color:#6fa3ff; }
 html.dark .badge-area-Data { background:rgba(122,61,240,.12); color:#a57bff; }
 html.dark .notif-panel { background:var(--white); border-color:var(--border); }
@@ -1697,8 +1700,18 @@ html.dark .pronoun-chip.selected { background:var(--pink-pale); color:#fff; }
 .area-dropdown {
   position:absolute; top:calc(100% + 4px); left:0; right:0; z-index:9999;
   background:var(--white); border:1.5px solid var(--border); border-radius:10px;
-  box-shadow:0 8px 24px rgba(0,0,0,.12); max-height:220px; overflow-y:auto;
+  box-shadow:0 8px 24px rgba(0,0,0,.12); max-height:260px;
+  display:flex; flex-direction:column; overflow:hidden;
 }
+/* El buscador se queda fijo arriba y lo que rueda es la lista: con el scroll en
+   el contenedor entero, escribir dos letras se llevaba el campo fuera de vista. */
+.area-dropdown-search {
+  flex:0 0 auto; margin:8px 8px 6px; padding:8px 10px; font-size:13px; font-family:inherit;
+  border:1.5px solid var(--border); border-radius:8px; background:var(--bg); color:var(--text);
+  outline:none;
+}
+.area-dropdown-search:focus { border-color:var(--pink); background:var(--white); }
+.area-dropdown-list { flex:1 1 auto; min-height:0; overflow-y:auto; }
 .area-dropdown-item {
   display:flex; align-items:center; gap:10px; padding:8px 12px; cursor:pointer; font-size:13px;
 }
@@ -3333,9 +3346,15 @@ html.dark .ob-field input, html.dark .ob-field select, html.dark .ob-field texta
   background: var(--pink); border-radius: 9px;
 }
 .profile-tab-bar.tdev-tabs .profile-tab-btn { position: relative; z-index: 1; }
-.profile-tab-bar.tdev-tabs .profile-tab-btn.active {
+.profile-tab-bar.tdev-tabs.pill-ready .profile-tab-btn.active {
   background: transparent !important; color: #fff !important;
   transition: color var(--dur-fast) var(--tdev-ease);
+}
+/* Sin píldora medida todavía, el tab activo se pinta a sí mismo. Es el estado
+   del primer frame de un modal que se abre; sin esto el rótulo es blanco sobre
+   fondo claro y no se lee. */
+.profile-tab-bar.tdev-tabs:not(.pill-ready) .profile-tab-btn.active {
+  color:#fff; background:linear-gradient(135deg,var(--pink),var(--pink-deep));
 }
 
 /* ── Accordion smooth height (task-area-group <details>) ── */
@@ -5509,3 +5528,63 @@ html.dark .tp-rule-n { color:#ffb3d3; }
   .tp-why { padding-left:0; }
   .tp-row-head { flex-wrap:wrap; }
 }
+
+
+/* ================================================================
+   ORGANIGRAMA — pestaña Equipo
+   Una fila por nivel jerárquico y, dentro, una columna por área. El nivel sale
+   de PUESTO_NIVEL en js/core.js, que es el mismo dato que va a regir permisos.
+   ================================================================ */
+.org-nivel {
+  background:var(--white); border:1px solid var(--border); border-radius:16px;
+  padding:16px 18px; margin-bottom:14px;
+}
+.org-nivel-head { display:flex; align-items:center; gap:12px; margin-bottom:14px; }
+.org-nivel-n {
+  flex:0 0 auto; width:30px; height:30px; border-radius:50%;
+  background:linear-gradient(135deg,var(--pink),var(--pink-deep)); color:#fff;
+  display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:800;
+}
+.org-nivel-label { font-size:14px; font-weight:800; color:var(--text); }
+.org-nivel-desc  { font-size:11px; color:var(--text-muted); margin-top:1px; }
+.org-nivel-count {
+  margin-left:auto; font-size:11px; font-weight:700; color:var(--text-muted);
+  background:var(--bg); border:1px solid var(--border); border-radius:20px; padding:3px 10px;
+}
+.org-nivel-body { display:flex; flex-wrap:wrap; gap:18px; }
+.org-area { flex:1 1 220px; min-width:220px; }
+.org-area-label {
+  font-size:10px; font-weight:800; letter-spacing:1px; text-transform:uppercase;
+  color:var(--text-muted); margin-bottom:7px;
+}
+.org-area-people { display:flex; flex-direction:column; gap:6px; }
+.org-person {
+  display:flex; align-items:center; gap:9px; padding:7px 10px; cursor:pointer;
+  background:var(--bg); border:1px solid var(--border); border-radius:11px;
+  transition-property:var(--t-ui); transition-duration:var(--dur-quick); transition-timing-function:var(--ease);
+}
+.org-person:hover { border-color:var(--pink); transform:translateY(-1px); }
+.org-person-id { flex:1; min-width:0; display:flex; flex-direction:column; }
+.org-person-name {
+  font-size:12.5px; font-weight:700; color:var(--text);
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.org-person-role {
+  font-size:10.5px; color:var(--text-muted);
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.org-nota {
+  font-size:11px; color:var(--text-muted); line-height:1.6;
+  padding:10px 14px; background:var(--bg); border:1px dashed var(--border); border-radius:12px;
+}
+.org-nota code { font-size:10.5px; background:rgba(10,10,12,.06); padding:1px 5px; border-radius:4px; }
+
+/* Botón de borrado en la tarjeta de Equipo. Discreto en reposo: es destructivo
+   y sale en todas las tarjetas cuando eres admin, no debe competir con Kudos. */
+.team-card-del {
+  margin-top:4px; width:100%; padding:5px 8px; font-size:10.5px; font-weight:700;
+  font-family:inherit; cursor:pointer; border-radius:8px;
+  border:1.5px solid var(--border); background:transparent; color:var(--text-muted);
+  transition-property:var(--t-ui); transition-duration:var(--dur-quick); transition-timing-function:var(--ease);
+}
+.team-card-del:hover { border-color:var(--red); color:var(--red); background:rgba(226,68,92,.06); }

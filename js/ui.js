@@ -108,6 +108,12 @@ function openModal(id) {
   _modalZ += 2;
   el.style.zIndex = _modalZ;
   el.classList.add('open');
+  // Las píldoras de pestaña se miden con offsetWidth, que da 0 mientras el modal
+  // está oculto. Se remiden ya abierto, en el frame siguiente, para que el tab
+  // activo tenga fondo desde el primer vistazo.
+  requestAnimationFrame(() => {
+    try { if(typeof initTransitions === 'function') initTransitions(el); } catch(e){}
+  });
 }
 function closeModal(id) {
   const el = document.getElementById(id);
@@ -157,12 +163,15 @@ function calcBudgetOps() {
     : `$${ops.toLocaleString('es-MX',{maximumFractionDigits:0})} MXN`;
 }
 
-const AREAS = ['Operaciones','Cuentas','Creativo','Data'];
-const AREA_IDS = {Operaciones:'fAreaOps', Cuentas:'fAreaCuentas', Creativo:'fAreaCreativo', Data:'fAreaData'};
-const AREA_KEYS = {Operaciones:'operaciones', Cuentas:'cuentas', Creativo:'creativo', Data:'data'};
+const AREAS = ['Operaciones','Cuentas','Creativo','Data','Administración'];
+const AREA_IDS = {Operaciones:'fAreaOps', Cuentas:'fAreaCuentas', Creativo:'fAreaCreativo', Data:'fAreaData', 'Administración':'fAreaAdmin'};
+const AREA_KEYS = {Operaciones:'operaciones', Cuentas:'cuentas', Creativo:'creativo', Data:'data', 'Administración':'administracion'};
+// Las llaves de responsables, en un solo lugar: antes estaban repetidas a mano
+// en cuatro sitios y agregar un área obligaba a acordarse de todos.
+const AREA_KEY_LIST = Object.values(AREA_KEYS);
 
 // In-memory state for multi-picker during modal editing
-let _areaSelections = {operaciones:[], cuentas:[], creativo:[], data:[]};
+let _areaSelections = {operaciones:[], cuentas:[], creativo:[], data:[], administracion:[]};
 
 function getAreaUids(responsables, key) {
   const v = (responsables||{})[key];
@@ -172,6 +181,8 @@ function getAreaUids(responsables, key) {
 
 function populateCampResponsibles(responsables) {
   responsables = responsables || {};
+  _areaOpen = null;
+  AREA_KEY_LIST.forEach(k => { _areaQuery[k] = ''; });
   AREAS.forEach(area => {
     const key = AREA_KEYS[area];
     _areaSelections[key] = getAreaUids(responsables, key);
@@ -180,8 +191,7 @@ function populateCampResponsibles(responsables) {
 }
 
 function renderAreaPicker(areaKey) {
-  const areaLabel = {operaciones:'Operaciones', cuentas:'Cuentas', creativo:'Creativo', data:'Data'};
-  const divId = {operaciones:'fAreaOps', cuentas:'fAreaCuentas', creativo:'fAreaCreativo', data:'fAreaData'}[areaKey];
+  const divId = AREA_IDS[AREAS.find(a => AREA_KEYS[a] === areaKey)];
   const el = document.getElementById(divId);
   if(!el) return;
   const selected = _areaSelections[areaKey] || [];
@@ -193,24 +203,69 @@ function renderAreaPicker(areaKey) {
   const addBtn = `<button class="area-add-btn" type="button" onclick="toggleAreaDropdown('${areaKey}');event.stopPropagation();">+</button>`;
   // Build dropdown of unselected users
   const selectedSet = new Set(selected);
-  const available = allUsers.filter(u => !selectedSet.has(u.uid));
+  const q = (_areaQuery[areaKey] || '').trim().toLowerCase();
+  const nameOf = u => u.name || (u.email || '').split('@')[0] || 'Sin nombre';
+  const available = allUsers
+    .filter(u => !selectedSet.has(u.uid))
+    .filter(u => !q
+      || nameOf(u).toLowerCase().includes(q)
+      || String(u.email||'').toLowerCase().includes(q)
+      || String(u.puesto||'').toLowerCase().includes(q)
+      || String(u.area||'').toLowerCase().includes(q))
+    .sort((a,b) => nameOf(a).localeCompare(nameOf(b)));
   const dropdownItems = available.length === 0
-    ? `<div class="area-dropdown-empty">Todos los usuarios asignados.</div>`
+    ? `<div class="area-dropdown-empty">${q ? 'Nadie con ese nombre.' : 'Todos los usuarios asignados.'}</div>`
     : available.map(u => {
-        const name = u.name || u.email.split('@')[0];
-        const initial = name[0]?.toUpperCase() || '?';
+        const name = nameOf(u);
         return `<div class="area-dropdown-item" onclick="addToArea('${areaKey}','${u.uid}');event.stopPropagation();">
           ${memberAvatarHtml(u, 26)}
           <span style="flex:1">${_esc(name)}</span>
+          ${u.puesto ? `<span style="font-size:10px;color:var(--text-muted);">${_esc(u.puesto)}</span>` : ''}
           ${u.area ? `<span class="badge badge-area-${u.area}" style="font-size:9px;">${_esc(u.area)}</span>` : ''}
         </div>`;
       }).join('');
-  el.innerHTML = chips + addBtn + `<div class="area-dropdown" id="areaDD_${areaKey}" style="display:none;">${dropdownItems}</div>`;
+  // Buscador: con ocho o más personas, encontrar a alguien deslizando una lista
+  // es más lento que escribir su nombre. Se filtra por nombre, correo, puesto y
+  // área, que es como la gente se acuerda de sus compañeros.
+  const isOpen = _areaOpen === areaKey;
+  el.innerHTML = chips + addBtn + `
+    <div class="area-dropdown" id="areaDD_${areaKey}" style="display:${isOpen?'':'none'};">
+      <input type="search" class="area-dropdown-search" id="areaQ_${areaKey}"
+        placeholder="Buscar por nombre, puesto o área..." autocomplete="off"
+        value="${_esc(_areaQuery[areaKey] || '')}"
+        oninput="areaSearch('${areaKey}', this.value);event.stopPropagation();"
+        onclick="event.stopPropagation();">
+      <div class="area-dropdown-list">${dropdownItems}</div>
+    </div>`;
+  if(isOpen) {
+    const inp = document.getElementById('areaQ_' + areaKey);
+    if(inp) { inp.focus(); try { inp.setSelectionRange(inp.value.length, inp.value.length); } catch(e){} }
+  }
+}
+
+// Texto del buscador por área, y cuál dropdown está abierto. Viven fuera del
+// render porque renderAreaPicker rehace el nodo entero en cada tecla.
+const _areaQuery = {};
+let _areaOpen = null;
+
+function areaSearch(areaKey, v) {
+  _areaQuery[areaKey] = v;
+  renderAreaPicker(areaKey);
+}
+
+// Un solo lector para las dos ramas de saveCampaign; agregar un área ya no
+// obliga a tocar dos objetos literales que es fácil dejar desincronizados.
+function _readAreaSelections() {
+  const out = {};
+  AREA_KEY_LIST.forEach(k => { out[k] = (_areaSelections[k] || []).slice(); });
+  return out;
 }
 
 function addToArea(areaKey, uid) {
   if(!_areaSelections[areaKey]) _areaSelections[areaKey] = [];
   if(!_areaSelections[areaKey].includes(uid)) _areaSelections[areaKey].push(uid);
+  // La búsqueda se vacía para poder teclear el siguiente nombre sin borrar.
+  _areaQuery[areaKey] = '';
   renderAreaPicker(areaKey);
 }
 
@@ -220,15 +275,12 @@ function removeFromArea(areaKey, uid) {
 }
 
 function toggleAreaDropdown(areaKey) {
-  const dd = document.getElementById('areaDD_' + areaKey);
-  if(!dd) return;
-  const isOpen = dd.style.display !== 'none';
-  // Close all dropdowns first
-  ['operaciones','cuentas','creativo','data'].forEach(k => {
-    const d = document.getElementById('areaDD_' + k);
-    if(d) d.style.display = 'none';
-  });
-  if(!isOpen) dd.style.display = '';
+  const abrir = _areaOpen !== areaKey;
+  _areaOpen = abrir ? areaKey : null;
+  _areaQuery[areaKey] = '';
+  // Se repintan todos: el que se abre necesita su buscador enfocado y los demás
+  // tienen que cerrarse, y el estado vive en _areaOpen, no en el style del nodo.
+  AREA_KEY_LIST.forEach(k => renderAreaPicker(k));
 }
 
 function areaBadge(area) {
@@ -376,10 +428,13 @@ function saveAssignees() {
   // El creador NO se vuelve a meter a la fuerza: quien arma la campaña no es
   // necesariamente quien la lleva, y reimponerlo aquí deshacía el quitarlo con
   // el botón Eliminar en cuanto se le daba a Guardar.
+  const _antes = Array.isArray(c.assignedTo) ? c.assignedTo : [];
+  const _nuevos = [...current].filter(uid => !_antes.includes(uid));
   campaigns[idx] = {...c, assignedTo: [...current]};
   setData('campaigns', campaigns);
   closeModal('assignModal');
   showToast('Participantes actualizados','success');
+  try { _notifyCampaignRoles(c.name, c.id, { assignees: _nuevos }); } catch(e){ console.warn('notify assignees', e); }
   openCampaignDetail(currentCampaignId);
 }
 
@@ -413,11 +468,28 @@ function removeAssignee(cid, uid) {
 // EQUIPO PAGE (visible to all users)
 // ============================================================
 let _equipoAreaFilter = 'todos';
+let _equipoView = 'directorio';   // directorio | organigrama
+
+function setEquipoView(v) {
+  _equipoView = v;
+  document.querySelectorAll('#equipoViewTabs .profile-tab-btn')
+    .forEach(b => b.classList.toggle('active', b.dataset.eqtab === v));
+  renderEquipo();
+}
 
 function renderEquipo() {
   const filterBar = document.getElementById('equipoFilterBar');
   const grid = document.getElementById('equipoGrid');
+  const org  = document.getElementById('equipoOrg');
   if(!filterBar || !grid) return;
+
+  // El filtro por área es del directorio: en el organigrama esconder a media
+  // empresa deja un árbol con huecos que se lee como si faltara gente.
+  const esOrg = _equipoView === 'organigrama';
+  filterBar.style.display = esOrg ? 'none' : '';
+  grid.style.display      = esOrg ? 'none' : '';
+  if(org) org.style.display = esOrg ? '' : 'none';
+  if(esOrg) { renderOrganigrama(); return; }
 
   const areas = ['Todos', ...AREAS];
   filterBar.innerHTML = areas.map(a =>
@@ -462,9 +534,83 @@ function renderEquipo() {
       ${hasStatus ? `<div class="team-card-status">${u.statusEmoji||''} ${_esc(u.statusText)}</div>` : ''}
       ${activeTasks.length > 0 ? `<div class="team-card-tasks">${activeTasks.length} tarea${activeTasks.length!==1?'s':''}</div>` : ''}
       ${!isMe ? `<button class="kudos-btn" onclick="sendKudos('${u.uid}',event)" style="margin-top:2px;">🏆 Kudos</button>` : ''}
+      ${(!isMe && isAdmin()) ? `<button class="team-card-del" onclick="event.stopPropagation();openDeleteUserModal('${u.uid}')" title="Eliminar el perfil de esta persona del workspace">Eliminar perfil</button>` : ''}
     </div>`;
   }).join('')}</div>`;
   try { _wireAvatarGroup(document.getElementById('equipoAvatarGroup')); } catch(e){}
+}
+
+// ============================================================
+// ORGANIGRAMA
+// ============================================================
+// Se dibuja desde NIVELES + PUESTO_NIVEL (js/core.js), no desde líneas de
+// reporte capturadas a mano: el producto no las tiene. Cada fila es un nivel y
+// dentro se agrupa por área, que es como el equipo se organiza en la práctica.
+// Cuando existan permisos por nivel, este es el mismo dato que los va a regir.
+function renderOrganigrama() {
+  const host = document.getElementById('equipoOrg');
+  if(!host) return;
+
+  const porNivel = new Map();
+  allUsers.forEach(u => {
+    const n = nivelDe(u);
+    if(!porNivel.has(n)) porNivel.set(n, []);
+    porNivel.get(n).push(u);
+  });
+  const niveles = [...porNivel.keys()].sort((a,b) => a-b);
+
+  if(!niveles.length) {
+    host.innerHTML = '<div class="empty-state"><p>Sin equipo cargado.</p></div>';
+    return;
+  }
+
+  const tarjeta = u => `
+    <div class="org-person" onclick="openProfileModal('${u.uid}')" title="${_esc((u.puesto||'Sin puesto') + ' · ' + (u.area||'Sin área'))}">
+      ${memberAvatarHtml(u, 38, '12px')}
+      <div class="org-person-id">
+        <span class="org-person-name">${_esc(u.name || u.email || '—')}</span>
+        <span class="org-person-role">${_esc(u.puesto || (u.role==='admin' ? 'Admin' : 'Sin puesto'))}</span>
+      </div>
+      ${u.area ? `<span class="badge badge-area-${u.area}" style="font-size:9px;">${_esc(u.area)}</span>` : ''}
+    </div>`;
+
+  host.innerHTML = niveles.map(n => {
+    const gente = porNivel.get(n).slice().sort((a,b) =>
+      String(a.area||'').localeCompare(String(b.area||'')) ||
+      String(a.name||'').localeCompare(String(b.name||'')));
+    const meta = NIVELES.find(v => v.n === n);
+    // Por área dentro del nivel, para que se lea la fila como una capa real.
+    const porArea = new Map();
+    gente.forEach(u => {
+      const a = u.area || 'Sin área';
+      if(!porArea.has(a)) porArea.set(a, []);
+      porArea.get(a).push(u);
+    });
+    return `
+      <section class="org-nivel">
+        <header class="org-nivel-head">
+          <span class="org-nivel-n">${n === 99 ? '—' : n}</span>
+          <div>
+            <div class="org-nivel-label">${_esc(nivelLabel(n))}</div>
+            <div class="org-nivel-desc">${_esc(meta ? meta.desc : 'Puesto sin nivel asignado en PUESTO_NIVEL.')}</div>
+          </div>
+          <span class="org-nivel-count">${gente.length}</span>
+        </header>
+        <div class="org-nivel-body">
+          ${[...porArea.entries()].map(([area, us]) => `
+            <div class="org-area">
+              <div class="org-area-label">${_esc(area)}</div>
+              <div class="org-area-people">${us.map(tarjeta).join('')}</div>
+            </div>`).join('')}
+        </div>
+      </section>`;
+  }).join('') + `
+    <p class="org-nota">
+      El orden sale del puesto de cada quien (<code>PUESTO_NIVEL</code> en
+      <code>js/core.js</code>). No son líneas de reporte persona a persona: para
+      eso hace falta capturarlas. Un puesto que no esté dado de alta ahí aparece
+      como <b>Sin nivel</b>.
+    </p>`;
 }
 
 // Hook .t-avatar items inside a .t-avatar-group: hovering one lifts
@@ -683,7 +829,7 @@ async function confirmDeleteUser(uid, newUid) {
         c.subscribers = [...set];
       }
       if(c.responsables) {
-        ['operaciones','cuentas','creativo','data'].forEach(k => {
+        AREA_KEY_LIST.forEach(k => {
           const v = c.responsables[k];
           if(Array.isArray(v)) {
             const set = new Set(v.filter(x=>x!==uid));
@@ -763,6 +909,11 @@ async function saveCampaign() {
     engagement: parseFloat(document.getElementById('fCampGoalEngagement')?.value)||0,
     reach:      parseFloat(document.getElementById('fCampGoalReach')?.value)||0,
   };
+  // Foto previa ANTES de mutar: campaigns[idx] se reemplaza por un objeto nuevo,
+  // así que el viejo sigue intacto para comparar.
+  const _prevCamp = editingCampaignId ? campaigns.find(x=>x.id===editingCampaignId) : null;
+  const _prevResp = _prevCamp ? (_prevCamp.responsables || {}) : {};
+  const _prevAssigned = _prevCamp ? ((_prevCamp.assignedTo) || []).slice() : [];
   if(editingCampaignId) {
     const idx = campaigns.findIndex(x=>x.id===editingCampaignId);
     if(idx!==-1) {
@@ -776,12 +927,7 @@ async function saveCampaign() {
         coreMessage:document.getElementById('fCampCore').value,
         budgetClient:_bc, budgetMargin:_bm,
         budgetOps: _bc > 0 ? _bc - (_bc * _bm / 100) : 0,
-        responsables:{
-          operaciones: _areaSelections.operaciones,
-          cuentas: _areaSelections.cuentas,
-          creativo: _areaSelections.creativo,
-          data: _areaSelections.data,
-        },
+        responsables: _readAreaSelections(),
         startDate:document.getElementById('fCampStartDate').value,
         endDate:document.getElementById('fCampEndDate').value,
         hasNano: !!document.getElementById('fCampHasNano')?.checked,
@@ -806,12 +952,7 @@ async function saveCampaign() {
       coreMessage:document.getElementById('fCampCore').value,
       budgetClient:_bc2, budgetMargin:_bm2,
       budgetOps: _bc2 > 0 ? _bc2 - (_bc2 * _bm2 / 100) : 0,
-      responsables:{
-        operaciones: _areaSelections.operaciones,
-        cuentas: _areaSelections.cuentas,
-        creativo: _areaSelections.creativo,
-        data: _areaSelections.data,
-      },
+      responsables: _readAreaSelections(),
       startDate:document.getElementById('fCampStartDate').value,
       endDate:document.getElementById('fCampEndDate').value,
       hasNano: !!document.getElementById('fCampHasNano')?.checked,
@@ -826,6 +967,12 @@ async function saveCampaign() {
     });
   }
   const _saved = campaigns.find(x => x.id === (editingCampaignId || _newCampId));
+  // Quién ENTRA como responsable o participante con este guardado. Se calcula
+  // contra la foto previa para no reavisar a los mismos en cada Guardar.
+  const _added = {
+    responsables: _diffResponsables(_prevResp, _saved && _saved.responsables),
+    assignees: ((_saved && _saved.assignedTo) || []).filter(uid => !_prevAssigned.includes(uid)),
+  };
   // Solo se toca la caché: la escritura la hace persistCampaignNow, que es una
   // sola y esperada. Con setData() salían DOS escrituras en paralelo del mismo
   // documento (persistCampaigns por su lado y persistCampaignNow por el otro).
@@ -835,7 +982,13 @@ async function saveCampaign() {
   // decir "actualizada". Si el doc no llega, persistCampaignNow lo grita en
   // pantalla en vez de dejar al usuario creyendo que se guardó.
   const _ok = _saved ? await persistCampaignNow(_saved) : true;
-  if(_ok) { showToast(editingCampaignId?'Campaña actualizada':'Campaña creada','success'); try { showSuccessCheck(); } catch(e){} }
+  if(_ok) {
+    showToast(editingCampaignId?'Campaña actualizada':'Campaña creada','success');
+    try { showSuccessCheck(); } catch(e){}
+    // Solo si el guardado se confirmó: avisar de algo que no llegó al servidor
+    // manda a la gente a buscar una campaña que no existe.
+    try { _notifyCampaignRoles(name, _saved && _saved.id, _added); } catch(e){ console.warn('notify roles', e); }
+  }
   // Si la campaña se creó durante el onboarding, volver a ese flujo con la nueva ya seleccionada
   if(!editingCampaignId && window._obAwaitingNewCampaign) {
     populateCampaignSelects();

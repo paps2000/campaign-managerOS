@@ -1296,8 +1296,11 @@ async function markAllNotifsRead() {
   _renderNotifBell();
 }
 
+// Etiquetar a alguien SIEMPRE deja aviso, y eso te incluye a ti: si te pones
+// de responsable de Cuentas y no te llega nada, la campanita deja de ser el
+// registro de en qué estás metido y hay que ir a buscarlo a mano.
 async function _createNotification({toUid, type, text, email}) {
-  if(!toUid || toUid === currentUser?.uid) return;
+  if(!toUid) return;
   try {
     await db.collection('workspaces').doc(WORKSPACE).collection('notifications').add({
       toUid, fromUid: currentUser.uid,
@@ -1307,7 +1310,8 @@ async function _createNotification({toUid, type, text, email}) {
       createdAt: firebase.firestore.FieldValue.serverTimestamp(),
     });
   } catch(e) { console.warn('notification create failed:', e.message); }
-  if(email) _queueEmail(toUid, email.subject, email.html);
+  // El correo a uno mismo sí sobra: acabas de hacerlo tú, ya lo sabes.
+  if(email && toUid !== currentUser?.uid) _queueEmail(toUid, email.subject, email.html);
 }
 
 // ============================================================
@@ -1410,9 +1414,9 @@ function _taskEmailHtml({ role, who, title, campaignName, dueDate, clientDueDate
 // de supervisor hace que la gente abra cosas que no le tocaban, y al revés:
 // los supervisores ignoran los avisos porque nunca son suyos.
 const _TASK_ROLE_COPY = {
-  assignee:   { icon:'✅', verb:'te asignó',                  role:'Responsable'   },
-  supervisor: { icon:'👁', verb:'te puso como supervisor de', role:'Supervisor'    },
-  watcher:    { icon:'👥', verb:'te sumó a',                  role:'Colaborador'   },
+  assignee:   { icon:'✅', verb:'te asignó',                  self:'Te asignaste',             role:'Responsable'   },
+  supervisor: { icon:'👁', verb:'te puso como supervisor de', self:'Te pusiste de supervisor de', role:'Supervisor' },
+  watcher:    { icon:'👥', verb:'te sumó a',                  self:'Te sumaste a',             role:'Colaborador'   },
 };
 
 function _notifyTaskPeople({ title, campaignId, dueDate, clientDueDate, notes, added }) {
@@ -1423,13 +1427,17 @@ function _notifyTaskPeople({ title, campaignId, dueDate, clientDueDate, notes, a
   const who = currentUserProfile?.name || currentUser?.email || 'Alguien';
 
   const send = (uid, kind) => {
-    if(!uid || uid === currentUser?.uid) return;
+    if(!uid) return;
     const cp = _TASK_ROLE_COPY[kind];
     const when = dueDate ? ` · vence ${formatDateShort(dueDate)}` : '';
+    // "Paulo te asignó" leído por Paulo es absurdo. Mismo aviso, otra voz.
+    const frase = uid === currentUser?.uid
+      ? `${cp.icon} ${cp.self} una tarea${extra}: "${title}"${when}`
+      : `${cp.icon} ${who} ${cp.verb} una tarea${extra}: "${title}"${when}`;
     _createNotification({
       toUid: uid,
       type: 'task_assigned',
-      text: `${cp.icon} ${who} ${cp.verb} una tarea${extra}: "${title}"${when}`,
+      text: frase,
       email: {
         subject: `${cp.role} · ${title}`,
         html: _taskEmailHtml({ role:cp.role, who, title, campaignName, dueDate, clientDueDate, notes }),
@@ -1445,6 +1453,52 @@ function _notifyTaskPeople({ title, campaignId, dueDate, clientDueDate, notes, a
 // Compat: el resto de la app sigue llamando a la versión vieja de un solo uid.
 function _notifyTaskAssigned(uid, title, campaignId) {
   _notifyTaskPeople({ title, campaignId, added:{ assignee: uid } });
+}
+
+// Etiquetar a alguien en una CAMPAÑA avisa igual que etiquetarlo en una tarea.
+// Antes solo avisaban las tareas: te ponían de responsable de Cuentas de una
+// campaña y no te enterabas hasta que alguien te escribía por otro lado.
+const _CAMP_AREA_LABEL = {
+  operaciones:'Operaciones', cuentas:'Cuentas', creativo:'Creativo',
+  data:'Data', administracion:'Administración',
+};
+
+function _notifyCampaignRoles(campaignName, campaignId, added) {
+  if(!added) return;
+  const who = currentUserProfile?.name || currentUser?.email || 'Alguien';
+
+  const send = (uid, texto, texoPropio) => {
+    if(!uid) return;
+    _createNotification({
+      toUid: uid,
+      type: 'campaign_role',
+      text: uid === currentUser?.uid ? texoPropio : texto,
+    });
+  };
+
+  Object.keys(added.responsables || {}).forEach(area => {
+    const label = _CAMP_AREA_LABEL[area] || area;
+    (added.responsables[area] || []).forEach(uid => send(uid,
+      `🧭 ${who} te puso como responsable de ${label} en "${campaignName}"`,
+      `🧭 Te pusiste como responsable de ${label} en "${campaignName}"`));
+  });
+
+  (added.assignees || []).forEach(uid => send(uid,
+    `📋 ${who} te sumó a la campaña "${campaignName}"`,
+    `📋 Te sumaste a la campaña "${campaignName}"`));
+}
+
+// Diferencia entre dos mapas de responsables: solo los que ENTRAN.
+// Sin esto, cada guardado de la campaña volvería a avisar a todo el mundo.
+function _diffResponsables(antes, despues) {
+  const out = {};
+  const norm = v => Array.isArray(v) ? v.filter(Boolean) : (v ? [v] : []);
+  Object.keys(_CAMP_AREA_LABEL).forEach(area => {
+    const viejos = new Set(norm((antes || {})[area]));
+    const nuevos = norm((despues || {})[area]).filter(uid => !viejos.has(uid));
+    if(nuevos.length) out[area] = nuevos;
+  });
+  return out;
 }
 
 function _notifyCampaignSubscribers(campaign, summary) {

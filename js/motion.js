@@ -34,11 +34,17 @@
   }
   function writePill(m){
     if(!m) return;
-    if(!m.active){ m.pill.style.opacity = '0'; pillGeom.delete(m.bar); return; }
+    if(!m.active){ m.pill.style.opacity = '0'; m.bar.classList.remove('pill-ready'); pillGeom.delete(m.bar); return; }
     const prev = pillGeom.get(m.bar);
     if(prev && prev.active === m.active && prev.w === m.w && prev.l === m.l &&
        prev.h === m.h && prev.t === m.t) return;
     pillGeom.set(m.bar, m);
+    // La píldora es el ÚNICO fondo del tab activo: el CSS le pone color:#fff y
+    // background:transparent. Si se mide con el contenedor oculto (un modal que
+    // todavía no se abre) todo sale 0 y el rótulo queda blanco sobre claro —
+    // "Credencial" ilegible hasta tocar otra pestaña. `pill-ready` le dice al
+    // CSS que ya hay píldora de verdad; sin ella, el tab pinta su propio fondo.
+    m.bar.classList.toggle('pill-ready', m.w > 0);
     m.pill.style.opacity = '1';
     m.pill.style.width = m.w + 'px';
     if(m.underline){

@@ -122,6 +122,43 @@ const PUESTOS = [
   'Creative Director','Art Director','Content Creative Head','Content Creative Senior','Content Creative','Content Creative Junior','Content Design',
 ];
 const COST_ACCESS_PUESTOS = new Set(['Account Director','Head Account','Account Manager','Operations Manager','Creative Director','Art Director']);
+
+// ============================================================
+// NIVELES — la jerarquía, como dato
+// ============================================================
+// El organigrama de la pestaña Equipo se dibuja desde aquí, y es la base sobre
+// la que van a colgar los permisos por nivel. Un puesto sin nivel cae en 99
+// ("Sin nivel") y sale al final: es señal de que hay que darlo de alta aquí, no
+// un error que valga romper la vista.
+//
+// OJO: esto es jerarquía por PUESTO, no líneas de reporte persona a persona.
+// Quién le reporta a quién en concreto no está en ningún lado del producto; si
+// hace falta esa precisión, va un campo `reportsTo` en el doc de cada miembro.
+const NIVELES = [
+  { n:1, label:'Dirección',  desc:'Deciden sobre la cuenta y el presupuesto.' },
+  { n:2, label:'Jefatura',   desc:'Llevan un área completa.' },
+  { n:3, label:'Coordinación', desc:'Coordinan ejecución y equipo.' },
+  { n:4, label:'Ejecución',  desc:'Operan el día a día de la campaña.' },
+  { n:5, label:'Junior',     desc:'En formación, con acompañamiento.' },
+];
+const PUESTO_NIVEL = {
+  'Account Director':1, 'Creative Director':1,
+  'Head Account':2, 'Operations Manager':2, 'Art Director':2, 'Content Creative Head':2,
+  'Account Manager':3, 'Operaciones Senior':3, 'Account Lead':3, 'Content Creative Senior':3,
+  'Account Executive':4, 'Account Junior':4, 'Content Creative':4, 'Content Design':4,
+  'Content Creative Junior':5,
+};
+function nivelDe(u) {
+  if(!u) return 99;
+  // Admin sin puesto capturado no debería caer al fondo del organigrama.
+  const n = PUESTO_NIVEL[u.puesto];
+  if(n) return n;
+  return u.role === 'admin' ? 1 : 99;
+}
+function nivelLabel(n) {
+  const x = NIVELES.find(v => v.n === n);
+  return x ? x.label : 'Sin nivel';
+}
 const STATUS_OPTIONS = STATUS_OPTIONS_FLOW;
 
 // In-memory cache backed by Firestore. Reads = sync (cache). Writes = sync cache + async Firestore.

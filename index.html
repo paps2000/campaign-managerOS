@@ -820,9 +820,15 @@
     <!-- EQUIPO -->
     <div class="page" id="page-equipo">
 
+      <div class="profile-tab-bar" id="equipoViewTabs" style="margin-bottom:18px;">
+        <button class="profile-tab-btn active" data-eqtab="directorio" onclick="setEquipoView('directorio')">👥 Directorio</button>
+        <button class="profile-tab-btn" data-eqtab="organigrama" onclick="setEquipoView('organigrama')">🗂 Organigrama</button>
+      </div>
+
       <!-- Area filter tabs -->
       <div id="equipoFilterBar" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px;"></div>
       <div id="equipoGrid"></div>
+      <div id="equipoOrg" style="display:none;"></div>
     </div>
 
     <!-- DOCUMENTOS -->
@@ -1210,6 +1216,13 @@
         <label class="form-label">Responsable Data</label>
         <div class="area-multi-picker" id="fAreaData" data-area="data"></div>
       </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Responsable Administración</label>
+        <div class="area-multi-picker" id="fAreaAdmin" data-area="administracion"></div>
+      </div>
+      <div class="form-group"></div>
     </div>
     <div class="form-row">
       <div class="form-group">
