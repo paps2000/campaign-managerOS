@@ -1188,15 +1188,22 @@ function initNotifications() {
   if(!currentUser || !db) return;
   _loadEmailConfig();
   if(_notifUnsub) _notifUnsub();
+  // Sin orderBy a propósito: combinar where('toUid') con orderBy('createdAt')
+  // en campos distintos pide un índice compuesto que este proyecto nunca
+  // desplegó (no hay firestore.indexes.json). Sin ese índice el listener
+  // tiraba error y el callback lo tragaba en silencio — la campanita nunca
+  // mostraba nada, ni etiquetando a alguien, porque el ALTA sí funcionaba
+  // (un simple add() no necesita índice) pero la LECTURA nunca llegaba.
+  // Se ordena en el cliente en vez de pedirle el orden a Firestore.
   const q = db.collection('workspaces').doc(WORKSPACE)
     .collection('notifications')
-    .where('toUid','==',currentUser.uid)
-    .orderBy('createdAt','desc')
-    .limit(30);
+    .where('toUid','==',currentUser.uid);
   _notifUnsub = q.onSnapshot(snap => {
-    _notifs = snap.docs.map(d=>({id:d.id,...d.data()}));
+    _notifs = snap.docs.map(d=>({id:d.id,...d.data()}))
+      .sort((a,b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0))
+      .slice(0, 30);
     _renderNotifBell();
-  }, () => {});
+  }, err => console.warn('notifications listener failed:', err.message));
   // Refresh deadline notifications periodically + once now (Firestore snapshot
   // may not fire, so this guarantees time-based alerts appear).
   _renderNotifBell();
