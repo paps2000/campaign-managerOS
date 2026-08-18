@@ -340,7 +340,7 @@ function _renderAssignModal(c) {
           <div style="font-size:11px;color:var(--text-muted);">${_esc(u.email)}</div>
         </div>
         <span class="badge ${u.role==='admin'?'badge-pink':'badge-gray'}">${u.role==='admin'?'Admin':'Miembro'}</span>
-        ${u.uid !== c.createdBy ? `<button onclick="removeAssignee('${c.id}','${u.uid}');_renderAssignModal(_cache.campaigns.find(x=>x.id==='${c.id}'))" style="background:var(--red);border:none;cursor:pointer;color:#fff;font-size:11px;font-weight:700;padding:4px 10px;border-radius:6px;flex-shrink:0;">Eliminar</button>` : ''}
+        <button onclick="removeAssignee('${c.id}','${u.uid}');_renderAssignModal(_cache.campaigns.find(x=>x.id==='${c.id}'))" style="background:var(--red);border:none;cursor:pointer;color:#fff;font-size:11px;font-weight:700;padding:4px 10px;border-radius:6px;flex-shrink:0;">Eliminar</button>
       </div>`).join('');
   const availableHtml = available.length === 0
     ? '<p style="font-size:12px;color:var(--text-muted);padding:8px 0;">Todos los usuarios ya están asignados.</p>'
@@ -387,9 +387,6 @@ function removeAssignee(cid, uid) {
   const c = campaigns[idx];
   if(!isAdmin() && c.createdBy !== currentUser.uid) {
     showToast('Sin permisos','error'); return;
-  }
-  if(c.createdBy === uid) {
-    showToast('No puedes quitar al creador','error'); return;
   }
   campaigns[idx] = {...c, assignedTo: (c.assignedTo||[]).filter(x=>x!==uid)};
   setData('campaigns', campaigns);
