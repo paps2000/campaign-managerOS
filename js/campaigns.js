@@ -441,6 +441,9 @@ function showCampaignList() {
   document.getElementById('campaignList').style.display='block';
   document.getElementById('campaignDetailView').classList.remove('active');
   currentCampaignId = null;
+  // Después de limpiar currentCampaignId, si no rutaActual() seguiría armando
+  // la ruta de la campaña que acabamos de cerrar.
+  try { escribirRuta(); } catch(e){}
   renderCampaignGrid();
 }
 
@@ -531,6 +534,9 @@ function renderCampaignInfoGrid(c) {
 function openCampaignDetail(cid) {
   currentCampaignId = cid;
   try { localStorage.setItem('cmos:lastCampaignId', cid); } catch(e){}
+  // Entrar a una campaña es un paso de navegación: tiene que quedar en el
+  // historial para que Atrás regrese al listado y no salga de la app.
+  try { escribirRuta(); } catch(e){}
   const campaigns = getData('campaigns');
   const c = campaigns.find(x=>x.id===cid);
   if(!c) return;

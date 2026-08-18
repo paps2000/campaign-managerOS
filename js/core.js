@@ -932,6 +932,9 @@ function navigate(page) {
   currentPage = page;
   // Persist current page so reload restores it
   try { localStorage.setItem('cmos:lastPage', page); } catch(e){}
+  // Y a la barra de direcciones, para que Atrás funcione y el link se pueda
+  // mandar por chat. Ver escribirRuta() más abajo.
+  try { escribirRuta(); } catch(e){}
 
   // Chart.js ya no se carga en el arranque: se pide al entrar a Métricas,
   // en paralelo con el fetch del sheet, así llega antes de que se dibuje.
@@ -978,3 +981,72 @@ function navigate(page) {
   try { _refreshPendCount(); } catch(e){}
 }
 
+
+
+// ============================================================
+// RUTAS
+// ============================================================
+// La app no tocaba la barra de direcciones: el botón Atrás del navegador se
+// salía de la aplicación en vez de volver a la vista anterior, y no había forma
+// de mandarle a alguien el link de una campaña — había que decirle "entra a
+// Campañas y búscala". Se usa el hash (#/campannas/<id>) porque el sitio es
+// estático y no hay servidor que reescriba rutas reales.
+const _PAGINAS_VALIDAS = new Set(['dashboard','campannas','metricas','influencers',
+  'documentos','calendario','generador','pendientes','equipo','ajustes','thinkypeso','effies']);
+
+// Bandera para no morderse la cola: aplicar una ruta llama a navigate(), que
+// querría volver a escribir la ruta.
+let _aplicandoRuta = false;
+
+function rutaActual() {
+  if(currentPage === 'campannas' && currentCampaignId) return '#/campannas/' + currentCampaignId;
+  return '#/' + (currentPage || 'dashboard');
+}
+
+function escribirRuta(reemplazar) {
+  if(_aplicandoRuta) return;
+  const nueva = rutaActual();
+  if(location.hash === nueva) return;
+  // replaceState para el arranque (no debe quedar una entrada de historial
+  // "vacía" antes de la primera vista) y pushState para la navegación real.
+  try {
+    if(reemplazar) history.replaceState(null, '', nueva);
+    else history.pushState(null, '', nueva);
+  } catch(e) { location.hash = nueva; }
+}
+
+// Devuelve true si logró aplicar algo, para que el arranque sepa si ya hay
+// vista puesta o tiene que caer al localStorage.
+function aplicarRuta(hash) {
+  const partes = String(hash || location.hash || '').replace(/^#\/?/, '').split('/').filter(Boolean);
+  const pagina = partes[0];
+  if(!pagina || !_PAGINAS_VALIDAS.has(pagina)) return false;
+  _aplicandoRuta = true;
+  try {
+    navigate(pagina);
+    if(pagina === 'campannas') {
+      const cid = partes[1];
+      if(cid) {
+        const c = (_cache.campaigns || []).find(x => x.id === cid);
+        // Una campaña que ya no existe o a la que se perdió acceso no debe
+        // dejar la pantalla en blanco: se cae al listado y se dice por qué.
+        if(c && (typeof canSeeCampaign !== 'function' || canSeeCampaign(c))) {
+          openCampaignDetail(cid);
+        } else {
+          showCampaignList();
+          if(_cache._initialized) showToast('Esa campaña ya no está disponible.', 'error');
+        }
+      } else {
+        showCampaignList();
+      }
+    }
+  } finally {
+    _aplicandoRuta = false;
+  }
+  return true;
+}
+
+// Atrás y Adelante del navegador.
+window.addEventListener('popstate', () => { aplicarRuta(); });
+// Y el caso de pegar un #/... a mano en la barra, que no dispara popstate.
+window.addEventListener('hashchange', () => { if(!_aplicandoRuta) aplicarRuta(); });

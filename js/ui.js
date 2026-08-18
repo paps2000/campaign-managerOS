@@ -2263,6 +2263,15 @@ auth.onAuthStateChanged(async (user) => {
 
   // Restore last page + campaign detail across reload
   try {
+    // Si llegaste por un link con ruta (#/campannas/abc), esa manda sobre lo
+    // último que viste: alguien te mandó el link justamente para llevarte ahí.
+    const _porRuta = aplicarRuta();
+    const _ctab = localStorage.getItem('cmos:lastCampaignTab');
+    if(_porRuta) {
+      if(currentCampaignId && _ctab) {
+        setTimeout(() => { try { _switchCampaignTab(_ctab); } catch(e){} }, 50);
+      }
+    } else {
     const lastPage = localStorage.getItem('cmos:lastPage');
     const lastCid  = localStorage.getItem('cmos:lastCampaignId');
     const lastCtab = localStorage.getItem('cmos:lastCampaignTab');
@@ -2282,7 +2291,11 @@ auth.onAuthStateChanged(async (user) => {
         try { localStorage.removeItem('cmos:lastCampaignId'); localStorage.removeItem('cmos:lastCampaignTab'); } catch(e){}
       }
     }
+    }
   } catch(e){ console.warn('restore last view failed', e); }
+  // La primera vista no debe dejar una entrada de historial anterior a ella:
+  // con pushState, el primer Atrás no haría nada visible.
+  try { escribirRuta(true); } catch(e){}
 
   // Onboarding en el primer login: completar perfil + elegir campañas a seguir
   if(!currentUserProfile.onboardingDone) {
