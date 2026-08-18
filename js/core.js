@@ -190,12 +190,25 @@ function _stripLargeFields(c) {
 // entera y reescribía TODAS las campañas, así que un solo click costaba N
 // lecturas + N escrituras y disparaba N eventos del listener.
 const _persistedFp = new Map();
+// Serializa con las claves ordenadas EN TODOS LOS NIVELES. Ojo: no se puede
+// usar el replacer de JSON.stringify (el array de claves) porque ese array
+// filtra por nombre en todo el árbol, así que los objetos anidados
+// —responsables, goal, cada fila de influencers— salían vacíos y dos campañas
+// que solo diferían ahí daban la misma huella: la escritura se saltaba y el
+// cambio (p. ej. quitarte de Cuentas) nunca llegaba a Firestore.
+function _stableStringify(v) {
+  if(v === undefined || typeof v === 'function') return 'null';
+  if(v === null || typeof v !== 'object') return JSON.stringify(v);
+  if(Array.isArray(v)) return '[' + v.map(_stableStringify).join(',') + ']';
+  // undefined se omite igual que en JSON.stringify: el doc que vuelve del
+  // servidor tampoco lo trae, y así la huella local y la remota coinciden.
+  const keys = Object.keys(v).filter(k => v[k] !== undefined && typeof v[k] !== 'function').sort();
+  return '{' + keys.map(k => JSON.stringify(k) + ':' + _stableStringify(v[k])).join(',') + '}';
+}
 function _campaignFingerprint(c) {
   const o = _stripLargeFields(c);
   delete o._updatedAt; delete o._updatedBy;   // metadatos, no contenido
-  // claves ordenadas: si no, dos objetos iguales con distinto orden de
-  // inserción darían huellas distintas
-  return JSON.stringify(o, Object.keys(o).sort());
+  return _stableStringify(o);
 }
 // Llamado desde el listener: el servidor es la fuente de verdad.
 function _seedPersistedFp(docs) {
@@ -384,6 +397,7 @@ function rerenderCurrent() {
     if(currentCampaignId) {
       const c = _cache.campaigns.find(x=>x.id===currentCampaignId);
       if(c) {
+        try { renderCampaignInfoGrid(c); } catch(e){ console.warn('info grid render', e); }
         renderCampaignInfluencers(c);
         renderCampaignTasks(c);
         renderCampaignDocs(c);

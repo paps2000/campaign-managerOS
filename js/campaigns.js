@@ -444,21 +444,10 @@ function showCampaignList() {
   renderCampaignGrid();
 }
 
-function openCampaignDetail(cid) {
-  currentCampaignId = cid;
-  try { localStorage.setItem('cmos:lastCampaignId', cid); } catch(e){}
-  const campaigns = getData('campaigns');
-  const c = campaigns.find(x=>x.id===cid);
-  if(!c) return;
-  if(!canSeeCampaign(c)) {
-    showToast('No tienes acceso a esta campaña','error');
-    showCampaignList();
-    return;
-  }
-
-  document.getElementById('campaignList').style.display='none';
-  document.getElementById('campaignDetailView').classList.add('active');
-
+// El grid de Resumen (responsables, presupuesto, participantes) se re-renderiza
+// también desde rerenderCurrent(): antes solo se pintaba al abrir la campaña,
+// así que un cambio de responsables no se veía hasta volver a entrar.
+function renderCampaignInfoGrid(c) {
   const statusBadge = (s) => {
     const map = {'En proceso':'badge-blue','Ajustes':'badge-yellow','Pendiente cliente':'badge-orange','En reporte':'badge-red','En producción':'badge-purple','Completado':'badge-green'};
     return `<span class="badge ${map[s]||'badge-gray'}">${s}</span>`;
@@ -537,6 +526,24 @@ function openCampaignDetail(cid) {
       <div class="info-value" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;">${assigneeChips}</div>
     </div>
   `;
+}
+
+function openCampaignDetail(cid) {
+  currentCampaignId = cid;
+  try { localStorage.setItem('cmos:lastCampaignId', cid); } catch(e){}
+  const campaigns = getData('campaigns');
+  const c = campaigns.find(x=>x.id===cid);
+  if(!c) return;
+  if(!canSeeCampaign(c)) {
+    showToast('No tienes acceso a esta campaña','error');
+    showCampaignList();
+    return;
+  }
+
+  document.getElementById('campaignList').style.display='none';
+  document.getElementById('campaignDetailView').classList.add('active');
+
+  renderCampaignInfoGrid(c);
 
   renderCampaignInfluencers(c);
   renderCampaignTasks(c);
