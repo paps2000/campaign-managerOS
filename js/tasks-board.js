@@ -35,18 +35,87 @@ function taskStatus(t) {
 }
 function taskPrio(t) { return TASK_PRIO_BY_ID[t.priority] ? t.priority : 'medium'; }
 
-// Involucrados = responsable + seguidores. El creador va aparte (se marca en
-// el tooltip) para que se lea quién pidió la tarea sin ensuciar el conteo.
+// Roles de una tarea:
+//   responsable   -> assigneeUid (uno solo, quien la saca)
+//   supervisores  -> supervisors[] (jefe directo o quien necesita seguimiento)
+//   colaboradores -> watchers[] (participan sin cargar con la entrega)
+// El creador va aparte (se marca en el tooltip) para que se lea quién pidió la
+// tarea sin ensuciar el conteo.
+function taskSupervisors(t) { return (t.supervisors || []).filter(Boolean); }
+function taskWatchers(t)    { return (t.watchers    || []).filter(Boolean); }
 function taskPeople(t) {
   const uids = [];
-  if(t.assigneeUid) uids.push(t.assigneeUid);
-  (t.watchers || []).forEach(w => { if(w && !uids.includes(w)) uids.push(w); });
+  const add = u => { if(u && !uids.includes(u)) uids.push(u); };
+  add(t.assigneeUid);
+  taskSupervisors(t).forEach(add);
+  taskWatchers(t).forEach(add);
   return uids;
 }
 function taskInvolved(t) {
   const uids = taskPeople(t);
   if(t.createdBy && !uids.includes(t.createdBy)) uids.push(t.createdBy);
   return uids;
+}
+// Etiqueta legible del papel de alguien dentro de una tarea.
+function taskRoleOf(t, uid) {
+  if(uid && uid === t.assigneeUid) return 'Responsable';
+  if(taskSupervisors(t).includes(uid)) return 'Supervisor';
+  if(taskWatchers(t).includes(uid)) return 'Colaborador';
+  if(uid === t.createdBy) return 'Creó la tarea';
+  return 'Involucrado';
+}
+
+// ── Deadlines ──
+// Dos fechas por tarea: la interna (lo que el equipo se compromete a tener) y
+// la de cliente (lo que el cliente recibe o revisa). `dueDate` sigue siendo la
+// interna para no romper dashboard, badge ni recurrentes; `clientDueDate` es
+// la nueva. El interno debería caer antes que el de cliente: cuando no pasa,
+// la fila lo marca en vez de callarlo.
+const TASK_DUE_FIELDS = {
+  interno: { key:'dueDate',       label:'Interno', short:'Int.' },
+  cliente: { key:'clientDueDate', label:'Cliente', short:'Cli.' },
+};
+function taskDue(t, field) {
+  return t[(TASK_DUE_FIELDS[field] || TASK_DUE_FIELDS.interno).key] || '';
+}
+// Fecha con la que se ordena y se avisa: la más próxima de las dos.
+function taskNextDue(t) {
+  const a = t.dueDate || '', b = t.clientDueDate || '';
+  if(a && b) return a < b ? a : b;
+  return a || b;
+}
+function taskDatesConflict(t) {
+  return !!(t.dueDate && t.clientDueDate && t.dueDate > t.clientDueDate);
+}
+
+// ── Documentos ──
+// Los links viven en `docLinks`: [{url, label}]. Las tareas viejas guardaban
+// uno solo en `docLink`; se lee como si fuera el primero del arreglo, así que
+// nada de lo ya capturado se pierde.
+function taskDocLinks(t) {
+  const out = (t.docLinks || []).filter(l => l && l.url);
+  if(!out.length && t.docLink) out.push({ url:t.docLink, label:'' });
+  return out;
+}
+// Etiqueta por defecto: el servicio, no una URL cruda de 180 caracteres que
+// rompe el renglón y no dice nada.
+function docLinkLabel(l) {
+  if(l.label) return l.label;
+  let u;
+  try { u = new URL(l.url); } catch { return l.url; }
+  const h = u.hostname.replace(/^www\./, '');
+  if(h === 'docs.google.com') {
+    if(u.pathname.startsWith('/spreadsheets')) return 'Google Sheets';
+    if(u.pathname.startsWith('/presentation')) return 'Google Slides';
+    if(u.pathname.startsWith('/forms'))        return 'Google Forms';
+    return 'Google Docs';
+  }
+  return {
+    'drive.google.com':'Google Drive', 'notion.so':'Notion', 'www.notion.so':'Notion',
+    'figma.com':'Figma', 'dropbox.com':'Dropbox', 'canva.com':'Canva',
+    'youtube.com':'YouTube', 'youtu.be':'YouTube', 'vimeo.com':'Vimeo',
+    'instagram.com':'Instagram', 'tiktok.com':'TikTok',
+  }[h] || h;
 }
 function _userByUid(uid) { return allUsers.find(u => u.uid === uid) || null; }
 function _userName(u, fallback) {
@@ -67,6 +136,7 @@ const _tb = {
   statuses: [],
   prios: [],
   date: 'todos',        // todos | vencidas | hoy | semana | sin_fecha
+  dateField: 'interno', // contra qué deadline miden los filtros de fecha
   showDone: false,
   collapsed: [],        // claves de grupo plegadas
 };
@@ -100,17 +170,25 @@ function setTbView(v)    { _tb.view = v; _tbSave(); renderPendientes(); }
 function setTbGroupBy(v) { _tb.groupBy = v; _tbSave(); renderPendientes(); }
 function setTbScope(v)   { _tb.scope = v; _tbSave(); renderPendientes(); }
 function setTbDate(v)    { _tb.date = v; _tbSave(); renderPendientes(); }
+function setTbDateField(v){ _tb.dateField = v; _tbSave(); renderPendientes(); }
 function setTbShowDone(v){ _tb.showDone = !!v; _tbSave(); renderPendientes(); }
 function setTbSearch(v)  { _tb.search = v; renderPendientes(); }
 function tbClearFilters() {
   _tb.search = ''; _tb.people = []; _tb.statuses = []; _tb.prios = [];
-  _tb.date = 'todos'; _tb.showDone = false; _tb.scope = 'mios';
+  _tb.date = 'todos'; _tb.dateField = 'interno'; _tb.showDone = false; _tb.scope = 'mios';
   _tbSave();
   renderPendientes();
 }
 function _tbHasFilters() {
   return !!(_tb.search || _tb.people.length || _tb.statuses.length || _tb.prios.length ||
             _tb.date !== 'todos' || _tb.showDone || _tb.scope !== 'mios');
+}
+// Cuántos filtros hay puestos. Va en el badge del botón "Filtros": sin eso,
+// un filtro escondido en el panel se vuelve invisible y la lista miente.
+function _tbFilterCount() {
+  return (_tb.people.length ? 1 : 0) + (_tb.statuses.length ? 1 : 0) +
+         (_tb.prios.length ? 1 : 0) + (_tb.date !== 'todos' ? 1 : 0) +
+         (_tb.showDone ? 1 : 0);
 }
 
 // ============================================================
@@ -121,25 +199,32 @@ function _tbPlusDays(n) {
   const d = new Date(); d.setDate(d.getDate() + n);
   return d.toISOString().split('T')[0];
 }
-function _tbDateState(t) {
-  if(taskStatus(t) === 'listo') return 'done';
-  if(!t.dueDate) return 'none';
+// Estado de UNA fecha suelta (sirve para interno y para cliente).
+function _tbDayState(due, done) {
+  if(done) return 'done';
+  if(!due) return 'none';
   const today = _tbToday();
-  if(t.dueDate < today) return 'overdue';
-  if(t.dueDate === today) return 'today';
-  if(t.dueDate <= _tbPlusDays(7)) return 'soon';
+  if(due < today) return 'overdue';
+  if(due === today) return 'today';
+  if(due <= _tbPlusDays(7)) return 'soon';
   return 'later';
 }
-function _tbDateLabel(t) {
-  if(!t.dueDate) return 'Sin fecha';
-  const st = _tbDateState(t);
+// Estado de la tarea contra el deadline elegido en los filtros (interno por
+// defecto). El agrupado por fecha y el orden usan este.
+function _tbDateState(t, field) {
+  return _tbDayState(taskDue(t, field || _tb.dateField), taskStatus(t) === 'listo');
+}
+function _tbDayLabel(due) {
+  if(!due) return 'Sin fecha';
+  const st = _tbDayState(due, false);
   if(st === 'today') return 'Hoy';
   if(st === 'overdue') {
-    const days = Math.round((new Date(_tbToday()) - new Date(t.dueDate)) / 86400000);
-    return `${formatDateShort(t.dueDate)} · ${days}d tarde`;
+    const days = Math.round((new Date(_tbToday()) - new Date(due)) / 86400000);
+    return `${formatDateShort(due)} · ${days}d tarde`;
   }
-  return formatDateShort(t.dueDate) || t.dueDate;
+  return formatDateShort(due) || due;
 }
+function _tbDateLabel(t, field) { return _tbDayLabel(taskDue(t, field || _tb.dateField)); }
 
 // ============================================================
 // RECOLECCIÓN + FILTRADO
@@ -189,10 +274,11 @@ function _tbFilter(tasks) {
     if(_tb.prios.length && !_tb.prios.includes(taskPrio(t))) return false;
 
     if(_tb.date !== 'todos') {
-      if(_tb.date === 'sin_fecha' && t.dueDate) return false;
-      if(_tb.date === 'vencidas' && !(t.dueDate && t.dueDate < today && st !== 'listo')) return false;
-      if(_tb.date === 'hoy' && t.dueDate !== today) return false;
-      if(_tb.date === 'semana' && !(t.dueDate && t.dueDate >= today && t.dueDate <= weekEnd)) return false;
+      const due = taskDue(t, _tb.dateField);
+      if(_tb.date === 'sin_fecha' && due) return false;
+      if(_tb.date === 'vencidas' && !(due && due < today && st !== 'listo')) return false;
+      if(_tb.date === 'hoy' && due !== today) return false;
+      if(_tb.date === 'semana' && !(due && due >= today && due <= weekEnd)) return false;
     }
 
     if(q) {
@@ -214,8 +300,9 @@ function _tbSort(tasks) {
     if(oa !== ob) return oa ? -1 : 1;
     const pa = _TB_PRIO_ORDER[taskPrio(a)], pb = _TB_PRIO_ORDER[taskPrio(b)];
     if(pa !== pb) return pa - pb;
-    if(!!a.dueDate !== !!b.dueDate) return a.dueDate ? -1 : 1;
-    if(a.dueDate && b.dueDate && a.dueDate !== b.dueDate) return a.dueDate < b.dueDate ? -1 : 1;
+    const na = taskNextDue(a), nb = taskNextDue(b);
+    if(!!na !== !!nb) return na ? -1 : 1;
+    if(na && nb && na !== nb) return na < nb ? -1 : 1;
     return 0;
   });
 }
@@ -259,7 +346,10 @@ function _tbGroup(tasks) {
         none:    ['d:4', 'Sin fecha',     '#c4c4c4'],
         done:    ['d:5', 'Listas',        '#00c875'],
       }[st];
-      push(meta[0], meta[1], meta[2], t);
+      // El grupo dice contra qué deadline se agrupó: "Vencidas" a secas no
+      // distingue si es el interno o el que ve el cliente.
+      const suffix = st === 'done' ? '' : ` · deadline ${TASK_DUE_FIELDS[_tb.dateField].label.toLowerCase()}`;
+      push(meta[0], meta[1] + suffix, meta[2], t);
     }
   });
 
@@ -282,11 +372,18 @@ function _tbGroup(tasks) {
 // ============================================================
 // PIEZAS DE UI
 // ============================================================
+// `ring` marca el papel: rosa = responsable, azul = supervisor, sin anillo =
+// colaborador. Es la única pista de rol que cabe en una pila de avatares.
+const _TB_RING = { responsable:'var(--pink)', supervisor:'#0086c0' };
 function _tbAvatar(u, size, ring) {
   const bg = (u && u.profileGradient) || 'var(--lavender)';
   const content = u ? (u.profileEmoji || (u.name || u.email || '?')[0].toUpperCase()) : '?';
   const fs = u && u.profileEmoji ? Math.round(size * 0.6) : Math.round(size * 0.48);
-  return `<span class="tb-av" style="width:${size}px;height:${size}px;background:${bg};font-size:${fs}px;${ring ? 'box-shadow:0 0 0 2px var(--white),0 0 0 3.5px var(--pink);' : 'box-shadow:0 0 0 2px var(--white);'}">${content}</span>`;
+  const col = ring === true ? _TB_RING.responsable : _TB_RING[ring];
+  const shadow = col
+    ? `box-shadow:0 0 0 2px var(--white),0 0 0 3.5px ${col};`
+    : 'box-shadow:0 0 0 2px var(--white);';
+  return `<span class="tb-av" style="width:${size}px;height:${size}px;background:${bg};font-size:${fs}px;${shadow}">${content}</span>`;
 }
 
 // Pila de involucrados: responsable primero (con anillo), luego seguidores,
@@ -299,13 +396,14 @@ function _tbPeopleStack(t, size = 26) {
   if(!people.length && !creator) {
     return `<span class="tb-av tb-av-empty" style="width:${size}px;height:${size}px;" title="Sin asignar">?</span>`;
   }
-  people.slice(0, 3).forEach((uid, i) => {
+  people.slice(0, 3).forEach(uid => {
     const u = _userByUid(uid);
-    const role = i === 0 && t.assigneeUid === uid ? 'Responsable' : 'Involucrado';
-    chips.push(`<span class="tb-av-wrap" data-uid="${_esc(uid)}" title="${_esc(_userName(u, t.assignee))} — ${role}">${_tbAvatar(u, size, i === 0 && t.assigneeUid === uid)}</span>`);
+    const role = taskRoleOf(t, uid);
+    const ring = role === 'Responsable' ? 'responsable' : role === 'Supervisor' ? 'supervisor' : '';
+    chips.push(`<span class="tb-av-wrap" data-uid="${_esc(uid)}" title="${_esc(_userName(u, t.assignee))} — ${role}">${_tbAvatar(u, size, ring)}</span>`);
   });
   if(people.length > 3) {
-    chips.push(`<span class="tb-av tb-av-more" style="width:${size}px;height:${size}px;font-size:${Math.round(size*0.4)}px;" title="${people.slice(3).map(uid=>_esc(_userName(_userByUid(uid),''))).join(', ')}">+${people.length - 3}</span>`);
+    chips.push(`<span class="tb-av tb-av-more" style="width:${size}px;height:${size}px;font-size:${Math.round(size*0.4)}px;" title="${people.slice(3).map(uid=>_esc(_userName(_userByUid(uid),'')) + ' — ' + taskRoleOf(t, uid)).join(', ')}">+${people.length - 3}</span>`);
   }
   if(creator) {
     const cu = _userByUid(creator);
@@ -322,9 +420,22 @@ function _tbPrioCell(t) {
   const p = TASK_PRIO_BY_ID[taskPrio(t)];
   return `<button class="tb-pill tb-prio" data-act="prio" data-tid="${_esc(t.id)}" data-cid="${_esc(t.campaignId||'')}" style="background:${p.color};">${p.label}</button>`;
 }
+// La celda muestra los dos deadlines apilados: el interno manda (es el que el
+// equipo trabaja) y el de cliente va debajo, más chico. Si solo hay uno, no se
+// pinta una línea vacía. El orden se invierte si los filtros miran al cliente.
 function _tbDateCell(t) {
-  const st = _tbDateState(t);
-  return `<span class="tb-date tb-date-${st}">${_tbDateLabel(t)}</span>`;
+  const done = taskStatus(t) === 'listo';
+  const primary = _tb.dateField === 'cliente' ? 'cliente' : 'interno';
+  const secondary = primary === 'cliente' ? 'interno' : 'cliente';
+  const pDue = taskDue(t, primary), sDue = taskDue(t, secondary);
+  const conflict = taskDatesConflict(t);
+  const rows = [
+    `<span class="tb-date tb-date-${_tbDayState(pDue, done)}">${_tbDayLabel(pDue)}</span>`
+  ];
+  if(sDue) {
+    rows.push(`<span class="tb-date-sub tb-date-${_tbDayState(sDue, done)}" title="Deadline ${TASK_DUE_FIELDS[secondary].label.toLowerCase()}">${TASK_DUE_FIELDS[secondary].short} ${_tbDayLabel(sDue)}</span>`);
+  }
+  return `<span class="tb-dates${conflict ? ' tb-dates-conflict' : ''}"${conflict ? ' title="El deadline interno cae después del de cliente"' : ''}>${rows.join('')}</span>`;
 }
 
 const _TB_ICN_EDIT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></svg>';
@@ -344,7 +455,12 @@ function _tbRow(t) {
         ${_tb.groupBy !== 'campaign' && t.campaignName ? `<span class="tb-tag">${_esc(t.campaignName)}</span>` : ''}
         ${t._isRecurring ? '<span class="tb-tag tb-tag-rec">🔄 Semanal</span>' : ''}
         ${t.notes ? '<span class="tb-tag" title="Tiene notas">📝</span>' : ''}
-        ${t.docLink ? '<span class="tb-tag" title="Tiene documento">🔗</span>' : ''}
+        ${(() => {
+          const links = taskDocLinks(t);
+          if(!links.length) return '';
+          const title = links.map(l => docLinkLabel(l)).join(', ');
+          return `<span class="tb-tag" title="${_esc(title)}">🔗${links.length > 1 ? ' ' + links.length : ''}</span>`;
+        })()}
       </span>
     </div>
     <div class="tb-meta">
@@ -387,7 +503,7 @@ function _tbGroupHtml(g) {
             <div class="tb-cell tb-cell-people">Involucrados</div>
             <div class="tb-cell tb-cell-status">Estado</div>
             <div class="tb-cell tb-cell-prio">Prioridad</div>
-            <div class="tb-cell tb-cell-date">Fecha</div>
+            <div class="tb-cell tb-cell-date">Deadlines</div>
           </div>
           <div class="tb-cell tb-cell-actions"></div>
         </div>
@@ -431,28 +547,166 @@ function _tbKanbanHtml(tasks, fresh) {
 // ============================================================
 // BARRA DE FILTROS
 // ============================================================
-function _tbToolbarHtml(all, shown) {
-  const counts = { overdue:0, today:0, done:0 };
-  all.forEach(t => {
-    const st = _tbDateState(t);
-    if(st === 'overdue') counts.overdue++;
-    if(st === 'today') counts.today++;
-    if(taskStatus(t) === 'listo') counts.done++;
+// Antes eran cuatro filas apiladas y una de ellas listaba a TODO el equipo:
+// con ocho personas la barra tapaba la primera tarea. Ahora hay una sola fila
+// siempre visible (buscar, alcance, filtros, agrupar, vista) y el resto vive
+// en un panel. Lo que sí queda a la vista son los filtros puestos, en chips
+// que se quitan de uno en uno: esconder un filtro sin decirlo hace que la
+// lista parezca incompleta y nadie sepa por qué.
+let _tbPanelOpen = false;
+let _tbPeopleQuery = '';
+function setTbPeopleQuery(v) { _tbPeopleQuery = v; renderPendientes(); }
+function toggleTbPanel(force) {
+  _tbPanelOpen = force === undefined ? !_tbPanelOpen : !!force;
+  if(!_tbPanelOpen) _tbPeopleQuery = '';
+  renderPendientes();
+}
+
+const _TB_DATE_OPTS = [
+  ['todos','Todas'], ['vencidas','Vencidas'], ['hoy','Hoy'],
+  ['semana','Próx. 7 días'], ['sin_fecha','Sin fecha'],
+];
+
+const _TB_ICN_FILTER = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16M7 12h10M10 19h4"/></svg>';
+
+// Chips de "esto está filtrado ahora". Cada uno se quita solo.
+function _tbActiveChips(all) {
+  const out = [];
+  const chip = (label, act, val) =>
+    `<button class="tb-active-chip" data-act="${act}"${val !== undefined ? ` data-val="${_esc(val)}"` : ''}>
+      <span>${label}</span><i aria-hidden="true">×</i></button>`;
+
+  if(_tb.scope !== 'mios') out.push(chip('Todo el equipo', 'scope', 'mios'));
+  if(_tb.search) out.push(chip(`Busca «${_esc(_tb.search)}»`, 'clear-search'));
+  _tb.people.forEach(uid => {
+    const name = uid === '__none__' ? 'Sin responsable' : _esc(_userName(_userByUid(uid), 'Alguien'));
+    out.push(chip(name, 'person', uid));
   });
+  _tb.statuses.forEach(id => out.push(chip(_esc(TASK_STATUS_BY_ID[id].label), 'status-f', id)));
+  _tb.prios.forEach(id => out.push(chip('Prioridad ' + _esc(TASK_PRIO_BY_ID[id].label.toLowerCase()), 'prio-f', id)));
+  if(_tb.date !== 'todos') {
+    const lbl = (_TB_DATE_OPTS.find(o => o[0] === _tb.date) || ['', _tb.date])[1];
+    out.push(chip(`${_esc(lbl)} · deadline ${TASK_DUE_FIELDS[_tb.dateField].label.toLowerCase()}`, 'date', 'todos'));
+  }
+  if(_tb.showDone) out.push(chip('Incluye listas', 'showdone'));
 
-  // Personas: solo quienes de verdad participan en alguna tarea visible.
-  const involvedUids = [...new Set(all.flatMap(t => taskInvolved(t)))];
-  const people = involvedUids.map(uid => _userByUid(uid)).filter(Boolean)
-    .sort((a, b) => _userName(a, '').localeCompare(_userName(b, '')));
-  const unassigned = all.filter(t => !t.assigneeUid).length;
-  const loadOf = uid => all.filter(t => taskInvolved(t).includes(uid) && taskStatus(t) !== 'listo').length;
+  if(!out.length) return '';
+  return `<div class="tb-active-row">
+    <span class="tb-flabel">Filtrando por</span>
+    ${out.join('')}
+    <button class="tb-clear" data-act="clear">Limpiar todo</button>
+  </div>`;
+}
 
+function _tbPanelHtml(all) {
   const chip = (on, extra, attrs, inner) =>
     `<button class="tb-chip${on ? ' on' : ''}${extra ? ' ' + extra : ''}" ${attrs}>${inner}</button>`;
 
+  // Personas: solo quienes de verdad participan en alguna tarea visible.
+  const involvedUids = [...new Set(all.flatMap(t => taskInvolved(t)))];
+  const q = _tbPeopleQuery.trim().toLowerCase();
+  const people = involvedUids.map(uid => _userByUid(uid)).filter(Boolean)
+    .filter(u => !q || _userName(u, '').toLowerCase().includes(q))
+    .sort((a, b) => _userName(a, '').localeCompare(_userName(b, '')));
+  const unassigned = all.filter(t => !t.assigneeUid).length;
+  const loadOf = uid => all.filter(t => taskInvolved(t).includes(uid) && taskStatus(t) !== 'listo').length;
+  const doneCount = all.filter(t => taskStatus(t) === 'listo').length;
+  const dateCount = v => {
+    const today = _tbToday(), weekEnd = _tbPlusDays(7);
+    return all.filter(t => {
+      const due = taskDue(t, _tb.dateField);
+      if(v === 'vencidas')  return due && due < today && taskStatus(t) !== 'listo';
+      if(v === 'hoy')       return due === today;
+      if(v === 'semana')    return due && due >= today && due <= weekEnd;
+      if(v === 'sin_fecha') return !due;
+      return 0;
+    }).length;
+  };
+
+  const personRow = (uid, avatar, name, n) => {
+    const on = _tb.people.includes(uid);
+    return `<button class="tb-person-row${on ? ' on' : ''}" data-act="person" data-val="${_esc(uid)}">
+      <span class="tb-person-check" aria-hidden="true"></span>
+      ${avatar}
+      <span class="tb-person-name">${name}</span>
+      <span class="tb-chip-n">${n}</span>
+    </button>`;
+  };
+
   return `
-  <div class="tb-toolbar">
-    <div class="tb-toolbar-row">
+  <div class="tb-panel" id="tbFilterPanel">
+    <div class="tb-panel-head">
+      <span>Filtros</span>
+      <button class="tb-panel-x" data-act="filters-close" aria-label="Cerrar filtros">×</button>
+    </div>
+
+    <div class="tb-panel-sec">
+      <div class="tb-panel-label">Personas</div>
+      <div class="tb-search tb-search-sm">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+        <input type="search" id="tbPeopleSearch" placeholder="Buscar persona..." value="${_esc(_tbPeopleQuery)}" oninput="setTbPeopleQuery(this.value)">
+      </div>
+      <div class="tb-person-list">
+        ${unassigned ? personRow('__none__', '<span class="tb-av tb-av-empty" style="width:22px;height:22px;">?</span>', 'Sin responsable', unassigned) : ''}
+        ${people.map(u => personRow(u.uid, _tbAvatar(u, 22, false), _esc(_userName(u, '')), loadOf(u.uid))).join('')
+          || (q ? '<div class="tb-panel-empty">Nadie con ese nombre tiene tareas aquí.</div>' : '')}
+      </div>
+    </div>
+
+    <div class="tb-panel-sec">
+      <div class="tb-panel-label">Estado</div>
+      <div class="tb-panel-chips">
+        ${TASK_STATUSES.map(s => chip(_tb.statuses.includes(s.id), 'tb-chip-dot', `data-act="status-f" data-val="${s.id}"`,
+          `<i style="background:${s.color}"></i>${s.label}`)).join('')}
+      </div>
+    </div>
+
+    <div class="tb-panel-sec">
+      <div class="tb-panel-label">Prioridad</div>
+      <div class="tb-panel-chips">
+        ${TASK_PRIOS.map(p => chip(_tb.prios.includes(p.id), 'tb-chip-dot', `data-act="prio-f" data-val="${p.id}"`,
+          `<i style="background:${p.color}"></i>${p.label}`)).join('')}
+      </div>
+    </div>
+
+    <div class="tb-panel-sec">
+      <div class="tb-panel-label">Deadline
+        <div class="tb-seg tb-seg-sm">
+          ${Object.entries(TASK_DUE_FIELDS).map(([k, f]) =>
+            chip(_tb.dateField === k, 'tb-seg-btn', `data-act="datefield" data-val="${k}"`, f.label)).join('')}
+        </div>
+      </div>
+      <div class="tb-panel-chips">
+        ${_TB_DATE_OPTS.map(([v, l]) => {
+          const n = v === 'todos' ? 0 : dateCount(v);
+          return chip(_tb.date === v, '', `data-act="date" data-val="${v}"`,
+            `${l}${n ? `<span class="tb-chip-n">${n}</span>` : ''}`);
+        }).join('')}
+      </div>
+      <div class="tb-panel-hint">Las fechas de arriba miden contra el deadline ${TASK_DUE_FIELDS[_tb.dateField].label.toLowerCase()}.</div>
+    </div>
+
+    <div class="tb-panel-sec">
+      <div class="tb-panel-chips">
+        ${chip(_tb.showDone, '', 'data-act="showdone"', `Mostrar tareas listas${doneCount ? `<span class="tb-chip-n">${doneCount}</span>` : ''}`)}
+      </div>
+    </div>
+
+    <div class="tb-panel-foot">
+      <button class="tb-clear" data-act="clear">Limpiar todo</button>
+      <button class="btn btn-primary btn-sm" data-act="filters-close">Ver resultados</button>
+    </div>
+  </div>`;
+}
+
+function _tbToolbarHtml(all, shown) {
+  const chip = (on, extra, attrs, inner) =>
+    `<button class="tb-chip${on ? ' on' : ''}${extra ? ' ' + extra : ''}" ${attrs}>${inner}</button>`;
+  const nFilters = _tbFilterCount();
+
+  return `
+  <div class="tb-toolbar${_tbPanelOpen ? ' panel-open' : ''}">
+    <div class="tb-bar">
       <div class="tb-search">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
         <input type="search" id="tbSearchInput" placeholder="Buscar tarea, persona o campaña..." value="${_esc(_tb.search)}" oninput="setTbSearch(this.value)">
@@ -461,49 +715,27 @@ function _tbToolbarHtml(all, shown) {
         ${chip(_tb.scope === 'mios', 'tb-seg-btn', 'data-act="scope" data-val="mios"', 'Donde participo')}
         ${chip(_tb.scope === 'todos', 'tb-seg-btn', 'data-act="scope" data-val="todos"', 'Todo el equipo')}
       </div>
+      <button class="tb-filter-btn${nFilters ? ' has' : ''}${_tbPanelOpen ? ' open' : ''}" data-act="filters-open"
+        aria-expanded="${_tbPanelOpen}" aria-controls="tbFilterPanel">
+        ${_TB_ICN_FILTER}Filtros${nFilters ? `<span class="tb-chip-n">${nFilters}</span>` : ''}
+      </button>
       <label class="tb-select">Agrupar por
         <select onchange="setTbGroupBy(this.value)">
           <option value="campaign" ${_tb.groupBy==='campaign'?'selected':''}>Campaña</option>
           <option value="person"   ${_tb.groupBy==='person'  ?'selected':''}>Responsable</option>
           <option value="status"   ${_tb.groupBy==='status'  ?'selected':''}>Estado</option>
           <option value="priority" ${_tb.groupBy==='priority'?'selected':''}>Prioridad</option>
-          <option value="date"     ${_tb.groupBy==='date'    ?'selected':''}>Fecha</option>
+          <option value="date"     ${_tb.groupBy==='date'    ?'selected':''}>Deadline</option>
         </select>
       </label>
       <div class="tb-seg">
         ${chip(_tb.view === 'tabla',  'tb-seg-btn', 'data-act="view" data-val="tabla"', 'Tabla')}
         ${chip(_tb.view === 'kanban', 'tb-seg-btn', 'data-act="view" data-val="kanban"', 'Kanban')}
       </div>
-    </div>
-
-    <div class="tb-toolbar-row tb-filter-row">
-      <span class="tb-flabel">Involucrados</span>
-      ${unassigned ? chip(_tb.people.includes('__none__'), 'tb-chip-person', 'data-act="person" data-val="__none__"',
-        `<span class="tb-av tb-av-empty" style="width:20px;height:20px;">?</span>Sin asignar<span class="tb-chip-n">${unassigned}</span>`) : ''}
-      ${people.map(u => chip(_tb.people.includes(u.uid), 'tb-chip-person', `data-act="person" data-val="${_esc(u.uid)}"`,
-        `${_tbAvatar(u, 20, false)}${_esc(_userName(u, ''))}<span class="tb-chip-n">${loadOf(u.uid)}</span>`)).join('')}
-    </div>
-
-    <div class="tb-toolbar-row tb-filter-row">
-      <span class="tb-flabel">Estado</span>
-      ${TASK_STATUSES.map(s => chip(_tb.statuses.includes(s.id), 'tb-chip-dot', `data-act="status-f" data-val="${s.id}"`,
-        `<i style="background:${s.color}"></i>${s.label}`)).join('')}
-      <span class="tb-sep"></span>
-      <span class="tb-flabel">Prioridad</span>
-      ${TASK_PRIOS.map(p => chip(_tb.prios.includes(p.id), 'tb-chip-dot', `data-act="prio-f" data-val="${p.id}"`,
-        `<i style="background:${p.color}"></i>${p.label}`)).join('')}
-    </div>
-
-    <div class="tb-toolbar-row tb-filter-row">
-      <span class="tb-flabel">Fecha</span>
-      ${[['todos','Todas',''],['vencidas','Vencidas',counts.overdue],['hoy','Hoy',counts.today],['semana','Próx. 7 días',''],['sin_fecha','Sin fecha','']]
-        .map(([v, l, n]) => chip(_tb.date === v, '', `data-act="date" data-val="${v}"`,
-          `${l}${n ? `<span class="tb-chip-n">${n}</span>` : ''}`)).join('')}
-      <span class="tb-sep"></span>
-      ${chip(_tb.showDone, '', 'data-act="showdone"', `Ver listas${counts.done ? `<span class="tb-chip-n">${counts.done}</span>` : ''}`)}
-      ${_tbHasFilters() ? '<button class="tb-clear" data-act="clear">Limpiar filtros</button>' : ''}
       <span class="tb-result">${shown} de ${all.length} tareas</span>
     </div>
+    ${_tbActiveChips(all)}
+    ${_tbPanelOpen ? _tbPanelHtml(all) : ''}
   </div>`;
 }
 
@@ -519,11 +751,14 @@ function renderPendientes() {
 
   const toolbarEl = document.getElementById('pendientesToolbar');
   if(toolbarEl) {
-    const focused = document.activeElement && document.activeElement.id === 'tbSearchInput';
-    const caret = focused ? document.activeElement.selectionStart : null;
+    // La barra se repinta entera en cada tecla. Sin esto el cursor se pierde
+    // al segundo carácter, tanto en el buscador de tareas como en el de gente.
+    const ae = document.activeElement;
+    const keepId = ae && toolbarEl.contains(ae) && ae.id ? ae.id : null;
+    const caret = keepId ? ae.selectionStart : null;
     toolbarEl.innerHTML = _tbToolbarHtml(all, filtered.length);
-    if(focused) {
-      const inp = document.getElementById('tbSearchInput');
+    if(keepId) {
+      const inp = document.getElementById(keepId);
       if(inp) { inp.focus(); try { inp.setSelectionRange(caret, caret); } catch {} }
     }
   }
@@ -592,7 +827,18 @@ function _tbCloseMenu() { if(_tbMenuEl) { _tbMenuEl.remove(); _tbMenuEl = null; 
 document.addEventListener('click', e => {
   if(_tbMenuEl && !_tbMenuEl.contains(e.target) && !e.target.closest('.tb-pill')) _tbCloseMenu();
 });
-document.addEventListener('keydown', e => { if(e.key === 'Escape') _tbCloseMenu(); });
+document.addEventListener('keydown', e => {
+  if(e.key !== 'Escape') return;
+  _tbCloseMenu();
+  if(_tbPanelOpen) toggleTbPanel(false);
+});
+// Clic fuera del panel de filtros lo cierra. El botón que lo abre se excluye
+// para que no se cierre y se vuelva a abrir en el mismo clic.
+document.addEventListener('click', e => {
+  if(!_tbPanelOpen) return;
+  if(e.target.closest('.tb-panel') || e.target.closest('.tb-filter-btn')) return;
+  toggleTbPanel(false);
+});
 
 function _tbOpenMenu(anchor, items, onPick) {
   _tbCloseMenu();
@@ -649,6 +895,10 @@ function _tbBind() {
       case 'scope':    setTbScope(val); break;
       case 'view':     setTbView(val); break;
       case 'date':     setTbDate(val); break;
+      case 'datefield':setTbDateField(val); break;
+      case 'filters-open':  toggleTbPanel(); break;
+      case 'filters-close': toggleTbPanel(false); break;
+      case 'clear-search':  setTbSearch(''); break;
       case 'person':   _tbToggle('people', val); break;
       case 'status-f': _tbToggle('statuses', val); break;
       case 'prio-f':   _tbToggle('prios', val); break;

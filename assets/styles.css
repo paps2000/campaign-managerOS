@@ -1472,8 +1472,12 @@ html.dark .pronoun-chip.selected { background:var(--pink-pale); color:#fff; }
   }
   body { overflow:auto; }
 
-  /* Sidebar: hidden by default, slides in as overlay */
-  .sidebar {
+  /* Sidebar: hidden by default, slides in as overlay.
+     El selector lleva `body` a propósito: más abajo hay un
+     `.sidebar, .main { position: relative }` (el z-index del canvas glass) que
+     gana por venir después y devolvía el sidebar al flujo. Con eso el
+     contenido quedaba en una columna de ~135px en un teléfono. */
+  body .sidebar {
     position:fixed; left:0; top:0; bottom:0; z-index:200;
     transform:translateX(-100%); transition:transform var(--dur-fast) var(--ease);
     box-shadow:var(--shadow-lg);
@@ -3783,9 +3787,99 @@ body.client-mode #loginScreen.login-screen:not(.hidden) { display:none !importan
 .tb-toolbar {
   background:var(--white); border:1px solid var(--border); border-radius:16px;
   padding:12px 14px; margin-bottom:16px; display:flex; flex-direction:column; gap:10px;
+  position:relative;
 }
-.tb-toolbar-row { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
-.tb-filter-row { gap:6px; }
+.tb-bar { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+/* La fila de filtros puestos solo existe cuando hay alguno: una fila vacía
+   permanente es la mitad del problema de "se ve amontonado". */
+.tb-active-row {
+  display:flex; align-items:center; gap:6px; flex-wrap:wrap;
+  padding-top:9px; border-top:1px solid var(--border);
+}
+.tb-active-chip {
+  display:inline-flex; align-items:center; gap:6px; padding:4px 6px 4px 11px; border-radius:20px;
+  border:none; background:var(--pink); color:#fff; cursor:pointer;
+  font-family:'Quicksand',sans-serif; font-size:11.5px; font-weight:700; white-space:nowrap;
+  transition-property:var(--t-ui); transition-duration:var(--dur-quick); transition-timing-function:var(--ease);
+}
+.tb-active-chip i {
+  font-style:normal; font-size:14px; line-height:1; width:16px; height:16px; border-radius:50%;
+  display:inline-flex; align-items:center; justify-content:center; background:rgba(255,255,255,.24);
+}
+.tb-active-chip:hover i { background:rgba(255,255,255,.42); }
+
+.tb-filter-btn {
+  display:inline-flex; align-items:center; gap:7px; padding:8px 13px; border-radius:10px;
+  border:1.5px solid var(--border); background:var(--white); color:var(--text);
+  font-family:'Quicksand',sans-serif; font-size:12.5px; font-weight:700; cursor:pointer;
+  transition-property:var(--t-ui); transition-duration:var(--dur-quick); transition-timing-function:var(--ease);
+}
+.tb-filter-btn svg { width:15px; height:15px; }
+.tb-filter-btn:hover { border-color:var(--pink); color:var(--pink); }
+.tb-filter-btn.has, .tb-filter-btn.open { border-color:var(--pink); color:var(--pink-deep); background:var(--pink-pale); }
+.tb-filter-btn.has .tb-chip-n { background:var(--pink); color:#fff; }
+
+/* ── Panel de filtros ── */
+/* La toolbar tiene backdrop-filter, o sea que es su propio contexto de apilado:
+   subir el z-index del panel no lo saca de ahí. Lo que sube es la toolbar
+   entera mientras el panel está abierto — si no, los grupos (que también son
+   glass y van después en el DOM) se pintan encima. */
+.tb-toolbar.panel-open { z-index:70; }
+.tb-panel {
+  position:absolute; z-index:60; top:calc(100% - 4px); left:14px; width:min(360px, calc(100vw - 40px));
+  background:var(--white); border:1px solid var(--border); border-radius:16px;
+  box-shadow:0 18px 50px rgba(10,10,12,.16); padding:14px; max-height:70vh; overflow-y:auto;
+  display:flex; flex-direction:column; gap:14px;
+  animation:pop var(--dur-fast) var(--ease);
+}
+.tb-panel-head {
+  display:flex; align-items:center; justify-content:space-between;
+  font-size:13px; font-weight:700; color:var(--text);
+}
+.tb-panel-x {
+  border:none; background:none; cursor:pointer; font-size:20px; line-height:1;
+  color:var(--text-muted); padding:0 4px;
+}
+.tb-panel-x:hover { color:var(--pink); }
+.tb-panel-sec { display:flex; flex-direction:column; gap:8px; }
+.tb-panel-label {
+  display:flex; align-items:center; justify-content:space-between; gap:8px;
+  font-size:10px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:var(--text-muted);
+}
+.tb-panel-chips { display:flex; flex-wrap:wrap; gap:6px; }
+.tb-panel-hint { font-size:11px; color:var(--text-muted); line-height:1.4; }
+.tb-panel-empty, .tb-panel .pp-none { font-size:12px; color:var(--text-muted); padding:8px 2px; }
+.tb-panel-foot {
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+  padding-top:12px; border-top:1px solid var(--border);
+}
+/* Dentro del panel el buscador no debe heredar el flex:1 1 220px de la barra:
+   en una columna esa base se aplica a la altura y el campo crece hasta ocupar
+   media pantalla. */
+.tb-panel .tb-search-sm { flex:0 0 auto; min-width:0; }
+.tb-panel .tb-search-sm input { padding:7px 0; font-size:12.5px; }
+.tb-seg-sm .tb-seg-btn { padding:4px 10px; font-size:11px; }
+/* Lista de personas con scroll propio: con 20 personas el panel no crece
+   hasta salirse de la pantalla. */
+.tb-person-list { display:flex; flex-direction:column; gap:2px; max-height:190px; overflow-y:auto; margin:0 -4px; padding:0 4px; }
+.tb-person-row {
+  display:flex; align-items:center; gap:9px; width:100%; padding:6px 8px; border-radius:10px;
+  border:none; background:none; cursor:pointer; text-align:left;
+  font-family:'Quicksand',sans-serif; font-size:13px; font-weight:600; color:var(--text);
+  transition-property:var(--t-ui); transition-duration:var(--dur-quick); transition-timing-function:var(--ease);
+}
+.tb-person-row:hover { background:var(--bg); }
+.tb-person-row.on { background:var(--pink-pale); color:var(--pink-deep); }
+.tb-person-check {
+  width:16px; height:16px; border-radius:5px; border:1.5px solid var(--border);
+  flex-shrink:0; position:relative;
+}
+.tb-person-row.on .tb-person-check { background:var(--pink); border-color:var(--pink); }
+.tb-person-row.on .tb-person-check::after {
+  content:''; position:absolute; left:5px; top:1.5px; width:4px; height:8px;
+  border:solid #fff; border-width:0 2px 2px 0; transform:rotate(45deg);
+}
+.tb-person-name { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .tb-flabel {
   font-size:10px; font-weight:700; letter-spacing:1px; text-transform:uppercase;
   color:var(--text-muted); margin-right:2px;
@@ -3944,6 +4038,13 @@ body.client-mode #loginScreen.login-screen:not(.hidden) { display:none !importan
 .tb-date-today   { color:#fdab3d; font-weight:700; }
 .tb-date-soon    { color:var(--text); }
 .tb-date-none    { opacity:.6; }
+/* Dos deadlines en una celda: el que mandan los filtros arriba, el otro
+   debajo y en chico. Sin jerarquía se leen como dos fechas sueltas. */
+.tb-dates { display:flex; flex-direction:column; gap:1px; line-height:1.25; }
+.tb-date-sub { font-size:10.5px; font-weight:600; color:var(--text-muted); opacity:.85; }
+.tb-date-sub.tb-date-overdue { color:#e2445c; opacity:1; }
+.tb-date-sub.tb-date-today { color:#fdab3d; opacity:1; }
+.tb-dates-conflict { border-left:2px solid #e2445c; padding-left:6px; margin-left:-8px; }
 
 .tb-icon-btn {
   background:none; border:none; cursor:pointer; color:var(--text-muted);
@@ -4000,7 +4101,84 @@ body.client-mode #loginScreen.login-screen:not(.hidden) { display:none !importan
 .tb-card-title { font-size:13px; font-weight:600; color:var(--text); cursor:pointer; line-height:1.35; }
 .tb-card-foot { display:flex; align-items:center; justify-content:space-between; gap:8px; }
 
-/* ── Modal: involucrados ── */
+/* ── Modal: bloques y selector de personas ── */
+.form-section {
+  border:1px solid var(--border); border-radius:14px; padding:14px; margin-bottom:16px;
+  display:flex; flex-direction:column; gap:2px;
+}
+.form-section > .form-group:last-child { margin-bottom:0; }
+.form-section-title {
+  font-size:10px; font-weight:700; letter-spacing:1.1px; text-transform:uppercase;
+  color:var(--text-muted); margin-bottom:10px;
+}
+.form-optional {
+  font-size:10px; font-weight:600; letter-spacing:.4px; text-transform:uppercase;
+  color:var(--text-muted); background:var(--bg); border-radius:6px; padding:2px 6px; margin-left:6px;
+}
+.form-warn {
+  font-size:12px; font-weight:600; line-height:1.45; color:#9a3412;
+  background:#fff7ed; border:1px solid #fed7aa; border-radius:10px; padding:9px 12px; margin-top:4px;
+}
+.people-picker { display:flex; flex-direction:column; gap:8px; }
+.pp-field {
+  display:flex; align-items:center; flex-wrap:wrap; gap:6px;
+  border:1.5px solid var(--border); border-radius:12px; padding:7px 8px; min-height:44px;
+}
+.people-picker.open .pp-field { border-color:var(--pink); }
+.pp-empty { font-size:12.5px; color:var(--text-muted); padding-left:3px; }
+.pp-chip {
+  display:inline-flex; align-items:center; gap:6px; padding:3px 4px 3px 4px; border-radius:20px;
+  background:var(--pink-pale); color:var(--pink-deep); font-size:12px; font-weight:700;
+}
+.pp-chip-x {
+  border:none; background:rgba(0,0,0,.08); color:inherit; cursor:pointer;
+  width:16px; height:16px; border-radius:50%; font-size:13px; line-height:1;
+  display:inline-flex; align-items:center; justify-content:center;
+}
+.pp-chip-x:hover { background:var(--pink); color:#fff; }
+.pp-add {
+  margin-left:auto; border:none; background:none; cursor:pointer;
+  font-family:'Quicksand',sans-serif; font-size:12px; font-weight:700; color:var(--pink);
+  padding:4px 6px; border-radius:8px; white-space:nowrap;
+}
+.pp-add:hover { background:var(--pink-pale); }
+/* El desplegable va en flujo, no absoluto: el modal tiene scroll propio y un
+   popover absoluto se cortaba en el borde. */
+.pp-pop { border:1.5px solid var(--border); border-radius:12px; padding:8px; display:flex; flex-direction:column; gap:6px; }
+.pp-search {
+  border:1.5px solid var(--border); border-radius:9px; padding:7px 10px; outline:none;
+  font-family:'Quicksand',sans-serif; font-size:12.5px; color:var(--text); background:var(--bg);
+}
+.pp-search:focus { border-color:var(--pink); }
+.pp-list { display:flex; flex-direction:column; gap:2px; max-height:180px; overflow-y:auto; }
+.pp-opt {
+  display:flex; align-items:center; gap:9px; width:100%; padding:6px 8px; border-radius:9px;
+  border:none; background:none; cursor:pointer; text-align:left;
+  font-family:'Quicksand',sans-serif; font-size:13px; font-weight:600; color:var(--text);
+}
+.pp-opt:hover { background:var(--bg); }
+.pp-opt.on { background:var(--pink-pale); color:var(--pink-deep); }
+.pp-opt-check { width:16px; height:16px; border-radius:5px; border:1.5px solid var(--border); flex-shrink:0; position:relative; }
+.pp-opt.on .pp-opt-check { background:var(--pink); border-color:var(--pink); }
+.pp-opt.on .pp-opt-check::after {
+  content:''; position:absolute; left:5px; top:1.5px; width:4px; height:8px;
+  border:solid #fff; border-width:0 2px 2px 0; transform:rotate(45deg);
+}
+.pp-opt-name { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.pp-none { font-size:12px; color:var(--text-muted); padding:8px 4px; }
+
+/* ── Ajustes: notificaciones ── */
+.settings-switch {
+  display:flex; align-items:center; gap:10px; cursor:pointer;
+  font-size:13px; font-weight:600; color:var(--text);
+}
+.settings-switch input { accent-color:var(--pink); width:16px; height:16px; }
+.settings-note {
+  font-size:12px; line-height:1.5; color:var(--text-muted);
+  background:var(--bg); border-radius:10px; padding:10px 12px;
+}
+.settings-note code { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:11.5px; }
+
 .tb-watchers { display:flex; flex-wrap:wrap; gap:6px; }
 .tb-watcher {
   display:inline-flex; align-items:center; gap:6px; padding:4px 10px 4px 4px; border-radius:20px;
@@ -4030,16 +4208,23 @@ body.client-mode #loginScreen.login-screen:not(.hidden) { display:none !importan
   .tb-pill { width:auto; padding:4px 10px; }
   .tb-group-stack { display:none; }
   .tb-kanban { grid-template-columns:repeat(5,80vw); }
-  /* Las filas de filtros se desplazan en horizontal en vez de apilarse:
-     si no, la barra ocupa media pantalla antes de ver una sola tarea. */
-  .tb-filter-row {
-    flex-wrap:nowrap; overflow-x:auto; -webkit-overflow-scrolling:touch;
-    padding-bottom:3px; scrollbar-width:none;
-  }
-  .tb-filter-row::-webkit-scrollbar { display:none; }
-  .tb-filter-row > * { flex-shrink:0; }
+  /* En móvil la barra se parte en dos: el buscador ocupa el ancho y los
+     controles se desplazan en horizontal en vez de apilarse. */
+  .tb-bar > .tb-search { flex-basis:100%; order:-1; }
+  /* En un teléfono cada control se iba a su propia línea y la barra medía
+     cinco filas. Se aprietan los paddings y se cae la etiqueta "Agrupar por":
+     el select ya dice qué hace. */
+  .tb-bar { row-gap:8px; gap:6px; }
+  .tb-select { gap:0; font-size:0; }
+  .tb-select select { font-size:12px; padding:6px 8px; }
+  .tb-filter-btn { padding:7px 11px; }
+  .tb-seg .tb-seg-btn { padding:6px 10px; font-size:11.5px; }
+  .tb-result { font-size:11px; }
   .tb-result { margin-left:auto; padding-left:8px; }
-  .tb-search { flex-basis:100%; }
+  .tb-active-row { flex-wrap:nowrap; overflow-x:auto; scrollbar-width:none; padding-bottom:3px; }
+  .tb-active-row::-webkit-scrollbar { display:none; }
+  .tb-active-row > * { flex-shrink:0; }
+  .tb-panel { left:8px; right:8px; width:auto; }
 }
 
 /* ── Tablero: integración con el sistema visual ──
@@ -4105,6 +4290,37 @@ body.client-mode #loginScreen.login-screen:not(.hidden) { display:none !importan
 .tb-seg .tb-seg-btn.on { background: rgba(255,255,255,0.92); }
 
 /* Oscuro: la plataforma abandona el glass y vuelve a superficies sólidas. */
+/* El panel es hijo de la toolbar, que ya lleva backdrop-filter con el
+   displacement map del liquid glass. Un backdrop-filter anidado ahí adentro
+   vuelve a muestrear lo que hay detrás y el texto de las tareas se transparenta
+   a través del panel. Superficie sólida: es una capa de trabajo, no decoración. */
+.tb-panel {
+  background: var(--white);
+  backdrop-filter: none; -webkit-backdrop-filter: none;
+  border-color: var(--border);
+}
+.tb-filter-btn:not(.has):not(.open), .pp-field, .pp-pop, .pp-search {
+  background: rgba(255,255,255,0.60);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  border-color: rgba(255,255,255,0.82);
+}
+html.dark .tb-panel {
+  background: var(--white); border-color: var(--border);
+  box-shadow: 0 18px 50px rgba(0,0,0,.42);
+  backdrop-filter: none; -webkit-backdrop-filter: none;
+}
+html.dark .tb-filter-btn:not(.has):not(.open), html.dark .pp-field,
+html.dark .pp-pop, html.dark .pp-search {
+  background: rgba(255,255,255,.06); border-color: rgba(255,255,255,.12);
+  backdrop-filter: none; -webkit-backdrop-filter: none;
+}
+html.dark .tb-person-row:hover, html.dark .pp-opt:hover { background: rgba(255,255,255,.06); }
+html.dark .tb-person-row.on, html.dark .pp-opt.on, html.dark .pp-chip {
+  background: rgba(255,45,135,.18); color: #ff8fc0;
+}
+html.dark .form-warn { background: rgba(154,52,18,.16); border-color: rgba(254,215,170,.24); color: #fdba74; }
+html.dark .settings-note, html.dark .form-optional { background: rgba(255,255,255,.06); }
+
 html.dark .tb-toolbar, html.dark .tb-group, html.dark .tb-card, html.dark .tb-menu {
   background: var(--white); border-color: var(--border);
   box-shadow: 0 14px 40px rgba(0,0,0,.30), inset 0 1px 0 rgba(255,255,255,.04);
@@ -4793,3 +5009,205 @@ html.dark .nav-item.nav-item-effie {
 html.dark { --effie-chip-bg: rgba(255,255,255,.06); }
 html.dark .effie-chip-cat { color:var(--effie-light); }
 html.dark .effie-note-txt { color:var(--text); }
+
+/* ============================================================
+   BARRA LATERAL — fija / al pasar el mouse / solo iconos
+   El riel reusa el layout de `.compact`, que ya existía; lo nuevo es que en
+   modo 'auto' el panel se abre ENCIMA del contenido en vez de empujarlo.
+   ============================================================ */
+.sidebar .nav-text { flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+/* Riel: el texto se va, los iconos se centran. */
+.sidebar.compact .nav-text,
+.sidebar.compact .sidebar-logo > div:not(.y-mark-sm),
+.sidebar.compact .sidebar-badge { display:none !important; }
+
+/* Modo 'auto': el inner flota sobre el canvas y crece al hover.
+   Se deja absoluto SIEMPRE (no solo al abrir) para que el ancho pueda animar:
+   pasar de estático a absoluto no transiciona. */
+/* `.sidebar, .main { z-index:1 }` (el canvas glass) deja a las dos capas
+   empatadas y .main gana por ir después en el DOM. El panel abierto no puede
+   escapar de ahí subiendo su propio z-index: hay que subir el sidebar entero. */
+.sidebar.sb-auto { overflow:visible; }
+.sidebar.sb-auto:hover, .sidebar.sb-auto:focus-within { z-index:300; }
+.sidebar.sb-auto .sidebar-inner {
+  position:absolute; left:14px; top:14px; bottom:14px; width:44px;
+  transition:width 260ms cubic-bezier(.23,1,.32,1), box-shadow 200ms ease;
+}
+.sidebar.sb-auto:hover .sidebar-inner,
+.sidebar.sb-auto:focus-within .sidebar-inner {
+  width:212px; z-index:300;
+  box-shadow:0 24px 60px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.07);
+}
+.sidebar.sb-auto:hover .nav-text,
+.sidebar.sb-auto:focus-within .nav-text,
+.sidebar.sb-auto:hover .user-info,
+.sidebar.sb-auto:focus-within .user-info,
+.sidebar.sb-auto:hover .sidebar-logo > div:not(.y-mark-sm),
+.sidebar.sb-auto:focus-within .sidebar-logo > div:not(.y-mark-sm) { display:block !important; }
+.sidebar.sb-auto:hover .nav-label,
+.sidebar.sb-auto:focus-within .nav-label { display:block !important; }
+.sidebar.sb-auto:hover .nav-badge,
+.sidebar.sb-auto:focus-within .nav-badge,
+.sidebar.sb-auto:hover .sidebar-badge,
+.sidebar.sb-auto:focus-within .sidebar-badge { display:block !important; }
+.sidebar.sb-auto:hover .nav-item,
+.sidebar.sb-auto:focus-within .nav-item { justify-content:flex-start; padding:10px 14px; }
+.sidebar.sb-auto:hover .sidebar-user,
+.sidebar.sb-auto:focus-within .sidebar-user { justify-content:flex-start; padding:12px; }
+.sidebar.sb-auto:hover .sidebar-logo,
+.sidebar.sb-auto:focus-within .sidebar-logo { justify-content:flex-start; }
+
+/* En un teléfono la barra es un cajón que entra completo: el riel y el hover
+   no aplican (no hay cursor que pasar por encima). */
+@media (max-width:768px) {
+  body .sidebar.sb-auto { overflow-y:auto; }
+  body .sidebar.sb-auto .sidebar-inner { position:relative; left:auto; top:auto; bottom:auto; width:auto; }
+  body .sidebar.compact { width:240px; min-width:240px; }
+  body .sidebar.compact .nav-text,
+  body .sidebar.compact .nav-label,
+  body .sidebar.compact .user-info,
+  body .sidebar.compact .nav-badge,
+  body .sidebar.compact .sidebar-badge,
+  body .sidebar.compact .sidebar-logo > div:not(.y-mark-sm) { display:block !important; }
+  body .sidebar.compact .nav-item { justify-content:flex-start; padding:10px 14px; }
+}
+
+/* ── Marcador deslizante ──
+   Un solo bloque que persigue al item bajo el cursor en vez de pintar y
+   despintar un fondo por item: el ojo sigue el salto y la navegación se lee
+   continua. El item activo conserva su píldora rosa y se pinta encima, así no
+   compiten dos superficies por el mismo lugar. */
+.nav-section { position:relative; }
+.nav-marker {
+  position:absolute; left:0; right:0; top:0; height:0; opacity:0; z-index:0;
+  border-radius:16px; background:var(--sidebar-hover); pointer-events:none;
+  transition:transform 220ms cubic-bezier(.23,1,.32,1),
+             height 220ms cubic-bezier(.23,1,.32,1),
+             opacity 150ms ease;
+}
+.nav-section .nav-item { z-index:1; }
+.nav-section .nav-item:hover { background:none; }
+.nav-item:active { transform:translateX(2px) scale(.97); }
+.nav-label { display:block; }
+@media (prefers-reduced-motion: reduce) {
+  .nav-marker { transition:opacity 100ms ease; }
+  .sidebar.sb-auto .sidebar-inner { transition:none; }
+}
+
+/* ── Ajustes: selector de modo de la barra ── */
+.sb-mode-picker { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+.sb-mode {
+  display:flex; flex-direction:column; align-items:flex-start; gap:4px; text-align:left;
+  padding:12px; border-radius:14px; border:1.5px solid var(--border); background:var(--white);
+  cursor:pointer; font-family:'Quicksand',sans-serif;
+  transition-property:var(--t-ui); transition-duration:var(--dur-quick); transition-timing-function:var(--ease);
+}
+.sb-mode:hover { border-color:var(--pink); transform:translateY(-2px); }
+.sb-mode:active { transform:scale(.97); }
+.sb-mode.on { border-color:var(--pink); background:var(--pink-pale); }
+.sb-mode-name { font-size:12.5px; font-weight:700; color:var(--text); }
+.sb-mode-desc { font-size:11px; color:var(--text-muted); line-height:1.35; }
+/* Miniatura: la barra a la izquierda, el lienzo a la derecha. */
+.sb-mode-fig {
+  display:flex; gap:3px; width:100%; height:34px; margin-bottom:4px;
+  border-radius:7px; overflow:hidden; background:var(--bg); padding:3px;
+}
+.sb-mode-fig i { display:block; border-radius:4px; background:var(--text); opacity:.75; }
+.sb-mode-fig b { display:block; flex:1; border-radius:4px; background:var(--border); }
+.sb-mode-fig-fija i   { width:34%; }
+.sb-mode-fig-auto i   { width:14%; }
+.sb-mode-fig-iconos i { width:14%; opacity:.45; }
+.sb-mode.on .sb-mode-fig i { background:var(--pink); opacity:1; }
+.sb-mode-fig-auto i { position:relative; animation:sbPeek 2.6s ease-in-out infinite; }
+@keyframes sbPeek { 0%,60%,100% { width:14%; } 25%,45% { width:34%; } }
+@media (prefers-reduced-motion: reduce) { .sb-mode-fig-auto i { animation:none; } }
+@media (max-width:768px) { .sb-mode-picker { grid-template-columns:1fr; } }
+
+/* ============================================================
+   TAREAS — varios links de documento
+   ============================================================ */
+.doc-links { display:flex; flex-direction:column; gap:6px; }
+.dl-row { display:flex; align-items:center; gap:6px; }
+.dl-row .dl-url { flex:1 1 60%; min-width:0; }
+.dl-row .dl-label { flex:1 1 40%; min-width:0; }
+.dl-x {
+  flex-shrink:0; width:30px; height:30px; border-radius:9px; border:none; cursor:pointer;
+  background:var(--bg); color:var(--text-muted); font-size:17px; line-height:1;
+  display:inline-flex; align-items:center; justify-content:center;
+  transition-property:var(--t-ui); transition-duration:var(--dur-quick); transition-timing-function:var(--ease);
+}
+.dl-x:hover { background:var(--pink-pale); color:var(--pink-deep); }
+.dl-add {
+  align-self:flex-start; border:none; background:none; cursor:pointer; padding:5px 6px; border-radius:8px;
+  font-family:'Quicksand',sans-serif; font-size:12px; font-weight:700; color:var(--pink);
+}
+.dl-add:hover { background:var(--pink-pale); }
+/* Detalle de la tarea: los links como chips, no como URLs de 180 caracteres. */
+.td-links { display:flex; flex-wrap:wrap; gap:6px; }
+.td-link {
+  display:inline-flex; align-items:center; gap:6px; padding:6px 11px; border-radius:20px;
+  border:1.5px solid var(--border); text-decoration:none; color:var(--text);
+  font-size:12.5px; font-weight:600;
+  transition-property:var(--t-ui); transition-duration:var(--dur-quick); transition-timing-function:var(--ease);
+}
+.td-link:hover { border-color:var(--pink); color:var(--pink-deep); transform:translateY(-1px); }
+.td-link-ico { font-size:12px; }
+html.dark .dl-x { background:rgba(255,255,255,.07); }
+html.dark .dl-x:hover { background:rgba(255,45,135,.18); color:#ff8fc0; }
+html.dark .sb-mode { background:rgba(255,255,255,.05); border-color:rgba(255,255,255,.12); }
+html.dark .sb-mode.on { background:rgba(255,45,135,.16); border-color:var(--pink); }
+html.dark .sb-mode-fig { background:rgba(255,255,255,.05); }
+html.dark .sb-mode-fig i { background:#fff; }
+html.dark .sb-mode-fig b { background:rgba(255,255,255,.12); }
+
+/* ============================================================
+   BOTONES — anillo de vidrio
+   El borde de un botón sólido normalmente es un solo box-shadow plano. Aquí se
+   apilan insets: un realce arriba-izquierda y una sombra abajo-derecha, más un
+   halo interior muy abierto. Es lo que hace que la píldora se lea como un
+   material con grosor en vez de un rectángulo de color.
+   ============================================================ */
+.btn-primary, .btn-pink, .fab-main, .tb-active-chip, .pp-chip {
+  box-shadow:
+    inset 2.5px 2.5px .5px -2.5px rgba(255,255,255,.95),
+    inset -2.5px -2.5px .5px -2.5px rgba(0,0,0,.55),
+    inset 1px 1px 1px -.5px rgba(255,255,255,.55),
+    inset -1px -1px 1px -.5px rgba(0,0,0,.28),
+    inset 0 0 6px 6px rgba(255,255,255,.09),
+    0 1px 2px rgba(10,10,12,.14),
+    0 4px 14px rgba(10,10,12,.16);
+}
+.btn-pink, .fab-main {
+  box-shadow:
+    inset 2.5px 2.5px .5px -2.5px rgba(255,255,255,.95),
+    inset -2.5px -2.5px .5px -2.5px rgba(0,0,0,.45),
+    inset 1px 1px 1px -.5px rgba(255,255,255,.6),
+    inset -1px -1px 1px -.5px rgba(0,0,0,.22),
+    inset 0 0 6px 6px rgba(255,255,255,.11),
+    0 1px 2px rgba(255,45,135,.28),
+    0 4px 16px rgba(255,45,135,.36);
+}
+.btn-primary:hover {
+  box-shadow:
+    inset 2.5px 2.5px .5px -2.5px rgba(255,255,255,1),
+    inset -2.5px -2.5px .5px -2.5px rgba(0,0,0,.5),
+    inset 1px 1px 1px -.5px rgba(255,255,255,.6),
+    inset 0 0 8px 8px rgba(255,255,255,.12),
+    0 10px 26px rgba(10,10,12,.26);
+}
+.btn-pink:hover {
+  box-shadow:
+    inset 2.5px 2.5px .5px -2.5px rgba(255,255,255,1),
+    inset -2.5px -2.5px .5px -2.5px rgba(0,0,0,.4),
+    inset 1px 1px 1px -.5px rgba(255,255,255,.65),
+    inset 0 0 8px 8px rgba(255,255,255,.14),
+    0 10px 26px rgba(255,45,135,.46);
+}
+.nav-item.active {
+  box-shadow:
+    inset 2px 2px .5px -2px rgba(255,255,255,.9),
+    inset -2px -2px .5px -2px rgba(0,0,0,.35),
+    inset 0 0 6px 6px rgba(255,255,255,.10),
+    0 4px 14px rgba(255,45,135,.35);
+}

@@ -866,20 +866,152 @@ function populateTaskStatusSelect(status) {
   sel.value = TASK_STATUS_BY_ID[status] ? status : 'sin_empezar';
 }
 
-// Involucrados extra: toggles con avatar, se guardan en task.watchers.
-function populateTaskWatchers(watchers) {
-  const box = document.getElementById('fTaskWatchers');
+// ── Selector de personas (multi) ──
+// Antes se pintaba el equipo entero como botones: con ocho personas el modal
+// se volvía un muro de chips y no se distinguía lo elegido de lo disponible.
+// Ahora: chips de lo elegido + un buscador que se despliega. Escala igual con
+// 5 que con 40 personas, y deja claro a quién estás etiquetando.
+const _ppState = {}; // elId -> {sel, q, open, exclude}
+
+function initPeoplePicker(elId, selected, exclude) {
+  _ppState[elId] = { sel:(selected || []).filter(Boolean), q:'', open:false, exclude:(exclude || []).filter(Boolean) };
+  renderPeoplePicker(elId);
+}
+function readPeoplePicker(elId) { return (_ppState[elId] ? _ppState[elId].sel : []).slice(); }
+// Nadie puede tener dos papeles en la misma tarea: al cambiar el responsable
+// se saca de supervisores y colaboradores en vez de dejar el duplicado.
+function setPeoplePickerExclude(elId, exclude) {
+  const st = _ppState[elId];
+  if(!st) return;
+  st.exclude = (exclude || []).filter(Boolean);
+  st.sel = st.sel.filter(uid => !st.exclude.includes(uid));
+  renderPeoplePicker(elId);
+}
+function ppToggle(elId, uid) {
+  const st = _ppState[elId];
+  if(!st) return;
+  const i = st.sel.indexOf(uid);
+  if(i >= 0) st.sel.splice(i, 1); else st.sel.push(uid);
+  renderPeoplePicker(elId);
+  _ppSyncRoles(elId);
+}
+function ppSetOpen(elId, on) {
+  const st = _ppState[elId];
+  if(!st) return;
+  st.open = on; if(!on) st.q = '';
+  renderPeoplePicker(elId);
+  if(on) { const i = document.getElementById(elId + '_q'); if(i) i.focus(); }
+}
+function ppQuery(elId, v) {
+  const st = _ppState[elId];
+  if(!st) return;
+  st.q = v;
+  renderPeoplePicker(elId);
+  const i = document.getElementById(elId + '_q');
+  if(i) { i.focus(); try { i.setSelectionRange(v.length, v.length); } catch {} }
+}
+// Un supervisor no vuelve a aparecer como colaborador y al revés.
+function _ppSyncRoles(changedId) {
+  const sup = _ppState.fTaskSupervisors, wat = _ppState.fTaskWatchers;
+  if(!sup || !wat) return;
+  const assignee = (document.getElementById('fTaskAssignee') || {}).value || '';
+  if(changedId !== 'fTaskWatchers') setPeoplePickerExclude('fTaskWatchers', [assignee, ...sup.sel]);
+  if(changedId !== 'fTaskSupervisors') setPeoplePickerExclude('fTaskSupervisors', [assignee, ...wat.sel]);
+}
+
+function renderPeoplePicker(elId) {
+  const box = document.getElementById(elId);
+  const st = _ppState[elId];
+  if(!box || !st) return;
+  const byUid = uid => allUsers.find(u => u.uid === uid);
+  const nameOf = u => u ? (u.name || (u.email || '').split('@')[0] || 'Sin nombre') : 'Sin nombre';
+  const q = st.q.trim().toLowerCase();
+  const options = allUsers
+    .filter(u => !st.exclude.includes(u.uid))
+    .filter(u => !q || nameOf(u).toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q))
+    .sort((a, b) => nameOf(a).localeCompare(nameOf(b)));
+
+  const chips = st.sel.map(uid => {
+    const u = byUid(uid);
+    return `<span class="pp-chip">${memberAvatarHtml(u, 18).replace(/onclick="[^"]*"/, '')}
+      <span>${_esc(nameOf(u))}</span>
+      <button type="button" class="pp-chip-x" onclick="ppToggle('${elId}','${_esc(uid)}')" aria-label="Quitar a ${_esc(nameOf(u))}">×</button></span>`;
+  }).join('');
+
+  box.className = 'people-picker' + (st.open ? ' open' : '');
+  box.innerHTML = `
+    <div class="pp-field">
+      ${chips || '<span class="pp-empty">Nadie etiquetado todavía</span>'}
+      <button type="button" class="pp-add" onclick="ppSetOpen('${elId}',${!st.open})">${st.open ? 'Listo' : '＋ Etiquetar'}</button>
+    </div>
+    ${st.open ? `<div class="pp-pop">
+      <input type="search" class="pp-search" id="${elId}_q" placeholder="Buscar persona..." value="${_esc(st.q)}"
+        oninput="ppQuery('${elId}',this.value)" autocomplete="off">
+      <div class="pp-list">
+        ${options.map(u => `<button type="button" class="pp-opt${st.sel.includes(u.uid) ? ' on' : ''}" onclick="ppToggle('${elId}','${_esc(u.uid)}')">
+          <span class="pp-opt-check" aria-hidden="true"></span>
+          ${memberAvatarHtml(u, 22).replace(/onclick="[^"]*"/, '')}
+          <span class="pp-opt-name">${_esc(nameOf(u))}</span>
+        </button>`).join('') || `<div class="pp-none">${q ? 'Nadie con ese nombre.' : 'Sin equipo cargado.'}</div>`}
+      </div>
+    </div>` : ''}`;
+}
+
+// ── Links de documentos (varios) ──
+// Se re-dibuja solo al agregar o quitar un renglón, nunca al teclear: si no,
+// el input pierde el foco a la segunda letra. Lo escrito se lee del DOM antes
+// de cada re-dibujo.
+let _dlRows = [];
+
+function initDocLinks(links) {
+  _dlRows = (links || []).map(l => ({ url:l.url || '', label:l.label || '' }));
+  if(!_dlRows.length) _dlRows.push({ url:'', label:'' });
+  renderDocLinks();
+}
+function _dlSyncFromDom() {
+  const box = document.getElementById('fTaskDocLinks');
   if(!box) return;
-  const sel = new Set(watchers || []);
-  box.innerHTML = allUsers.map(u => {
-    const name = u.name || u.email.split('@')[0];
-    return `<button type="button" class="tb-watcher${sel.has(u.uid) ? ' on' : ''}" data-uid="${_esc(u.uid)}"
-      onclick="this.classList.toggle('on')">${memberAvatarHtml(u,18).replace(/onclick="[^"]*"/,'')} ${_esc(name)}</button>`;
-  }).join('') || '<span style="font-size:12px;color:var(--text-muted);">Sin equipo cargado</span>';
+  [...box.querySelectorAll('.dl-row')].forEach((row, i) => {
+    if(!_dlRows[i]) return;
+    _dlRows[i].url   = row.querySelector('.dl-url').value.trim();
+    _dlRows[i].label = row.querySelector('.dl-label').value.trim();
+  });
 }
-function readTaskWatchers() {
-  return [...document.querySelectorAll('#fTaskWatchers .tb-watcher.on')].map(b => b.dataset.uid);
+function dlAdd()      { _dlSyncFromDom(); _dlRows.push({ url:'', label:'' }); renderDocLinks(true); }
+function dlRemove(i)  { _dlSyncFromDom(); _dlRows.splice(i, 1); if(!_dlRows.length) _dlRows.push({url:'',label:''}); renderDocLinks(); }
+function readDocLinks() {
+  _dlSyncFromDom();
+  return _dlRows.filter(l => l.url).map(l => ({ url:l.url, label:l.label }));
 }
+
+function renderDocLinks(focusLast) {
+  const box = document.getElementById('fTaskDocLinks');
+  if(!box) return;
+  box.className = 'doc-links';
+  box.innerHTML = _dlRows.map((l, i) => `
+    <div class="dl-row">
+      <input type="url" class="form-input dl-url" value="${_esc(l.url)}" placeholder="https://docs.google.com/...">
+      <input type="text" class="form-input dl-label" value="${_esc(l.label)}" placeholder="${_esc(l.url ? docLinkLabel({url:l.url, label:''}) : 'Nombre (opcional)')}">
+      <button type="button" class="dl-x" onclick="dlRemove(${i})" aria-label="Quitar este link">×</button>
+    </div>`).join('') +
+    `<button type="button" class="dl-add" onclick="dlAdd()">＋ Agregar link</button>`;
+  if(focusLast) {
+    const inputs = box.querySelectorAll('.dl-url');
+    if(inputs.length) inputs[inputs.length - 1].focus();
+  }
+}
+
+// Avisa cuando el interno cae después del de cliente. No bloquea: hay casos
+// (revisiones internas post-entrega) donde es a propósito.
+function checkTaskDeadlines() {
+  const warn = document.getElementById('fTaskDateWarn');
+  if(!warn) return;
+  const int = (document.getElementById('fTaskDate') || {}).value || '';
+  const cli = (document.getElementById('fTaskClientDate') || {}).value || '';
+  warn.hidden = !(int && cli && int > cli);
+}
+
+function onTaskAssigneeChange() { _ppSyncRoles(null); }
 
 function openAddTaskModal() {
   editingTaskId = null; editingTaskCampaignId = null;
@@ -887,11 +1019,14 @@ function openAddTaskModal() {
   populateCampaignSelects();
   populateTaskAssigneeSelect(currentUser.uid);
   populateTaskStatusSelect('sin_empezar');
-  populateTaskWatchers([]);
+  initPeoplePicker('fTaskSupervisors', [], [currentUser.uid]);
+  initPeoplePicker('fTaskWatchers', [], [currentUser.uid]);
   document.getElementById('fTaskTitle').value='';
   document.getElementById('fTaskDate').value=new Date().toISOString().split('T')[0];
+  document.getElementById('fTaskClientDate').value='';
+  checkTaskDeadlines();
   document.getElementById('fTaskPriority').value='medium';
-  document.getElementById('fTaskDocLink').value='';
+  initDocLinks([]);
   document.getElementById('fTaskNotes').value='';
   document.getElementById('fTaskRecurring').checked = false;
   document.getElementById('fTaskRecurringDayGroup').style.display = 'none';
@@ -907,11 +1042,14 @@ function openAddGlobalTaskModal() {
   populateCampaignSelects();
   populateTaskAssigneeSelect(currentUser.uid);
   populateTaskStatusSelect('sin_empezar');
-  populateTaskWatchers([]);
+  initPeoplePicker('fTaskSupervisors', [], [currentUser.uid]);
+  initPeoplePicker('fTaskWatchers', [], [currentUser.uid]);
   document.getElementById('fTaskTitle').value='';
   document.getElementById('fTaskDate').value=new Date().toISOString().split('T')[0];
+  document.getElementById('fTaskClientDate').value='';
+  checkTaskDeadlines();
   document.getElementById('fTaskPriority').value='medium';
-  document.getElementById('fTaskDocLink').value='';
+  initDocLinks([]);
   document.getElementById('fTaskNotes').value='';
   document.getElementById('fTaskRecurring').checked = false;
   document.getElementById('fTaskRecurringDayGroup').style.display = 'none';
@@ -945,7 +1083,7 @@ function openTaskDetail(tid, cid) {
         <div style="display:flex;flex-wrap:wrap;gap:8px;">
           ${taskInvolved(task).map(uid => {
             const p = allUsers.find(x=>x.uid===uid);
-            const role = uid===task.assigneeUid ? 'Responsable' : (uid===task.createdBy ? 'Creó la tarea' : 'Sigue la tarea');
+            const role = taskRoleOf(task, uid);
             return `<span class="tb-person-chip" onclick="closeModal('taskDetailModal');openProfileModal('${uid}')">
               ${memberAvatarHtml(p,20).replace(/onclick="[^"]*"/,'')}
               <span><b>${_esc(p ? (p.name||p.email.split('@')[0]) : 'Sin nombre')}</b><i>${role}</i></span></span>`;
@@ -958,18 +1096,30 @@ function openTaskDetail(tid, cid) {
           <div style="display:flex;align-items:center;gap:6px;">${u && u.uid ? `<span class="user-name-link" onclick="closeModal('taskDetailModal');openProfileModal('${u.uid}')" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;">${memberAvatarHtml(u,20)} <span style="font-size:14px;">${_esc(assigneeName)}</span></span>` : `${memberAvatarHtml({name:assigneeName},20)} <span style="font-size:14px;">${_esc(assigneeName)}</span>`}</div>
         </div>
         <div>
-          <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px;">Fecha límite</div>
+          <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px;">Deadline interno</div>
           <div style="font-size:14px;">${task.dueDate ? formatDate(task.dueDate) : '—'}</div>
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px;">Deadline cliente</div>
+          <div style="font-size:14px;">${task.clientDueDate ? formatDate(task.clientDueDate) : '—'}</div>
+          ${taskDatesConflict(task) ? '<div style="font-size:11px;color:#e2445c;font-weight:600;margin-top:3px;">El interno cae después del de cliente.</div>' : ''}
         </div>
         <div>
           <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px;">Campaña</div>
           <div style="font-size:14px;">${task.campaignName||'General'}</div>
         </div>
       </div>
-      ${task.docLink ? `<div>
-        <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px;">Documento</div>
-        <a href="${task.docLink}" target="_blank" rel="noopener noreferrer" style="font-size:14px;color:var(--blue);word-break:break-all;">${task.docLink}</a>
-      </div>` : ''}
+      ${(() => {
+        const links = taskDocLinks(task);
+        if(!links.length) return '';
+        return `<div>
+          <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px;">Documento${links.length > 1 ? 's' : ''}</div>
+          <div class="td-links">${links.map(l => `<a href="${_esc(l.url)}" target="_blank" rel="noopener noreferrer" class="td-link">
+            <span class="td-link-ico">🔗</span>
+            <span class="td-link-name">${_esc(docLinkLabel(l))}</span>
+          </a>`).join('')}</div>
+        </div>`;
+      })()}
       ${task.notes ? `<div>
         <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px;">Notas</div>
         <div style="font-size:14px;line-height:1.5;white-space:pre-wrap;">${task.notes}</div>
@@ -988,11 +1138,15 @@ function openEditTaskModal(tid, cid) {
   editingTaskId = tid; editingTaskCampaignId = cid || null;
   populateCampaignSelects(); populateTaskAssigneeSelect(task.assigneeUid || currentUser.uid);
   populateTaskStatusSelect(taskStatus(task));
-  populateTaskWatchers(task.watchers || []);
+  const _assignee = task.assigneeUid || currentUser.uid;
+  initPeoplePicker('fTaskSupervisors', task.supervisors || [], [_assignee]);
+  initPeoplePicker('fTaskWatchers', task.watchers || [], [_assignee, ...(task.supervisors || [])]);
   document.getElementById('fTaskTitle').value = task.title || '';
   document.getElementById('fTaskDate').value = task.dueDate || '';
+  document.getElementById('fTaskClientDate').value = task.clientDueDate || '';
+  checkTaskDeadlines();
   document.getElementById('fTaskPriority').value = task.priority || 'medium';
-  document.getElementById('fTaskDocLink').value = task.docLink || '';
+  initDocLinks(taskDocLinks(task));
   document.getElementById('fTaskNotes').value = task.notes || '';
   document.getElementById('fTaskRecurring').checked = !!task.recurring;
   document.getElementById('fTaskRecurringDayGroup').style.display = task.recurring ? '' : 'none';
@@ -1012,17 +1166,36 @@ function saveTask() {
   const assigneeUser = allUsers.find(u => u.uid === assigneeUid);
   const assigneeName = assigneeUser ? (assigneeUser.name || assigneeUser.email.split('@')[0]) : '';
   const dueDate = document.getElementById('fTaskDate').value;
+  const clientDueDate = document.getElementById('fTaskClientDate').value;
   const priority = document.getElementById('fTaskPriority').value;
-  const docLink = document.getElementById('fTaskDocLink').value.trim();
+  const docLinks = readDocLinks();
+  // `docLink` se sigue escribiendo con el primero: el dashboard y la vista de
+  // campaña todavía lo leen, y una tarea vieja sincronizada no debe perderlo.
+  const docLink = docLinks.length ? docLinks[0].url : '';
   const notes = document.getElementById('fTaskNotes').value.trim();
   const recurring = document.getElementById('fTaskRecurring').checked;
   const recurringDay = recurring ? parseInt(document.getElementById('fTaskRecurringDay').value) : undefined;
   const status = document.getElementById('fTaskStatus').value || 'sin_empezar';
-  // El responsable nunca duplica en involucrados (ya sale como responsable).
-  const watchers = readTaskWatchers().filter(uid => uid !== assigneeUid);
+  // Un papel por persona: el responsable no se repite abajo, y quien supervisa
+  // no aparece además como colaborador.
+  const supervisors = readPeoplePicker('fTaskSupervisors').filter(uid => uid && uid !== assigneeUid);
+  const watchers = readPeoplePicker('fTaskWatchers')
+    .filter(uid => uid && uid !== assigneeUid && !supervisors.includes(uid));
   const done = !recurring && status === 'listo';
 
-  let prevAssigneeUid = '';
+  // Foto de quién estaba etiquetado antes: solo se avisa a los que se suman.
+  const prev = { assigneeUid:'', supervisors:[], watchers:[] };
+  const apply = t => {
+    prev.assigneeUid = t.assigneeUid || '';
+    prev.supervisors = (t.supervisors || []).slice();
+    prev.watchers = (t.watchers || []).slice();
+    t.title=title; t.dueDate=dueDate; t.clientDueDate=clientDueDate; t.priority=priority;
+    t.assigneeUid=assigneeUid; t.assignee=assigneeName; t.docLink=docLink; t.docLinks=docLinks; t.notes=notes;
+    t.recurring=recurring; t.recurringDay=recurringDay;
+    t.status=status; t.supervisors=supervisors; t.watchers=watchers;
+    if(!recurring) { t.done=done; t.doneAt = done ? (t.doneAt||Date.now()) : null; }
+  };
+
   if(editingTaskId) {
     const cid = editingTaskCampaignId;
     if(cid) {
@@ -1030,39 +1203,31 @@ function saveTask() {
       const c = campaigns.find(x=>x.id===cid);
       if(c) {
         const t = c.tasks.find(x=>x.id===editingTaskId);
-        if(t) {
-        prevAssigneeUid = t.assigneeUid||''; t.title=title; t.dueDate=dueDate; t.priority=priority;
-        t.assigneeUid=assigneeUid; t.assignee=assigneeName; t.docLink=docLink; t.notes=notes;
-        t.recurring=recurring; t.recurringDay=recurringDay;
-        t.status=status; t.watchers=watchers;
-        if(!recurring) { t.done=done; t.doneAt = done ? (t.doneAt||Date.now()) : null; }
-      }
+        if(t) apply(t);
         setData('campaigns', campaigns);
       }
     } else {
       const tasks = getData('globalTasks');
       const t = tasks.find(x=>x.id===editingTaskId);
-      if(t) {
-        prevAssigneeUid = t.assigneeUid||''; t.title=title; t.dueDate=dueDate; t.priority=priority;
-        t.assigneeUid=assigneeUid; t.assignee=assigneeName; t.docLink=docLink; t.notes=notes;
-        t.recurring=recurring; t.recurringDay=recurringDay;
-        t.status=status; t.watchers=watchers;
-        if(!recurring) { t.done=done; t.doneAt = done ? (t.doneAt||Date.now()) : null; }
-      }
+      if(t) apply(t);
       setData('globalTasks', tasks);
     }
-    // Notify newly-assigned user if changed
-    if(assigneeUid && assigneeUid !== prevAssigneeUid && assigneeUid !== currentUser?.uid) {
-      _notifyTaskAssigned(assigneeUid, title, campId);
-    }
+    _notifyTaskPeople({
+      title, campaignId: campId, dueDate, clientDueDate,
+      added: {
+        assignee: assigneeUid && assigneeUid !== prev.assigneeUid ? assigneeUid : '',
+        supervisors: supervisors.filter(uid => !prev.supervisors.includes(uid)),
+        watchers: watchers.filter(uid => !prev.watchers.includes(uid)),
+      },
+    });
     closeModal('taskModal');
     showToast('Tarea actualizada','success');
   } else {
     const task = {
-      id:id(), title, dueDate, priority, assigneeUid,
-      assignee: assigneeName, docLink, notes,
+      id:id(), title, dueDate, clientDueDate, priority, assigneeUid,
+      assignee: assigneeName, docLink, docLinks, notes,
       createdBy: currentUser.uid,
-      status, watchers,
+      status, supervisors, watchers,
       done, doneAt: done ? Date.now() : null,
       ...(recurring ? { recurring:true, recurringDay } : {})
     };
@@ -1075,9 +1240,10 @@ function saveTask() {
       tasks.push({...task,campaignName:'General',campaignId:''});
       setData('globalTasks',tasks);
     }
-    if(assigneeUid && assigneeUid !== currentUser?.uid) {
-      _notifyTaskAssigned(assigneeUid, title, campId);
-    }
+    _notifyTaskPeople({
+      title, campaignId: campId, dueDate, clientDueDate,
+      added: { assignee: assigneeUid, supervisors, watchers },
+    });
     closeModal('taskModal');
     showToast('Tarea agregada','success');
   }
@@ -1452,10 +1618,9 @@ function loadSettingsUI() {
   document.querySelectorAll('.mode-btn').forEach(b => {
     b.classList.toggle('active', b.id === 'modeBtn-'+currentMode);
   });
-  const compact = localStorage.getItem('sidebarCompact') === '1';
-  const cb = document.getElementById('settingsSidebarCompact');
-  if(cb) cb.checked = compact;
+  applySidebarMode(getSidebarMode());
   renderTeam();
+  if(typeof _renderEmailSettings === 'function') _renderEmailSettings();
 }
 
 function setModeBtn(mode) {
@@ -1465,13 +1630,6 @@ function setModeBtn(mode) {
   });
 }
 
-function toggleCompactSidebar(on) {
-  document.getElementById('mainSidebar').classList.toggle('compact', !!on);
-  localStorage.setItem('sidebarCompact', on ? '1' : '0');
-  // Keep the Ajustes checkbox in sync if the toggle was triggered elsewhere
-  const cb = document.getElementById('settingsSidebarCompact');
-  if(cb && cb.checked !== !!on) cb.checked = !!on;
-}
 
 function saveApiKeys() {
   const provider = document.querySelector('input[name="aiProvider"]:checked')?.value||'anthropic';

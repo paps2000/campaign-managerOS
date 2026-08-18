@@ -222,10 +222,12 @@
       </div>
     </div>
   </div>
-  <div class="nav-section">
+  <div class="nav-section" id="navSection">
+    <span class="nav-marker" aria-hidden="true"></span>
     <div class="nav-item active" data-page="dashboard">
       <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg></span> Dashboard
     </div>
+    <div class="nav-label">Trabajo</div>
     <div class="nav-item" data-page="campannas">
       <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l18-7v16l-18-7z"/><path d="M7 13v5a2 2 0 0 0 4 0"/></svg></span> Campañas
     </div>
@@ -239,6 +241,7 @@
     <div class="nav-item" data-page="influencers">
       <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="9" r="2.5"/><path d="M15 16c2-1 5-1 6 1"/></svg></span> Influencers
     </div>
+    <div class="nav-label">Recursos</div>
     <div class="nav-item" data-page="documentos">
       <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/></svg></span> Documentos
     </div>
@@ -908,16 +911,24 @@
         </div>
 
         <div class="form-group">
-          <div class="toggle-row">
-            <div>
-              <div class="toggle-label">Sidebar compacto</div>
-              <div class="toggle-hint">Muestra solo iconos en la barra lateral para ganar más espacio.</div>
-            </div>
-            <label class="toggle-switch-wrap">
-              <input type="checkbox" id="settingsSidebarCompact" onchange="toggleCompactSidebar(this.checked)">
-              <span class="toggle-track"></span>
-              <span class="toggle-thumb"></span>
-            </label>
+          <div class="toggle-label">Barra lateral</div>
+          <div class="toggle-hint" style="margin-bottom:10px;">Cómo se comporta el menú de la izquierda.</div>
+          <div class="sb-mode-picker" id="sidebarModePicker">
+            <button type="button" class="sb-mode" data-mode="fija" onclick="setSidebarMode('fija')">
+              <span class="sb-mode-fig sb-mode-fig-fija" aria-hidden="true"><i></i><b></b></span>
+              <span class="sb-mode-name">Fija</span>
+              <span class="sb-mode-desc">Siempre abierta.</span>
+            </button>
+            <button type="button" class="sb-mode" data-mode="auto" onclick="setSidebarMode('auto')">
+              <span class="sb-mode-fig sb-mode-fig-auto" aria-hidden="true"><i></i><b></b></span>
+              <span class="sb-mode-name">Al pasar el mouse</span>
+              <span class="sb-mode-desc">Se queda en iconos y se abre encima cuando la tocas.</span>
+            </button>
+            <button type="button" class="sb-mode" data-mode="iconos" onclick="setSidebarMode('iconos')">
+              <span class="sb-mode-fig sb-mode-fig-iconos" aria-hidden="true"><i></i><b></b></span>
+              <span class="sb-mode-name">Solo iconos</span>
+              <span class="sb-mode-desc">Siempre angosta.</span>
+            </button>
           </div>
         </div>
       </div>
@@ -945,6 +956,12 @@
         <div class="settings-title">Equipo</div>
         <div class="settings-desc">Miembros de Think Y. Los administradores pueden asignar roles y ver datos sensibles (presupuestos).</div>
         <div id="teamList" style="margin-top:12px;"></div>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-title">Notificaciones</div>
+        <div class="settings-desc">Cuando alguien te etiqueta en una tarea —como responsable, supervisor o colaborador— siempre te llega el aviso en la campanita. El correo es aparte.</div>
+        <div id="emailNotifsBox" style="margin-top:12px;"></div>
       </div>
 
       <div class="settings-section">
@@ -1213,28 +1230,50 @@
         </select>
       </div>
     </div>
-    <div class="form-row">
+    <div class="form-section">
+      <div class="form-section-title">Deadlines</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label" for="fTaskDate">Deadline interno</label>
+          <input type="date" class="form-input" id="fTaskDate" onchange="checkTaskDeadlines()">
+          <div class="form-hint">Cuándo lo tiene listo el equipo.</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="fTaskClientDate">Deadline cliente <span class="form-optional">opcional</span></label>
+          <input type="date" class="form-input" id="fTaskClientDate" onchange="checkTaskDeadlines()">
+          <div class="form-hint">Cuándo lo recibe o lo revisa el cliente.</div>
+        </div>
+      </div>
+      <div class="form-warn" id="fTaskDateWarn" hidden>El deadline interno cae después del de cliente. Suele ir antes, para dejar margen de ajustes.</div>
+    </div>
+
+    <div class="form-section">
+      <div class="form-section-title">Personas</div>
       <div class="form-group">
-        <label class="form-label">Fecha límite</label>
-        <input type="date" class="form-input" id="fTaskDate">
+        <label class="form-label" for="fTaskAssignee">Responsable</label>
+        <select class="form-input" id="fTaskAssignee" onchange="onTaskAssigneeChange()"></select>
+        <div class="form-hint">Una sola persona: quien responde por la entrega.</div>
       </div>
       <div class="form-group">
-        <label class="form-label">Asignar a</label>
-        <select class="form-input" id="fTaskAssignee"></select>
+        <label class="form-label">Supervisores <span class="form-optional">las que hagan falta</span></label>
+        <div id="fTaskSupervisors"></div>
+        <div class="form-hint">Jefes directos o quien necesita dar seguimiento. Les llega notificación al etiquetarlos y cuando el deadline se acerca.</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Colaboradores <span class="form-optional">las que hagan falta</span></label>
+        <div id="fTaskWatchers"></div>
+        <div class="form-hint">Participan en la tarea sin cargar con la entrega.</div>
       </div>
     </div>
+
     <div class="form-group">
       <label class="form-label">Estado</label>
       <select class="form-input" id="fTaskStatus"></select>
     </div>
     <div class="form-group">
-      <label class="form-label">Otros involucrados</label>
-      <div id="fTaskWatchers" class="tb-watchers"></div>
-      <div class="form-hint">Quien sigue la tarea sin ser responsable. Aparecen en la columna Involucrados y pueden filtrar por ella.</div>
-    </div>
-    <div class="form-group">
-      <label class="form-label">Link de documento (opcional)</label>
-      <input type="url" class="form-input" id="fTaskDocLink" placeholder="https://docs.google.com/...">
+      <label class="form-label">Documentos <span class="form-optional">los que hagan falta</span></label>
+      <div id="fTaskDocLinks"></div>
+      <div class="form-hint">Brief, presupuesto, carpeta de entregables... Si no le pones nombre, se usa el del servicio.</div>
     </div>
     <div class="form-group">
       <label class="form-label">Notas</label>

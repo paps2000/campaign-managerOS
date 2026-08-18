@@ -639,13 +639,88 @@ function cycleTheme() {
 }
 
 applyThemePref(getThemePref());
-// Init compact sidebar from saved pref
-(function initCompactSidebar() {
-  if(localStorage.getItem('sidebarCompact') === '1') {
-    const sb = document.getElementById('mainSidebar');
-    if(sb) sb.classList.add('compact');
-  }
-})();
+
+// ============================================================
+// BARRA LATERAL: fija / al pasar el mouse / solo iconos
+// ============================================================
+// 'auto' es el modo nuevo: la barra se queda en riel de iconos y el panel se
+// abre ENCIMA del contenido al pasar el mouse. Expandirla dentro del flujo
+// movería toda la página cada vez que el cursor la roza; abrirla encima no.
+// El riel reusa el layout de `.compact`, que ya existía.
+const SIDEBAR_MODES = ['fija', 'auto', 'iconos'];
+function getSidebarMode() {
+  const saved = localStorage.getItem('sidebarMode');
+  if(SIDEBAR_MODES.includes(saved)) return saved;
+  // Migración del switch viejo de "Sidebar compacto".
+  return localStorage.getItem('sidebarCompact') === '1' ? 'iconos' : 'fija';
+}
+function applySidebarMode(mode) {
+  const sb = document.getElementById('mainSidebar');
+  if(!sb) return;
+  sb.classList.remove('sb-fija', 'sb-auto', 'sb-iconos', 'compact');
+  sb.classList.add('sb-' + mode);
+  if(mode !== 'fija') sb.classList.add('compact');
+  document.querySelectorAll('#sidebarModePicker .sb-mode').forEach(b =>
+    b.classList.toggle('on', b.dataset.mode === mode));
+}
+function setSidebarMode(mode) {
+  if(!SIDEBAR_MODES.includes(mode)) mode = 'fija';
+  localStorage.setItem('sidebarMode', mode);
+  // Se sigue escribiendo la llave vieja: si alguien abre una pestaña con la
+  // versión anterior cargada, la barra no se le descuadra.
+  localStorage.setItem('sidebarCompact', mode === 'iconos' ? '1' : '0');
+  applySidebarMode(mode);
+}
+// Compat con el switch anterior por si quedó alguna llamada suelta.
+function toggleCompactSidebar(on) { setSidebarMode(on ? 'iconos' : 'fija'); }
+
+function _initSidebarUI() {
+  applySidebarMode(getSidebarMode());
+
+  // El texto de cada item viene como nodo suelto en el HTML. Se envuelve para
+  // poder esconderlo en modo riel sin que el renglón se parta: sin el span,
+  // "Influencers" hace wrap dentro de un item de 44px y descuadra la columna.
+  document.querySelectorAll('#mainSidebar .nav-item').forEach(item => {
+    if(item.querySelector('.nav-text')) return;
+    [...item.childNodes].forEach(n => {
+      if(n.nodeType !== 3 || !n.textContent.trim()) return;
+      const span = document.createElement('span');
+      span.className = 'nav-text';
+      span.textContent = n.textContent.trim();
+      item.replaceChild(span, n);
+    });
+  });
+
+  // ── Marcador deslizante ──
+  // Un solo bloque que persigue al item bajo el cursor, en vez de pintar y
+  // despintar un fondo por item: el ojo sigue el salto y la navegación se
+  // siente continua. El item activo conserva su píldora rosa; el marcador es
+  // solo el hover, así no compiten dos superficies por el mismo lugar.
+  const sec = document.getElementById('navSection');
+  const marker = sec && sec.querySelector('.nav-marker');
+  if(!sec || !marker) return;
+
+  const move = el => {
+    if(!el) return;
+    marker.style.transform = `translateY(${el.offsetTop}px)`;
+    marker.style.height = el.offsetHeight + 'px';
+    marker.style.opacity = '1';
+  };
+  const hide = () => { marker.style.opacity = '0'; };
+
+  sec.addEventListener('mouseover', e => {
+    const item = e.target.closest('.nav-item');
+    if(item && sec.contains(item)) move(item);
+  });
+  sec.addEventListener('mouseleave', hide);
+  sec.addEventListener('focusin', e => {
+    const item = e.target.closest('.nav-item');
+    if(item) move(item);
+  });
+  sec.addEventListener('focusout', hide);
+}
+if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _initSidebarUI);
+else _initSidebarUI();
 
 function toggleMobileSidebar() {
   const sidebar = document.getElementById('mainSidebar');

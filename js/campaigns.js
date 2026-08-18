@@ -1167,6 +1167,7 @@ let _notifs = [];
 
 function initNotifications() {
   if(!currentUser || !db) return;
+  _loadEmailConfig();
   if(_notifUnsub) _notifUnsub();
   const q = db.collection('workspaces').doc(WORKSPACE)
     .collection('notifications')
@@ -1197,18 +1198,29 @@ function _computeDeadlineNotifs() {
   const seen = _dlSeen();
   const today = new Date(); today.setHours(0,0,0,0);
   const out = [];
+  // Avisa a quien está etiquetado en la tarea, no solo al responsable: un
+  // supervisor que se entera del retraso el día después no puede hacer nada.
+  const mine = t => {
+    const involved = typeof taskPeople === 'function' ? taskPeople(t) : [t.assigneeUid];
+    return !t.assigneeUid || involved.includes(currentUser.uid);
+  };
   const consider = (t, campaignName) => {
-    if(t.done || !t.dueDate) return;
-    if(t.assigneeUid && t.assigneeUid !== currentUser.uid) return;
-    const due = new Date(t.dueDate+'T00:00:00'); if(isNaN(due)) return;
-    const days = Math.round((due - today)/86400000);
-    if(days > DEADLINE_WARN_DAYS) return;
-    const id = 'dl_'+(t.id||t.title)+'_'+t.dueDate;
+    if(t.done || !mine(t)) return;
     const where = campaignName ? ` · ${campaignName}` : '';
-    const text = days < 0 ? `⏰ Tarea vencida hace ${-days}d: "${t.title}"${where}`
-      : days === 0 ? `⏰ Tarea vence HOY: "${t.title}"${where}`
-      : `⏰ Tarea vence en ${days}d: "${t.title}"${where}`;
-    out.push({ id, type:'deadline', text, read: seen.has(id), createdAt: due.getTime(), _sort: days });
+    // Los dos deadlines avisan por separado: el interno es del equipo y el de
+    // cliente es el que no se puede mover.
+    [['dueDate','interno'], ['clientDueDate','cliente']].forEach(([field, label]) => {
+      const raw = t[field];
+      if(!raw) return;
+      const due = new Date(raw+'T00:00:00'); if(isNaN(due)) return;
+      const days = Math.round((due - today)/86400000);
+      if(days > DEADLINE_WARN_DAYS) return;
+      const id = 'dl_'+(t.id||t.title)+'_'+field+'_'+raw;
+      const text = days < 0 ? `⏰ Deadline ${label} vencido hace ${-days}d: "${t.title}"${where}`
+        : days === 0 ? `⏰ Deadline ${label} es HOY: "${t.title}"${where}`
+        : `⏰ Deadline ${label} en ${days}d: "${t.title}"${where}`;
+      out.push({ id, type:'deadline', text, read: seen.has(id), createdAt: due.getTime(), _sort: days });
+    });
   };
   (getData('globalTasks')||[]).forEach(t=>consider(t,''));
   (getData('campaigns')||[]).forEach(c => (c.tasks||[]).forEach(t=>consider(t,c.name)));
@@ -1277,7 +1289,7 @@ async function markAllNotifsRead() {
   _renderNotifBell();
 }
 
-async function _createNotification({toUid, type, text}) {
+async function _createNotification({toUid, type, text, email}) {
   if(!toUid || toUid === currentUser?.uid) return;
   try {
     await db.collection('workspaces').doc(WORKSPACE).collection('notifications').add({
@@ -1288,24 +1300,136 @@ async function _createNotification({toUid, type, text}) {
       createdAt: firebase.firestore.FieldValue.serverTimestamp(),
     });
   } catch(e) { console.warn('notification create failed:', e.message); }
+  if(email) _queueEmail(toUid, email.subject, email.html);
+}
+
+// ============================================================
+// CORREO
+// ============================================================
+// El navegador no puede mandar correo: hace falta algo del lado del servidor.
+// Lo que hay aquí es la mitad del cliente — deja el correo en la colección
+// `mail`, que es el formato exacto que consume la extensión de Firebase
+// "Trigger Email from Firestore". Mientras la extensión no esté instalada esto
+// no manda nada (ver emailNotifsEnabled): no rompe, solo no sale correo.
+// Instrucciones de instalación en NOTIFICACIONES-EMAIL.md.
+let _emailCfg = { enabled:false, fromName:'Campaign OS' };
+
+async function _loadEmailConfig() {
+  if(!db) return;
+  try {
+    const snap = await db.collection('workspaces').doc(WORKSPACE)
+      .collection('config').doc('notifications').get();
+    if(snap.exists) _emailCfg = { ..._emailCfg, ...snap.data() };
+  } catch(e) { /* sin config = correo apagado */ }
+  _renderEmailSettings();
+}
+function emailNotifsEnabled() { return !!_emailCfg.enabled; }
+
+// Preferencia por persona. Quien no quiere correo sigue viendo la campanita.
+function myEmailPref() { return currentUserProfile?.emailNotifs !== false; }
+async function setMyEmailPref(on) {
+  if(!currentUser || !db) return;
+  try {
+    await db.collection('workspaces').doc(WORKSPACE).collection('users')
+      .doc(currentUser.uid).set({ emailNotifs: !!on }, { merge:true });
+    if(currentUserProfile) currentUserProfile.emailNotifs = !!on;
+    showToast(on ? 'Te llegarán correos de tus tareas' : 'Ya no te llegarán correos', 'success');
+  } catch(e) { showToast('No se pudo guardar la preferencia', 'error'); }
+  _renderEmailSettings();
+}
+
+function _renderEmailSettings() {
+  const box = document.getElementById('emailNotifsBox');
+  if(!box) return;
+  if(!emailNotifsEnabled()) {
+    box.innerHTML = `<div class="settings-note">
+      <b>El correo todavía no está conectado.</b>
+      Las notificaciones viven solo dentro de la app. Para que además salgan por correo hay que instalar el envío en Firebase una vez — está documentado en <code>NOTIFICACIONES-EMAIL.md</code>.
+    </div>`;
+    return;
+  }
+  const on = myEmailPref();
+  box.innerHTML = `<label class="settings-switch">
+      <input type="checkbox" ${on ? 'checked' : ''} onchange="setMyEmailPref(this.checked)">
+      <span>Mandarme también un correo cuando me etiqueten en una tarea</span>
+    </label>
+    <div class="settings-note" style="margin-top:10px;">Se manda a <b>${_esc(currentUser?.email || '')}</b>. Los recordatorios de deadline no van por correo, solo el etiquetado.</div>`;
+}
+
+async function _queueEmail(toUid, subject, html) {
+  if(!emailNotifsEnabled() || !db) return;
+  const u = allUsers.find(x => x.uid === toUid);
+  if(!u || !u.email) return;
+  if(u.emailNotifs === false) return;
+  try {
+    await db.collection('mail').add({
+      to: [u.email],
+      message: { subject, html },
+      _meta: { workspace: WORKSPACE, toUid, fromUid: currentUser?.uid || '', createdAt: Date.now() },
+    });
+  } catch(e) { console.warn('email queue failed:', e.message); }
+}
+
+// Plantilla mínima: asunto que se entiende sin abrir, y un cuerpo que dice qué
+// tarea, quién la asignó, con qué papel y para cuándo.
+function _taskEmailHtml({ role, who, title, campaignName, dueDate, clientDueDate, notes }) {
+  const row = (k, v) => v ? `<tr><td style="padding:4px 12px 4px 0;color:#6b7280;font-size:13px;">${k}</td><td style="padding:4px 0;font-size:13px;color:#111827;font-weight:600;">${v}</td></tr>` : '';
+  return `<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:520px;">
+    <p style="font-size:15px;color:#111827;margin:0 0 14px;"><b>${_esc(who)}</b> te etiquetó como <b>${_esc(role.toLowerCase())}</b> en una tarea.</p>
+    <p style="font-size:17px;font-weight:700;color:#111827;margin:0 0 14px;">${_esc(title)}</p>
+    <table style="border-collapse:collapse;margin-bottom:18px;">
+      ${row('Campaña', _esc(campaignName || 'General'))}
+      ${row('Deadline interno', dueDate ? _esc(formatDate(dueDate)) : '')}
+      ${row('Deadline cliente', clientDueDate ? _esc(formatDate(clientDueDate)) : '')}
+    </table>
+    ${notes ? `<p style="font-size:13px;color:#374151;white-space:pre-wrap;margin:0 0 18px;">${_esc(notes)}</p>` : ''}
+    <a href="${location.origin}/#pendientes" style="display:inline-block;background:#ff2d87;color:#fff;text-decoration:none;font-weight:700;font-size:14px;padding:10px 18px;border-radius:10px;">Ver en Campaign OS</a>
+    <p style="font-size:11px;color:#9ca3af;margin:22px 0 0;">Puedes apagar estos correos en Ajustes → Notificaciones.</p>
+  </div>`;
 }
 
 // ============================================================
 // KUDOS
 // ============================================================
-function _notifyTaskAssigned(uid, title, campaignId) {
-  if(!uid) return;
-  let extra = '';
-  if(campaignId) {
-    const c = (getData('campaigns')||[]).find(x => x.id === campaignId);
-    if(c) extra = ` en ${c.name}`;
-  }
+// Un aviso por papel. "Te asignaron una tarea" cuando en realidad te pusieron
+// de supervisor hace que la gente abra cosas que no le tocaban, y al revés:
+// los supervisores ignoran los avisos porque nunca son suyos.
+const _TASK_ROLE_COPY = {
+  assignee:   { icon:'✅', verb:'te asignó',                  role:'Responsable'   },
+  supervisor: { icon:'👁', verb:'te puso como supervisor de', role:'Supervisor'    },
+  watcher:    { icon:'👥', verb:'te sumó a',                  role:'Colaborador'   },
+};
+
+function _notifyTaskPeople({ title, campaignId, dueDate, clientDueDate, notes, added }) {
+  if(!added) return;
+  const c = campaignId ? (getData('campaigns')||[]).find(x => x.id === campaignId) : null;
+  const campaignName = c ? c.name : 'General';
+  const extra = c ? ` en ${c.name}` : '';
   const who = currentUserProfile?.name || currentUser?.email || 'Alguien';
-  _createNotification({
-    toUid: uid,
-    type: 'task_assigned',
-    text: `✅ ${who} te asignó una tarea${extra}: "${title}"`
-  });
+
+  const send = (uid, kind) => {
+    if(!uid || uid === currentUser?.uid) return;
+    const cp = _TASK_ROLE_COPY[kind];
+    const when = dueDate ? ` · vence ${formatDateShort(dueDate)}` : '';
+    _createNotification({
+      toUid: uid,
+      type: 'task_assigned',
+      text: `${cp.icon} ${who} ${cp.verb} una tarea${extra}: "${title}"${when}`,
+      email: {
+        subject: `${cp.role} · ${title}`,
+        html: _taskEmailHtml({ role:cp.role, who, title, campaignName, dueDate, clientDueDate, notes }),
+      },
+    });
+  };
+
+  send(added.assignee, 'assignee');
+  (added.supervisors || []).forEach(uid => send(uid, 'supervisor'));
+  (added.watchers    || []).forEach(uid => send(uid, 'watcher'));
+}
+
+// Compat: el resto de la app sigue llamando a la versión vieja de un solo uid.
+function _notifyTaskAssigned(uid, title, campaignId) {
+  _notifyTaskPeople({ title, campaignId, added:{ assignee: uid } });
 }
 
 function _notifyCampaignSubscribers(campaign, summary) {
