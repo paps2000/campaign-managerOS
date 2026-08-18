@@ -216,6 +216,56 @@ function _seedPersistedFp(docs) {
   docs.forEach(d => { try { _persistedFp.set(d.id, _campaignFingerprint(d)); } catch(e){} });
 }
 
+// Firestore rechaza `undefined` con un throw SÍNCRONO en batch.set(): un solo
+// campo así reventaba el lote entero antes de llegar al try/catch del commit,
+// y la escritura se perdía sin que nadie se enterara.
+function _sanitizeForFirestore(v) {
+  if(v === null || typeof v !== 'object') return v;
+  if(Array.isArray(v)) return v.map(x => x === undefined ? null : _sanitizeForFirestore(x));
+  if(typeof v.toDate === 'function' || v instanceof Date) return v;   // Timestamp/Date: se pasan tal cual
+  const out = {};
+  Object.keys(v).forEach(k => {
+    const val = v[k];
+    if(val === undefined || typeof val === 'function') return;
+    out[k] = _sanitizeForFirestore(val);
+  });
+  return out;
+}
+
+function _campaignPayload(c) {
+  return {
+    ..._sanitizeForFirestore(_stripLargeFields(c)),
+    _updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    _updatedBy: currentUser.uid,
+  };
+}
+
+// Guardado explícito de UNA campaña. No pasa por la huella —cuando el usuario
+// le da a Guardar la escritura va sí o sí— y si el servidor la rechaza
+// (permisos, doc >1MB, red) se ve en pantalla en vez de morir en la consola.
+async function persistCampaignNow(campaign) {
+  if(!currentUser || !campaign || !campaign.id) return false;
+  try {
+    const payload = _campaignPayload(campaign);
+    // Firestore corta en 1MB por documento y el error que devuelve no dice
+    // cuál campaña fue. Se avisa antes, con nombre y peso.
+    const bytes = new Blob([JSON.stringify(_stripLargeFields(campaign))]).size;
+    if(bytes > 950000) {
+      showToast(`"${campaign.name}" pesa ${(bytes/1024/1024).toFixed(2)}MB y Firestore corta en 1MB. No se guardó.`, 'error');
+      return false;
+    }
+    await db.collection('workspaces').doc(WORKSPACE).collection('campaigns')
+      .doc(campaign.id).set(payload);
+    _persistedFp.set(campaign.id, _campaignFingerprint(campaign));
+    return true;
+  } catch(e) {
+    console.error('persistCampaignNow', e);
+    _persistedFp.delete(campaign.id);   // que el siguiente intento no lo salte
+    try { showToast('No se pudo guardar en el servidor: ' + (e.message||e), 'error'); } catch(_){}
+    return false;
+  }
+}
+
 async function persistCampaigns(campaigns) {
   if(!currentUser) return;
   const col = db.collection('workspaces').doc(WORKSPACE).collection('campaigns');
@@ -226,7 +276,13 @@ async function persistCampaigns(campaigns) {
   campaigns.forEach(c => {
     const fp = _campaignFingerprint(c);
     if(_persistedFp.get(c.id) === fp) return;   // idéntico: escribirlo sería no-op
-    batch.set(col.doc(c.id), {..._stripLargeFields(c), _updatedAt: firebase.firestore.FieldValue.serverTimestamp(), _updatedBy: currentUser.uid});
+    try {
+      batch.set(col.doc(c.id), _campaignPayload(c));
+    } catch(e) {
+      // Una campaña con datos que Firestore no acepta no puede tumbar el resto.
+      console.error('persistCampaigns: campaña inválida', c.id, e);
+      return;
+    }
     escritas.push([c.id, fp]);
     ops++;
   });
@@ -245,7 +301,10 @@ async function persistCampaigns(campaigns) {
     // próxima llamada vuelve a intentarlo en vez de saltárselo.
     escritas.forEach(([id, fp]) => _persistedFp.set(id, fp));
     borradas.forEach(id => _persistedFp.delete(id));
-  } catch(e) { console.error('persistCampaigns error',e); }
+  } catch(e) {
+    console.error('persistCampaigns error',e);
+    try { showToast('No se pudieron guardar los cambios: ' + (e.message||e), 'error'); } catch(_){}
+  }
 
   // Si alguna campaña tiene Modo cliente activo, refresca su snapshot público
   // (debounced) para que el link del cliente refleje el estado actual.

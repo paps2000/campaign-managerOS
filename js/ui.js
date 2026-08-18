@@ -740,7 +740,7 @@ async function changePuesto(uid, newPuesto) {
   } catch(e) { showToast('Error: '+e.message,'error'); }
 }
 
-function saveCampaign() {
+async function saveCampaign() {
   const name = document.getElementById('fCampName').value.trim();
   if(!name) { showToast('El nombre es requerido','error'); return; }
   const campaigns = getData('campaigns');
@@ -812,7 +812,12 @@ function saveCampaign() {
   }
   setData('campaigns',campaigns);
   closeModal('campaignModal');
-  showToast(editingCampaignId?'Campaña actualizada':'Campaña creada','success'); try { showSuccessCheck(); } catch(e){}
+  // Guardar es una acción explícita: se confirma contra el servidor antes de
+  // decir "actualizada". Si el doc no llega, persistCampaignNow lo grita en
+  // pantalla en vez de dejar al usuario creyendo que se guardó.
+  const _saved = campaigns.find(x => x.id === (editingCampaignId || _newCampId));
+  const _ok = _saved ? await persistCampaignNow(_saved) : true;
+  if(_ok) { showToast(editingCampaignId?'Campaña actualizada':'Campaña creada','success'); try { showSuccessCheck(); } catch(e){} }
   // Si la campaña se creó durante el onboarding, volver a ese flujo con la nueva ya seleccionada
   if(!editingCampaignId && window._obAwaitingNewCampaign) {
     populateCampaignSelects();
