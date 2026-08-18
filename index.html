@@ -254,6 +254,9 @@
     <div class="nav-item" data-page="equipo">
       <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="7" r="3"/><path d="M2 21c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="8" r="2.5"/><path d="M14 20c0-2.5 1.8-4.5 4-4.5"/></svg></span> Equipo
     </div>
+    <div class="nav-item" data-page="thinkypeso">
+      <span class="nav-icon" style="font-size:15px;">🪙</span> ThinkyPesos
+    </div>
     <!-- Pestaña temporal: vive hasta la premiación de los Effie® México 2026 -->
     <div class="nav-sep"></div>
     <div class="nav-item nav-item-effie" data-page="effies">
@@ -994,6 +997,78 @@
     </div>
 
     <!-- EFFIES (pestaña temporal: Effie® México 2026) -->
+    <div class="page" id="page-thinkypeso">
+
+      <div class="tp-hero">
+        <div class="tp-hero-row">
+          <div class="tp-coin tp-coin-spin" aria-hidden="true">TP</div>
+          <div class="tp-hero-copy">
+            <div class="tp-eyebrow">
+              <span>ThinkyPeso</span>
+              <span class="tp-chip tp-chip-shut" id="tpHeroChip">Reparto cerrado</span>
+            </div>
+            <h1 class="tp-h1"><b id="tpHeroBalance">0</b> · <span id="tpHeroLead">Cargando tu saldo…</span></h1>
+            <p class="tp-sub" id="tpHeroSub"></p>
+            <div class="tp-hero-bar"><span id="tpHeroBar" style="width:0%"></span></div>
+            <div class="tp-hero-bartxt" id="tpHeroBarTxt"></div>
+          </div>
+          <div class="tp-hero-side">
+            <div>
+              <div class="tp-cd" id="tpCountdown">—</div>
+              <div class="tp-cd-lab" id="tpCountdownLabel">para que abra</div>
+            </div>
+            <div class="tp-hero-got">Te han dado <b id="tpHeroGot">0</b> este mes</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="tp-grid">
+
+        <div class="tp-panel">
+          <div class="tp-panel-head">
+            <span class="tp-panel-title">A quién</span>
+            <span class="tp-panel-hint">Reparte como quieras: todo a una persona o de uno en uno.</span>
+            <input class="tp-search" type="search" placeholder="Buscar por nombre o puesto" oninput="tpSearch(this.value)" aria-label="Buscar persona">
+          </div>
+          <div class="tp-list" id="tpMembers"></div>
+          <div class="tp-foot" id="tpFooter"></div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:20px;">
+
+          <div class="card">
+            <div class="card-header"><span class="card-title">Movimientos</span></div>
+            <div class="tp-tabs">
+              <button type="button" class="tp-tab active" data-tptab="recibidos" onclick="tpLedgerTab('recibidos')">Recibidos</button>
+              <button type="button" class="tp-tab" data-tptab="enviados" onclick="tpLedgerTab('enviados')">Enviados</button>
+              <button type="button" class="tp-tab" data-tptab="equipo" onclick="tpLedgerTab('equipo')">Equipo</button>
+            </div>
+            <div class="tp-feed" id="tpLedger"></div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">Más reconocidos</span>
+              <select class="tp-rank-select" id="tpRankPeriod" onchange="tpHistoryPeriod(this.value)" aria-label="Mes del ranking"></select>
+            </div>
+            <div id="tpRanking"></div>
+          </div>
+
+          <div class="card">
+            <div class="card-header"><span class="card-title">Cómo funciona</span></div>
+            <div class="tp-rules">
+              <div class="tp-rule"><span class="tp-rule-n">1</span><span class="tp-rule-t">Cada quien recibe <b>10 ThinkyPesos</b> al mes. Se abonan solos.</span></div>
+              <div class="tp-rule"><span class="tp-rule-n">2</span><span class="tp-rule-t">Solo se reparten en la <b>última semana del mes</b>. Son 7 días.</span></div>
+              <div class="tp-rule"><span class="tp-rule-n">3</span><span class="tp-rule-t">Los divides como quieras, pero <b>ningún peso viaja sin motivo</b>.</span></div>
+              <div class="tp-rule"><span class="tp-rule-n">4</span><span class="tp-rule-t">Lo que no repartes <b>se pierde</b>: no se acumula para el mes siguiente.</span></div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+
     <div class="page" id="page-effies">
 
       <div class="effie-hero">
@@ -1819,6 +1894,7 @@
 <script src="js/integrations.js" defer></script>
 <script src="js/creators.js" defer></script>
 <script src="js/effies.js" defer></script>
+<script src="js/thinky-peso.js" defer></script>
 <script src="js/app.js" defer></script>
 
 <!-- AI COMPANION -->

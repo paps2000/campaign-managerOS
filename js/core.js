@@ -125,7 +125,7 @@ const COST_ACCESS_PUESTOS = new Set(['Account Director','Head Account','Account 
 const STATUS_OPTIONS = STATUS_OPTIONS_FLOW;
 
 // In-memory cache backed by Firestore. Reads = sync (cache). Writes = sync cache + async Firestore.
-const _cache = { campaigns:[], globalTasks:[], settings:{}, influencerRatings:[], creators:[], _initialized:false };
+const _cache = { campaigns:[], globalTasks:[], settings:{}, influencerRatings:[], creators:[], thinkyPesos:[], _initialized:false };
 
 function getData(key, def) {
   if(key in _cache) return _cache[key];
@@ -358,6 +358,13 @@ function attachListeners() {
   // Portada del login: listener global (se aplica a todos los usuarios)
   try { setupCoverSync(); } catch(e){}
 
+  // ThinkyPesos — cada doc es UNA entrega (de quién, a quién, cuánto, por qué).
+  // El abono mensual de 10 no se guarda: se deriva del periodo en thinky-peso.js.
+  unsubscribers.push(ws.collection('thinkyPesos').onSnapshot(snap => {
+    _cache.thinkyPesos = snap.docs.map(d => d.data());
+    if(typeof tpOnData==='function') tpOnData();
+  }, err => console.error('thinkyPesos listener',err)));
+
   // Master creators DB listener (base de datos de talento)
   unsubscribers.push(ws.collection('creators').onSnapshot(snap => {
     _cache.creators = snap.docs.map(d => d.data());
@@ -391,6 +398,7 @@ function rerenderCurrent() {
   else if(currentPage==='metricas') renderMetrics();
   else if(currentPage==='calendario') renderCalendar();
   else if(currentPage==='influencers') renderInfluencers();
+  else if(currentPage==='thinkypeso' && typeof tpOnData==='function') tpOnData();
   populateCampaignSelects();
 }
 
@@ -762,6 +770,7 @@ function navigate(page) {
     documentos: ['Documentos','Repositorio de archivos.','+ Nueva tarea'],
     calendario: ['Calendario','Vista de publicaciones.','+ Nueva tarea'],
     equipo: ['Equipo','Miembros del equipo Think Y.',''],
+    thinkypeso: ['ThinkyPesos','Reconoce a quien se la rifó este mes.',''],
     effies: ['EFFies','7 casos finalistas en Effie® México.',''],
     ajustes: ['Ajustes','Configuración de la app.',''],
   };
@@ -783,6 +792,9 @@ function navigate(page) {
   if(page==='equipo') renderEquipo();
   if(page==='ajustes') loadSettingsUI();
   if(page==='influencers') renderInfluencers();
+  if(page==='thinkypeso') renderThinkyPeso();
+  // El contador del ThinkyPeso no debe seguir latiendo detrás de otras páginas.
+  else if(typeof tpTeardown==='function') tpTeardown();
   if(page==='effies') renderEffies();
   // El confeti y el contador de EFFies se apagan al salir de la pestaña.
   else if(typeof effiesTeardown==='function') effiesTeardown();

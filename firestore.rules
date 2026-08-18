@@ -1,0 +1,91 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isThinky() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.email.lower().matches('.*@thinkydigital[.]com');
+    }
+
+    // Hora local de CDMX. request.time es UTC; sin este ajuste, un envío
+    // legítimo del 31 a las 7 de la noche ya sería "día 1" para el servidor
+    // y la regla lo rechazaría justo en las horas de más prisa.
+    // México no cambia horario desde 2022, así que UTC-6 es fijo.
+    function mxNow() {
+      return request.time - duration.value(6, 'h');
+    }
+
+    // 'YYYY-MM' del mes en curso, en hora local. Mismo formato que escribe
+    // el cliente en thinky-peso.js.
+    function mxPeriod() {
+      return string(mxNow().year()) + '-'
+           + (mxNow().month() < 10 ? '0' : '') + string(mxNow().month());
+    }
+
+    match /users/{uid} {
+      allow read: if isThinky();
+      allow write: if isThinky() && request.auth.uid == uid;
+    }
+
+    // El documento del workspace en sí.
+    match /workspaces/{ws} {
+      allow read, write: if isThinky();
+    }
+
+    // Todas las subcolecciones del workspace MENOS thinkyPesos.
+    // Ojo: las reglas de Firestore se SUMAN, no se pisan por especificidad.
+    // Si este bloque dejara escribir thinkyPesos, la regla estricta de abajo
+    // no serviría de nada — por eso la excepción está aquí y no allá.
+    // Se usa {coll}/{doc=**} en vez de {document=**} para poder nombrar la
+    // colección sin tener que enumerar las demás (campaigns, members, config,
+    // creators, escenarios, notifications, creatorPrivateInfo, globalTasks,
+    // influencerRatings… y las que vengan).
+    match /workspaces/{ws}/{coll}/{doc=**} {
+      allow read: if isThinky();
+      allow write: if isThinky() && coll != 'thinkyPesos';
+    }
+
+    // ThinkyPesos — una entrega por documento. Inmutable una vez escrita.
+    match /workspaces/{ws}/thinkyPesos/{tx} {
+      allow read: if isThinky();
+
+      allow create: if isThinky()
+        // no puedes dar a nombre de alguien más
+        && request.resource.data.fromUid == request.auth.uid
+        // ni darte a ti mismo
+        && request.resource.data.toUid is string
+        && request.resource.data.toUid != request.auth.uid
+        // montos sanos (el tope mensual de 10 no es verificable aquí, ver nota)
+        && request.resource.data.amount is int
+        && request.resource.data.amount >= 1
+        && request.resource.data.amount <= 10
+        // ninguna moneda viaja sin motivo
+        && request.resource.data.reason is string
+        && request.resource.data.reason.size() >= 12
+        && request.resource.data.reason.size() <= 280
+        // el periodo no se puede falsear para revivir un mes cerrado
+        && request.resource.data.period == mxPeriod()
+        // y solo dentro de la ventana: "hoy + 8 días cae en el mes siguiente"
+        // equivale a estar en los últimos 8 días del mes. La ventana real es
+        // de 7; el día extra es colchón para relojes desfasados, y de todos
+        // modos el cliente no deja repartir fuera de los 7.
+        && (mxNow() + duration.value(8, 'd')).month() != mxNow().month();
+
+      // Una entrega no se edita: se deshace y se vuelve a hacer.
+      allow update: if false;
+
+      // Deshacer solo lo tuyo y solo del mes en curso. Los meses cerrados
+      // quedan como quedaron.
+      allow delete: if isThinky()
+        && resource.data.fromUid == request.auth.uid
+        && resource.data.period == mxPeriod();
+    }
+
+    match /clientShares/{token} {
+      allow get: if true;
+      allow list: if false;
+      allow create, update, delete: if request.auth != null;
+    }
+  }
+}
