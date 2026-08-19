@@ -148,12 +148,74 @@ function confirmar({ title, body, confirmLabel, cancelLabel, danger } = {}) {
   });
 }
 
+// ============================================================
+// FOCO EN MODALES
+// Los modales eran divs que aparecían: el foco del teclado se quedaba atrás,
+// en el botón que los abrió, así que Tab seguía recorriendo la página de
+// abajo — invisible, tapada por el overlay — y Esc no hacía nada. Esto lo
+// mueve adentro, lo encierra mientras el modal está abierto y lo devuelve
+// al botón de origen al cerrar.
+// ============================================================
+
+// Pila, no variable suelta: la app encima de un modal abre otro (elegir
+// creador dentro de escenario) y al cerrar el de arriba el foco tiene que
+// volver al de abajo, no a la página.
+const _focoPrevio = [];
+
+const FOCUSABLES = 'a[href], button:not([disabled]), input:not([disabled]):not([type=hidden]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+function _enfocables(el) {
+  return Array.from(el.querySelectorAll(FOCUSABLES))
+    .filter(n => n.offsetWidth || n.offsetHeight || n.getClientRects().length);
+}
+
+// Tab en el último elemento vuelve al primero, y Shift+Tab al revés. Se
+// escucha en captura para ganarle a los handlers de cada modal.
+function _trampaTab(e) {
+  if(e.key !== 'Tab') return;
+  const abiertos = document.querySelectorAll('.modal-overlay.open');
+  const modal = abiertos[abiertos.length - 1];
+  if(!modal) return;
+  const f = _enfocables(modal);
+  if(!f.length) { e.preventDefault(); modal.focus(); return; }
+  const primero = f[0], ultimo = f[f.length - 1];
+  if(e.shiftKey && (document.activeElement === primero || !modal.contains(document.activeElement))) {
+    e.preventDefault(); ultimo.focus();
+  } else if(!e.shiftKey && document.activeElement === ultimo) {
+    e.preventDefault(); primero.focus();
+  }
+}
+document.addEventListener('keydown', _trampaTab, true);
+
+// Esc cierra el modal de más arriba. Si alguien ya trató la tecla (el
+// confirm tiene su propio handler, que además resuelve su promesa), no se
+// vuelve a cerrar encima.
+document.addEventListener('keydown', e => {
+  if(e.key !== 'Escape' || e.defaultPrevented) return;
+  const abiertos = document.querySelectorAll('.modal-overlay.open');
+  const modal = abiertos[abiertos.length - 1];
+  if(modal) { e.preventDefault(); closeModal(modal.id); }
+});
+
 function openModal(id) {
   const el = document.getElementById(id);
   if(!el) return;
+  _focoPrevio.push(document.activeElement);
   _modalZ += 2;
   el.style.zIndex = _modalZ;
   el.classList.add('open');
+  // En un tick, no en requestAnimationFrame: mientras el modal está
+  // display:none no hay nada enfocable, pero rAF no corre si la pestaña
+  // está en segundo plano y el foco se quedaría afuera. Un timeout de 0
+  // sigue llegando antes que los setTimeout(30-50ms) con los que varias
+  // pantallas enfocan su propio campo, así que quien tenga una preferencia
+  // la conserva.
+  setTimeout(() => {
+    if(el.contains(document.activeElement)) return;
+    const f = _enfocables(el);
+    if(f.length) { try { f[0].focus(); } catch(e){} }
+    else { el.setAttribute('tabindex','-1'); try { el.focus(); } catch(e){} }
+  }, 0);
   // Las píldoras de pestaña se miden con offsetWidth, que da 0 mientras el modal
   // está oculto. Se remiden ya abierto, en el frame siguiente, para que el tab
   // activo tenga fondo desde el primer vistazo.
@@ -175,6 +237,13 @@ function closeModal(id) {
     }
     // Si ya no queda ningún modal abierto, reinicia el contador.
     if(!document.querySelector('.modal-overlay.open')) _modalZ = 1000;
+    // Devolver el foco a quien abrió. Se comprueba que siga en el documento:
+    // varias listas se re-renderean mientras el modal está abierto y el botón
+    // original ya no existe cuando volvemos.
+    const previo = _focoPrevio.pop();
+    if(previo && previo !== document.body && document.contains(previo)) {
+      try { previo.focus({ preventScroll:true }); } catch(e){}
+    }
   };
   const rm = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   if(rm || !el.classList.contains('open')) { finish(); return; }
@@ -1839,15 +1908,28 @@ function loadSettingsUI() {
   if(radio) radio.checked=true;
   // Sync Apariencia controls
   const currentTheme = currentUserProfile?.theme || 'default';
-  THEMES.forEach(t => {
+  THEME_SWATCHES.forEach(t => {
     const sw = document.getElementById('stTheme-'+t);
     if(sw) sw.classList.toggle('selected', t === currentTheme);
+  });
+  // El selector de color arranca con el color que ya tienes puesto, no con el
+  // rosa de fábrica: si no, abrir Ajustes parecía ofrecerte cambiarlo.
+  const _acc = currentUserProfile?.themeAccent;
+  if(_acc) ['customAccentInput','customAccentInput2'].forEach(id => {
+    const el = document.getElementById(id); if(el) el.value = _acc;
   });
   const currentMode = (typeof getThemePref==='function') ? getThemePref() : 'auto';
   document.querySelectorAll('.mode-btn').forEach(b => {
     b.classList.toggle('active', b.id === 'modeBtn-'+currentMode);
   });
   applySidebarMode(getSidebarMode());
+  // Vista: densidad, tamaño de texto y las listas para acomodar dashboard y menú.
+  if(typeof prefs === 'function') {
+    const p = prefs();
+    document.querySelectorAll('#densityPicker .seg-btn').forEach(b => b.classList.toggle('on', b.dataset.val === (p.density||'comodo')));
+    document.querySelectorAll('#textSizePicker .seg-btn').forEach(b => b.classList.toggle('on', b.dataset.val === (p.textSize||'normal')));
+    try { prefsRenderPanels(); } catch(e){}
+  }
   renderTeam();
   if(typeof _renderEmailSettings === 'function') _renderEmailSettings();
 }
@@ -2046,6 +2128,11 @@ let _toastTimer = null;
 function showToast(msg, type='', action) {
   const t=document.getElementById('toast');
   clearTimeout(_toastTimer);
+  // Un error interrumpe, un "guardado" espera su turno. Se decide ANTES de
+  // escribir el texto: si se cambia aria-live con el mensaje ya adentro, los
+  // lectores de pantalla se quedan con la cortesía anterior.
+  t.setAttribute('aria-live', type === 'error' ? 'assertive' : 'polite');
+  t.setAttribute('role', type === 'error' ? 'alert' : 'status');
   if(action && action.label && typeof action.fn === 'function') {
     window._toastAction = () => { try { action.fn(); } finally { t.classList.remove('show'); window._toastAction = null; } };
     t.innerHTML = `<span>${_esc(msg)}</span><button onclick="window._toastAction&&window._toastAction()" style="margin-left:12px;background:rgba(255,255,255,.18);border:none;color:#fff;font-weight:700;font-size:12px;padding:5px 12px;border-radius:10px;cursor:pointer;font-family:inherit;">${_esc(action.label)}</button>`;
@@ -2063,6 +2150,10 @@ function showToast(msg, type='', action) {
 // ============================================================
 document.querySelectorAll('.nav-item').forEach(item=>{
   item.addEventListener('click',()=>navigate(item.dataset.page));
+  // Son <div role="link">, no <a>: el navegador no les da Enter gratis.
+  item.addEventListener('keydown',e=>{
+    if(e.key === 'Enter') { e.preventDefault(); navigate(item.dataset.page); }
+  });
 });
 
 document.querySelectorAll('.detail-tab').forEach(tab=>{
@@ -2245,6 +2336,9 @@ auth.onAuthStateChanged(async (user) => {
   sidebarNameEl.textContent = displayName + (shortPron ? ' ' + shortPron : '');
   updateSidebarAvatar();
   loadTheme(currentUserProfile);
+  // Las preferencias de vista del servidor mandan sobre lo que había guardado
+  // en este navegador: cambiar de compu no debe resetear tu acomodo.
+  if(typeof prefsHydrateFromProfile === 'function') prefsHydrateFromProfile(currentUserProfile);
   initNotifications();
   if(calendarAccessToken) { loadCalendarEvents(); loadGmailMessages(); }
   else { renderCalendarWidget(); renderGmailWidget(); }

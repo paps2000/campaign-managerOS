@@ -122,7 +122,7 @@ function renderDashboard() {
           <span>${t.campaignName||'General'}${showDate && t.dueDate ? ' · ' + formatDate(t.dueDate) : ''}</span>
         </div>
       </div>
-      <button class="task-edit-btn" onclick="openEditTaskModal('${t.id}','${t.campaignId||''}')" title="Editar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></svg></button>
+      <button class="task-edit-btn" onclick="openEditTaskModal('${t.id}','${t.campaignId||''}')" title="Editar" aria-label="Editar tarea"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></svg></button>
     </div>`;
   if(todayTasks.length===0) {
     const upcoming = myTasks
@@ -1097,7 +1097,7 @@ function _taskItemHtml(t, cid) {
         ${t.dueDate?`<span>${formatDate(t.dueDate)}</span>`:''}
       </div>
     </div>
-    <button class="task-edit-btn" onclick="openEditTaskModal('${t.id}','${cid}')" title="Editar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></svg></button>
+    <button class="task-edit-btn" onclick="openEditTaskModal('${t.id}','${cid}')" title="Editar" aria-label="Editar tarea"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></svg></button>
     <button onclick="deleteTask('${t.id}','${cid}')" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:12px;padding:4px;"><span class="icn-close"></span></button>
   </div>
   <div style="padding:0 8px 2px 38px;display:flex;align-items:center;gap:4px;">
@@ -1153,12 +1153,99 @@ function renderCampaignTasks(c) {
 // THEMES
 // ============================================================
 const THEMES = ['default','ocean','forest','royal','sunset','rose'];
+// 'custom' no está en THEMES a propósito: no tiene paleta escrita en el CSS,
+// sus tonos se calculan aquí a partir del color que la persona eligió.
+const THEME_SWATCHES = THEMES.concat(['custom']);
+const ACCENT_DEFAULT = '#ff2d87';
 
-function applyTheme(name) {
-  THEMES.forEach(t => document.body.classList.remove('theme-'+t));
+// Los mismos colores de los temas, en canales sueltos. Van al <html> y no al
+// <body> porque hay reglas que definen variables sobre html.dark: una custom
+// property puesta en el body no sube, y esas reglas se quedaban en rosa.
+const THEME_RGB = {
+  default:'255,45,135', ocean:'37,99,235', forest:'22,163,74',
+  royal:'124,58,237', sunset:'234,88,12', rose:'225,29,72',
+};
+function _setAccentRGB(rgb) {
+  document.documentElement.style.setProperty('--accent-rgb', rgb || THEME_RGB.default);
+}
+
+// #rgb / #rrggbb → {r,g,b}. Devuelve null si no es un color válido, para no
+// pintar la app de negro cuando llega basura.
+function _hexRGB(hex) {
+  let h = String(hex||'').trim().replace('#','');
+  if(h.length === 3) h = h.split('').map(c => c+c).join('');
+  if(!/^[0-9a-fA-F]{6}$/.test(h)) return null;
+  return { r:parseInt(h.slice(0,2),16), g:parseInt(h.slice(2,4),16), b:parseInt(h.slice(4,6),16) };
+}
+
+function _rgbHSL({r,g,b}) {
+  r/=255; g/=255; b/=255;
+  const max = Math.max(r,g,b), min = Math.min(r,g,b), d = max-min;
+  let h = 0;
+  if(d) {
+    if(max === r)      h = ((g-b)/d) % 6;
+    else if(max === g) h = (b-r)/d + 2;
+    else               h = (r-g)/d + 4;
+    h *= 60; if(h < 0) h += 360;
+  }
+  const l = (max+min)/2;
+  const s = d ? d / (1 - Math.abs(2*l - 1)) : 0;
+  return { h:Math.round(h), s:Math.round(s*100), l:Math.round(l*100) };
+}
+
+// De un solo color salen los cuatro que usa la app: el acento, su versión
+// oscura (hover y texto sobre pálido), la clara (bordes) y la pálida (fondos
+// de chip). Se calculan en HSL para que un azul y un amarillo se comporten
+// igual aunque tengan luminosidad muy distinta de origen.
+function _accentVars(hex) {
+  const rgb = _hexRGB(hex); if(!rgb) return null;
+  const {h,s,l} = _rgbHSL(rgb);
+  const cl = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
+  return {
+    acc:   '#' + [rgb.r,rgb.g,rgb.b].map(v=>v.toString(16).padStart(2,'0')).join(''),
+    deep:  `hsl(${h} ${cl(s,20,100)}% ${cl(l-12, 14, 60)}%)`,
+    light: `hsl(${h} ${cl(s,20,95)}% ${cl(l+26, 55, 88)}%)`,
+    pale:  `hsl(${h} ${cl(s,25,95)}% ${cl(l+40, 90, 96)}%)`,
+    rgb:   `${rgb.r},${rgb.g},${rgb.b}`,
+  };
+}
+
+function _paintAccent(hex) {
+  const v = _accentVars(hex);
+  const st = document.body.style;
+  if(!v) { ['--acc','--acc-deep','--acc-light','--acc-pale','--acc-rgb'].forEach(k=>st.removeProperty(k)); return false; }
+  _setAccentRGB(v.rgb);
+  st.setProperty('--acc', v.acc);
+  st.setProperty('--acc-deep', v.deep);
+  st.setProperty('--acc-light', v.light);
+  st.setProperty('--acc-pale', v.pale);
+  st.setProperty('--acc-rgb', v.rgb);
+  // Los dos selectores (Ajustes y la ficha) muestran el color elegido en vez
+  // del arcoíris genérico, para que se vea cuál está puesto.
+  ['stTheme-custom','theme-custom'].forEach(id => {
+    const el = document.getElementById(id);
+    if(el) el.classList.add('has-color');
+  });
+  ['customAccentInput','customAccentInput2'].forEach(id => {
+    const el = document.getElementById(id);
+    if(el) el.value = v.acc;
+  });
+  return true;
+}
+
+function applyTheme(name, accent) {
+  THEME_SWATCHES.forEach(t => document.body.classList.remove('theme-'+t));
+  const esCustom = name === 'custom';
+  const hex = esCustom ? (accent || currentUserProfile?.themeAccent || ACCENT_DEFAULT) : null;
+  if(esCustom && !_paintAccent(hex)) { name = 'default'; }
+  else if(!esCustom) {
+    ['--acc','--acc-deep','--acc-light','--acc-pale','--acc-rgb'].forEach(k => document.body.style.removeProperty(k));
+    ['stTheme-custom','theme-custom'].forEach(id => document.getElementById(id)?.classList.remove('has-color'));
+  }
   if(name && name !== 'default') document.body.classList.add('theme-'+name);
+  _setAccentRGB(esCustom ? (_accentVars(hex)||{}).rgb : THEME_RGB[name || 'default']);
   // Update swatch selection UI (profile modal + settings page)
-  THEMES.forEach(t => {
+  THEME_SWATCHES.forEach(t => {
     const sw  = document.getElementById('theme-'+t);
     const sw2 = document.getElementById('stTheme-'+t);
     if(sw)  sw.classList.toggle('selected',  t === (name||'default'));
@@ -1167,15 +1254,33 @@ function applyTheme(name) {
   // Persist
   if(currentUserProfile) {
     currentUserProfile.theme = name || 'default';
+    const patch = { theme: name || 'default' };
+    if(name === 'custom') { patch.themeAccent = hex; currentUserProfile.themeAccent = hex; }
     try {
-      db.collection('users').doc(currentUser.uid).update({theme: name||'default'});
-      db.collection('workspaces').doc(WORKSPACE).collection('members').doc(currentUser.uid).set({theme:name||'default'},{merge:true});
+      db.collection('users').doc(currentUser.uid).set(patch, {merge:true});
+      db.collection('workspaces').doc(WORKSPACE).collection('members').doc(currentUser.uid).set(patch,{merge:true});
     } catch(e) {}
   }
 }
 
+// El input de color dispara un evento por cada pixel que mueves en la rueda:
+// se pinta al instante pero la escritura a Firestore espera a que sueltes.
+let _accentTimer = null;
+function applyCustomAccent(hex) {
+  if(!_paintAccent(hex)) return;
+  THEME_SWATCHES.forEach(t => document.body.classList.remove('theme-'+t));
+  document.body.classList.add('theme-custom');
+  THEME_SWATCHES.forEach(t => {
+    document.getElementById('theme-'+t)?.classList.toggle('selected', t === 'custom');
+    document.getElementById('stTheme-'+t)?.classList.toggle('selected', t === 'custom');
+  });
+  if(currentUserProfile) { currentUserProfile.theme = 'custom'; currentUserProfile.themeAccent = hex; }
+  clearTimeout(_accentTimer);
+  _accentTimer = setTimeout(() => applyTheme('custom', hex), 400);
+}
+
 function loadTheme(profile) {
-  if(profile?.theme) applyTheme(profile.theme);
+  if(profile?.theme) applyTheme(profile.theme, profile.themeAccent);
 }
 
 // ============================================================

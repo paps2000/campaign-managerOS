@@ -921,11 +921,15 @@ function toggleMobileSidebar() {
 
 function navigate(page) {
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
-  document.querySelectorAll('.mobile-nav-item').forEach(n=>n.classList.remove('active'));
+  // La clase .active sólo pinta: el lector de pantalla no la ve. aria-current
+  // es lo que hace que anuncie "página actual" al pasar por el item.
+  document.querySelectorAll('.nav-item').forEach(n=>{ n.classList.remove('active'); n.removeAttribute('aria-current'); });
+  document.querySelectorAll('.mobile-nav-item').forEach(n=>{ n.classList.remove('active'); n.removeAttribute('aria-current'); });
   document.getElementById('page-'+page).classList.add('active');
-  document.querySelector(`.nav-item[data-page="${page}"]`)?.classList.add('active');
-  document.querySelector(`.mobile-nav-item[data-page="${page}"]`)?.classList.add('active');
+  const navAct = document.querySelector(`.nav-item[data-page="${page}"]`);
+  navAct?.classList.add('active'); navAct?.setAttribute('aria-current','page');
+  const navMob = document.querySelector(`.mobile-nav-item[data-page="${page}"]`);
+  navMob?.classList.add('active'); navMob?.setAttribute('aria-current','page');
   // close mobile sidebar on nav
   document.getElementById('mainSidebar')?.classList.remove('mobile-open');
   document.getElementById('sidebarOverlay')?.classList.remove('open');
@@ -954,6 +958,13 @@ function navigate(page) {
     effies: ['EFFies','7 casos finalistas en Effie® México.',''],
     ajustes: ['Ajustes','Configuración de la app.',''],
   };
+  // Cambiar de página no recarga nada: para un lector de pantalla el foco se
+  // queda donde estaba y no hay forma de saber que el contenido cambió. Se
+  // manda al contenedor principal, que es tabindex="-1" justo para esto
+  // (WCAG: focus-on-route-change).
+  const principal = document.getElementById('contenidoPrincipal');
+  if(principal) { try { principal.focus({ preventScroll:true }); } catch(e){} }
+
   const name = getSettings().name || 'Génesis';
   const t = titles[page] || [page,'',''];
   document.getElementById('topbarTitle').textContent = t[0];
