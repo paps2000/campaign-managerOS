@@ -860,10 +860,15 @@ async function changeRole(uid, newRole) {
 // ---- Eliminar perfil (admin) ----
 function _countUserRefs(uid) {
   let campCreated=0, campAssigned=0, campSubs=0, campResp=0, tasksCamp=0, tasksGlobal=0;
+  const perfil = (allUsers||[]).find(u => u.uid === uid);
+  const seguidas = new Set(Array.isArray(perfil && perfil.subscribedCampaigns) ? perfil.subscribedCampaigns : []);
   (_cache.campaigns||[]).forEach(c => {
     if(c.createdBy === uid) campCreated++;
     if(Array.isArray(c.assignedTo) && c.assignedTo.includes(uid)) campAssigned++;
-    if(Array.isArray(c.subscribers) && c.subscribers.includes(uid)) campSubs++;
+    // La suscripción vive en el perfil; en la campaña sólo puede quedar rastro
+    // viejo de quien todavía no haya migrado. Cuenta si está en cualquiera de
+    // las dos, pero una sola vez: si no, la que está en ambas suma doble.
+    if(seguidas.has(c.id) || (Array.isArray(c.subscribers) && c.subscribers.includes(uid))) campSubs++;
     if(c.responsables) {
       ['operaciones','cuentas','creativo','data'].forEach(k => {
         const v = c.responsables[k];
@@ -938,10 +943,12 @@ async function confirmDeleteUser(uid, newUid) {
         if(newUid) set.add(newUid);
         c.assignedTo = [...set];
       }
+      // Sólo se borra el rastro: las suscripciones no se heredan. Seguir una
+      // campaña es una preferencia de quien la sigue, no un pendiente que
+      // alguien tenga que recoger — a diferencia de estar asignado o ser
+      // responsable, que sí dejan trabajo sin dueño.
       if(Array.isArray(c.subscribers)) {
-        const set = new Set(c.subscribers.filter(x=>x!==uid));
-        if(newUid) set.add(newUid);
-        c.subscribers = [...set];
+        c.subscribers = c.subscribers.filter(x => x !== uid);
       }
       if(c.responsables) {
         AREA_KEY_LIST.forEach(k => {
@@ -2326,6 +2333,10 @@ auth.onAuthStateChanged(async (user) => {
   // Borra pendientes tachados con más de una semana antes de pintar
   try { _purgeOldDoneTasks(); } catch(e){ console.warn('purge done tasks failed', e); }
 
+  // Una sola verdad para "sigo esta campaña" antes de pintar nada: si no, el
+  // primer render usa la lista vieja y la credencial vuelve a mentir.
+  try { await migrarSuscripciones(); } catch(e) { console.warn('migrar suscripciones', e); }
+
   // Realtime listeners
   attachListeners();
 
@@ -2412,9 +2423,15 @@ function isOperaciones() {
 function canSeeCreatorPrivateInfo() {
   return isAdmin() || isOperaciones();
 }
+/* Seguir una campaña es una PREFERENCIA, no un permiso. Antes esta función
+   devolvía true para cualquier admin, mezclando las dos cosas: como los admins
+   ven todo, se daba por hecho que también seguían todo. El efecto era que un
+   admin no podía dejar de seguir nada — el botón ni se dibujaba — y su
+   credencial arrastraba para siempre lo que hubiera elegido en el onboarding.
+   Quién PUEDE VER una campaña lo sigue decidiendo canSeeCampaign(), que abajo
+   corta por isAdmin() antes de llegar acá. */
 function isSubscribed(cid) {
-  if(isAdmin()) return true;
-  return (currentUserProfile.subscribedCampaigns || []).includes(cid);
+  return (currentUserProfile?.subscribedCampaigns || []).includes(cid);
 }
 function canSeeCampaign(c) {
   if(!c) return false;
@@ -2424,18 +2441,123 @@ function canSeeCampaign(c) {
   if(isSubscribed(c.id)) return true;
   return false;
 }
+/* Seguir / dejar de seguir. Es el ÚNICO camino: la campanita del detalle
+   también entra por aquí.
+
+   Antes había dos sistemas que no se hablaban. Este escribía
+   `users/{uid}.subscribedCampaigns`; la campanita escribía
+   `campaign.subscribers`. Ninguno limpiaba al otro, así que seguir por un lado
+   y dejar de seguir por el otro dejaba la campaña colgada — y como la
+   credencial sumaba los dos con un OR, ahí se quedaba a la vista.
+
+   Se escribe en `users` (que es la copia autoritativa: las reglas sólo dejan
+   escribirla a su dueño) y se refleja en `members`, que es de donde sale
+   `allUsers` y por lo tanto lo que ven el Equipo y las credenciales de los
+   demás. Mismo patrón que ya usan área, rol y puesto.
+
+   De paso se borra el rastro en `campaign.subscribers`: mientras queden datos
+   viejos ahí, hay dos verdades. */
 async function toggleSubscribeCampaign(cid, e) {
-  e.stopPropagation();
-  if(isAdmin()) return;
+  if(e && e.stopPropagation) e.stopPropagation();
+  if(!currentUser || !currentUserProfile) return;
   const subs = currentUserProfile.subscribedCampaigns || [];
-  const alreadySub = subs.includes(cid);
-  const newSubs = alreadySub ? subs.filter(x=>x!==cid) : [...subs, cid];
+  const yaSeguia = subs.includes(cid);
+  const newSubs = yaSeguia ? subs.filter(x=>x!==cid) : [...subs, cid];
   currentUserProfile.subscribedCampaigns = newSubs;
+
+  // Que la lista en memoria del equipo también lo sepa, sin esperar al listener.
+  const yo = allUsers.find(u => u.uid === currentUser.uid);
+  if(yo) yo.subscribedCampaigns = newSubs;
+
   try {
-    await db.collection('users').doc(currentUser.uid).update({subscribedCampaigns: newSubs});
-  } catch(e) { console.error('toggleSubscribe error', e); }
+    const ws = db.collection('workspaces').doc(WORKSPACE);
+    await Promise.all([
+      db.collection('users').doc(currentUser.uid).set({subscribedCampaigns: newSubs}, {merge:true}),
+      ws.collection('members').doc(currentUser.uid).set({subscribedCampaigns: newSubs}, {merge:true}),
+    ]);
+    await _limpiarSubscriberViejo(cid);
+  } catch(err) {
+    // Se revierte lo local: dejar la pantalla diciendo que sigues algo que el
+    // servidor no registró es peor que no haber hecho nada.
+    currentUserProfile.subscribedCampaigns = subs;
+    if(yo) yo.subscribedCampaigns = subs;
+    if(typeof avisarError === 'function') avisarError(err, 'cambiar la suscripción', 'toggleSubscribeCampaign');
+    else showToast('No se pudo cambiar la suscripción', 'error');
+    renderCampaignGrid();
+    return;
+  }
+
   renderCampaignGrid();
   if(currentPage==='dashboard') renderDashboard();
-  showToast(alreadySub ? 'Campaña removida de tu dashboard' : 'Campaña añadida a tu dashboard', 'success');
+  if(currentCampaignId === cid && typeof openCampaignDetail === 'function') openCampaignDetail(cid);
+  try { if(typeof refreshHoloCamps === 'function') refreshHoloCamps(); } catch(err){}
+  showToast(yaSeguia ? 'Dejaste de seguir esta campaña' : 'Ahora sigues esta campaña', 'success');
+}
+
+/* Migración de una sola vez, por persona.
+   Hasta ahora seguir una campaña se guardaba en `campaign.subscribers`, y esa
+   lista es la única que alimentaba la tira de la credencial: `members` —de
+   donde sale allUsers— nunca llegó a tener `subscribedCampaigns`, así que la
+   otra rama estaba muerta.
+
+   Al entrar se hace lo mínimo para dejar una sola verdad:
+     · lo que la campaña dice que sigo se suma a mi perfil,
+     · mi perfil se refleja en `members`, que es lo que ven los demás,
+     · y mi rastro se borra de las campañas.
+
+   Es idempotente y silenciosa: si no hay nada que mover, no escribe nada.
+   Cada quien migra lo suyo, que es además lo único que las reglas le dejan
+   escribir de `users`. */
+async function migrarSuscripciones() {
+  if(!currentUser || !currentUserProfile) return;
+  const uid = currentUser.uid;
+  const actuales = Array.isArray(currentUserProfile.subscribedCampaigns)
+    ? currentUserProfile.subscribedCampaigns : [];
+
+  const campaigns = getData('campaigns') || [];
+  const heredadas = campaigns
+    .filter(c => Array.isArray(c.subscribers) && c.subscribers.includes(uid))
+    .map(c => c.id);
+
+  const yo = (allUsers || []).find(u => u.uid === uid);
+  const faltaEspejo = !yo || !Array.isArray(yo.subscribedCampaigns);
+
+  if(!heredadas.length && !faltaEspejo) return;
+
+  const unidas = [...new Set([...actuales, ...heredadas])];
+  currentUserProfile.subscribedCampaigns = unidas;
+  if(yo) yo.subscribedCampaigns = unidas;
+
+  try {
+    const ws = db.collection('workspaces').doc(WORKSPACE);
+    await Promise.all([
+      db.collection('users').doc(uid).set({subscribedCampaigns: unidas}, {merge:true}),
+      ws.collection('members').doc(uid).set({subscribedCampaigns: unidas}, {merge:true}),
+    ]);
+    // Sólo ahora se borra el rastro: si lo de arriba falla, la lista vieja
+    // sigue siendo la única copia y no hay que perderla.
+    for(const cid of heredadas) {
+      try { await _limpiarSubscriberViejo(cid); } catch(e) { console.warn('migrar suscripción', cid, e); }
+    }
+  } catch(e) {
+    currentUserProfile.subscribedCampaigns = actuales;
+    if(yo) yo.subscribedCampaigns = actuales;
+    console.warn('migrarSuscripciones', e);
+  }
+}
+
+/* El sistema viejo guardaba la suscripción dentro de la campaña. Se saca de ahí
+   en cuanto se toca la campaña, para que no queden dos listas discrepando.
+   Silencioso a propósito: es limpieza, no una acción que la persona pidió. */
+async function _limpiarSubscriberViejo(cid) {
+  const campaigns = getData('campaigns');
+  const c = campaigns.find(x => x.id === cid);
+  if(!c || !Array.isArray(c.subscribers) || !c.subscribers.includes(currentUser.uid)) return;
+  c.subscribers = c.subscribers.filter(x => x !== currentUser.uid);
+  setDataLocal('campaigns', campaigns);
+  try {
+    await db.collection('workspaces').doc(WORKSPACE).collection('campaigns').doc(String(cid))
+      .set({ subscribers: c.subscribers }, { merge:true });
+  } catch(err) { console.warn('limpiar subscribers', err); }
 }
 

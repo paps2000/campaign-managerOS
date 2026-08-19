@@ -565,10 +565,10 @@ const HOLO_CAMPS_MAX = 3;
    un área, o suscrita. Las tres cuentan porque las tres significan que esa
    campaña es suya en algún sentido.
 
-   La suscripción vive en DOS lados por historia del producto: `user
-   .subscribedCampaigns` (la que mete la campaña a tu dashboard) y
-   `campaign.subscribers` (la que te manda notificaciones). Se leen las dos: para
-   quien las usa significan lo mismo.
+   La suscripción vive en UN solo lado: `subscribedCampaigns` en el perfil.
+   Antes había dos listas —esa y `campaign.subscribers`— escritas por dos
+   botones distintos que no se limpiaban entre sí, así que la tira mostraba
+   campañas que la persona ya había dejado de seguir por el otro camino.
 
    Se filtra además por lo que puede ver QUIEN MIRA la credencial, no su dueño:
    la tarjeta de otra persona no puede volverse un índice de campañas
@@ -584,11 +584,18 @@ function holoUserCampaigns(u) {
     if (typeof _cache !== 'undefined' && Array.isArray(_cache.campaigns)) list = _cache.campaigns;
     else if (typeof getData === 'function') list = getData('campaigns') || [];
   } catch (e) { return []; }
-  const subs = Array.isArray(u.subscribedCampaigns) ? u.subscribedCampaigns : [];
+  // Para la credencial propia se lee del perfil en memoria, que es la copia
+  // autoritativa y se actualiza en el momento; `allUsers` viene del espejo en
+  // `members` y puede ir un listener por detrás. Para la de otra persona sólo
+  // existe el espejo.
+  const esMia = typeof currentUser !== 'undefined' && currentUser && currentUser.uid === uid;
+  const perfil = esMia && typeof currentUserProfile !== 'undefined' && currentUserProfile
+    ? currentUserProfile : u;
+  const subs = Array.isArray(perfil.subscribedCampaigns) ? perfil.subscribedCampaigns : [];
+
   return list.filter(c => {
     if (typeof canSeeCampaign === 'function' && !canSeeCampaign(c)) return false;
     if ((c.assignedTo || []).includes(uid)) return true;
-    if ((c.subscribers || []).includes(uid)) return true;
     if (subs.includes(c.id)) return true;
     const r = c.responsables || {};
     return Object.values(r).some(v => Array.isArray(v) ? v.includes(uid) : v === uid);

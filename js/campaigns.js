@@ -418,7 +418,7 @@ function renderCampaignGrid() {
     const totalCerrado = goalHasUgcBuiltIn ? goalCont : (goalCont + ugcCommitted);
     const contPct = totalCerrado > 0 ? Math.round((totalPub / totalCerrado) * 100) : 0;
     const sub = isSubscribed(c.id);
-    const subBtn = !isAdmin() ? `<button class="sub-btn ${sub?'sub-active':''}" onclick="toggleSubscribeCampaign('${c.id}',event)" title="${sub?'Dejar de seguir':'Seguir campaña'}">${sub?'✓ Siguiendo':'+ Seguir'}</button>` : '';
+    const subBtn = `<button class="sub-btn ${sub?'sub-active':''}" onclick="toggleSubscribeCampaign('${c.id}',event)" title="${sub?'Dejar de seguir':'Seguir campaña'}">${sub?'✓ Siguiendo':'+ Seguir'}</button>`;
     return `<div class="campaign-card" onclick="openCampaignDetail('${c.id}')">
       <div class="campaign-card-header">
         <div>
@@ -529,7 +529,7 @@ function renderCampaignInfoGrid(c) {
         <span>Participantes</span>
         <span style="display:flex;gap:6px;">
           ${(()=>{
-            const subbed = Array.isArray(c.subscribers) && c.subscribers.includes(currentUser?.uid);
+            const subbed = isSubscribed(c.id);
             return `<button class="btn btn-ghost btn-sm" onclick="toggleCampaignSubscription('${c.id}')" style="font-size:11px;" title="Recibe notificaciones cuando esta campaña cambie">${subbed?`<span class="icn-inline">${ICN_bellOff}</span>Dejar de seguir`:`<span class="icn-inline">${ICN_bell}</span>Suscribirme`}</button>`;
           })()}
           ${(isAdmin() || c.createdBy===currentUser.uid) ? `<button class="btn btn-ghost btn-sm" onclick="openAssignModal()" style="font-size:11px;">+ Asignar</button>` : ''}
@@ -1636,7 +1636,15 @@ function _diffResponsables(antes, despues) {
 
 function _notifyCampaignSubscribers(campaign, summary) {
   if(!campaign) return;
-  const subs = Array.isArray(campaign.subscribers) ? campaign.subscribers : [];
+  // Quién sigue esta campaña ahora vive en el perfil de cada quien. Se lee de
+  // allUsers (el espejo en `members`) y se suma lo que quede del sistema viejo
+  // dentro de la campaña, para no dejar de avisarle a quien todavía no haya
+  // pasado por la migración.
+  const porPerfil = (allUsers || [])
+    .filter(u => Array.isArray(u.subscribedCampaigns) && u.subscribedCampaigns.includes(campaign.id))
+    .map(u => u.uid);
+  const legado = Array.isArray(campaign.subscribers) ? campaign.subscribers : [];
+  const subs = [...porPerfil, ...legado];
   // Auto-subscribers: anyone with an active task in this campaign
   const taskUids = (campaign.tasks||[]).map(t => t.assigneeUid).filter(Boolean);
   const all = Array.from(new Set([...subs, ...taskUids])).filter(uid => uid && uid !== currentUser?.uid);
@@ -1648,18 +1656,13 @@ function _notifyCampaignSubscribers(campaign, summary) {
   }));
 }
 
+/* La campanita del detalle. Escribía su propia lista dentro de la campaña,
+   en paralelo a la del listado: dos botones para lo mismo, cada uno con su
+   memoria, y ninguno deshacía lo del otro. Ahora es la misma acción. Se
+   conserva el nombre porque lo llama un onclick del HTML generado. */
 function toggleCampaignSubscription(campaignId) {
   if(!currentUser) return;
-  const campaigns = getData('campaigns');
-  const c = campaigns.find(x => x.id === campaignId);
-  if(!c) return;
-  c.subscribers = Array.isArray(c.subscribers) ? c.subscribers : [];
-  const uid = currentUser.uid;
-  const idx = c.subscribers.indexOf(uid);
-  if(idx >= 0) { c.subscribers.splice(idx,1); showToast('Suscripción desactivada'); }
-  else { c.subscribers.push(uid); showToast('Te suscribiste a esta campaña','success'); }
-  setData('campaigns', campaigns);
-  if(currentCampaignId === campaignId) openCampaignDetail(campaignId);
+  return toggleSubscribeCampaign(campaignId);
 }
 
 async function sendKudos(toUid, e) {
