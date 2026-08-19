@@ -6114,11 +6114,22 @@ html.dark :where(a, button, input, select, textarea, [tabindex]):focus-visible {
    tocar el tamaño visual del icono: min-width/height + centrado, así el
    dibujo queda igual y el blanco alrededor es lo que crece. */
 .modal-close, .tb-icon-btn, .task-edit-btn, .tb-filter-btn,
-.notif-bell-btn, .hamburger-btn, .theme-toggle-btn,
+.notif-bell-btn, .theme-toggle-btn,
 .pref-mini, .pref-eye, .row-x {
   min-width: 24px; min-height: 24px;
   display: inline-flex; align-items: center; justify-content: center;
 }
+
+/* La hamburguesa sale de la lista de arriba a propósito.
+   Entró ahí por su área de toque, pero esa regla trae `display` y no vive
+   dentro de ninguna media query, así que le ganaba por orden al
+   `.hamburger-btn { display:none }` del principio: el botón aparecía en
+   escritorio, donde la barra lateral ya está siempre a la vista y el menú
+   deslizante ni existe. Pulsarlo no hacía nada — ponía la clase `mobile-open`
+   que sólo significa algo debajo de 768px.
+   Aquí recibe el área mínima SIN tocar el display, que sigue decidiéndolo el
+   par de reglas de siempre. */
+.hamburger-btn { min-width: 24px; min-height: 24px; align-items: center; justify-content: center; }
 
 @media (pointer: coarse) {
   .modal-close, .tb-icon-btn, .task-edit-btn, .tb-filter-btn,
@@ -6225,4 +6236,54 @@ html.dark :where(a, button, input, select, textarea, [tabindex]):focus-visible {
 .confirm-list li::before {
   content:''; position:absolute; left:4px; top:.55em;
   width:5px; height:5px; border-radius:50%; background:var(--pink);
+}
+
+/* ── Nombre del creador al pasar el mouse por su círculo ──
+   Antes esto era el `title` del navegador: tarda cerca de un segundo en
+   aparecer, lo dibuja el sistema operativo con su propia tipografía y en un
+   grupo de círculos superpuestos hay que adivinar a cuál corresponde. Con
+   cinco iniciales pegadas, saber quién es cada una era imposible.
+
+   El nombre viaja en data-nombre y también en aria-label, que es lo que
+   anuncia un lector de pantalla: una inicial suelta no dice nada. */
+.camp-people-avatars .t-avatar { position: relative; }
+
+.camp-people-avatars .t-avatar::after {
+  content: attr(data-nombre);
+  position: absolute; bottom: calc(100% + 8px); left: 50%;
+  transform: translateX(-50%) translateY(3px);
+  background: var(--sidebar); color: #fff;
+  font-size: 11px; font-weight: 600; letter-spacing: .1px;
+  padding: 5px 9px; border-radius: 7px;
+  white-space: nowrap; pointer-events: none;
+  opacity: 0; visibility: hidden;
+  transition: opacity var(--dur-quick, .18s) var(--ease), transform var(--dur-quick, .18s) var(--ease), visibility 0s linear .18s;
+  z-index: 30;
+  box-shadow: 0 4px 14px rgba(10,10,12,.22);
+}
+/* La flecha se dibuja con el mismo color del globo y se mueve con él. */
+.camp-people-avatars .t-avatar::before {
+  content: ''; position: absolute; bottom: calc(100% + 3px); left: 50%;
+  transform: translateX(-50%) translateY(3px);
+  border: 5px solid transparent; border-top-color: var(--sidebar);
+  pointer-events: none; opacity: 0; visibility: hidden;
+  transition: inherit; z-index: 30;
+}
+.camp-people-avatars .t-avatar:hover::after,
+.camp-people-avatars .t-avatar:hover::before,
+.camp-people-avatars .t-avatar:focus-visible::after,
+.camp-people-avatars .t-avatar:focus-visible::before {
+  opacity: 1; visibility: visible;
+  transform: translateX(-50%) translateY(0);
+  transition-delay: 0s;
+}
+/* El círculo que se señala pasa por encima de los que tiene al lado, que se le
+   montan encima por el margen negativo del apilado. */
+.camp-people-avatars .t-avatar:hover { z-index: 5; }
+
+/* En pantalla táctil no hay hover: el globo se quedaría pegado tras el toque
+   y encima taparía la tarjeta que se acaba de tocar. */
+@media (hover: none) {
+  .camp-people-avatars .t-avatar::after,
+  .camp-people-avatars .t-avatar::before { display: none; }
 }

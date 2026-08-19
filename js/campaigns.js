@@ -318,6 +318,14 @@ function deleteCampaignView(i, e) {
   try { localStorage.setItem('cmos:campViews', JSON.stringify(views)); } catch(e){}
   renderCampaignGrid();
 }
+/* La inicial del círculo. Se saltan los signos de arranque porque los nombres
+   de creador se guardan como handle: con "@sofiavlogs", "@martinacocina" y
+   "@elrodrigo" los tres círculos decían "@" y el grupo entero era ilegible. */
+function _inicialCreador(nombre) {
+  const limpio = String(nombre || '').replace(/^[^\p{L}\p{N}]+/u, '');
+  return (limpio[0] || String(nombre || '?')[0] || '?').toUpperCase();
+}
+
 function renderCampaignGrid() {
   // Status filter pills
   const pillWrap = document.getElementById('campStatusPills');
@@ -431,7 +439,7 @@ function renderCampaignGrid() {
         <span class="badge badge-mint"><span class="badge-icn">${ICN_calendar}</span>${c.season||'—'}</span>
         ${(()=>{ const r=c.responsables||{}; return ['operaciones','cuentas','creativo','data'].map(k=>{ const uids=getAreaUids(r,k); return uids.map(uid=>{ const u=allUsers.find(x=>x.uid===uid); return u?`<span class="badge badge-area-${u.area||k.charAt(0).toUpperCase()+k.slice(1)}">${_esc(u.name||u.email.split('@')[0])}</span>`:'';}).join(''); }).join(''); })()||''}
       </div>
-      ${(()=>{ const ppl=(c.influencers||[]).filter(i=>i&&i.name); if(!ppl.length) return ''; const max=5; const shown=ppl.slice(0,max); const extra=ppl.length-shown.length; const av=shown.map(i=>`<div class="t-avatar" title="${_esc(i.name)}">${_esc((i.name||'?')[0].toUpperCase())}</div>`).join('')+(extra>0?`<div class="t-avatar is-more" title="+${extra} más">+${extra}</div>`:''); return `<div class="camp-people tdev-avatars"><div class="camp-people-avatars">${av}</div></div>`; })()}
+      ${(()=>{ const ppl=(c.influencers||[]).filter(i=>i&&i.name); if(!ppl.length) return ''; const max=5; const shown=ppl.slice(0,max); const extra=ppl.length-shown.length; const av=shown.map(i=>`<div class="t-avatar" data-nombre="${_esc(i.name)}" aria-label="${_esc(i.name)}">${_esc(_inicialCreador(i.name))}</div>`).join('')+(extra>0?`<div class="t-avatar is-more" data-nombre="${_esc(ppl.slice(max).map(x=>x.name).join(', '))}" aria-label="${_esc(ppl.slice(max).map(x=>x.name).join(', '))}">+${extra}</div>`:''); return `<div class="camp-people tdev-avatars"><div class="camp-people-avatars">${av}</div></div>`; })()}
       <div class="campaign-progress">
         <div class="progress-label"><span>Flujo</span><span>${pct}%</span></div>
         <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
