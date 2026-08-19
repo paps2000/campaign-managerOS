@@ -6422,14 +6422,11 @@ html.dark .cli-confidencial-icn { color:#f0c84a; }
 }
 
 /* ── Estrellas de las reseñas ──
-   Una sola forma de estrella; llena o vacía lo decide el `fill`, así no hacen
-   falta dos dibujos que se puedan desalinear. */
-.cli-estrellas { display:inline-flex; gap:2px; vertical-align:-2px; }
-.cli-est { width:14px; height:14px; display:inline-flex; color:var(--border); }
-.cli-est svg { width:100%; height:100%; }
-.cli-est.on { color:#f0b400; }
-.cli-est.on svg { fill:currentColor; }
-html.dark .cli-est { color:rgba(255,255,255,.22); }
+   Mismo lenguaje que la base de creadores: ★ llena en dorado, ☆ vacía en gris.
+   Dos formas y no dos tonos del mismo dibujo, porque el color solo deja fuera a
+   quien no distinga bien esos grises — y porque la vacía en #ddd, que es lo que
+   había, daba 1.36:1 sobre blanco: no se veía. */
+.cli-estrellas { display:inline-flex; gap:1px; vertical-align:-1px; line-height:1; }
 
 .cli-promedio {
   display:flex; align-items:center; gap:8px; flex-wrap:wrap;
@@ -6439,36 +6436,29 @@ html.dark .cli-est { color:rgba(255,255,255,.22); }
 }
 .cli-promedio strong { color:var(--text); font-size:14px; }
 
-/* Selector: radios de verdad, dibujados como estrellas.
-   El truco del orden inverso (`row-reverse` + `~`) es lo que permite pintar
-   "de la 1 a la que señalas" con CSS solo: en el DOM cada estrella ve a las
-   SIGUIENTES, no a las anteriores, así que se invierte la fila y se colorea
-   hacia adelante. Sin eso haría falta JS para algo que el navegador ya sabe. */
+/* El selector. En reposo ya se ven las cinco ☆ — el problema anterior era que
+   sólo aparecían al pasar el mouse, y una acción que se revela con el cursor no
+   existe para quien navega con teclado ni para quien está en un teléfono. */
 .cli-est-pick { border:none; padding:0; margin:0 0 10px; }
 .cli-est-pick legend { font-size:12px; color:var(--text-muted); padding:0; margin-bottom:6px; }
-.cli-est-row { display:inline-flex; flex-direction:row-reverse; justify-content:flex-end; gap:4px; }
-.cli-est-pick input { position:absolute; opacity:0; width:0; height:0; }
-.cli-est-pick label {
-  width:26px; height:26px; cursor:pointer; color:var(--border);
-  display:inline-flex; align-items:center; justify-content:center;
+.cli-est-row { display:inline-flex; flex-direction:row-reverse; justify-content:flex-end; gap:2px; }
+.cli-est-row input { position:absolute; opacity:0; width:0; height:0; }
+.cli-est-row label {
+  font-size:28px; line-height:1; cursor:pointer; color:#948fa0;
   transition:color var(--dur-quick) var(--ease), transform var(--dur-quick) var(--ease);
 }
-.cli-est-pick label svg { width:100%; height:100%; }
+.cli-est-row label::before { content:'☆'; }
 .cli-est-row input:checked ~ label,
 .cli-est-row label:hover,
-.cli-est-row label:hover ~ label { color:#f0b400; }
-.cli-est-row input:checked ~ label svg,
-.cli-est-row label:hover svg,
-.cli-est-row label:hover ~ label svg { fill:currentColor; }
-.cli-est-pick label:hover { transform:scale(1.12); }
-/* El foco de teclado tiene que verse: el input está escondido, así que el
-   anillo lo lleva su etiqueta. */
-.cli-est-row input:focus-visible + label {
-  outline:2px solid var(--pink); outline-offset:2px; border-radius:4px;
-}
-html.dark .cli-est-pick label { color:rgba(255,255,255,.22); }
+.cli-est-row label:hover ~ label { color:#f5a623; }
+.cli-est-row input:checked ~ label::before,
+.cli-est-row label:hover::before,
+.cli-est-row label:hover ~ label::before { content:'★'; }
+.cli-est-row label:hover { transform:scale(1.1); }
+/* El radio está escondido, así que el anillo de foco lo lleva su etiqueta. */
+.cli-est-row input:focus-visible + label { outline:2px solid var(--pink); outline-offset:2px; border-radius:4px; }
 
 @media (prefers-reduced-motion: reduce) {
-  .cli-est-pick label { transition:none; }
-  .cli-est-pick label:hover { transform:none; }
+  .cli-est-row label { transition:none; }
+  .cli-est-row label:hover { transform:none; }
 }

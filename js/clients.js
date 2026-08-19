@@ -228,34 +228,40 @@ async function rellenarClientesDesdeCampanas() {
   }
 }
 
-/* Estrellas para LEER. `titulo` sólo en la primera para que un lector de
-   pantalla anuncie "4 de 5" una vez y no cinco iconos sueltos. */
+/* Estrellas: se reusa el mismo sistema que la base de creadores —★ llena, ☆
+   vacía, dorado #f5a623— para que la app tenga UNA forma de calificar y no dos
+   que se parezcan. `starsHtml()` vive en creators.js.
+
+   El `aria-label` va en el contenedor y las estrellas quedan ocultas al lector
+   de pantalla: si no, anuncia cinco caracteres sueltos en vez de "4 de 5". */
 function _estrellasHtml(n) {
   const v = Math.max(0, Math.min(5, parseInt(n, 10) || 0));
-  return `<span class="cli-estrellas" role="img" aria-label="${v} de 5 estrellas">` +
-    [1,2,3,4,5].map(i => `<span class="cli-est ${i <= v ? 'on' : ''}">${ICN_star}</span>`).join('') +
-    `</span>`;
+  const glifos = (typeof starsHtml === 'function')
+    ? starsHtml(v, 'sm')
+    : [1,2,3,4,5].map(i => `<span style="color:${i<=v?'#f5a623':'#948fa0'};">${i<=v?'★':'☆'}</span>`).join('');
+  return `<span class="cli-estrellas" role="img" aria-label="${v} de 5 estrellas">
+    <span aria-hidden="true">${glifos}</span></span>`;
 }
 
-/* Estrellas para ELEGIR. Son radios de verdad, no divs con onclick: así se
-   navegan con flechas, entran en el orden de tabulación y el lector de
-   pantalla las anuncia como lo que son. El dibujo lo pone el CSS. */
+/* Estrellas para ELEGIR. Radios de verdad —no spans con onclick— porque son un
+   grupo de opciones excluyentes: así se recorren con flechas, entran solas en
+   el orden de tabulación y el lector las anuncia como lo que son.
+
+   La llena y la vacía son dos GLIFOS distintos, no dos colores del mismo: sin
+   eso, el único indicador de tu calificación es el color, y quien no lo
+   distinga no sabe qué eligió.
+
+   Van del 5 al 1 en el DOM sobre una fila `row-reverse`: se dibujan al revés de
+   como están escritas y en pantalla quedan 1→5, que es como se leen. El orden
+   invertido es lo que permite pintar "de la primera hasta la que señalas" con
+   `~`, que sólo alcanza a los hermanos SIGUIENTES. */
 function _estrellasInputHtml() {
-  // El grupo de radios va en su propia fila dentro del fieldset: un <legend>
-  // es hijo directo obligatorio, y como tal no se lleva bien con un padre
-  // flex — se acomoda al lado de las estrellas en vez de encima.
-  //
-  // Y van del 5 al 1 en el DOM, no del 1 al 5. La fila es `row-reverse`, así
-  // que se dibujan al revés de como están escritas y en pantalla quedan 1→5,
-  // que es como se leen. El orden invertido es lo que permite colorear "de la
-  // primera hasta la que señalas" con `~`, que sólo alcanza a los hermanos
-  // SIGUIENTES: escrito 1→5, marcar la 4 pintaba la 5 en vez de la 1, 2 y 3.
   return `<fieldset class="cli-est-pick">
     <legend>¿Cómo fue trabajar con esta persona?</legend>
     <div class="cli-est-row">
       ${[5,4,3,2,1].map(i => `
       <input type="radio" name="cliEstrellas" id="cliEst${i}" value="${i}">
-      <label for="cliEst${i}" title="${i} de 5">${ICN_star}<span class="sr-only">${i} de 5 estrellas</span></label>`).join('')}
+      <label for="cliEst${i}" title="${i} de 5"><span class="sr-only">${i} de 5 estrellas</span></label>`).join('')}
     </div>
   </fieldset>`;
 }

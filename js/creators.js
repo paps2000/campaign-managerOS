@@ -1010,9 +1010,17 @@ function avgStars(ratings) {
   return ratings.reduce((s, r) => s + r.stars, 0) / ratings.length;
 }
 
+/* Llena ★ y vacía ☆ son DOS FORMAS, no dos colores del mismo dibujo.
+   Antes las cinco eran ★ y sólo cambiaba el color: la vacía iba en #ddd, que
+   sobre blanco da 1.36:1 — no se distinguía de la llena sin fijarse, y quien no
+   separa bien esos tonos no veía ninguna diferencia. El gris sube a #948fa0
+   (3.14:1) para que la vacía además se perciba como estrella. */
 function starsHtml(avg, size) {
   const cls = size === 'sm' ? ' star-sm' : '';
-  return [1,2,3,4,5].map(i => `<span class="star${cls}" style="color:${i <= Math.round(avg) ? '#f5a623' : '#ddd'};">★</span>`).join('');
+  const n = Math.round(avg);
+  return [1,2,3,4,5].map(i => i <= n
+    ? `<span class="star${cls}" style="color:#f5a623;">★</span>`
+    : `<span class="star${cls}" style="color:#948fa0;">☆</span>`).join('');
 }
 
 function _infFillFilterOptions(infs) {
@@ -1439,9 +1447,10 @@ function renderInfluencerDetailContent(inf) {
     </div>`).join('')
   : '<p style="font-size:13px;color:var(--text-muted);">Sin calificaciones aún.</p>';
 
-  const starSelector = [1,2,3,4,5].map(i =>
-    `<span class="star" id="infStar${i}" onclick="selectStar(${i})" style="font-size:28px;cursor:pointer;color:${myRating && i<=myRating.stars ? '#f5a623' : '#ddd'};">★</span>`
-  ).join('');
+  const starSelector = [1,2,3,4,5].map(i => {
+    const on = myRating && i <= myRating.stars;
+    return `<span class="star" id="infStar${i}" onclick="selectStar(${i})" role="button" tabindex="0" aria-label="${i} de 5 estrellas" style="font-size:28px;cursor:pointer;color:${on ? '#f5a623' : '#948fa0'};">${on ? '★' : '☆'}</span>`;
+  }).join('');
 
   // Perfil del master (base de talento) — `m` ya declarado arriba
   let masterHtml = '';
@@ -1631,7 +1640,11 @@ function selectStar(n) {
   _infDetailStars = n;
   for(let i=1;i<=5;i++) {
     const el = document.getElementById('infStar'+i);
-    if(el) el.style.color = i<=n ? '#f5a623' : '#ddd';
+    if(!el) continue;
+    const on = i <= n;
+    el.style.color = on ? '#f5a623' : '#948fa0';
+    el.textContent = on ? '★' : '☆';
+    el.setAttribute('aria-pressed', on ? 'true' : 'false');
   }
 }
 
