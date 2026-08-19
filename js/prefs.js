@@ -261,7 +261,7 @@ function _prefsRow(kind, item, i, total, hidden) {
     <div class="pref-row-actions">
       <button type="button" class="pref-mini" ${i===0?'disabled':''} onclick="prefsMove('${kind}','${esc(item.id)}',-1)" title="Subir" aria-label="Subir ${esc(item.label)}">↑</button>
       <button type="button" class="pref-mini" ${i===total-1?'disabled':''} onclick="prefsMove('${kind}','${esc(item.id)}',1)" title="Bajar" aria-label="Bajar ${esc(item.label)}">↓</button>
-      <button type="button" class="pref-eye${hidden?' off':''}" onclick="${kind==='nav'?`prefsToggleNav('${esc(item.id)}')`:`prefsToggleWidget('${esc(item.id)}')`}" title="${hidden?'Mostrar':'Ocultar'}" aria-label="Mostrar ${esc(item.label)}" aria-pressed="${hidden?'false':'true'}">${hidden?'🚫':'👁'}</button>
+      <button type="button" class="pref-eye${hidden?' off':''}" onclick="${kind==='nav'?`prefsToggleNav('${esc(item.id)}')`:`prefsToggleWidget('${esc(item.id)}')`}" title="${hidden?'Mostrar':'Ocultar'}" aria-label="Mostrar ${esc(item.label)}" aria-pressed="${hidden?'false':'true'}">${hidden?ICN_eyeOff:ICN_eye}</button>
     </div>
   </div>`;
 }
@@ -290,7 +290,7 @@ function prefsRenderPanels() {
       return `<div class="pref-row static">
         <span class="pref-row-name${off?' off':''}">${esc(w.label)}</span>
         <div class="pref-row-actions">
-          <button type="button" class="pref-eye${off?' off':''}" onclick="prefsToggleWidget('${w.id}')" title="${off?'Mostrar':'Ocultar'}" aria-label="Mostrar ${esc(w.label)}" aria-pressed="${off?'false':'true'}">${off?'🚫':'👁'}</button>
+          <button type="button" class="pref-eye${off?' off':''}" onclick="prefsToggleWidget('${w.id}')" title="${off?'Mostrar':'Ocultar'}" aria-label="Mostrar ${esc(w.label)}" aria-pressed="${off?'false':'true'}">${off?ICN_eyeOff:ICN_eye}</button>
         </div>
       </div>`;
     }).join('');

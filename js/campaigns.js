@@ -530,7 +530,7 @@ function renderCampaignInfoGrid(c) {
         <span style="display:flex;gap:6px;">
           ${(()=>{
             const subbed = Array.isArray(c.subscribers) && c.subscribers.includes(currentUser?.uid);
-            return `<button class="btn btn-ghost btn-sm" onclick="toggleCampaignSubscription('${c.id}')" style="font-size:11px;" title="Recibe notificaciones cuando esta campaña cambie">${subbed?'🔕 Dejar de seguir':'🔔 Suscribirme'}</button>`;
+            return `<button class="btn btn-ghost btn-sm" onclick="toggleCampaignSubscription('${c.id}')" style="font-size:11px;" title="Recibe notificaciones cuando esta campaña cambie">${subbed?`<span class="icn-inline">${ICN_bellOff}</span>Dejar de seguir`:`<span class="icn-inline">${ICN_bell}</span>Suscribirme`}</button>`;
           })()}
           ${(isAdmin() || c.createdBy===currentUser.uid) ? `<button class="btn btn-ghost btn-sm" onclick="openAssignModal()" style="font-size:11px;">+ Asignar</button>` : ''}
         </span>
@@ -2202,7 +2202,7 @@ function _renderTrackerSummaryAndTable() {
     weeklyTableHtml = `
       <div id="trackerWeeklyTableCard" style="background:var(--bg);border:1px solid var(--border);border-radius:14px;padding:14px 16px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-          <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;">📋 Tabla por ${periodTitle}</div>
+          <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;"><span class="icn-inline">${ICN_clipboard}</span>Tabla por ${periodTitle}</div>
           <button class="btn btn-ghost btn-sm" data-noexport onclick="downloadTrackerTablePng()" title="Descargar tabla como PNG">⬇ PNG</button>
         </div>
         <div class="table-wrap">

@@ -124,7 +124,7 @@ async function loadCalendarEvents() {
       const msg = errData?.error?.message || 'Acceso denegado';
       showToast('Calendar API no habilitada: ' + msg, 'error');
       const el = document.getElementById('googleCalendarWidget');
-      if(el) el.innerHTML = `<div class="card"><div class="card-header"><span class="card-title">📅 Calendario de hoy</span></div><div style="padding:20px;text-align:center;color:var(--red);font-size:13px;">⚠️ Google Calendar API no está habilitada en tu proyecto de Google Cloud.<br><br><a href="https://console.cloud.google.com/apis/library/calendar-json.googleapis.com" target="_blank" rel="noopener noreferrer" class="btn btn-primary" style="margin-top:8px;">Habilitar Calendar API →</a></div></div>`;
+      if(el) el.innerHTML = `<div class="card"><div class="card-header"><span class="card-title"><span class="icn-inline">${ICN_calendar}</span>Calendario de hoy</span></div><div style="padding:20px;text-align:center;color:var(--red);font-size:13px;">⚠️ Google Calendar API no está habilitada en tu proyecto de Google Cloud.<br><br><a href="https://console.cloud.google.com/apis/library/calendar-json.googleapis.com" target="_blank" rel="noopener noreferrer" class="btn btn-primary" style="margin-top:8px;">Habilitar Calendar API →</a></div></div>`;
       return;
     }
     const data = await res.json();
@@ -209,7 +209,7 @@ function renderGmailWidget() {
   if(!el) return;
   if(!calendarAccessToken) {
     el.innerHTML = `<div class="card">
-      <div class="card-header"><span class="card-title">📧 Correos recientes</span></div>
+      <div class="card-header"><span class="card-title"><span class="icn-inline">${ICN_mail}</span>Correos recientes</span></div>
       <div style="padding:24px;text-align:center;">
         <p style="color:var(--text-muted);font-size:13px;margin-bottom:14px;">Conecta tu cuenta de Google para ver tus correos no leídos aquí.</p>
         <button class="btn btn-primary" onclick="connectGoogleCalendar()">Conectar Google</button>
@@ -221,7 +221,7 @@ function renderGmailWidget() {
   const msgs = gmailMessages.slice(0, 4);
   el.innerHTML = `<div class="card">
     <div class="card-header">
-      <span class="card-title">📧 Correos <span style="font-size:12px;font-weight:600;padding:2px 8px;border-radius:10px;background:var(--pink-pale);color:var(--pink-deep);margin-left:4px;">${unreadCount} no leídos</span></span>
+      <span class="card-title"><span class="icn-inline">${ICN_mail}</span>Correos <span style="font-size:12px;font-weight:600;padding:2px 8px;border-radius:10px;background:var(--pink-pale);color:var(--pink-deep);margin-left:4px;">${unreadCount} no leídos</span></span>
       <button class="btn btn-ghost btn-sm" onclick="loadGmailMessages()" title="Actualizar">↻</button>
     </div>
     ${msgs.length === 0
@@ -287,7 +287,7 @@ function renderCalendarWidget() {
 
   if(!calendarAccessToken) {
     el.innerHTML = `<div class="card">
-      <div class="card-header"><span class="card-title">📅 Calendario de hoy</span></div>
+      <div class="card-header"><span class="card-title"><span class="icn-inline">${ICN_calendar}</span>Calendario de hoy</span></div>
       <div style="padding:24px;text-align:center;">
         <p style="color:var(--text-muted);font-size:13px;margin-bottom:14px;">Conecta tu Google Calendar para ver tus reuniones y eventos del día aquí.</p>
         <button class="btn btn-primary" onclick="connectGoogleCalendar()">Conectar Google</button>
@@ -390,7 +390,7 @@ function renderCalendarWidget() {
   el.innerHTML = `<div class="card">
     <div class="card-header">
       <div>
-        <span class="card-title">📅 Calendario de hoy</span>
+        <span class="card-title"><span class="icn-inline">${ICN_calendar}</span>Calendario de hoy</span>
         ${callSummary ? `<div style="font-size:11px;color:var(--text-muted);margin-top:2px;">${callSummary}</div>` : ''}
       </div>
       <button class="btn btn-ghost btn-sm" onclick="loadCalendarEvents()" title="Actualizar">↻</button>

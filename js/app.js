@@ -20,16 +20,16 @@ function calNav(dir) {
 // emoji prefix, normalized status key). Mirrors trackerStatusBadge palette
 // so the calendar and the tracker tab share visual language.
 const TRACKER_STATUS_STYLES = [
-  { key:'publicado',    test:/^publicad|^[✅✔☑✓]/i,                  bg:'#166534', color:'#fff', icon:'✅ ', label:'Publicado' },
-  { key:'por_publicar', test:/^por\s*publicar|^⚠/i,                  bg:'#fca5a5', color:'#991b1b', icon:'📅 ', label:'Por publicar' },
-  { key:'aprobado',     test:/^aprobad/i,                            bg:'#bbf7d0', color:'#166534', icon:'👍 ', label:'Aprobado' },
-  { key:'rev_int',      test:/revisi[oó]n\s*\(?\s*int/i,             bg:'#fef08a', color:'#854d0e', icon:'🔍 ', label:'Revisión interna' },
-  { key:'rev_ext',      test:/revisi[oó]n\s*\(?\s*ext/i,             bg:'#fde047', color:'#713f12', icon:'👀 ', label:'Revisión externa' },
-  { key:'grabacion',    test:/grabaci[oó]n/i,                        bg:'#ede9fe', color:'#5b21b6', icon:'🎬 ', label:'En grabación' },
-  { key:'corrigiendo',  test:/corrigiendo/i,                         bg:'#78350f', color:'#fff',    icon:'✏️ ', label:'Corrigiendo' },
-  { key:'guion',        test:/(trabajando\s*gui[oó]n|trab\.\s*gui)/i,bg:'#f3e8ff', color:'#7c3aed', icon:'📝 ', label:'Trabajando guión' },
-  { key:'pendiente',    test:/^pendiente/i,                          bg:'#991b1b', color:'#fff',    icon:'⏳ ', label:'Pendiente' },
-  { key:'cancelado',    test:/^cancelad/i,                           bg:'#475569', color:'#fff',    icon:'⛔ ', label:'Cancelado' },
+  { key:'publicado',    test:/^publicad|^[✅✔☑✓]/i,                  bg:'#166534', color:'#fff', icon:ICN_check, label:'Publicado' },
+  { key:'por_publicar', test:/^por\s*publicar|^⚠/i,                  bg:'#fca5a5', color:'#991b1b', icon:ICN_calendar, label:'Por publicar' },
+  { key:'aprobado',     test:/^aprobad/i,                            bg:'#bbf7d0', color:'#166534', icon:ICN_thumbsUp, label:'Aprobado' },
+  { key:'rev_int',      test:/revisi[oó]n\s*\(?\s*int/i,             bg:'#fef08a', color:'#854d0e', icon:ICN_search, label:'Revisión interna' },
+  { key:'rev_ext',      test:/revisi[oó]n\s*\(?\s*ext/i,             bg:'#fde047', color:'#713f12', icon:ICN_eye, label:'Revisión externa' },
+  { key:'grabacion',    test:/grabaci[oó]n/i,                        bg:'#ede9fe', color:'#5b21b6', icon:ICN_play, label:'En grabación' },
+  { key:'corrigiendo',  test:/corrigiendo/i,                         bg:'#78350f', color:'#fff',    icon:ICN_edit, label:'Corrigiendo' },
+  { key:'guion',        test:/(trabajando\s*gui[oó]n|trab\.\s*gui)/i,bg:'#f3e8ff', color:'#7c3aed', icon:ICN_doc, label:'Trabajando guión' },
+  { key:'pendiente',    test:/^pendiente/i,                          bg:'#991b1b', color:'#fff',    icon:ICN_clock, label:'Pendiente' },
+  { key:'cancelado',    test:/^cancelad/i,                           bg:'#475569', color:'#fff',    icon:ICN_ban, label:'Cancelado' },
 ];
 function _trackerStatusEventStyle(estatusRaw) {
   const s = String(estatusRaw||'').trim();
@@ -37,7 +37,7 @@ function _trackerStatusEventStyle(estatusRaw) {
     if(entry.test.test(s)) return { ...entry, statusKey: entry.key };
   }
   // Unknown / empty
-  return { key:'unknown', bg:'#e5e7eb', color:'#374151', icon:'📌 ', label:'Sin estatus', statusKey:'unknown' };
+  return { key:'unknown', bg:'#e5e7eb', color:'#374151', icon:ICN_pin, label:'Sin estatus', statusKey:'unknown' };
 }
 
 function renderCalendar() {
@@ -76,11 +76,11 @@ function renderCalendar() {
 
   visibleCampaigns().forEach(c => {
     // Campaign start/end
-    if(c.startDate) add(c.startDate, {type:'start', label:'🚀 '+c.name, color:'rgba(198,242,74,0.85)', text:'#2a5a18'});
-    if(c.endDate)   add(c.endDate,   {type:'end',   label:'🏁 '+c.name, color:'rgba(240,200,74,0.85)', text:'#6a4800'});
+    if(c.startDate) add(c.startDate, {type:'start', label:c.name, icon:ICN_rocket, color:'rgba(198,242,74,0.85)', text:'#2a5a18'});
+    if(c.endDate)   add(c.endDate,   {type:'end',   label:c.name, icon:ICN_flag, color:'rgba(240,200,74,0.85)', text:'#6a4800'});
     // Publications
     (c.influencers||[]).forEach(inf => {
-      if(inf.publishDate) add(inf.publishDate, {type:'pub', label:inf.name||inf.handle, color:'var(--pink)', text:'#fff'});
+      if(inf.publishDate) add(inf.publishDate, {type:'pub', label:inf.name||inf.handle, icon:ICN_sparkle, color:'var(--pink)', text:'#fff'});
     });
     // Tracker publications (Master Tracker / Social Calendar)
     // Color the chip based on ESTATUS CONTENIDO (Publicado, Por publicar, ...)
@@ -112,12 +112,12 @@ function renderCalendar() {
     });
     // Campaign tasks
     (c.tasks||[]).filter(t=>!t.done&&t.dueDate).forEach(t => {
-      add(t.dueDate, {type:'task', label:t.title, color:'var(--lavender)', text:'#fff'});
+      add(t.dueDate, {type:'task', label:t.title, icon:ICN_clipboard, color:'var(--lavender)', text:'#fff'});
     });
   });
   // Global tasks
   (_cache.globalTasks||[]).filter(t=>!t.done&&t.dueDate).forEach(t => {
-    add(t.dueDate, {type:'task', label:t.title, color:'var(--lavender)', text:'#fff'});
+    add(t.dueDate, {type:'task', label:t.title, icon:ICN_clipboard, color:'var(--lavender)', text:'#fff'});
   });
 
   // Grid cells: Monday-first
@@ -143,11 +143,54 @@ function renderCalendar() {
     const cellBg = !inMonth ? 'background:var(--bg);' : (isToday ? 'background:var(--pink-pale);' : '');
     html += `<div style="min-height:90px;border-right:1px solid var(--border);border-bottom:1px solid var(--border);padding:6px 5px;box-sizing:border-box;${cellBg}">`
       + (inMonth ? `<div style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;margin-bottom:4px;font-size:12px;font-weight:700;${isToday?'background:var(--pink);color:#fff;':'color:'+(weekend?'var(--text-muted)':'var(--text)')+';"}'}">${day}</div>` : '')
-      + evs.slice(0,3).map(ev=>`<div style="font-size:10px;font-weight:600;padding:2px 5px;border-radius:4px;background:${ev.color};color:${ev.text};margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${ev.label}">${ev.label}</div>`).join('')
+      + evs.slice(0,3).map(ev=>`<div style="font-size:10px;font-weight:600;padding:2px 5px;border-radius:4px;background:${ev.color};color:${ev.text};margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${_esc(ev.label)}"><span class="cal-chip-icn">${ev.icon||ev.statusIcon||''}</span>${_esc(ev.label)}</div>`).join('')
       + (evs.length > 3 ? `<div style="font-size:10px;color:var(--text-muted);padding:1px 4px;">+${evs.length-3} más</div>` : '')
       + `</div>`;
   }
   grid.innerHTML = html;
+
+  // ── Agenda (teléfono) ──
+  // La rejilla de mes reparte el ancho entre siete columnas. En 375px eso deja
+  // 49px por día: los números del mes se leen, pero el contenido —que es lo que
+  // se viene a consultar— queda en "@ju…". La agenda usa los MISMOS eventos y
+  // los pone en lista, con el día a la izquierda y las etiquetas completas a la
+  // derecha, que es como cabe un mes en una pantalla angosta.
+  //
+  // Se listan sólo los días que tienen algo. Un mes en blanco son treinta filas
+  // vacías que hay que scrollear para descubrir que no hay nada; mejor decirlo.
+  const agenda = document.getElementById('calAgenda');
+  if(agenda) {
+    const DIAS = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+    const conEventos = [];
+    for(let dnum = 1; dnum <= lastDay.getDate(); dnum++) {
+      const ds = dateStr(dnum);
+      const evs = events[ds];
+      if(evs && evs.length) conEventos.push({ ds, dnum, evs });
+    }
+
+    if(!conEventos.length) {
+      agenda.innerHTML = `<div class="card"><div class="empty-state">`
+        + `<div class="empty-icon">${ICN_calendar}</div>`
+        + `<p>Nada agendado en ${MONTHS[calMonth].toLowerCase()}.</p></div></div>`;
+    } else {
+      agenda.innerHTML = conEventos.map(({ds, dnum, evs}) => {
+        const fecha = new Date(calYear, calMonth, dnum);
+        const esHoy = ds === todayStr;
+        const finde = fecha.getDay() === 0 || fecha.getDay() === 6;
+        // Aquí no se corta a tres como en la rejilla: en lista no hay motivo,
+        // la fila crece y el "+2 más" obligaba a abrir el día para ver algo
+        // que ya cabía.
+        const chips = evs.map(ev => `<div class="cal-ag-chip" style="background:${ev.color};color:${ev.text};"><span class="cal-chip-icn">${ev.icon||ev.statusIcon||''}</span>${_esc(ev.label)}</div>`).join('');
+        return `<div class="cal-ag-dia${esHoy ? ' hoy' : ''}${finde ? ' finde' : ''}">
+          <div class="cal-ag-fecha">
+            <span class="cal-ag-num">${dnum}</span>
+            <span class="cal-ag-dow">${DIAS[fecha.getDay()]}</span>
+          </div>
+          <div class="cal-ag-evs">${chips}</div>
+        </div>`;
+      }).join('');
+    }
+  }
 
   // Build dynamic legend from the statuses actually present in this view
   const legend = document.getElementById('calLegend');
@@ -159,9 +202,9 @@ function renderCalendar() {
       }
     }));
     const fixed = [
-      { bg:'var(--lavender)', color:'#fff',    icon:'📋', label:'Tarea',           show: Object.values(events).some(a => a.some(e => e.type==='task')) },
-      { bg:'rgba(198,242,74,0.85)', color:'#2a5a18', icon:'🚀', label:'Inicio campaña',  show: Object.values(events).some(a => a.some(e => e.type==='start')) },
-      { bg:'rgba(240,200,74,0.85)', color:'#6a4800', icon:'🏁', label:'Cierre campaña',  show: Object.values(events).some(a => a.some(e => e.type==='end')) },
+      { bg:'var(--lavender)', color:'#fff',    icon:ICN_clipboard, label:'Tarea',           show: Object.values(events).some(a => a.some(e => e.type==='task')) },
+      { bg:'rgba(198,242,74,0.85)', color:'#2a5a18', icon:ICN_rocket, label:'Inicio campaña',  show: Object.values(events).some(a => a.some(e => e.type==='start')) },
+      { bg:'rgba(240,200,74,0.85)', color:'#6a4800', icon:ICN_flag, label:'Cierre campaña',  show: Object.values(events).some(a => a.some(e => e.type==='end')) },
     ].filter(x => x.show);
     // Order: tracker statuses (defined order), then task/campaign markers
     const orderedStatuses = TRACKER_STATUS_STYLES
@@ -175,7 +218,7 @@ function renderCalendar() {
     ];
     legend.innerHTML = chips.length === 0
       ? '<span style="font-size:11px;color:var(--text-muted);">Sin publicaciones en este mes.</span>'
-      : chips.map(c => `<span style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:14px;background:${c.bg};color:${c.color};font-size:11px;font-weight:700;">${c.icon||''} ${c.label}</span>`).join('');
+      : chips.map(c => `<span style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:14px;background:${c.bg};color:${c.color};font-size:11px;font-weight:700;"><span class="cal-chip-icn">${c.icon||''}</span>${_esc(c.label)}</span>`).join('');
   }
 }
 
@@ -1246,13 +1289,13 @@ function closeCmdk() {
 }
 function _cmdkData() {
   const items = [];
-  try { (typeof visibleCampaigns==='function'?visibleCampaigns():getData('campaigns')||[]).forEach(c=>items.push({type:'Campaña', icon:'📁', label:c.name, sub:c.client||'', action:()=>{navigate('campannas');setTimeout(()=>openCampaignDetail(c.id),60);}})); } catch(e){}
-  try { (getAllInfluencers()||[]).forEach(inf=>items.push({type:'Influencer', icon:'⭐', label:inf.name, sub:[inf.handle?'@'+inf.handle:'', inf.categoria||'', ...(inf.keywords||[]).slice(0,3)].filter(Boolean).join(' · '), action:()=>{navigate('influencers');setTimeout(()=>openInfluencerDetail(inf.key),60);}})); } catch(e){}
+  try { (typeof visibleCampaigns==='function'?visibleCampaigns():getData('campaigns')||[]).forEach(c=>items.push({type:'Campaña', icon:ICN_megaphone, label:c.name, sub:c.client||'', action:()=>{navigate('campannas');setTimeout(()=>openCampaignDetail(c.id),60);}})); } catch(e){}
+  try { (getAllInfluencers()||[]).forEach(inf=>items.push({type:'Influencer', icon:ICN_users, label:inf.name, sub:[inf.handle?'@'+inf.handle:'', inf.categoria||'', ...(inf.keywords||[]).slice(0,3)].filter(Boolean).join(' · '), action:()=>{navigate('influencers');setTimeout(()=>openInfluencerDetail(inf.key),60);}})); } catch(e){}
   try {
-    (getData('globalTasks')||[]).forEach(t=>{ if(!t.done) items.push({type:'Tarea', icon:'✅', label:t.title, sub:'General', action:()=>navigate('pendientes')}); });
-    (getData('campaigns')||[]).forEach(c=>(c.tasks||[]).forEach(t=>{ if(!t.done) items.push({type:'Tarea', icon:'✅', label:t.title, sub:c.name, action:()=>{navigate('campannas');setTimeout(()=>openCampaignDetail(c.id),60);}}); }));
+    (getData('globalTasks')||[]).forEach(t=>{ if(!t.done) items.push({type:'Tarea', icon:ICN_check, label:t.title, sub:'General', action:()=>navigate('pendientes')}); });
+    (getData('campaigns')||[]).forEach(c=>(c.tasks||[]).forEach(t=>{ if(!t.done) items.push({type:'Tarea', icon:ICN_check, label:t.title, sub:c.name, action:()=>{navigate('campannas');setTimeout(()=>openCampaignDetail(c.id),60);}}); }));
   } catch(e){}
-  try { (getData('campaigns')||[]).forEach(c=>(c.documents||[]).forEach(d=>items.push({type:'Documento', icon:'📄', label:d.name||d.title||'Documento', sub:c.name, action:()=>{ if(d.url) window.open(_safeUrl(d.url),'_blank','noopener'); else navigate('documentos'); }}))); } catch(e){}
+  try { (getData('campaigns')||[]).forEach(c=>(c.documents||[]).forEach(d=>items.push({type:'Documento', icon:ICN_doc, label:d.name||d.title||'Documento', sub:c.name, action:()=>{ if(d.url) window.open(_safeUrl(d.url),'_blank','noopener'); else navigate('documentos'); }}))); } catch(e){}
   return items;
 }
 function _cmdkRender() {
@@ -1266,7 +1309,7 @@ function _cmdkRender() {
   if(!items.length) { list.innerHTML = `<div style="padding:24px;text-align:center;color:var(--text-muted,#888);font-size:14px;">${q?'Sin resultados':'Empieza a escribir...'}</div>`; return; }
   list.innerHTML = items.map((it,i)=>`<div class="cmdk-row" data-i="${i}" onclick="_cmdkPick(${i})"
     style="display:flex;align-items:center;gap:12px;padding:11px 14px;border-radius:10px;cursor:pointer;${i===_cmdkIndex?'background:var(--pink-pale,#ffe3f0);':''}">
-    <span style="font-size:18px;">${it.icon}</span>
+    <span class="cmd-item-icn">${it.icon}</span>
     <div style="flex:1;min-width:0;"><div style="font-size:14px;font-weight:600;color:var(--text,#111);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${_esc(it.label)}</div>${it.sub?`<div style="font-size:12px;color:var(--text-muted,#888);">${_esc(it.sub)}</div>`:''}</div>
     <span style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted,#999);background:var(--bg,#f3f3f3);padding:2px 8px;border-radius:8px;">${it.type}</span>
   </div>`).join('');

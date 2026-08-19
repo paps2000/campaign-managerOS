@@ -258,12 +258,12 @@
       <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="7" r="3"/><path d="M2 21c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="8" r="2.5"/><path d="M14 20c0-2.5 1.8-4.5 4-4.5"/></svg></span> Equipo
     </div>
     <div class="nav-item" data-page="thinkypeso" role="link" tabindex="0">
-      <span class="nav-icon" style="font-size:15px;">🪙</span> ThinkyPesos
+      <span class="nav-icon" data-icn="coin"></span> ThinkyPesos
     </div>
     <!-- Pestaña temporal: vive hasta la premiación de los Effie® México 2026 -->
     <div class="nav-sep"></div>
     <div class="nav-item nav-item-effie" data-page="effies" role="link" tabindex="0">
-      <span class="nav-icon" style="font-size:15px;">🏆</span> EFFies
+      <span class="nav-icon" data-icn="trophy"></span> EFFies
       <span class="nav-badge">7</span>
     </div>
   </div>
@@ -492,7 +492,7 @@
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
           <input type="text" id="campFilterSearch" class="form-input" style="flex:1;min-width:200px;font-size:13px;" placeholder="Buscar por nombre o cliente..." oninput="renderCampaignGrid()" aria-label="Buscar campañas por nombre o cliente">
           <div id="campStatusPills" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
-          <button class="btn btn-ghost btn-sm" onclick="saveCampaignView()" title="Guardar filtros actuales como vista" aria-label="Guardar vista">💾 Guardar vista</button>
+          <button class="btn btn-ghost btn-sm" onclick="saveCampaignView()" title="Guardar filtros actuales como vista" aria-label="Guardar vista"><span class="icn-inline" data-icn="bookmark"></span>Guardar vista</button>
         </div>
         <div id="campSavedViews" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;"></div>
         <div class="campaign-grid" id="campaignGrid"></div>
@@ -511,8 +511,8 @@
               <div class="detail-subtitle" id="detailCampaignSub"></div>
             </div>
             <div style="display:flex;gap:8px;">
-              <button class="btn btn-ghost btn-sm" onclick="openClientShareModal()" title="Compartir vista de solo lectura con el cliente" aria-label="Modo cliente">🔗 Modo cliente</button>
-              <button class="btn btn-ghost btn-sm" onclick="downloadCampaignReport()" title="Descargar reporte de resultados" aria-label="Descargar resultados">📄 Descargar resultados</button>
+              <button class="btn btn-ghost btn-sm" onclick="openClientShareModal()" title="Compartir vista de solo lectura con el cliente" aria-label="Modo cliente"><span class="icn-inline" data-icn="link"></span>Modo cliente</button>
+              <button class="btn btn-ghost btn-sm" onclick="downloadCampaignReport()" title="Descargar reporte de resultados" aria-label="Descargar resultados"><span class="icn-inline" data-icn="doc"></span>Descargar resultados</button>
               <button class="btn btn-ghost btn-sm" onclick="openEditCampaignModal()"><span class="icn-edit"></span> Editar</button>
               <button class="btn btn-ghost btn-sm" onclick="deleteCampaign()" style="color:var(--red);"><span class="icn-trash"></span> Eliminar</button>
               <button class="btn btn-primary btn-sm" onclick="openAddTaskModal()">+ Tarea</button>
@@ -542,7 +542,7 @@
           <div id="escenarioSheetsBar" style="background:var(--bg);border:1px solid var(--border);border-radius:14px;padding:12px 14px;margin-bottom:16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
             <span style="font-size:12px;font-weight:700;color:#3a7a5e;white-space:nowrap;">🎯 Escenario</span>
             <input type="text" id="escenarioSheetsUrl" class="form-input" style="flex:1;min-width:180px;font-size:12px;" placeholder="URL del escenario (con #gid=... de la pestaña Escenario Final)" oninput="saveEscenarioUrl()" aria-label="URL del escenario en Google Sheets">
-            <button class="btn btn-ghost btn-sm" onclick="syncEscenario()" style="white-space:nowrap;" aria-label="Actualizar">🔄 Actualizar</button>
+            <button class="btn btn-ghost btn-sm" onclick="syncEscenario()" style="white-space:nowrap;" aria-label="Actualizar"><span class="icn-inline" data-icn="refresh"></span>Actualizar</button>
             <div style="flex-basis:100%;font-size:11px;color:var(--text-muted);line-height:1.4;">
               🌐 El sheet debe estar compartido como <b>«Cualquier persona con el enlace»</b> (con Lector basta) — la plataforma lo lee vía export CSV público. Si está restringido, la sincronización fallará.
             </div>
@@ -551,7 +551,7 @@
           <div id="escenarioAppNotice" style="display:none;background:var(--mint-pale,#eafaf1);border:1px solid #b7e4c7;border-radius:14px;padding:12px 14px;margin-bottom:16px;align-items:center;gap:10px;flex-wrap:wrap;">
             <span style="font-size:12px;font-weight:700;color:#3a7a5e;white-space:nowrap;">🎯 Escenario armado en plataforma</span>
             <span style="font-size:11px;color:var(--text-muted);flex:1;min-width:160px;">Este escenario está vinculado desde el editor. La carga por Google Sheets está bloqueada.</span>
-            <button class="btn btn-ghost btn-sm" onclick="enableEscenarioSheets()" style="white-space:nowrap;" aria-label="Habilitar Google Sheets">🔓 Habilitar Google Sheets</button>
+            <button class="btn btn-ghost btn-sm" onclick="enableEscenarioSheets()" style="white-space:nowrap;" aria-label="Habilitar Google Sheets"><span class="icn-inline" data-icn="unlock"></span>Habilitar Google Sheets</button>
           </div>
           <div id="escenarioBlock" style="margin-bottom:20px;"></div>
           <!-- Alta manual de influencers. Se oculta cuando hay escenario cargado:
@@ -600,9 +600,9 @@
         <div class="tab-content" id="tab-tracker">
           <div style="background:var(--bg);border:1px solid var(--border);border-radius:14px;padding:14px 16px;margin-bottom:16px;">
             <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
-              <span style="font-size:12px;font-weight:700;color:#3a7a5e;white-space:nowrap;">📊 Master Tracker</span>
+              <span style="font-size:12px;font-weight:700;color:#3a7a5e;white-space:nowrap;"><span class="icn-inline" data-icn="chart"></span>Master Tracker</span>
               <input type="text" id="trackerSheetsUrl" class="form-input" style="flex:1;min-width:180px;font-size:12px;" placeholder="URL del master tracker (incluye #gid=... de la pestaña Social Calendar Mundial)" oninput="saveTrackerUrl()" aria-label="URL del master tracker en Google Sheets">
-              <button class="btn btn-ghost btn-sm" onclick="syncTracker()" aria-label="Sincronizar">🔄 Sincronizar</button>
+              <button class="btn btn-ghost btn-sm" onclick="syncTracker()" aria-label="Sincronizar"><span class="icn-inline" data-icn="refresh"></span>Sincronizar</button>
               <span id="trackerLastSync" style="font-size:11px;color:var(--text-muted);"></span>
             </div>
             <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;">
@@ -673,7 +673,7 @@
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg> Volver
           </button>
           <h3 id="metricsCampName" style="font-size:24px;font-weight:700;letter-spacing:-0.3px;flex:1;"></h3>
-          <button class="btn btn-ghost btn-sm" onclick="downloadCampaignReport(currentMetricsCampaignId)" title="Descargar reporte de resultados" aria-label="Descargar resultados">📄 Descargar resultados</button>
+          <button class="btn btn-ghost btn-sm" onclick="downloadCampaignReport(currentMetricsCampaignId)" title="Descargar reporte de resultados" aria-label="Descargar resultados"><span class="icn-inline" data-icn="doc"></span>Descargar resultados</button>
         </div>
 
         <!-- No-metrics-linked state -->
@@ -824,8 +824,8 @@
     <div class="page" id="page-equipo">
 
       <div class="profile-tab-bar" id="equipoViewTabs" style="margin-bottom:18px;">
-        <button class="profile-tab-btn active" data-eqtab="directorio" onclick="setEquipoView('directorio')" aria-label="Directorio">👥 Directorio</button>
-        <button class="profile-tab-btn" data-eqtab="organigrama" onclick="setEquipoView('organigrama')" aria-label="Organigrama">🗂 Organigrama</button>
+        <button class="profile-tab-btn active" data-eqtab="directorio" onclick="setEquipoView('directorio')" aria-label="Directorio"><span class="icn-inline" data-icn="users"></span>Directorio</button>
+        <button class="profile-tab-btn" data-eqtab="organigrama" onclick="setEquipoView('organigrama')" aria-label="Organigrama"><span class="icn-inline" data-icn="org"></span>Organigrama</button>
       </div>
 
       <!-- Area filter tabs -->
@@ -877,7 +877,9 @@
       </div>
       <!-- Legend (dynamic — built from statuses actually present this view) -->
       <div id="calLegend" style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:16px;font-size:11px;font-weight:600;"></div>
-      <div class="card" style="padding:0;overflow:hidden;">
+      <!-- Vista de mes: sólo en pantallas anchas. En teléfono siete columnas
+           dejan 49px por día, donde un nombre de creador se lee "@ju…". -->
+      <div class="card cal-month" style="padding:0;overflow:hidden;">
         <!-- Day headers -->
         <div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));background:var(--bg);border-bottom:1px solid var(--border);">
           <div style="padding:10px 0;text-align:center;font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:.5px;">Lun</div>
@@ -890,6 +892,11 @@
         </div>
         <div id="calGrid" style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));border-left:1px solid var(--border);border-top:1px solid var(--border);"></div>
       </div>
+
+      <!-- Vista de agenda: sólo en teléfono. Mismo mes y los mismos datos, pero
+           en lista, que es la forma en que un mes entra en una pantalla
+           angosta sin recortar los nombres. La arma renderCalendar(). -->
+      <div class="cal-agenda" id="calAgenda"></div>
     </div>
 
     <!-- AJUSTES -->
@@ -918,8 +925,8 @@
           <label class="form-label">Modo de pantalla</label>
           <div style="display:flex;gap:8px;margin-top:8px;">
             <button class="mode-btn" id="modeBtn-auto"  onclick="setModeBtn('auto')">Auto</button>
-            <button class="mode-btn" id="modeBtn-light" onclick="setModeBtn('light')" aria-label="Claro">☀️ Claro</button>
-            <button class="mode-btn" id="modeBtn-dark"  onclick="setModeBtn('dark')" aria-label="Oscuro">🌙 Oscuro</button>
+            <button class="mode-btn" id="modeBtn-light" onclick="setModeBtn('light')" aria-label="Claro"><span class="icn-inline" data-icn="sun"></span>Claro</button>
+            <button class="mode-btn" id="modeBtn-dark"  onclick="setModeBtn('dark')" aria-label="Oscuro"><span class="icn-inline" data-icn="moon"></span>Oscuro</button>
           </div>
         </div>
 
@@ -1104,7 +1111,7 @@
 
           <div class="card">
             <div class="card-header">
-              <span class="card-title">🏆 Top 5 del mes</span>
+              <span class="card-title"><span class="icn-inline" data-icn="trophy"></span>Top 5 del mes</span>
               <select class="tp-rank-select" id="tpRankPeriod" onchange="tpHistoryPeriod(this.value)" aria-label="Mes del ranking"></select>
             </div>
             <div id="tpRanking"></div>
@@ -1113,7 +1120,7 @@
           <div class="card">
             <div class="card-header">
               <span class="card-title">Cómo funciona</span>
-              <button type="button" class="tp-replay" onclick="tpOnboardOpen()" aria-label="Ver el tutorial">🎬 Ver el tutorial</button>
+              <button type="button" class="tp-replay" onclick="tpOnboardOpen()" aria-label="Ver el tutorial"><span class="icn-inline" data-icn="play"></span>Ver el tutorial</button>
             </div>
             <div class="tp-rules">
               <div class="tp-rule"><span class="tp-rule-n">1</span><span class="tp-rule-t">Cada quien recibe <b>10 ThinkyPesos</b> al mes. Se abonan solos.</span></div>
@@ -1582,7 +1589,7 @@
       <button class="btn btn-ghost btn-sm" onclick="scenarioSuggestByKeywords()" aria-label="Sugerir por keywords">✨ Sugerir por keywords</button>
       <div style="flex:1;"></div>
       <button class="btn btn-ghost btn-sm" onclick="scenarioCopyTSV()">Copiar tabla</button>
-      <button class="btn btn-ghost btn-sm" onclick="scenarioExportXLSX()" aria-label="Descargar Excel">📊 Descargar Excel</button>
+      <button class="btn btn-ghost btn-sm" onclick="scenarioExportXLSX()" aria-label="Descargar Excel"><span class="icn-inline" data-icn="sheet"></span>Descargar Excel</button>
       <button class="btn btn-ghost btn-sm" onclick="scenarioExportCSV()">Descargar CSV</button>
       <button class="btn btn-primary btn-sm" id="scnSaveBtn" onclick="scenarioSave()">Guardar escenario</button>
     </div>
@@ -1605,8 +1612,8 @@
 
     <!-- Tab bar -->
     <div class="profile-tab-bar">
-      <button class="profile-tab-btn active" data-ptab="credencial" onclick="switchProfileTab('credencial')" aria-label="Credencial">🪪 Credencial</button>
-      <button class="profile-tab-btn" data-ptab="info" onclick="switchProfileTab('info')" aria-label="Info">👤 Info</button>
+      <button class="profile-tab-btn active" data-ptab="credencial" onclick="switchProfileTab('credencial')" aria-label="Credencial"><span class="icn-inline" data-icn="badge"></span>Credencial</button>
+      <button class="profile-tab-btn" data-ptab="info" onclick="switchProfileTab('info')" aria-label="Info"><span class="icn-inline" data-icn="user"></span>Info</button>
       <button class="profile-tab-btn" data-ptab="apariencia" onclick="switchProfileTab('apariencia')" aria-label="Apariencia">✦ Apariencia</button>
     </div>
 
@@ -1922,7 +1929,7 @@
 <div class="modal-overlay" id="clientShareModal" role="dialog" aria-modal="true" aria-labelledby="clientShareModal__title">
   <div class="modal" style="max-width:560px;">
     <div class="modal-header">
-      <div class="modal-title" id="clientShareModal__title">🔗 Modo cliente</div>
+      <div class="modal-title" id="clientShareModal__title"><span class="icn-inline" data-icn="link"></span>Modo cliente</div>
       <button class="modal-close" aria-label="Cerrar" onclick="closeModal('clientShareModal')"><span class="icn-close"></span></button>
     </div>
     <div id="clientShareBody"></div>
@@ -2016,19 +2023,19 @@
 <div class="fab-wrap" id="fabWrap" style="display:none;">
   <div class="fab-actions" id="fabActions">
     <button class="fab-action" onclick="closeFab();openAddGlobalTaskModal();" aria-label="Nueva tarea">
-      <span class="fab-action-icon" aria-hidden="true">✅</span> Nueva tarea
+      <span class="fab-action-icon" aria-hidden="true" data-icn="check"></span> Nueva tarea
     </button>
     <button class="fab-action" onclick="closeFab();openNewCampaignModal();" aria-label="Nueva campaña">
-      <span class="fab-action-icon" aria-hidden="true">📣</span> Nueva campaña
+      <span class="fab-action-icon" aria-hidden="true" data-icn="megaphone"></span> Nueva campaña
     </button>
     <button class="fab-action" onclick="closeFab();openScenarioStart();" aria-label="Crear escenario">
-      <span class="fab-action-icon" aria-hidden="true">🎯</span> Crear escenario
+      <span class="fab-action-icon" aria-hidden="true" data-icn="target"></span> Crear escenario
     </button>
     <button class="fab-action" onclick="closeFab();openAddDocModalGlobal();" aria-label="Nuevo documento">
-      <span class="fab-action-icon" aria-hidden="true">📄</span> Nuevo documento
+      <span class="fab-action-icon" aria-hidden="true" data-icn="doc"></span> Nuevo documento
     </button>
     <button class="fab-action" onclick="closeFab();openCmdk();" aria-label="Buscar (⌘K)">
-      <span class="fab-action-icon" aria-hidden="true">🔍</span> Buscar (⌘K)
+      <span class="fab-action-icon" aria-hidden="true" data-icn="search"></span> Buscar (⌘K)
     </button>
   </div>
   <button class="fab-main" id="fabMainBtn" onclick="toggleFab()" title="Acciones rápidas" aria-label="Acciones rápidas">+</button>

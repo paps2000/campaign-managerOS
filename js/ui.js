@@ -648,7 +648,7 @@ function renderEquipo() {
       </div>
       ${hasStatus ? `<div class="team-card-status">${u.statusEmoji||''} ${_esc(u.statusText)}</div>` : ''}
       ${activeTasks.length > 0 ? `<div class="team-card-tasks">${activeTasks.length} tarea${activeTasks.length!==1?'s':''}</div>` : ''}
-      ${!isMe ? `<button class="kudos-btn" onclick="sendKudos('${u.uid}',event)" style="margin-top:2px;">🏆 Kudos</button>` : ''}
+      ${!isMe ? `<button class="kudos-btn" onclick="sendKudos('${u.uid}',event)" style="margin-top:2px;"><span class="icn-inline">${ICN_trophy}</span>Kudos</button>` : ''}
       ${(!isMe && isAdmin()) ? `<button class="team-card-del" onclick="event.stopPropagation();openDeleteUserModal('${u.uid}')" title="Eliminar el perfil de esta persona del workspace">Eliminar perfil</button>` : ''}
     </div>`;
   }).join('')}</div>`;
@@ -822,7 +822,7 @@ function renderTeam() {
       </div>
       ${hasStatus ? `<div class="team-card-status">${u.statusEmoji||''} ${_esc(u.statusText)}</div>` : ''}
       ${activeTasks.length > 0 ? `<div class="team-card-tasks">${activeTasks.length} tarea${activeTasks.length!==1?'s':''}</div>` : ''}
-      ${!isMe ? `<button class="kudos-btn" onclick="sendKudos('${u.uid}',event)" style="margin-top:2px;">🏆 Kudos</button>` : ''}
+      ${!isMe ? `<button class="kudos-btn" onclick="sendKudos('${u.uid}',event)" style="margin-top:2px;"><span class="icn-inline">${ICN_trophy}</span>Kudos</button>` : ''}
       ${adminSelects}
     </div>`;
   }).join('')}</div>`;

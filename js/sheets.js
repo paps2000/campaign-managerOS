@@ -701,7 +701,7 @@ function renderEscenarioBlock(c) {
   const rankingHtml = rankCreators.length ? `
     <div class="card" style="margin-top:14px;">
       <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
-        <span class="card-title">🏆 Ranking de eficiencia · ${rankCreators.length} creadores (MXN)</span>
+        <span class="card-title"><span class="icn-inline">${ICN_trophy}</span>Ranking de eficiencia · ${rankCreators.length} creadores (MXN)</span>
         <div style="display:flex;gap:6px;">
           <button class="metrics-tab-pill ${_rankMetric==='cpv'?'active':''}" onclick="setEscRankMetric('${c.id}','cpv')">Por CPV</button>
           <button class="metrics-tab-pill ${_rankMetric==='cpi'?'active':''}" onclick="setEscRankMetric('${c.id}','cpi')">Por CPI</button>
@@ -750,7 +750,7 @@ function renderEscenarioBlock(c) {
       <div style="background:var(--white);border-top:1px solid var(--pink);padding:12px 14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
         <span style="font-size:12px;font-weight:700;color:var(--pink-deep);white-space:nowrap;">📊 Resultados UGC</span>
         <input type="text" id="ugcSheetsUrl" class="form-input" style="flex:1;min-width:180px;font-size:12px;" placeholder="URL del Google Sheet de resultados UGC (incluye #gid=... si es una pestaña)" value="${c.ugcSheetUrl||''}" oninput="saveUgcUrl()">
-        <button class="btn btn-ghost btn-sm" onclick="syncUgcResults()" style="white-space:nowrap;">🔄 Sincronizar</button>
+        <button class="btn btn-ghost btn-sm" onclick="syncUgcResults()" style="white-space:nowrap;"><span class="icn-inline">${ICN_refresh}</span>Sincronizar</button>
         <span id="ugcLastSync" style="font-size:11px;color:var(--text-muted);">${c.ugcLastSync?'Última sync: '+new Date(c.ugcLastSync).toLocaleString('es-MX',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):''}</span>
       </div>
 
