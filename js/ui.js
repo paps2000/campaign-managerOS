@@ -2327,6 +2327,12 @@ auth.onAuthStateChanged(async (user) => {
   // primer render usa la lista vieja y la credencial vuelve a mentir.
   try { await migrarSuscripciones(); } catch(e) { console.warn('migrar suscripciones', e); }
 
+  // Los contactos que ya vivían dentro de las campañas entran a la base de
+  // clientes. No bloquea el arranque: si tarda, la pestaña se llena sola en
+  // cuanto el listener reciba lo escrito.
+  try { if(typeof rellenarClientesDesdeCampanas === 'function') rellenarClientesDesdeCampanas(); }
+  catch(e) { console.warn('rellenar clientes', e); }
+
   // Realtime listeners
   attachListeners();
 

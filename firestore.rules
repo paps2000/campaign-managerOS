@@ -50,6 +50,19 @@ service cloud.firestore {
       return /databases/$(database)/documents/workspaces/$(ws)/thinkyPesos/$(tx);
     }
 
+    // ── Área de quien pide ──
+    // El área vive en el doc de `members`. Se lee con get(), que cuesta una
+    // lectura por evaluación: sólo se usa en las reseñas de clientes, que se
+    // consultan al abrir una ficha y no en cada pantalla.
+    function miembroPath(ws) {
+      return /databases/$(database)/documents/workspaces/$(ws)/members/$(request.auth.uid);
+    }
+    function esCuentasOAdmin(ws) {
+      return exists(miembroPath(ws))
+        && (get(miembroPath(ws)).data.area == 'Cuentas'
+         || get(miembroPath(ws)).data.role == 'admin');
+    }
+
     match /users/{uid} {
       allow read: if isThinky();
       allow write: if isThinky() && request.auth.uid == uid;
@@ -70,10 +83,34 @@ service cloud.firestore {
     // creators, escenarios, notifications, creatorPrivateInfo, globalTasks,
     // influencerRatings… y las que vengan).
     match /workspaces/{ws}/{coll}/{doc=**} {
-      allow read: if isThinky();
+      // `clientNotes` se excluye también de la LECTURA, no sólo de la
+      // escritura: son reseñas sobre personas del cliente y la regla de abajo
+      // no serviría de nada si esta las dejara leer a todo el workspace. Es el
+      // único caso hasta ahora en que leer ya es el problema.
+      allow read: if isThinky() && coll != 'clientNotes';
       allow write: if isThinky()
         && coll != 'thinkyPesos'
-        && coll != 'thinkyPesoBalances';
+        && coll != 'thinkyPesoBalances'
+        && coll != 'clientNotes';
+    }
+
+    // ── Reseñas de clientes ──
+    // Qué se siente trabajar con una persona del cliente. Lo escribe y lo lee
+    // Cuentas, que es quien mantiene la relación; el resto del equipo ve el
+    // directorio de clientes pero no esto.
+    //
+    // No se editan ni se borran a propósito: una reseña es lo que alguien
+    // pensó en una fecha, y reescribirla después borra el rastro de por qué se
+    // decidió lo que se decidió. Tampoco se puede firmar con el nombre de otro.
+    match /workspaces/{ws}/clientNotes/{nota} {
+      allow read:   if isThinky() && esCuentasOAdmin(ws);
+      allow create: if isThinky() && esCuentasOAdmin(ws)
+                    && request.resource.data.autorUid == request.auth.uid
+                    && request.resource.data.texto is string
+                    && request.resource.data.texto.size() >= 10
+                    && request.resource.data.texto.size() <= 4000
+                    && request.resource.data.clientId is string;
+      allow update, delete: if false;
     }
 
     // ── Saldo del mes ──

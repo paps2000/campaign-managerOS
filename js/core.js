@@ -595,6 +595,13 @@ function attachListeners() {
     if(typeof tpOnData==='function') tpOnData();
   }, err => console.error('thinkyPesos listener',err)));
 
+  // Base de clientes: la gente del lado del cliente. Vive aparte de las
+  // campañas porque tiene que sobrevivir a que la saquen de una.
+  unsubscribers.push(ws.collection('clients').onSnapshot(snap => {
+    _cache.clients = snap.docs.map(d => d.data());
+    if(currentPage === 'clientes' && typeof renderClientes === 'function') renderClientes();
+  }, err => console.error('clients listener', err)));
+
   // Master creators DB listener (base de datos de talento)
   unsubscribers.push(ws.collection('creators').onSnapshot(snap => {
     _cache.creators = snap.docs.map(d => d.data());
@@ -1027,6 +1034,7 @@ function navigate(page) {
     metricas: ['Métricas','Resultados en tiempo real.',''],
     generador: ['Generador de textos','Plantillas con IA para tus campañas.',''],
     influencers: ['Creadores','Toda la base de talento de Think Y.','+ Nueva tarea'],
+    clientes: ['Clientes','Quién es quién del otro lado de la cuenta.',''],
     documentos: ['Documentos','Repositorio de archivos.','+ Nueva tarea'],
     calendario: ['Calendario','Vista de publicaciones.','+ Nueva tarea'],
     equipo: ['Equipo','Miembros del equipo Think Y.',''],
@@ -1059,6 +1067,7 @@ function navigate(page) {
   if(page==='equipo') renderEquipo();
   if(page==='ajustes') loadSettingsUI();
   if(page==='influencers') renderInfluencers();
+  if(page==='clientes') renderClientes();
   if(page==='thinkypeso') renderThinkyPeso();
   // El contador del ThinkyPeso no debe seguir latiendo detrás de otras páginas.
   else if(typeof tpTeardown==='function') tpTeardown();

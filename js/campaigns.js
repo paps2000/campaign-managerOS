@@ -801,6 +801,13 @@ function openClientContactModal(cid, idx) {
           <div class="form-group"><label class="form-label">Cargo</label><input type="text" id="fClientCargo" class="form-input" placeholder="Brand Manager, Director, ..."></div>
           <div class="form-group"><label class="form-label">Correo</label><input type="email" id="fClientEmail" class="form-input" placeholder="nombre@cliente.com"></div>
           <div class="form-group"><label class="form-label">LinkedIn</label><input type="url" id="fClientLinkedin" class="form-input" placeholder="https://www.linkedin.com/in/..."></div>
+          <div class="form-group"><label class="form-label" for="fClientPoc">Tipo de contacto</label>
+            <select id="fClientPoc" class="form-input">
+              <option value="principal">POC principal</option>
+              <option value="secundario">POC secundario</option>
+              <option value="na">Sin definir</option>
+            </select>
+          </div>
           <div class="form-group"><label class="form-label">Notas</label><textarea id="fClientNotes" class="form-input" rows="3" placeholder="Preferencias, horarios, contexto..."></textarea></div>
           <div class="modal-footer">
             <button class="btn btn-ghost" onclick="closeModal('clientContactModal')">Cancelar</button>
@@ -820,6 +827,7 @@ function openClientContactModal(cid, idx) {
   document.getElementById('fClientEmail').value    = ct.email || '';
   document.getElementById('fClientLinkedin').value = ct.linkedin || '';
   document.getElementById('fClientNotes').value    = ct.notes || '';
+  document.getElementById('fClientPoc').value      = ct.pocTipo || 'na';
   openModal('clientContactModal');
 }
 
@@ -833,23 +841,28 @@ function saveClientContact() {
   let linkedin = document.getElementById('fClientLinkedin').value.trim();
   if(linkedin && !/^https?:\/\//i.test(linkedin)) linkedin = 'https://' + linkedin;
   const notes = document.getElementById('fClientNotes').value.trim();
+  const pocTipo = document.getElementById('fClientPoc').value || 'na';
   const campaigns = getData('campaigns');
   const c = campaigns.find(x => x.id === campaignId);
   if(!c) return;
   if(!Array.isArray(c.clientContacts)) c.clientContacts = [];
-  const obj = { name, cargo, email, linkedin, notes };
+  const obj = { name, cargo, email, linkedin, notes, pocTipo };
   if(typeof idx === 'number') c.clientContacts[idx] = obj;
   else c.clientContacts.push(obj);
   setData('campaigns', campaigns);
   closeModal('clientContactModal');
   showToast('Contacto guardado','success'); try { showSuccessCheck(); } catch(e){}
+  // La persona también entra a la base de clientes, con su periodo abierto en
+  // esta campaña. Si falla, el contacto de la campaña ya quedó guardado: la
+  // base se pone al día la próxima vez que se toque.
+  try { clienteUpsertDesdeCampana(obj, c); } catch(e){ console.warn('sync cliente', e); }
   if(currentCampaignId === campaignId) renderCampaignClients(c);
 }
 
 async function deleteClientContact(cid, idx) {
   if(!await confirmar({
     title: '¿Eliminar este contacto?',
-    body: 'Se quita de la campaña. Puedes volver a capturarlo cuando quieras.',
+    body: 'Se quita de esta campaña. Su ficha y su historial se conservan en Clientes.',
     confirmLabel: 'Eliminar contacto',
     cancelLabel: 'Conservar',
     danger: true,
@@ -857,8 +870,13 @@ async function deleteClientContact(cid, idx) {
   const campaigns = getData('campaigns');
   const c = campaigns.find(x => x.id === cid);
   if(!c || !Array.isArray(c.clientContacts)) return;
+  const quitado = c.clientContacts[idx];
   c.clientContacts.splice(idx, 1);
   setData('campaigns', campaigns);
+  // En la base de clientes NO se borra: se cierra su periodo en esta campaña.
+  // Que alguien salga de una cuenta es justamente cuando más importa poder
+  // consultar qué sabíamos de esa persona.
+  try { clienteCerrarEnCampana(quitado, c); } catch(e){ console.warn('cerrar cliente', e); }
   if(currentCampaignId === cid) renderCampaignClients(c);
 }
 
