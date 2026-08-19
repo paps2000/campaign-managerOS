@@ -1010,18 +1010,62 @@ function avgStars(ratings) {
   return ratings.reduce((s, r) => s + r.stars, 0) / ratings.length;
 }
 
-/* Llena ★ y vacía ☆ son DOS FORMAS, no dos colores del mismo dibujo.
-   Antes las cinco eran ★ y sólo cambiaba el color: la vacía iba en #ddd, que
-   sobre blanco da 1.36:1 — no se distinguía de la llena sin fijarse, y quien no
-   separa bien esos tonos no veía ninguna diferencia. El gris sube a #948fa0
-   (3.14:1) para que la vacía además se perciba como estrella. */
+/* Estrellas para leer, con relleno fraccionario.
+   Cada estrella son dos capas: una ☆ gris de fondo y una ★ dorada encima,
+   recortada al porcentaje que le toca. Así 3.5 pinta tres llenas y media, y un
+   promedio de 3.7 se dibuja tal cual en vez de redondearse a 4 — que era lo que
+   pasaba antes y hacía que dos creadores con 3.5 y 4.4 se vieran igual.
+
+   Llena y vacía siguen siendo dos GLIFOS distintos, no dos tonos del mismo: el
+   color no puede ser el único indicador. */
+/* Selector de estrellas CON MEDIAS, compartido por la base de creadores y las
+   reseñas de clientes.
+
+   Diez radios, uno por cada media estrella. Radios y no divs con onclick porque
+   son opciones excluyentes: se recorren con flechas, entran solos en el orden
+   de tabulación y el lector los anuncia como grupo con su valor.
+
+   Van del 5 al 0.5 en el DOM sobre una fila `row-reverse`: se dibujan al revés
+   de como están escritos y en pantalla quedan 0.5→5, que es como se leen. Ese
+   orden invertido es lo que permite pintar "de la primera hasta la que señalas"
+   con `~`, que sólo alcanza a los hermanos SIGUIENTES — sin una línea de JS.
+
+   Cada label es media estrella: la de valor entero es la mitad DERECHA y la de
+   valor .5 la IZQUIERDA, recortadas del mismo glifo para que las dos mitades
+   encajen sin costura. */
+function starsPickerHtml(name, valor) {
+  const v = Number(valor) || 0;
+  const pasos = [];
+  for (let i = 10; i >= 1; i--) pasos.push(i / 2);
+  return `<div class="star-pick" role="group" aria-label="Calificación de 0.5 a 5 estrellas">
+    ${pasos.map(n => {
+      const mitad = Number.isInteger(n) ? 'der' : 'izq';
+      const id = `${name}_${String(n).replace('.', '_')}`;
+      return `<input type="radio" name="${name}" id="${id}" value="${n}" ${v === n ? 'checked' : ''}>
+      <label for="${id}" class="star-half star-half--${mitad}" title="${n} de 5">
+        <span class="sr-only">${n} de 5 estrellas</span></label>`;
+    }).join('')}
+  </div>`;
+}
+
+/* Lo elegido, o 0 si nadie tocó nada. */
+function starsPickerValor(name) {
+  const m = document.querySelector(`input[name="${name}"]:checked`);
+  return m ? Number(m.value) : 0;
+}
+
 function starsHtml(avg, size) {
   const cls = size === 'sm' ? ' star-sm' : '';
-  const n = Math.round(avg);
-  return [1,2,3,4,5].map(i => i <= n
-    ? `<span class="star${cls}" style="color:#f5a623;">★</span>`
-    : `<span class="star${cls}" style="color:#948fa0;">☆</span>`).join('');
+  const v = Math.max(0, Math.min(5, Number(avg) || 0));
+  return [1,2,3,4,5].map(i => {
+    const pct = Math.round(Math.max(0, Math.min(1, v - (i - 1))) * 1000) / 10;
+    return `<span class="star-wrap${cls}" aria-hidden="true">` +
+             `<span class="star-bg">☆</span>` +
+             `<span class="star-fill" style="width:${pct}%">★</span>` +
+           `</span>`;
+  }).join('');
 }
+
 
 function _infFillFilterOptions(infs) {
   const fill = (id, values, label) => {
@@ -1447,10 +1491,7 @@ function renderInfluencerDetailContent(inf) {
     </div>`).join('')
   : '<p style="font-size:13px;color:var(--text-muted);">Sin calificaciones aún.</p>';
 
-  const starSelector = [1,2,3,4,5].map(i => {
-    const on = myRating && i <= myRating.stars;
-    return `<span class="star" id="infStar${i}" onclick="selectStar(${i})" role="button" tabindex="0" aria-label="${i} de 5 estrellas" style="font-size:28px;cursor:pointer;color:${on ? '#f5a623' : '#948fa0'};">${on ? '★' : '☆'}</span>`;
-  }).join('');
+  const starSelector = starsPickerHtml('infStars', myRating ? myRating.stars : 0);
 
   // Perfil del master (base de talento) — `m` ya declarado arriba
   let masterHtml = '';
@@ -1636,20 +1677,17 @@ async function removeManualCampaign(key, entryId) {
   } catch(e) { avisarError(e, 'quitar la campaña del perfil', 'removeManualCampaign'); }
 }
 
+/* Se conserva el nombre por si algún onclick viejo quedó en un HTML generado
+   antes de este cambio; el pintado ahora lo hace el CSS desde el radio. */
 function selectStar(n) {
-  _infDetailStars = n;
-  for(let i=1;i<=5;i++) {
-    const el = document.getElementById('infStar'+i);
-    if(!el) continue;
-    const on = i <= n;
-    el.style.color = on ? '#f5a623' : '#948fa0';
-    el.textContent = on ? '★' : '☆';
-    el.setAttribute('aria-pressed', on ? 'true' : 'false');
-  }
+  const r = document.querySelector(`input[name="infStars"][value="${n}"]`);
+  if (r) r.checked = true;
 }
 
+
 async function submitInfluencerRating(key) {
-  if (!_infDetailStars) { showToast('Selecciona una calificación de 1 a 5 estrellas','error'); return; }
+  const _estrellas = starsPickerValor('infStars') || _infDetailStars;
+  if (!_estrellas) { showToast('Selecciona una calificación de 0.5 a 5 estrellas','error'); return; }
   if (!currentUser) { showToast('Debes iniciar sesión','error'); return; }
   const comment = (document.getElementById('infRatingComment')?.value||'').trim();
   const infs = getAllInfluencers();
@@ -1659,7 +1697,7 @@ async function submitInfluencerRating(key) {
     influencerKey: key,
     userId: currentUser.uid,
     userName: currentUserProfile?.name || currentUser.email?.split('@')[0] || 'Usuario',
-    stars: _infDetailStars,
+    stars: _estrellas,
     comment,
     campaignName,
     date: new Date().toISOString()

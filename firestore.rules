@@ -99,7 +99,8 @@ service cloud.firestore {
     // Cuentas, que es quien mantiene la relación; el resto del equipo ve el
     // directorio de clientes pero no esto.
     //
-    // Cada reseña son dos cosas: una calificación de 1 a 5 y el porqué escrito.
+    // Cada reseña son dos cosas: una calificación de 0.5 a 5 (en medias) y el
+    // porqué escrito.
     // Las dos obligatorias — un número sin explicación no dice qué hacer
     // distinto, y un texto sin número no se puede comparar entre personas.
     //
@@ -111,9 +112,15 @@ service cloud.firestore {
       allow create: if isThinky() && esCuentasOAdmin(ws)
                     && request.resource.data.autorUid == request.auth.uid
                     && request.resource.data.clientId is string
-                    && request.resource.data.estrellas is int
-                    && request.resource.data.estrellas >= 1
+                    // Medias estrellas: 0.5 a 5 en pasos de media. `is number`
+                    // acepta entero y decimal, así que las reseñas que ya
+                    // existen con un 4 entero siguen siendo válidas. El paso se
+                    // comprueba además del rango: un 3.7 escrito a mano rompe
+                    // la escala común y deja de poder compararse.
+                    && request.resource.data.estrellas is number
+                    && request.resource.data.estrellas >= 0.5
                     && request.resource.data.estrellas <= 5
+                    && request.resource.data.estrellas * 2 == math.floor(request.resource.data.estrellas * 2)
                     && request.resource.data.texto is string
                     && request.resource.data.texto.size() >= 10
                     && request.resource.data.texto.size() <= 4000;

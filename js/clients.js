@@ -139,11 +139,15 @@ async function guardarResenaCliente(clientId, texto, estrellas) {
     return false;
   }
   const t = String(texto || '').trim();
-  const e = parseInt(estrellas, 10);
+  // Medias estrellas: 0.5 a 5 en pasos de media. Se comprueba el paso y no sólo
+  // el rango, porque un 3.7 escrito a mano rompería la comparación entre
+  // reseñas — deja de haber una escala común.
+  const e = Number(estrellas);
+  const valida = e >= 0.5 && e <= 5 && (e * 2) === Math.round(e * 2);
   // Las dos partes son obligatorias. Una calificación sin explicación no le
   // sirve a quien la lea después —"3 estrellas" no dice qué hacer distinto— y
   // un texto sin calificación no se puede comparar entre personas.
-  if (!(e >= 1 && e <= 5)) { showToast('Elige de 1 a 5 estrellas.', 'error'); return false; }
+  if (!valida) { showToast('Elige de 0.5 a 5 estrellas.', 'error'); return false; }
   if (t.length < 10) { showToast('Escribe al menos una frase.', 'error'); return false; }
   const nota = {
     id: 'n_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
@@ -228,41 +232,25 @@ async function rellenarClientesDesdeCampanas() {
   }
 }
 
-/* Estrellas: se reusa el mismo sistema que la base de creadores —★ llena, ☆
-   vacía, dorado #f5a623— para que la app tenga UNA forma de calificar y no dos
-   que se parezcan. `starsHtml()` vive en creators.js.
+/* Estrellas para leer. El dibujo lo hace starsHtml() de creators.js, que pinta
+   relleno fraccionario — así un 3.5 se ve como tres y media y un promedio de
+   3.7 se ve como 3.7, en vez de redondearse.
 
-   El `aria-label` va en el contenedor y las estrellas quedan ocultas al lector
-   de pantalla: si no, anuncia cinco caracteres sueltos en vez de "4 de 5". */
+   El `aria-label` va en el contenedor y los glifos quedan ocultos al lector: si
+   no, anuncia cinco caracteres sueltos en vez de "3.5 de 5". */
 function _estrellasHtml(n) {
-  const v = Math.max(0, Math.min(5, parseInt(n, 10) || 0));
-  const glifos = (typeof starsHtml === 'function')
-    ? starsHtml(v, 'sm')
-    : [1,2,3,4,5].map(i => `<span style="color:${i<=v?'#f5a623':'#948fa0'};">${i<=v?'★':'☆'}</span>`).join('');
-  return `<span class="cli-estrellas" role="img" aria-label="${v} de 5 estrellas">
-    <span aria-hidden="true">${glifos}</span></span>`;
+  const v = Math.max(0, Math.min(5, Number(n) || 0));
+  const texto = Number.isInteger(v) ? v : v.toFixed(1);
+  return `<span class="cli-estrellas" role="img" aria-label="${texto} de 5 estrellas">${starsHtml(v, 'sm')}</span>`;
 }
 
-/* Estrellas para ELEGIR. Radios de verdad —no spans con onclick— porque son un
-   grupo de opciones excluyentes: así se recorren con flechas, entran solas en
-   el orden de tabulación y el lector las anuncia como lo que son.
-
-   La llena y la vacía son dos GLIFOS distintos, no dos colores del mismo: sin
-   eso, el único indicador de tu calificación es el color, y quien no lo
-   distinga no sabe qué eligió.
-
-   Van del 5 al 1 en el DOM sobre una fila `row-reverse`: se dibujan al revés de
-   como están escritas y en pantalla quedan 1→5, que es como se leen. El orden
-   invertido es lo que permite pintar "de la primera hasta la que señalas" con
-   `~`, que sólo alcanza a los hermanos SIGUIENTES. */
+/* El selector es el mismo de la base de creadores, con medias estrellas.
+   Vive en creators.js junto a starsHtml() para que calificar sea una sola cosa
+   en toda la app y no dos que se parezcan. */
 function _estrellasInputHtml() {
   return `<fieldset class="cli-est-pick">
     <legend>¿Cómo fue trabajar con esta persona?</legend>
-    <div class="cli-est-row">
-      ${[5,4,3,2,1].map(i => `
-      <input type="radio" name="cliEstrellas" id="cliEst${i}" value="${i}">
-      <label for="cliEst${i}" title="${i} de 5"><span class="sr-only">${i} de 5 estrellas</span></label>`).join('')}
-    </div>
+    ${starsPickerHtml('cliEstrellas', 0)}
   </fieldset>`;
 }
 
@@ -444,7 +432,7 @@ async function _pintarResenas(id) {
     : null;
   const resumen = promedio === null ? '' : `
     <div class="cli-promedio">
-      ${_estrellasHtml(Math.round(promedio))}
+      ${_estrellasHtml(promedio)}
       <span><strong>${promedio.toFixed(1)}</strong> de 5 · ${conNota.length} ${conNota.length === 1 ? 'reseña' : 'reseñas'}</span>
     </div>`;
 
@@ -472,8 +460,7 @@ async function _pintarResenas(id) {
 async function enviarResenaCliente(id) {
   const ta = document.getElementById('clienteResenaTexto');
   if (!ta) return;
-  const marcada = document.querySelector('input[name="cliEstrellas"]:checked');
-  const ok = await guardarResenaCliente(id, ta.value, marcada && marcada.value);
+  const ok = await guardarResenaCliente(id, ta.value, starsPickerValor('cliEstrellas'));
   if (!ok) return;
   ta.value = '';
   showToast('Reseña publicada', 'success');

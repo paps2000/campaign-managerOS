@@ -6421,11 +6421,25 @@ html.dark .cli-confidencial-icn { color:#f0c84a; }
   .cli-barra { flex-direction:column; align-items:stretch; }
 }
 
-/* ── Estrellas de las reseñas ──
-   Mismo lenguaje que la base de creadores: ★ llena en dorado, ☆ vacía en gris.
-   Dos formas y no dos tonos del mismo dibujo, porque el color solo deja fuera a
-   quien no distinga bien esos grises — y porque la vacía en #ddd, que es lo que
-   había, daba 1.36:1 sobre blanco: no se veía. */
+/* ============================================================
+   ESTRELLAS — un solo sistema para creadores y reseñas
+   ============================================================ */
+
+/* ── Para leer ──
+   Cada estrella son dos capas: la ☆ gris marca el hueco y la ★ dorada se
+   recorta al porcentaje que le toca. Eso es lo que permite medias — y
+   cualquier fracción, así un promedio de 3.7 se dibuja como 3.7.
+   Llena y vacía son dos GLIFOS y no dos tonos del mismo, porque el color no
+   puede ser el único indicador; y el gris es #948fa0 (3.14:1 en claro,
+   5.71:1 en oscuro) para que la vacía se perciba. */
+.star-wrap { position:relative; display:inline-block; line-height:1; font-size:20px; }
+.star-wrap.star-sm { font-size:13px; }
+.star-bg   { color:#948fa0; }
+.star-fill {
+  position:absolute; left:0; top:0; overflow:hidden; white-space:nowrap;
+  color:#f5a623; pointer-events:none;
+}
+
 .cli-estrellas { display:inline-flex; gap:1px; vertical-align:-1px; line-height:1; }
 
 .cli-promedio {
@@ -6436,29 +6450,43 @@ html.dark .cli-confidencial-icn { color:#f0c84a; }
 }
 .cli-promedio strong { color:var(--text); font-size:14px; }
 
-/* El selector. En reposo ya se ven las cinco ☆ — el problema anterior era que
-   sólo aparecían al pasar el mouse, y una acción que se revela con el cursor no
-   existe para quien navega con teclado ni para quien está en un teléfono. */
+/* ── Para elegir ──
+   Diez mitades. La fila va invertida y en el DOM los valores bajan de 5 a 0.5,
+   así en pantalla se leen 0.5→5 y `~` puede pintar hacia atrás sin JS.
+
+   En reposo ya se ven las cinco ☆ completas: una acción que sólo aparece al
+   pasar el mouse no existe en un teléfono ni para quien navega con teclado. */
+.star-pick { display:inline-flex; flex-direction:row-reverse; justify-content:flex-end; font-size:28px; line-height:1; }
+.star-pick input { position:absolute; opacity:0; width:0; height:0; }
+
+.star-half {
+  position:relative; display:inline-block; width:.5em; height:1em;
+  overflow:hidden; cursor:pointer; color:#948fa0;
+  transition:color var(--dur-quick) var(--ease);
+}
+.star-half::before {
+  content:'☆'; position:absolute; top:0; width:1em; text-align:center;
+}
+/* La mitad izquierda enseña el arranque del glifo; la derecha lo corre media
+   estrella para enseñar el final. Las dos salen del MISMO dibujo, así encajan
+   sin costura en medio. */
+.star-half--izq::before { left:0; }
+.star-half--der::before { left:-.5em; }
+
+.star-pick input:checked ~ label,
+.star-pick label:hover,
+.star-pick label:hover ~ label { color:#f5a623; }
+.star-pick input:checked ~ label::before,
+.star-pick label:hover::before,
+.star-pick label:hover ~ label::before { content:'★'; }
+
+/* El radio está escondido: el anillo de foco lo lleva su etiqueta, y se
+   ensancha un poco para que no se corte contra el overflow del recorte. */
+.star-pick input:focus-visible + label { outline:2px solid var(--pink); outline-offset:1px; overflow:visible; }
+
 .cli-est-pick { border:none; padding:0; margin:0 0 10px; }
 .cli-est-pick legend { font-size:12px; color:var(--text-muted); padding:0; margin-bottom:6px; }
-.cli-est-row { display:inline-flex; flex-direction:row-reverse; justify-content:flex-end; gap:2px; }
-.cli-est-row input { position:absolute; opacity:0; width:0; height:0; }
-.cli-est-row label {
-  font-size:28px; line-height:1; cursor:pointer; color:#948fa0;
-  transition:color var(--dur-quick) var(--ease), transform var(--dur-quick) var(--ease);
-}
-.cli-est-row label::before { content:'☆'; }
-.cli-est-row input:checked ~ label,
-.cli-est-row label:hover,
-.cli-est-row label:hover ~ label { color:#f5a623; }
-.cli-est-row input:checked ~ label::before,
-.cli-est-row label:hover::before,
-.cli-est-row label:hover ~ label::before { content:'★'; }
-.cli-est-row label:hover { transform:scale(1.1); }
-/* El radio está escondido, así que el anillo de foco lo lleva su etiqueta. */
-.cli-est-row input:focus-visible + label { outline:2px solid var(--pink); outline-offset:2px; border-radius:4px; }
 
 @media (prefers-reduced-motion: reduce) {
-  .cli-est-row label { transition:none; }
-  .cli-est-row label:hover { transform:none; }
+  .star-half { transition:none; }
 }
