@@ -133,16 +133,22 @@ async function clienteCerrarEnCampana(contacto, campana) {
    Se guardan en su propia colección y no se editan ni se borran: una reseña es
    lo que alguien pensó en un momento, y reescribirla después borra el rastro
    de por qué se decidió lo que se decidió. */
-async function guardarResenaCliente(clientId, texto) {
+async function guardarResenaCliente(clientId, texto, estrellas) {
   if (!puedeVerResenasCliente()) {
     showToast('Las reseñas de clientes son del área de Cuentas.', 'error');
     return false;
   }
   const t = String(texto || '').trim();
+  const e = parseInt(estrellas, 10);
+  // Las dos partes son obligatorias. Una calificación sin explicación no le
+  // sirve a quien la lea después —"3 estrellas" no dice qué hacer distinto— y
+  // un texto sin calificación no se puede comparar entre personas.
+  if (!(e >= 1 && e <= 5)) { showToast('Elige de 1 a 5 estrellas.', 'error'); return false; }
   if (t.length < 10) { showToast('Escribe al menos una frase.', 'error'); return false; }
   const nota = {
     id: 'n_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
     clientId,
+    estrellas: e,
     texto: t,
     autorUid: currentUser.uid,
     autorNombre: (currentUserProfile && currentUserProfile.name) || currentUser.email,
@@ -220,6 +226,38 @@ async function rellenarClientesDesdeCampanas() {
       }, { merge: true });
     } catch (e) { console.warn('rellenar cliente', id, e); }
   }
+}
+
+/* Estrellas para LEER. `titulo` sólo en la primera para que un lector de
+   pantalla anuncie "4 de 5" una vez y no cinco iconos sueltos. */
+function _estrellasHtml(n) {
+  const v = Math.max(0, Math.min(5, parseInt(n, 10) || 0));
+  return `<span class="cli-estrellas" role="img" aria-label="${v} de 5 estrellas">` +
+    [1,2,3,4,5].map(i => `<span class="cli-est ${i <= v ? 'on' : ''}">${ICN_star}</span>`).join('') +
+    `</span>`;
+}
+
+/* Estrellas para ELEGIR. Son radios de verdad, no divs con onclick: así se
+   navegan con flechas, entran en el orden de tabulación y el lector de
+   pantalla las anuncia como lo que son. El dibujo lo pone el CSS. */
+function _estrellasInputHtml() {
+  // El grupo de radios va en su propia fila dentro del fieldset: un <legend>
+  // es hijo directo obligatorio, y como tal no se lleva bien con un padre
+  // flex — se acomoda al lado de las estrellas en vez de encima.
+  //
+  // Y van del 5 al 1 en el DOM, no del 1 al 5. La fila es `row-reverse`, así
+  // que se dibujan al revés de como están escritas y en pantalla quedan 1→5,
+  // que es como se leen. El orden invertido es lo que permite colorear "de la
+  // primera hasta la que señalas" con `~`, que sólo alcanza a los hermanos
+  // SIGUIENTES: escrito 1→5, marcar la 4 pintaba la 5 en vez de la 1, 2 y 3.
+  return `<fieldset class="cli-est-pick">
+    <legend>¿Cómo fue trabajar con esta persona?</legend>
+    <div class="cli-est-row">
+      ${[5,4,3,2,1].map(i => `
+      <input type="radio" name="cliEstrellas" id="cliEst${i}" value="${i}">
+      <label for="cliEst${i}" title="${i} de 5">${ICN_star}<span class="sr-only">${i} de 5 estrellas</span></label>`).join('')}
+    </div>
+  </fieldset>`;
 }
 
 // ============================================================
@@ -388,8 +426,21 @@ async function _pintarResenas(id) {
         <strong>${_esc(n.autorNombre || 'Alguien')}</strong>
         <span>${_esc(String(n.fecha || '').slice(0, 10))}</span>
       </div>
+      ${n.estrellas ? _estrellasHtml(n.estrellas) : ''}
       <p>${_esc(n.texto)}</p>
     </div>`).join('') : '<p class="cli-vacio">Nadie ha escrito nada todavía.</p>';
+
+  // El promedio sale de las reseñas, así que vive DENTRO del bloque que sólo ve
+  // Cuentas: enseñarlo afuera sería filtrar el dato en forma de número.
+  const conNota = notas.filter(n => n.estrellas);
+  const promedio = conNota.length
+    ? (conNota.reduce((a, n) => a + n.estrellas, 0) / conNota.length)
+    : null;
+  const resumen = promedio === null ? '' : `
+    <div class="cli-promedio">
+      ${_estrellasHtml(Math.round(promedio))}
+      <span><strong>${promedio.toFixed(1)}</strong> de 5 · ${conNota.length} ${conNota.length === 1 ? 'reseña' : 'reseñas'}</span>
+    </div>`;
 
   cont.innerHTML = `
     <div class="cli-confidencial">
@@ -398,9 +449,11 @@ async function _pintarResenas(id) {
       compartirse fuera de Think Y. No lo copies en correos, mensajes ni documentos que salgan
       de aquí, y ten presente que la persona podría pedir ver lo que se escribió sobre ella.</div>
     </div>
+    ${resumen}
     <div class="cli-resenas">${lista}</div>
     <div class="cli-nueva">
       <label class="form-label" for="clienteResenaTexto">Dejar una reseña</label>
+      ${_estrellasInputHtml()}
       <textarea id="clienteResenaTexto" class="form-input" rows="3"
         placeholder="Cómo es trabajar con esta persona: qué le importa, cómo prefiere que le hablen, qué evitar."></textarea>
       <div class="cli-nueva-pie">
@@ -413,7 +466,8 @@ async function _pintarResenas(id) {
 async function enviarResenaCliente(id) {
   const ta = document.getElementById('clienteResenaTexto');
   if (!ta) return;
-  const ok = await guardarResenaCliente(id, ta.value);
+  const marcada = document.querySelector('input[name="cliEstrellas"]:checked');
+  const ok = await guardarResenaCliente(id, ta.value, marcada && marcada.value);
   if (!ok) return;
   ta.value = '';
   showToast('Reseña publicada', 'success');

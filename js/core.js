@@ -62,6 +62,7 @@ const ICN_ban = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stro
 const ICN_pin = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s6-5.7 6-10a6 6 0 0 0-12 0c0 4.3 6 10 6 10z"/><circle cx="12" cy="11" r="2.2"/></svg>';
 const ICN_rocket = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V5"/><path d="M6 11l6-6 6 6"/></svg>';
 const ICN_flag = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4"/><path d="M5 5h11l-1.6 3.5L16 12H5z"/></svg>';
+const ICN_star = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.6l2.6 5.3 5.8.85-4.2 4.1 1 5.75L12 16.9l-5.2 2.7 1-5.75-4.2-4.1 5.8-.85z"/></svg>';
 
 /* Un solo lugar de donde salen todos. El HTML estático no puede interpolar las
    constantes de arriba, así que en index.html los iconos se escriben como
@@ -78,7 +79,7 @@ const ICONS = {
   moon:ICN_moon, sun:ICN_sun, bell:ICN_bell, bellOff:ICN_bellOff,
   eye:ICN_eye, eyeOff:ICN_eyeOff, play:ICN_play,
   thumbsUp:ICN_thumbsUp, clock:ICN_clock, ban:ICN_ban, pin:ICN_pin,
-  rocket:ICN_rocket, flag:ICN_flag,
+  rocket:ICN_rocket, flag:ICN_flag, star:ICN_star,
 };
 
 function hydrateIcons(root) {
