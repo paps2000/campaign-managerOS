@@ -621,7 +621,6 @@ function misCampanas() {
   if(!currentUser) return [];
   const uid = currentUser.uid;
   return (_cache.campaigns || []).filter(c =>
-    (Array.isArray(c.assignedTo) && c.assignedTo.includes(uid)) ||
     (typeof esResponsableDe === 'function' && esResponsableDe(c, uid)) ||
     (typeof isSubscribed === 'function' && isSubscribed(c.id)) ||
     c.createdBy === uid

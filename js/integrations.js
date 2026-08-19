@@ -463,7 +463,7 @@ async function seedSampleData() {
     {id:id(),title:'Actualizar minuta del weekly',campaignId:'',campaignName:'Interno',dueDate:fmt(today),priority:'medium',done:false,assignee:'Génesis'}
   ];
   // Stamp creator/assignee so seeded campaigns are visible to the seeding user
-  campaigns.forEach(c => { c.createdBy = currentUser.uid; c.assignedTo = [currentUser.uid]; });
+  campaigns.forEach(c => { c.createdBy = currentUser.uid; });
   _cache.campaigns = campaigns;
   _cache.globalTasks = globalTasks;
   await persistCampaigns(campaigns);

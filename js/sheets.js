@@ -1861,7 +1861,7 @@ function _renderMetricsGoal(c, realViews, realEng, realPosts) {
   };
   el.innerHTML = `
     <div style="background:var(--bg);border:1px solid var(--border);border-radius:14px;padding:14px 16px;">
-      <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;">🎯 Meta vs Real (escenario)</div>
+      <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;"><span class="icn-inline">${ICN_target}</span>Meta vs Real (escenario)</div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;">
         ${bar('Views', realViews, estViews)}
         ${bar('Engagement', realEng, estEng)}

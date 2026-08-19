@@ -561,9 +561,9 @@ const HOLO_AREA_ABBR = { Cuentas:'CTA', Operaciones:'OPS', Creativo:'CRE', Data:
    cada quien. */
 const HOLO_CAMPS_MAX = 3;
 
-/* Las campañas donde la persona aparece: asignada (assignedTo), responsable de
-   un área, o suscrita. Las tres cuentan porque las tres significan que esa
-   campaña es suya en algún sentido.
+/* Las campañas donde la persona aparece: responsable de un área, o suscrita.
+   Las dos cuentan porque las dos significan que esa campaña es suya en algún
+   sentido.
 
    La suscripción vive en UN solo lado: `subscribedCampaigns` en el perfil.
    Antes había dos listas —esa y `campaign.subscribers`— escritas por dos
@@ -595,7 +595,6 @@ function holoUserCampaigns(u) {
 
   return list.filter(c => {
     if (typeof canSeeCampaign === 'function' && !canSeeCampaign(c)) return false;
-    if ((c.assignedTo || []).includes(uid)) return true;
     if (subs.includes(c.id)) return true;
     return typeof esResponsableDe === 'function' && esResponsableDe(c, uid);
   });

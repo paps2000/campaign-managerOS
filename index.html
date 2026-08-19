@@ -540,7 +540,7 @@
         <!-- TAB: INFLUENCERS -->
         <div class="tab-content" id="tab-influencers">
           <div id="escenarioSheetsBar" style="background:var(--bg);border:1px solid var(--border);border-radius:14px;padding:12px 14px;margin-bottom:16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-            <span style="font-size:12px;font-weight:700;color:#3a7a5e;white-space:nowrap;">🎯 Escenario</span>
+            <span style="font-size:12px;font-weight:700;color:#3a7a5e;white-space:nowrap;"><span class="icn-inline" data-icn="target"></span>Escenario</span>
             <input type="text" id="escenarioSheetsUrl" class="form-input" style="flex:1;min-width:180px;font-size:12px;" placeholder="URL del escenario (con #gid=... de la pestaña Escenario Final)" oninput="saveEscenarioUrl()" aria-label="URL del escenario en Google Sheets">
             <button class="btn btn-ghost btn-sm" onclick="syncEscenario()" style="white-space:nowrap;" aria-label="Actualizar"><span class="icn-inline" data-icn="refresh"></span>Actualizar</button>
             <div style="flex-basis:100%;font-size:11px;color:var(--text-muted);line-height:1.4;">
@@ -549,7 +549,7 @@
             <span id="escenarioLastSync" style="font-size:11px;color:var(--text-muted);"></span>
           </div>
           <div id="escenarioAppNotice" style="display:none;background:var(--mint-pale,#eafaf1);border:1px solid #b7e4c7;border-radius:14px;padding:12px 14px;margin-bottom:16px;align-items:center;gap:10px;flex-wrap:wrap;">
-            <span style="font-size:12px;font-weight:700;color:#3a7a5e;white-space:nowrap;">🎯 Escenario armado en plataforma</span>
+            <span style="font-size:12px;font-weight:700;color:#3a7a5e;white-space:nowrap;"><span class="icn-inline" data-icn="target"></span>Escenario armado en plataforma</span>
             <span style="font-size:11px;color:var(--text-muted);flex:1;min-width:160px;">Este escenario está vinculado desde el editor. La carga por Google Sheets está bloqueada.</span>
             <button class="btn btn-ghost btn-sm" onclick="enableEscenarioSheets()" style="white-space:nowrap;" aria-label="Habilitar Google Sheets"><span class="icn-inline" data-icn="unlock"></span>Habilitar Google Sheets</button>
           </div>
@@ -1295,7 +1295,7 @@
       </div>
     </div>
     <div style="border:1.5px solid var(--border);border-radius:12px;padding:14px;margin-bottom:14px;">
-      <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;">🎯 Goal del escenario (totales vendidos)</div>
+      <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;"><span class="icn-inline" data-icn="target"></span>Goal del escenario (totales vendidos)</div>
       <div style="font-size:11px;color:var(--text-muted);margin-bottom:10px;line-height:1.4;">Estos totales se usan para calcular el CPV y CPE de la campaña. La lista de creadores se sigue tomando del Google Sheet de escenario.</div>
       <div class="form-row">
         <div class="form-group">
@@ -1319,7 +1319,7 @@
       </div>
     </div>
     <div style="border:1.5px solid var(--border);border-radius:12px;padding:14px;margin-bottom:14px;">
-      <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;">🎯 Escenario</div>
+      <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;"><span class="icn-inline" data-icn="target"></span>Escenario</div>
       <label class="form-label" for="fCampEscenarioUrl">Link del escenario en Google Sheets <span style="color:var(--text-muted);font-weight:400;">(opcional)</span></label>
       <input type="text" class="form-input" id="fCampEscenarioUrl" placeholder="Pega la URL si ya existe (con #gid=... de la pestaña Escenario Final)">
       <div style="font-size:11px;color:var(--text-muted);margin-top:8px;line-height:1.4;">Si todavía no tienes uno, déjalo vacío y al guardar te dejamos armar el escenario en la plataforma.</div>
@@ -1936,21 +1936,6 @@
   </div>
 </div>
 
-<!-- MODAL: ASIGNAR PERSONAS -->
-<div class="modal-overlay" id="assignModal" role="dialog" aria-modal="true" aria-labelledby="assignModal__title">
-  <div class="modal">
-    <div class="modal-header">
-      <div class="modal-title" id="assignModal__title">Asignar participantes</div>
-      <button class="modal-close" aria-label="Cerrar" onclick="closeModal('assignModal')">✕</button>
-    </div>
-    <div class="settings-desc" style="margin-bottom:16px;">Marca a quién quieres dar acceso a esta campaña. Los seleccionados verán la campaña en su dashboard.</div>
-    <div id="assignList"></div>
-    <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="closeModal('assignModal')">Cancelar</button>
-      <button class="btn btn-primary" onclick="saveAssignees()">Guardar</button>
-    </div>
-  </div>
-</div>
 
 <!-- (duplicate editProfileModal removed) -->
 

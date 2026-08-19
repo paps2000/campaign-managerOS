@@ -313,6 +313,17 @@ function esResponsableDe(c, uid) {
   return AREA_KEY_LIST.some(k => getAreaUids(c.responsables, k).includes(uid));
 }
 
+/* Quién puede editar una campaña. Antes bastaba con ser Participante; al
+   retirarse esa figura, el permiso pasa a quien tiene un papel real: quien la
+   creó y quien es responsable de un área. Sin esto, un responsable de Cuentas
+   dejaría de poder editar la campaña que lleva. */
+function puedeEditarCampana(c) {
+  if(!c || !currentUser) return false;
+  if(typeof isAdmin === 'function' && isAdmin()) return true;
+  if(c.createdBy === currentUser.uid) return true;
+  return esResponsableDe(c, currentUser.uid);
+}
+
 function populateCampResponsibles(responsables) {
   responsables = responsables || {};
   _areaOpen = null;
@@ -502,53 +513,6 @@ function openEditCampaignModal() {
 }
 
 // === ASSIGNEES ===
-function openAssignModal() {
-  if(!currentCampaignId) return;
-  const c = _cache.campaigns.find(x=>x.id===currentCampaignId);
-  if(!c) return;
-  if(!isAdmin() && c.createdBy !== currentUser.uid) {
-    showToast('Solo un admin o quien creó la campaña puede asignar participantes.','error'); return;
-  }
-  _renderAssignModal(c);
-  openModal('assignModal');
-}
-
-function _renderAssignModal(c) {
-  const assigned = new Set(Array.isArray(c.assignedTo) ? c.assignedTo : []);
-  const current = allUsers.filter(u => assigned.has(u.uid));
-  const available = allUsers.filter(u => !assigned.has(u.uid));
-  const avatar = (u) => `<div style="width:30px;height:30px;border-radius:50%;background:var(--lavender);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;">${(u.name||u.email)[0].toUpperCase()}</div>`;
-  const currentHtml = current.length === 0
-    ? '<p style="font-size:12px;color:var(--text-muted);padding:8px 0;">Sin participantes asignados.</p>'
-    : current.map(u => `
-      <div style="display:flex;align-items:center;gap:10px;padding:9px 12px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;background:var(--lavender-pale);">
-        ${avatar(u)}
-        <div style="flex:1;">
-          <div style="font-size:13px;font-weight:600;">${_esc(u.name||'—')} ${u.uid===c.createdBy?'<span style="font-size:10px;color:var(--text-muted);">(creador)</span>':''}</div>
-          <div style="font-size:11px;color:var(--text-muted);">${_esc(u.email)}</div>
-        </div>
-        <span class="badge ${u.role==='admin'?'badge-pink':'badge-gray'}">${u.role==='admin'?'Admin':'Miembro'}</span>
-        <button onclick="removeAssigneeFromModal('${c.id}','${u.uid}')" style="background:var(--red);border:none;cursor:pointer;color:#fff;font-size:11px;font-weight:700;padding:4px 10px;border-radius:6px;flex-shrink:0;">Eliminar</button>
-      </div>`).join('');
-  const availableHtml = available.length === 0
-    ? '<p style="font-size:12px;color:var(--text-muted);padding:8px 0;">Todos los usuarios ya están asignados.</p>'
-    : available.map(u => `
-      <label style="display:flex;align-items:center;gap:10px;padding:9px 12px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;cursor:pointer;">
-        <input type="checkbox" data-uid="${u.uid}" style="width:16px;height:16px;cursor:pointer;">
-        ${avatar(u)}
-        <div style="flex:1;">
-          <div style="font-size:13px;font-weight:600;">${_esc(u.name||'—')}</div>
-          <div style="font-size:11px;color:var(--text-muted);">${_esc(u.email)}</div>
-        </div>
-        <span class="badge ${u.role==='admin'?'badge-pink':'badge-gray'}">${u.role==='admin'?'Admin':'Miembro'}</span>
-      </label>`).join('');
-  document.getElementById('assignList').innerHTML = `
-    <p style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Participantes actuales</p>
-    ${currentHtml}
-    <p style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin:14px 0 8px;">Agregar participantes</p>
-    ${availableHtml}`;
-}
-
 /* Aviso de acceso, antes de etiquetar a alguien en una campaña.
    Etiquetar no es sólo repartir trabajo: abre la campaña entera a esa persona
    —presupuesto, contactos del cliente, el tracker y los links de los
@@ -570,7 +534,6 @@ async function confirmarAccesoCampana(nombresUids, nombreCampana, campanaAntes) 
   const yaEntraba = (uid) => {
     const c = campanaAntes;
     if(!c) return false;
-    if(Array.isArray(c.assignedTo) && c.assignedTo.includes(uid)) return true;
     if(esResponsableDe(c, uid)) return true;
     return c.createdBy === uid;
   };
@@ -612,58 +575,6 @@ async function confirmarAccesoCampana(nombresUids, nombreCampana, campanaAntes) 
     cancelLabel: 'Cancelar',
     foco: 'ok',
   });
-}
-
-async function saveAssignees() {
-  if(!currentCampaignId) return;
-  const campaigns = getData('campaigns');
-  const idx = campaigns.findIndex(x=>x.id===currentCampaignId);
-  if(idx===-1) return;
-  const c = campaigns[idx];
-  // Start with currently assigned (already persisted by removeAssignee calls)
-  const current = new Set(Array.isArray(c.assignedTo) ? c.assignedTo : []);
-  // Add newly checked users from the "agregar" section
-  document.querySelectorAll('#assignList input[type="checkbox"]:checked').forEach(cb => current.add(cb.dataset.uid));
-  // El creador NO se vuelve a meter a la fuerza: quien arma la campaña no es
-  // necesariamente quien la lleva, y reimponerlo aquí deshacía el quitarlo con
-  // el botón Eliminar en cuanto se le daba a Guardar.
-  const _antes = Array.isArray(c.assignedTo) ? c.assignedTo : [];
-  const _nuevos = [...current].filter(uid => !_antes.includes(uid));
-
-  // Se avisa ANTES de escribir: cancelar tiene que dejar la campaña como estaba.
-  if(_nuevos.length && !(await confirmarAccesoCampana(_nuevos, c.name, c))) return;
-
-  campaigns[idx] = {...c, assignedTo: [...current]};
-  setData('campaigns', campaigns);
-  closeModal('assignModal');
-  showToast('Participantes actualizados','success');
-  try { _notifyCampaignRoles(c.name, c.id, { assignees: _nuevos }); } catch(e){ console.warn('notify assignees', e); }
-  openCampaignDetail(currentCampaignId);
-}
-
-// Quitar a alguien desde el modal de participantes. Se separa del removeAssignee
-// suelto porque hay que decidir qué hacer con el modal DESPUÉS: si me quité a mí
-// mismo y ya no puedo entrar a la campaña, repintar la lista de participantes
-// deja un modal abierto encima del listado al que openCampaignDetail me acaba de
-// mandar.
-function removeAssigneeFromModal(cid, uid) {
-  removeAssignee(cid, uid);
-  const c = _cache.campaigns.find(x => x.id === cid);
-  if(!c || !canSeeCampaign(c)) { closeModal('assignModal'); return; }
-  _renderAssignModal(c);
-}
-
-function removeAssignee(cid, uid) {
-  const campaigns = getData('campaigns');
-  const idx = campaigns.findIndex(x=>x.id===cid);
-  if(idx===-1) return;
-  const c = campaigns[idx];
-  if(!isAdmin() && c.createdBy !== currentUser.uid) {
-    showToast('Solo un admin o quien creó la campaña puede quitar participantes.','error'); return;
-  }
-  campaigns[idx] = {...c, assignedTo: (c.assignedTo||[]).filter(x=>x!==uid)};
-  setData('campaigns', campaigns);
-  openCampaignDetail(cid);
 }
 
 // === TEAM MGMT ===
@@ -947,12 +858,11 @@ async function changeRole(uid, newRole) {
 
 // ---- Eliminar perfil (admin) ----
 function _countUserRefs(uid) {
-  let campCreated=0, campAssigned=0, campSubs=0, campResp=0, tasksCamp=0, tasksGlobal=0;
+  let campCreated=0, campSubs=0, campResp=0, tasksCamp=0, tasksGlobal=0;
   const perfil = (allUsers||[]).find(u => u.uid === uid);
   const seguidas = new Set(Array.isArray(perfil && perfil.subscribedCampaigns) ? perfil.subscribedCampaigns : []);
   (_cache.campaigns||[]).forEach(c => {
     if(c.createdBy === uid) campCreated++;
-    if(Array.isArray(c.assignedTo) && c.assignedTo.includes(uid)) campAssigned++;
     // La suscripción vive en el perfil; en la campaña sólo puede quedar rastro
     // viejo de quien todavía no haya migrado. Cuenta si está en cualquiera de
     // las dos, pero una sola vez: si no, la que está en ambas suma doble.
@@ -963,7 +873,7 @@ function _countUserRefs(uid) {
     (c.tasks||[]).forEach(t => { if(t.assigneeUid===uid) tasksCamp++; });
   });
   (_cache.globalTasks||[]).forEach(t => { if(t.assigneeUid===uid) tasksGlobal++; });
-  return { campCreated, campAssigned, campSubs, campResp, tasksCamp, tasksGlobal };
+  return { campCreated, campSubs, campResp, tasksCamp, tasksGlobal };
 }
 
 function openDeleteUserModal(uid) {
@@ -972,7 +882,7 @@ function openDeleteUserModal(uid) {
   const target = allUsers.find(u=>u.uid===uid);
   if(!target) { showToast('Usuario no encontrado','error'); return; }
   const refs = _countUserRefs(uid);
-  const totalRefs = refs.campCreated+refs.campAssigned+refs.campSubs+refs.campResp+refs.tasksCamp+refs.tasksGlobal;
+  const totalRefs = refs.campCreated+refs.campSubs+refs.campResp+refs.tasksCamp+refs.tasksGlobal;
   const others = allUsers.filter(u=>u.uid!==uid).sort((a,b)=>(a.name||'').localeCompare(b.name||''));
   const body = document.getElementById('deleteUserBody');
   body.innerHTML = `
@@ -986,7 +896,6 @@ function openDeleteUserModal(uid) {
     <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:12px;line-height:1.6;">
       <div style="font-weight:700;margin-bottom:4px;">Referencias actuales:</div>
       <div>• Campañas creadas: <b>${refs.campCreated}</b></div>
-      <div>• Asignada a campañas: <b>${refs.campAssigned}</b></div>
       <div>• Suscripciones: <b>${refs.campSubs}</b></div>
       <div>• Responsable de área: <b>${refs.campResp}</b></div>
       <div>• Tareas de campaña: <b>${refs.tasksCamp}</b></div>
@@ -1023,11 +932,6 @@ async function confirmDeleteUser(uid, newUid) {
     const campaigns = getData('campaigns');
     campaigns.forEach(c => {
       if(c.createdBy === uid) c.createdBy = newUid || null;
-      if(Array.isArray(c.assignedTo)) {
-        const set = new Set(c.assignedTo.filter(x=>x!==uid));
-        if(newUid) set.add(newUid);
-        c.assignedTo = [...set];
-      }
       // Sólo se borra el rastro: las suscripciones no se heredan. Seguir una
       // campaña es una preferencia de quien la sigue, no un pendiente que
       // alguien tenga que recoger — a diferencia de estar asignado o ser
@@ -1119,7 +1023,6 @@ async function saveCampaign() {
   // así que el viejo sigue intacto para comparar.
   const _prevCamp = editingCampaignId ? campaigns.find(x=>x.id===editingCampaignId) : null;
   const _prevResp = _prevCamp ? (_prevCamp.responsables || {}) : {};
-  const _prevAssigned = _prevCamp ? ((_prevCamp.assignedTo) || []).slice() : [];
 
   // Poner a alguien de responsable de un área también le abre la campaña
   // entera. Se pregunta antes de escribir: cancelar deja todo como estaba.
@@ -1173,18 +1076,14 @@ async function saveCampaign() {
       goal: _goal,
       escenarioSheetUrl: _escUrl,
       createdBy: currentUser.uid,
-      assignedTo: [currentUser.uid],
       flowSteps:FLOW_STEPS.map(s=>({step:s,status:'Pendiente'})),
       influencers:[], documents:[], tasks:[]
     });
   }
   const _saved = campaigns.find(x => x.id === (editingCampaignId || _newCampId));
-  // Quién ENTRA como responsable o participante con este guardado. Se calcula
-  // contra la foto previa para no reavisar a los mismos en cada Guardar.
-  const _added = {
-    responsables: _diffResponsables(_prevResp, _saved && _saved.responsables),
-    assignees: ((_saved && _saved.assignedTo) || []).filter(uid => !_prevAssigned.includes(uid)),
-  };
+  // Quién ENTRA como responsable con este guardado. Se calcula contra la foto
+  // previa para no reavisar a los mismos en cada Guardar.
+  const _added = { responsables: _diffResponsables(_prevResp, _saved && _saved.responsables) };
   // Solo se toca la caché: la escritura la hace persistCampaignNow, que es una
   // sola y esperada. Con setData() salían DOS escrituras en paralelo del mismo
   // documento (persistCampaigns por su lado y persistCampaignNow por el otro).
@@ -1986,8 +1885,8 @@ function deleteDocFromPage(cid, docId) {
   const campaigns = getData('campaigns');
   const c = campaigns.find(x=>x.id===cid);
   if(!c) return;
-  if(!isAdmin() && c.createdBy !== currentUser.uid && !(c.assignedTo||[]).includes(currentUser.uid)) {
-    showToast('Solo un admin, quien creó la campaña o sus participantes pueden borrar documentos.','error'); return;
+  if(!puedeEditarCampana(c)) {
+    showToast('Solo un admin, quien creó la campaña o un responsable de área pueden borrar documentos.','error'); return;
   }
   c.documents = (c.documents||[]).filter(d=>d.id!==docId);
   setData('campaigns', campaigns);
@@ -2528,7 +2427,6 @@ function canSeeCampaign(c) {
   if(!c) return false;
   if(isAdmin()) return true;
   if(c.createdBy === currentUser.uid) return true;
-  if(Array.isArray(c.assignedTo) && c.assignedTo.includes(currentUser.uid)) return true;
   // Ser responsable de un área es el vínculo MÁS fuerte que hay con una
   // campaña, y era el único que no daba acceso: se podía ser responsable de
   // Creativo en una campaña y no verla en la lista, ni abrirla desde el aviso
@@ -2611,8 +2509,13 @@ async function migrarSuscripciones() {
     ? currentUserProfile.subscribedCampaigns : [];
 
   const campaigns = getData('campaigns') || [];
+  // Dos herencias: la lista vieja de suscriptores dentro de la campaña, y
+  // Participantes, que se retira. A quien era participante se le convierte en
+  // seguidor para que NO pierda el acceso a una campaña en curso; sigue siendo
+  // suyo dejar de seguirla cuando quiera.
   const heredadas = campaigns
-    .filter(c => Array.isArray(c.subscribers) && c.subscribers.includes(uid))
+    .filter(c => (Array.isArray(c.subscribers) && c.subscribers.includes(uid)) ||
+                 (Array.isArray(c.assignedTo)  && c.assignedTo.includes(uid)))
     .map(c => c.id);
 
   const yo = (allUsers || []).find(u => u.uid === uid);

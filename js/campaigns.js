@@ -501,18 +501,6 @@ function renderCampaignInfoGrid(c) {
   })()
   : `<div class="info-field"><div class="info-label">Presupuesto</div><div class="info-value" style="color:var(--text-muted);font-style:italic;">🔒 Restringido</div></div>`;
 
-  // Assignees list
-  const assignedUids = Array.isArray(c.assignedTo) ? c.assignedTo : [];
-  const assignedUsers = assignedUids.map(uid => allUsers.find(u=>u.uid===uid)).filter(Boolean);
-  const assigneeChips = assignedUsers.length === 0
-    ? '<span style="color:var(--text-muted);font-size:13px;">Sin asignados</span>'
-    : assignedUsers.map(u => `
-        <span class="badge" style="background:var(--lavender-pale);color:var(--lavender);display:inline-flex;align-items:center;gap:6px;">
-          ${memberAvatarHtml(u, 18)}
-          ${_esc(u.name||u.email)}
-          ${(isAdmin() || c.createdBy===currentUser.uid) ? `<button onclick="removeAssignee('${c.id}','${u.uid}')" style="background:none;border:none;cursor:pointer;color:var(--lavender);font-size:11px;padding:0 0 0 4px;">✕</button>` : ''}
-        </span>`).join(' ');
-
   document.getElementById('campaignInfoGrid').innerHTML = `
     <div class="info-field"><div class="info-label">Cliente</div><div class="info-value">${_esc(c.client)}</div></div>
     <div class="info-field"><div class="info-label">Temporada</div><div class="info-value">${c.season||'—'}</div></div>
@@ -521,8 +509,10 @@ function renderCampaignInfoGrid(c) {
     ${budgetField}
     ${(()=>{
       const r = c.responsables || {};
-      const areaLabel = {operaciones:'Operaciones', cuentas:'Cuentas', creativo:'Creativo', data:'Data'};
-      const areaColor = {operaciones:'badge-area-Operaciones', cuentas:'badge-area-Cuentas', creativo:'badge-area-Creativo', data:'badge-area-Data'};
+      // Administración faltaba: era responsable de un área que el detalle no
+      // dibujaba, así que su nombre no aparecía en ningún lado de la campaña.
+      const areaLabel = {operaciones:'Operaciones', cuentas:'Cuentas', creativo:'Creativo', data:'Data', administracion:'Administración'};
+      const areaColor = {operaciones:'badge-area-Operaciones', cuentas:'badge-area-Cuentas', creativo:'badge-area-Creativo', data:'badge-area-Data', administracion:'badge-area-Administración'};
       return Object.entries(areaLabel).map(([key, label]) => {
         const uids = getAreaUids(r, key);
         const content = uids.length ? uids.map(uid => userChip(uid)).join(' ') : `<span style="color:var(--text-muted);font-size:13px;">Sin asignar</span>`;
@@ -533,16 +523,14 @@ function renderCampaignInfoGrid(c) {
     <div class="info-field"><div class="info-label">Status</div><div class="info-value">${statusBadge(c.status)}</div></div>
     <div class="info-field" style="grid-column:1/-1;">
       <div class="info-label" style="display:flex;justify-content:space-between;align-items:center;">
-        <span>Participantes</span>
-        <span style="display:flex;gap:6px;">
-          ${(()=>{
-            const subbed = isSubscribed(c.id);
-            return `<button class="btn btn-ghost btn-sm" onclick="toggleCampaignSubscription('${c.id}')" style="font-size:11px;" title="Recibe notificaciones cuando esta campaña cambie">${subbed?`<span class="icn-inline">${ICN_bellOff}</span>Dejar de seguir`:`<span class="icn-inline">${ICN_bell}</span>Suscribirme`}</button>`;
-          })()}
-          ${(isAdmin() || c.createdBy===currentUser.uid) ? `<button class="btn btn-ghost btn-sm" onclick="openAssignModal()" style="font-size:11px;">+ Asignar</button>` : ''}
-        </span>
+        <span>Seguimiento</span>
+        <button class="btn btn-ghost btn-sm" onclick="toggleCampaignSubscription('${c.id}')" style="font-size:11px;">${isSubscribed(c.id)?`<span class="icn-inline">${ICN_bellOff}</span>Dejar de seguir`:`<span class="icn-inline">${ICN_bell}</span>Seguir`}</button>
       </div>
-      <div class="info-value" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;">${assigneeChips}</div>
+      <div class="info-value" style="font-size:13px;color:var(--text-muted);margin-top:6px;">
+        ${isSubscribed(c.id)
+          ? 'La sigues: aparece en tu tablero y te llegan avisos cuando cambia.'
+          : 'Síguela para tenerla en tu tablero y enterarte de los cambios.'}
+      </div>
     </div>
   `;
 }
@@ -768,10 +756,10 @@ function renderCampaignClients(c) {
   const el = document.getElementById('campaignClientsSection');
   if(!el) return;
   const contacts = Array.isArray(c.clientContacts) ? c.clientContacts : [];
-  const canEdit = (typeof isAdmin === 'function' && isAdmin()) || c.createdBy === currentUser?.uid || (Array.isArray(c.assignedTo) && c.assignedTo.includes(currentUser?.uid));
+  const canEdit = typeof puedeEditarCampana === 'function' ? puedeEditarCampana(c) : ((typeof isAdmin === 'function' && isAdmin()) || c.createdBy === currentUser?.uid);
   el.innerHTML = `
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-      <h4 style="font-size:13px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin:0;">👥 Clientes · Puntos de contacto</h4>
+      <h4 style="font-size:13px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin:0;"><span class="icn-inline">${ICN_users}</span>Clientes · Puntos de contacto</h4>
       ${canEdit ? `<button class="btn btn-ghost btn-sm" onclick="openClientContactModal('${c.id}')" style="font-size:11px;">+ Agregar contacto</button>` : ''}
     </div>
     ${contacts.length === 0
@@ -1002,7 +990,7 @@ function renderCampaignMetricsSection(c) {
       </div>`;
   } else {
     el.innerHTML = `
-      <div style="font-size:13px;font-weight:600;color:var(--text-muted);margin-bottom:10px;">📊 Métricas</div>
+      <div style="font-size:13px;font-weight:600;color:var(--text-muted);margin-bottom:10px;"><span class="icn-inline">${ICN_chart}</span>Métricas</div>
       <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
         <input type="text" id="campaignMetricsSheetInput" class="form-input" style="flex:1;min-width:260px;font-size:13px;" placeholder="Link de Google Sheets con las métricas...">
         <button class="btn btn-pink btn-sm" onclick="saveCampaignMetricsSheet('${c.id}')">Vincular métricas</button>
@@ -1622,10 +1610,6 @@ function _notifyCampaignRoles(campaignName, campaignId, added) {
       `🧭 ${who} te puso como responsable de ${label} en "${campaignName}"`,
       `🧭 Te pusiste como responsable de ${label} en "${campaignName}"`));
   });
-
-  (added.assignees || []).forEach(uid => send(uid,
-    `📋 ${who} te sumó a la campaña "${campaignName}"`,
-    `📋 Te sumaste a la campaña "${campaignName}"`));
 }
 
 // Diferencia entre dos mapas de responsables: solo los que ENTRAN.
@@ -2181,7 +2165,7 @@ function _renderTrackerSummaryAndTable() {
     chartHtml = `
       <div style="background:var(--bg);border:1px solid var(--border);border-radius:14px;padding:14px 16px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-          <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;">📈 Publicaciones por ${periodTitle}</div>
+          <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;"><span class="icn-inline">${ICN_chart}</span>Publicaciones por ${periodTitle}</div>
           <button class="btn btn-ghost btn-sm" data-noexport onclick="downloadTrackerChartPng()" title="Descargar gráfico como PNG">⬇ PNG</button>
         </div>
         ${timeToggleHtml}
@@ -2269,7 +2253,7 @@ function _renderTrackerSummaryAndTable() {
         ${headlineCard('Revisión interna',totalRevInt,'#854d0e')}
       </div>
       <div style="background:var(--bg);border:1px solid var(--border);border-radius:14px;padding:14px 16px;">
-        <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;">🎨 Desglose por Plataforma Creativa</div>
+        <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;"><span class="icn-inline">${ICN_sparkle}</span>Desglose por Plataforma Creativa</div>
         <div style="display:flex;flex-wrap:wrap;gap:8px;">
           ${Object.entries(creativaCounts).sort((a,b)=>b[1]-a[1]).map(([s,c])=>makeCreativaCard(s,c)).join('')||'<span style="font-size:12px;color:var(--text-muted);">Sin datos en columna "PLATAFORMA CREATIVA"</span>'}
         </div>
@@ -2278,13 +2262,13 @@ function _renderTrackerSummaryAndTable() {
       ${weeklyTableHtml}
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
         <div style="background:var(--bg);border:1px solid var(--border);border-radius:14px;padding:14px 16px;">
-          <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;">📝 Estatus Guión</div>
+          <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;"><span class="icn-inline">${ICN_doc}</span>Estatus Guión</div>
           <div style="display:flex;flex-wrap:wrap;gap:8px;">
             ${Object.entries(guionCounts).map(([s,c])=>makeSummaryCard(s,c,'guion')).join('')||'<span style="font-size:12px;color:var(--text-muted);">Sin datos</span>'}
           </div>
         </div>
         <div style="background:var(--bg);border:1px solid var(--border);border-radius:14px;padding:14px 16px;">
-          <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;">🎬 Estatus Contenido</div>
+          <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;"><span class="icn-inline">${ICN_play}</span>Estatus Contenido</div>
           <div style="display:flex;flex-wrap:wrap;gap:8px;">
             ${Object.entries(contenidoCounts).map(([s,c])=>makeSummaryCard(s,c,'contenido')).join('')||'<span style="font-size:12px;color:var(--text-muted);">Sin datos</span>'}
           </div>

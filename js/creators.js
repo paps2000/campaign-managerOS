@@ -549,7 +549,7 @@ function _scnStatsSection() {
 
   return `
   <div class="card" style="margin-top:6px;padding:16px 18px;">
-    <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:14px;">📊 Estadísticas del escenario</div>
+    <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:14px;"><span class="icn-inline">${ICN_chart}</span>Estadísticas del escenario</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;">
       <div>
         <div style="font-size:12px;font-weight:700;margin-bottom:8px;">Contenidos por plataforma</div>
@@ -1467,7 +1467,7 @@ function renderInfluencerDetailContent(inf) {
     masterHtml = `
     <div class="inf-master-card">
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
-        <span style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;">📇 Perfil · Base de talento</span>
+        <span style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;"><span class="icn-inline">${ICN_badge}</span>Perfil · Base de talento</span>
         <div style="flex:1;"></div>
         ${m.categoria?`<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:var(--bg);border:1px solid var(--border);">${_esc(m.categoria)}</span>`:''}
         ${_tierBadge(m.tier)}
@@ -1480,7 +1480,7 @@ function renderInfluencerDetailContent(inf) {
         ${audCell('País', aud.paises)}${audCell('Ciudades', aud.ciudades)}${audCell('Edades', aud.edades)}${audCell('Género', aud.genero)}
       </div>`:''}
       ${rateRows?`
-      <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin:14px 0 8px;">💰 Historial de tarifas (más reciente primero)</div>
+      <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin:14px 0 8px;"><span class="icn-inline">${ICN_sheet}</span>Historial de tarifas (más reciente primero)</div>
       <div class="inf-rates-wrap"><table class="table" style="font-size:11px;"><thead><tr><th>Mes</th><th>Marca / Campaña</th><th>Plataforma</th><th style="text-align:right;">Costo unit.</th><th style="text-align:right;">Views x post</th></tr></thead><tbody>${rateRows}</tbody></table></div>`:''}
     </div>`;
   }

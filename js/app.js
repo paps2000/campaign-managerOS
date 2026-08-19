@@ -237,11 +237,12 @@ function openProfileModal(uid) {
   const active = allTasks.filter(t => !t.done);
   const done   = allTasks.filter(t => t.done).slice(0,5);
 
-  // Campaigns where user appears (assignedTo or any responsables group)
+  // Las campañas de esta persona: responsable de un área, o suscrita.
   const userCampaigns = _cache.campaigns.filter(c => {
-    if((c.assignedTo||[]).includes(uid)) return true;
-    const r = c.responsables || {};
-    return Object.values(r).some(arr => Array.isArray(arr) && arr.includes(uid));
+    if(typeof esResponsableDe === 'function' && esResponsableDe(c, uid)) return true;
+    const perfil = (allUsers || []).find(u => u.uid === uid);
+    const subs = (perfil && perfil.subscribedCampaigns) || [];
+    return subs.includes(c.id);
   });
 
   const taskRow = (t, isDone) => `
@@ -1705,7 +1706,7 @@ function _buildAgentContext() {
       season: c.season,
       startDate: c.startDate, endDate: c.endDate,
       budgetClient: c.budgetClient || c.budget || null,
-      assignees: (c.assignedTo||[]).map(uidName),
+      responsables: Object.values(c.responsables||{}).flat().filter(Boolean).map(uidName),
       createdBy: c.createdBy ? uidName(c.createdBy) : null,
       goal: c.goal||null,
       tasksSummary: {
