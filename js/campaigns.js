@@ -8,13 +8,17 @@
 // DASHBOARD
 // ============================================================
 function renderDashboard() {
-  // Show campaigns where user is assigned, created, or subscribed (but not ones they can merely see via admin)
+  // Las campañas que son de esta persona en algún sentido — no las que un admin
+  // simplemente alcanza a ver. Ser responsable de un área cuenta: si la campaña
+  // es visible en Campañas pero no aparece en el Resumen, el Resumen deja de
+  // ser el resumen.
   const campaigns = isAdmin()
     ? visibleCampaigns()
     : visibleCampaigns().filter(c =>
         isSubscribed(c.id) ||
         c.createdBy === currentUser.uid ||
-        (Array.isArray(c.assignedTo) && c.assignedTo.includes(currentUser.uid))
+        (Array.isArray(c.assignedTo) && c.assignedTo.includes(currentUser.uid)) ||
+        (typeof esResponsableDe === 'function' && esResponsableDe(c, currentUser.uid))
       );
 
   // Lazy: igual que el calendario — campañas con tracker vinculado pero sin

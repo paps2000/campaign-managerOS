@@ -294,6 +294,16 @@ function getAreaUids(responsables, key) {
   return Array.isArray(v) ? v.filter(Boolean) : (v ? [v] : []);
 }
 
+/* ¿Esta persona es responsable de alguna área de esta campaña?
+   Se recorre AREA_KEY_LIST y no una lista escrita a mano: había dos copias del
+   chequeo con `['operaciones','cuentas','creativo','data']` y las dos se
+   quedaron sin Administración cuando esa área se agregó. Cada área puede
+   guardar un uid suelto o un arreglo, que es lo que normaliza getAreaUids. */
+function esResponsableDe(c, uid) {
+  if(!c || !uid || !c.responsables) return false;
+  return AREA_KEY_LIST.some(k => getAreaUids(c.responsables, k).includes(uid));
+}
+
 function populateCampResponsibles(responsables) {
   responsables = responsables || {};
   _areaOpen = null;
@@ -870,10 +880,7 @@ function _countUserRefs(uid) {
     // las dos, pero una sola vez: si no, la que está en ambas suma doble.
     if(seguidas.has(c.id) || (Array.isArray(c.subscribers) && c.subscribers.includes(uid))) campSubs++;
     if(c.responsables) {
-      ['operaciones','cuentas','creativo','data'].forEach(k => {
-        const v = c.responsables[k];
-        if(Array.isArray(v) ? v.includes(uid) : v === uid) campResp++;
-      });
+      AREA_KEY_LIST.forEach(k => { if(getAreaUids(c.responsables, k).includes(uid)) campResp++; });
     }
     (c.tasks||[]).forEach(t => { if(t.assigneeUid===uid) tasksCamp++; });
   });
@@ -2438,6 +2445,11 @@ function canSeeCampaign(c) {
   if(isAdmin()) return true;
   if(c.createdBy === currentUser.uid) return true;
   if(Array.isArray(c.assignedTo) && c.assignedTo.includes(currentUser.uid)) return true;
+  // Ser responsable de un área es el vínculo MÁS fuerte que hay con una
+  // campaña, y era el único que no daba acceso: se podía ser responsable de
+  // Creativo en una campaña y no verla en la lista, ni abrirla desde el aviso
+  // que anunciaba justamente que te habían puesto ahí.
+  if(esResponsableDe(c, currentUser.uid)) return true;
   if(isSubscribed(c.id)) return true;
   return false;
 }

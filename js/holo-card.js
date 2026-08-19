@@ -597,8 +597,7 @@ function holoUserCampaigns(u) {
     if (typeof canSeeCampaign === 'function' && !canSeeCampaign(c)) return false;
     if ((c.assignedTo || []).includes(uid)) return true;
     if (subs.includes(c.id)) return true;
-    const r = c.responsables || {};
-    return Object.values(r).some(v => Array.isArray(v) ? v.includes(uid) : v === uid);
+    return typeof esResponsableDe === 'function' && esResponsableDe(c, uid);
   });
 }
 
