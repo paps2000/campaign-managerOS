@@ -762,6 +762,14 @@ window.renderThinkyPeso = function(){
 
 window.tpTeardown = function(){
   if(_tick){ clearInterval(_tick); _tick = null; }
+  // El tutorial se abre al entrar a la pestaña, pero nada lo cerraba al salir:
+  // como es obligatorio y bloquea lo de atrás, quedaba flotando sobre Equipo o
+  // Campañas — un tutorial de ThinkyPesos encima de una página que no es
+  // ThinkyPesos, tapando lo que la persona vino a ver.
+  // No se marca como visto: no lo terminó, así que vuelve a salir la próxima
+  // vez que entre a la pestaña, que es justo lo que el tutorial busca.
+  const onb = document.getElementById('tpOnboardModal');
+  if(onb && onb.classList.contains('open')) closeModal('tpOnboardModal');
 };
 
 // El listener de Firestore entra por aquí. NO se re-renderiza el panel de

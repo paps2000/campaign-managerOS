@@ -215,7 +215,14 @@ function renderDashboard() {
   };
   const dct = document.getElementById('dashCampaignTable');
   dct.innerHTML = campaigns.map(c => {
-    const nextStep = c.flowSteps.find(f=>f.status!=='Completado'&&f.status!=='Aprobado')?.step || 'Completado';
+    // Sin `|| 'Completado'` a secas: una campaña sin pasos definidos (creada
+    // antes de que existiera flowSteps, o importada) caía en el mismo valor
+    // que una terminada, y el tablero la anunciaba como Completada al lado de
+    // su estado real. Vacío y terminado no son lo mismo.
+    const pasos = Array.isArray(c.flowSteps) ? c.flowSteps : [];
+    const nextStep = pasos.length
+      ? (pasos.find(f=>f.status!=='Completado'&&f.status!=='Aprobado')?.step || 'Completado')
+      : '—';
     return `<tr onclick="openCampaignDetail('${c.id}')" style="cursor:pointer">
       <td><strong>${_esc(c.name)}</strong></td>
       <td>${_esc(c.client)}</td>
@@ -354,8 +361,10 @@ function renderCampaignGrid() {
     return;
   }
   grid.innerHTML = campaigns.map(c=>{
-    const done = c.flowSteps.filter(f=>f.status==='Completado'||f.status==='Aprobado').length;
-    const pct = Math.round((done/c.flowSteps.length)*100);
+    const pasos = Array.isArray(c.flowSteps) ? c.flowSteps : [];
+    const done = pasos.filter(f=>f.status==='Completado'||f.status==='Aprobado').length;
+    // Dividir entre cero imprimía "NaN%" en la tarjeta.
+    const pct = pasos.length ? Math.round((done/pasos.length)*100) : 0;
     // Content completitud: published contenidos in master tracker / goal
     // (campaign.goal.contenidos > BIG NUMBERS row > sum of escenario creators)
     let goalCont = (c.goal && c.goal.contenidos) || 0;
@@ -419,11 +428,11 @@ function renderCampaignGrid() {
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">${statusBadge(c.status)}${subBtn}</div>
       </div>
       <div class="campaign-meta">
-        <span class="badge badge-lavender"><span class="badge-icn">${ICN_users}</span>${c.influencers.length} influencers</span>
+        <span class="badge badge-lavender"><span class="badge-icn">${ICN_users}</span>${c.influencers.length} ${c.influencers.length===1?'creador':'creadores'}</span>
         <span class="badge badge-mint"><span class="badge-icn">${ICN_calendar}</span>${c.season||'—'}</span>
         ${(()=>{ const r=c.responsables||{}; return ['operaciones','cuentas','creativo','data'].map(k=>{ const uids=getAreaUids(r,k); return uids.map(uid=>{ const u=allUsers.find(x=>x.uid===uid); return u?`<span class="badge badge-area-${u.area||k.charAt(0).toUpperCase()+k.slice(1)}">${_esc(u.name||u.email.split('@')[0])}</span>`:'';}).join(''); }).join(''); })()||''}
       </div>
-      ${(()=>{ const ppl=(c.influencers||[]).filter(i=>i&&i.name); if(!ppl.length) return ''; const max=5; const shown=ppl.slice(0,max); const extra=ppl.length-shown.length; const av=shown.map(i=>`<div class="t-avatar" title="${_esc(i.name)}">${_esc((i.name||'?')[0].toUpperCase())}</div>`).join('')+(extra>0?`<div class="t-avatar is-more" title="+${extra} más">+${extra}</div>`:''); return `<div class="camp-people tdev-avatars"><div class="camp-people-avatars">${av}</div><span class="camp-people-label">${ppl.length} ${ppl.length===1?'persona':'personas'}</span></div>`; })()}
+      ${(()=>{ const ppl=(c.influencers||[]).filter(i=>i&&i.name); if(!ppl.length) return ''; const max=5; const shown=ppl.slice(0,max); const extra=ppl.length-shown.length; const av=shown.map(i=>`<div class="t-avatar" title="${_esc(i.name)}">${_esc((i.name||'?')[0].toUpperCase())}</div>`).join('')+(extra>0?`<div class="t-avatar is-more" title="+${extra} más">+${extra}</div>`:''); return `<div class="camp-people tdev-avatars"><div class="camp-people-avatars">${av}</div></div>`; })()}
       <div class="campaign-progress">
         <div class="progress-label"><span>Flujo</span><span>${pct}%</span></div>
         <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>

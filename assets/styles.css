@@ -631,7 +631,17 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
 
 /* EMPTY STATE */
 .empty-state { text-align:center; padding:32px 24px; color:var(--text-muted); }
-.empty-state .empty-icon { font-size:20px; margin-bottom:6px; }
+.empty-state .empty-icon {
+  /* Antes sólo tenía `font-size:20px` porque el ícono era un emoji. Cuatro de
+     los seis estados vacíos pasaron a inyectar un SVG y la regla de arriba
+     (`.empty-icon svg { width:100% }`) los estiraba al ancho del contenedor:
+     el "Sin alertas urgentes" del dashboard dibujaba una palomita de 669px que
+     se comía la tarjeta entera. La caja fija resuelve los dos casos — el SVG
+     se ajusta a ella y al emoji le queda el font-size. */
+  width:40px; height:40px; margin:0 auto 10px;
+  font-size:32px; line-height:40px;
+  opacity:.5;
+}
 .empty-state p { font-size:14px; }
 
 /* AJUSTES */
@@ -3716,7 +3726,12 @@ body.client-mode #loginScreen.login-screen:not(.hidden) { display:none !importan
 #clientView .cv-status-chip { display:inline-block; font-size:11px; font-weight:700; padding:2px 9px; border-radius:10px; white-space:nowrap; }
 #clientView .cv-cal-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
 #clientView .cv-cal-head button { border:1.5px solid #eee7ef; background:#fff; border-radius:10px; padding:5px 12px; cursor:pointer; font-size:13px; font-weight:700; color:#1c1b22; }
-#clientView .cv-cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:5px; }
+/* minmax(0,…) y no 1fr a secas: `1fr` es `minmax(auto,1fr)`, así que la
+   columna nunca baja del ancho de su contenido. En el calendario eso hacía
+   que la rejilla del mes midiera 1212px en un teléfono de 375 y que de
+   jueves a domingo no se pudiera llegar: la tarjeta recorta y la página no
+   scrollea en horizontal. */
+#clientView .cv-cal-grid { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:5px; }
 #clientView .cv-cal-dow { font-size:10px; font-weight:700; color: var(--text-muted); text-align:center; padding:4px 0; text-transform:uppercase; }
 #clientView .cv-cal-cell { min-height:64px; background:#fff; border:1.5px solid #eee7ef; border-radius:10px; padding:5px 6px; font-size:11px; }
 #clientView .cv-cal-cell.cv-out { opacity:.35; }
@@ -5959,7 +5974,18 @@ html.dark body.theme-custom {
 }
 .dashboard-split.no-side { grid-template-columns:1fr; }
 .dashboard-split.no-side .dash-side { display:none; }
-.dash-main, .dash-side { display:flex; flex-direction:column; gap:20px; }
+.dash-main, .dash-side {
+  display:flex; flex-direction:column; gap:20px;
+  /* `min-width:0` no es decorativo: los items de un grid arrancan en
+     `min-width:auto`, o sea que la columna `1fr` no baja del ancho intrínseco
+     de lo que tiene dentro. Y adentro hay una tabla con `min-width:500px` (la
+     de "Status de campañas"). En un teléfono de 375px eso estiraba la columna a
+     527px: el `overflow-x:auto` de .table-wrap nunca llegaba a activarse y el
+     tablero se cortaba por la derecha — "Ver todos mis pendientes" se leía
+     "Ver". Con el 0 la columna puede encogerse y la tabla vuelve a scrollear
+     dentro de su tarjeta, que es lo que .table-wrap venía a hacer. */
+  min-width:0;
+}
 .dash-side { position:sticky; top:20px; }
 @media (max-width:900px) {
   .dashboard-split { grid-template-columns:1fr; }

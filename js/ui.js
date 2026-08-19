@@ -1850,7 +1850,7 @@ function renderDocumentosPage() {
   const list = document.getElementById('docPageList');
   const cid = sel.value;
   if(!cid) {
-    list.innerHTML = '<div class="empty-state"><div class="empty-icon">📁</div><p>Selecciona una campaña para ver sus documentos.</p></div>';
+    list.innerHTML = `<div class="empty-state"><div class="empty-icon">${ICN_doc}</div><p>Selecciona una campaña para ver sus documentos.</p></div>`;
     return;
   }
   const c = camps.find(x=>x.id===cid);
@@ -1868,7 +1868,7 @@ function renderDocumentosPage() {
   });
 
   if(docs.length === 0) {
-    list.innerHTML = '<div class="empty-state"><div class="empty-icon">📁</div><p>Sin documentos en esta campaña.</p></div>';
+    list.innerHTML = `<div class="empty-state"><div class="empty-icon">${ICN_doc}</div><p>Sin documentos en esta campaña.</p></div>`;
     return;
   }
   const docIcons={PDF:'📄',Sheets:'📊',Doc:'📝',Presentación:'📋',Drive:'📦',Otro:'📎'};
