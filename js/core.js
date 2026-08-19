@@ -608,6 +608,26 @@ function visibleCampaigns() {
   return _cache.campaigns.filter(c => canSeeCampaign(c));
 }
 
+/* MIS campañas: en las que esta persona está metida de verdad.
+   No es lo mismo que visibleCampaigns(): un admin PUEDE VER todas, y mezclarlas
+   convertía su tablero y su calendario en el de la agencia entera. Las próximas
+   publicaciones de una campaña que no llevas no son tuyas — enterrar las que sí
+   entre setenta que no es la forma más rápida de no ver ninguna.
+
+   Cuenta estar asignado, ser responsable de un área, seguirla, o haberla creado.
+   Lo último porque quien la armó suele seguir encima aunque nadie la haya
+   etiquetado todavía, y hacerla desaparecer de su propio tablero sorprende. */
+function misCampanas() {
+  if(!currentUser) return [];
+  const uid = currentUser.uid;
+  return (_cache.campaigns || []).filter(c =>
+    (Array.isArray(c.assignedTo) && c.assignedTo.includes(uid)) ||
+    (typeof esResponsableDe === 'function' && esResponsableDe(c, uid)) ||
+    (typeof isSubscribed === 'function' && isSubscribed(c.id)) ||
+    c.createdBy === uid
+  );
+}
+
 function rerenderCurrent() {
   // La credencial puede estar abierta encima de cualquier página: su tira de
   // campañas depende de estos mismos datos.

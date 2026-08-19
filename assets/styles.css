@@ -6203,3 +6203,26 @@ html.dark :where(a, button, input, select, textarea, [tabindex]):focus-visible {
    es SVG y necesita caja propia, si no se estira como pasaba con .empty-icon. */
 .cmd-item-icn { width:18px; height:18px; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; color:var(--text-muted); }
 .cmd-item-icn svg { width:100%; height:100%; }
+
+/* ── Diálogo de confirmación con contenido estructurado ──
+   El cuerpo del confirm normal es texto plano con `white-space:pre-line`. Los
+   diálogos que explican consecuencias necesitan estructura —qué gana quién— y
+   para eso se apaga el pre-line y se ordenan listas. */
+.confirm-body.con-html { white-space:normal; }
+.confirm-body.con-html p { margin:0 0 12px; }
+.confirm-body.con-html p:last-child { margin-bottom:0; }
+.confirm-body.con-html strong { color:var(--text); font-weight:700; }
+
+.confirm-list {
+  list-style:none; margin:0; padding:0;
+  display:flex; flex-direction:column; gap:6px;
+}
+.confirm-list li {
+  position:relative; padding-left:18px; font-size:13px; line-height:1.5;
+}
+/* Punto dibujado, no un bullet del navegador: así se alinea con la primera
+   línea aunque el item ocupe dos, y toma el acento sin pelear con list-style. */
+.confirm-list li::before {
+  content:''; position:absolute; left:4px; top:.55em;
+  width:5px; height:5px; border-radius:50%; background:var(--pink);
+}

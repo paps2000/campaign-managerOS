@@ -109,7 +109,7 @@ let _modalZ = 1000;
 // en una acción destructiva se confirma sin leer qué se acepta; aquí el botón
 // dice la acción ("Borrar las 14 campañas") y el cuerpo dice qué se pierde.
 // Devuelve una promesa: `if(!await confirmar({...})) return;`
-function confirmar({ title, body, confirmLabel, cancelLabel, danger } = {}) {
+function confirmar({ title, body, bodyHtml, confirmLabel, cancelLabel, danger, foco } = {}) {
   return new Promise(resolve => {
     const modal  = document.getElementById('confirmModal');
     const okBtn  = document.getElementById('confirmOkBtn');
@@ -119,7 +119,15 @@ function confirmar({ title, body, confirmLabel, cancelLabel, danger } = {}) {
     if(!modal || !okBtn || !noBtn) { resolve(false); return; }
 
     document.getElementById('confirmTitle').textContent = title || '¿Continuar?';
-    document.getElementById('confirmBody').textContent  = body  || '';
+    // `body` es texto y se escapa solo; `bodyHtml` es para los diálogos que
+    // necesitan estructura —una lista de quiénes, de qué van a poder ver— y lo
+    // arma el llamador, que es quien sabe escapar lo que viene de datos.
+    const cuerpo = document.getElementById('confirmBody');
+    // .confirm-body trae white-space:pre-line, que existe para respetar los
+    // saltos del texto plano. Con HTML eso reproduce cada salto y sangría de la
+    // plantilla como espacio en blanco de verdad.
+    cuerpo.classList.toggle('con-html', !!bodyHtml);
+    if(bodyHtml) cuerpo.innerHTML = bodyHtml; else cuerpo.textContent = body || '';
     okBtn.textContent = confirmLabel || 'Continuar';
     noBtn.textContent = cancelLabel  || 'Cancelar';
     okBtn.className = 'btn ' + (danger ? 'btn-danger' : 'btn-primary');
@@ -143,8 +151,9 @@ function confirmar({ title, body, confirmLabel, cancelLabel, danger } = {}) {
     document.addEventListener('keydown', onKey);
     openModal('confirmModal');
     // El foco arranca en Cancelar: en un diálogo destructivo, la tecla que se
-    // aprieta sin pensar no debe ser la que borra.
-    setTimeout(() => { try { noBtn.focus(); } catch(e){} }, 30);
+    // aprieta sin pensar no debe ser la que borra. `foco:'ok'` lo cambia para
+    // los avisos que no destruyen nada y donde seguir es lo normal.
+    setTimeout(() => { try { (foco === 'ok' ? okBtn : noBtn).focus(); } catch(e){} }, 30);
   });
 }
 
@@ -540,7 +549,72 @@ function _renderAssignModal(c) {
     ${availableHtml}`;
 }
 
-function saveAssignees() {
+/* Aviso de acceso, antes de etiquetar a alguien en una campaña.
+   Etiquetar no es sólo repartir trabajo: abre la campaña entera a esa persona
+   —presupuesto, contactos del cliente, el tracker y los links de los
+   documentos— y eso no se ve por ningún lado al marcar una casilla. Quien
+   etiqueta suele estar pensando "que se entere de esta tarea", no "que pueda
+   abrir el contrato".
+
+   Se pregunta SÓLO cuando hay gente nueva: reconfirmar a quien ya estaba
+   dentro convierte el aviso en un trámite que se acepta sin leer, y a la
+   tercera vez ya nadie lo lee de verdad.
+
+   No es destructivo, así que el botón de seguir es el primario y se lleva el
+   foco: lo normal aquí es continuar. */
+async function confirmarAccesoCampana(nombresUids, nombreCampana, campanaAntes) {
+  // Se avisa sólo por quien GANA acceso. A ti mismo no hay nada que avisarte, y
+  // quien ya entraba por otra vía —ya era responsable, o ya estaba asignado— no
+  // gana nada nuevo: contarlo otra vez convierte el aviso en ruido y el ruido
+  // se acepta sin leer.
+  const yaEntraba = (uid) => {
+    const c = campanaAntes;
+    if(!c) return false;
+    if(Array.isArray(c.assignedTo) && c.assignedTo.includes(uid)) return true;
+    if(esResponsableDe(c, uid)) return true;
+    return c.createdBy === uid;
+  };
+  const uids = [...new Set((nombresUids || []).filter(Boolean))]
+    .filter(uid => uid !== (currentUser && currentUser.uid))
+    .filter(uid => !yaEntraba(uid));
+  if(!uids.length) return true;
+
+  const personas = uids.map(uid => {
+    const u = (allUsers || []).find(x => x.uid === uid);
+    return u ? (u.name || (u.email||'').split('@')[0] || 'Alguien') : 'Alguien';
+  });
+
+  const uno = personas.length === 1;
+  const lista = personas.map(n => `<li>${_esc(n)}</li>`).join('');
+  const sujeto = uno
+    ? `<strong>${_esc(personas[0])}</strong>`
+    : `estas <strong>${personas.length}</strong> personas`;
+
+  // Sin clíticos con género: "al agregarla" se equivoca con la mitad del equipo,
+  // y esta app pregunta los pronombres de cada quien justamente para no hacer eso.
+  const bodyHtml = `
+    <p>Si agregas a ${sujeto} a
+    <strong>${_esc(nombreCampana || 'esta campaña')}</strong>, va${uno ? '' : 'n'} a poder ver
+    <strong>toda la campaña</strong>, no sólo lo que le${uno ? '' : 's'} toca:</p>
+    <ul class="confirm-list">
+      <li>El presupuesto y los contactos del cliente</li>
+      <li>Los documentos y sus links, incluido lo que esté enlazado a Drive</li>
+      <li>El tracker, las métricas y el escenario</li>
+      <li>Todas las tareas de la campaña y quién las lleva</li>
+    </ul>
+    ${uno ? '' : `<p style="margin-top:12px;font-weight:700;color:var(--text);">Se agrega a:</p>
+    <ul class="confirm-list">${lista}</ul>`}`;
+
+  return confirmar({
+    title: uno ? 'Va a ver toda la campaña' : 'Van a ver toda la campaña',
+    bodyHtml,
+    confirmLabel: 'Sí, agregar',
+    cancelLabel: 'Cancelar',
+    foco: 'ok',
+  });
+}
+
+async function saveAssignees() {
   if(!currentCampaignId) return;
   const campaigns = getData('campaigns');
   const idx = campaigns.findIndex(x=>x.id===currentCampaignId);
@@ -555,6 +629,10 @@ function saveAssignees() {
   // el botón Eliminar en cuanto se le daba a Guardar.
   const _antes = Array.isArray(c.assignedTo) ? c.assignedTo : [];
   const _nuevos = [...current].filter(uid => !_antes.includes(uid));
+
+  // Se avisa ANTES de escribir: cancelar tiene que dejar la campaña como estaba.
+  if(_nuevos.length && !(await confirmarAccesoCampana(_nuevos, c.name, c))) return;
+
   campaigns[idx] = {...c, assignedTo: [...current]};
   setData('campaigns', campaigns);
   closeModal('assignModal');
@@ -1042,6 +1120,12 @@ async function saveCampaign() {
   const _prevCamp = editingCampaignId ? campaigns.find(x=>x.id===editingCampaignId) : null;
   const _prevResp = _prevCamp ? (_prevCamp.responsables || {}) : {};
   const _prevAssigned = _prevCamp ? ((_prevCamp.assignedTo) || []).slice() : [];
+
+  // Poner a alguien de responsable de un área también le abre la campaña
+  // entera. Se pregunta antes de escribir: cancelar deja todo como estaba.
+  const _respNuevos = Object.values(_diffResponsables(_prevResp, _readAreaSelections())).flat();
+  if(_respNuevos.length && !(await confirmarAccesoCampana(_respNuevos, name, _prevCamp))) return;
+
   if(editingCampaignId) {
     const idx = campaigns.findIndex(x=>x.id===editingCampaignId);
     if(idx!==-1) {

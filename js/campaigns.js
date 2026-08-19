@@ -8,18 +8,10 @@
 // DASHBOARD
 // ============================================================
 function renderDashboard() {
-  // Las campañas que son de esta persona en algún sentido — no las que un admin
-  // simplemente alcanza a ver. Ser responsable de un área cuenta: si la campaña
-  // es visible en Campañas pero no aparece en el Resumen, el Resumen deja de
-  // ser el resumen.
-  const campaigns = isAdmin()
-    ? visibleCampaigns()
-    : visibleCampaigns().filter(c =>
-        isSubscribed(c.id) ||
-        c.createdBy === currentUser.uid ||
-        (Array.isArray(c.assignedTo) && c.assignedTo.includes(currentUser.uid)) ||
-        (typeof esResponsableDe === 'function' && esResponsableDe(c, currentUser.uid))
-      );
+  // El tablero es de UNA persona, no de la agencia: sólo sus campañas. Antes un
+  // admin caía en visibleCampaigns(), o sea todas, y sus pendientes de hoy y
+  // sus próximas publicaciones venían de campañas que no lleva.
+  const campaigns = misCampanas();
 
   // Lazy: igual que el calendario — campañas con tracker vinculado pero sin
   // filas cacheadas se sincronizan en background. Sin esto el dashboard sale
@@ -43,8 +35,11 @@ function renderDashboard() {
     }
   });
 
-  // Non-admin with no subscriptions: show hint instead of empty dashboard
-  if(!isAdmin() && campaigns.length === 0 && _cache.campaigns.length > 0) {
+  // Sin campañas propias, el aviso en vez de un tablero de ceros. Ya no se
+  // excluye a los admins: desde que el tablero muestra sólo lo suyo, un admin
+  // que no esté metido en ninguna campaña llega aquí igual que cualquiera, y
+  // cuatro ceros sin explicación se leen como que la app se rompió.
+  if(campaigns.length === 0 && _cache.campaigns.length > 0) {
     ['statActive','statToday','statUrgent','statPubs'].forEach(id => { const el=document.getElementById(id); if(el) el.textContent='—'; });
     const hint = `<div class="dashboard-sub-hint">Aún no sigues ninguna campaña.<br><a onclick="navigate('campannas')">Ve a Campañas</a> y haz clic en <strong>+ Seguir</strong> para ver su info aquí.</div>`;
     ['todayTasksList','alertsList','recentDocsList','upcomingPubs'].forEach(id => { const el=document.getElementById(id); if(el) el.innerHTML=hint; });

@@ -51,7 +51,7 @@ function renderCalendar() {
   // Debounced: schedule a single calendar re-render once any fetch settles
   // so we don't cascade N re-renders for N campaigns.
   let _calNeedsRefresh = false;
-  visibleCampaigns().forEach(c => {
+  misCampanas().forEach(c => {
     if(c.trackerSheetUrl && (!c.trackerRows || !c.trackerRows.length) && !c._trackerFetching) {
       c._trackerFetching = true;
       _autoFetchTracker(c.trackerSheetUrl, c, {silent:true}).finally(()=>{
@@ -74,7 +74,7 @@ function renderCalendar() {
   const events = {};
   const add = (date, ev) => { if(!date) return; if(!events[date]) events[date]=[]; events[date].push(ev); };
 
-  visibleCampaigns().forEach(c => {
+  misCampanas().forEach(c => {
     // Campaign start/end
     if(c.startDate) add(c.startDate, {type:'start', label:c.name, icon:ICN_rocket, color:'rgba(198,242,74,0.85)', text:'#2a5a18'});
     if(c.endDate)   add(c.endDate,   {type:'end',   label:c.name, icon:ICN_flag, color:'rgba(240,200,74,0.85)', text:'#6a4800'});
