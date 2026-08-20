@@ -142,7 +142,7 @@ function renderCalendar() {
     const weekend = (i%7 === 5 || i%7 === 6);
     const cellBg = !inMonth ? 'background:var(--bg);' : (isToday ? 'background:var(--pink-pale);' : '');
     html += `<div style="min-height:90px;border-right:1px solid var(--border);border-bottom:1px solid var(--border);padding:6px 5px;box-sizing:border-box;${cellBg}">`
-      + (inMonth ? `<div style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;margin-bottom:4px;font-size:12px;font-weight:700;${isToday?'background:var(--pink);color:#fff;':'color:'+(weekend?'var(--text-muted)':'var(--text)')+';"}'}">${day}</div>` : '')
+      + (inMonth ? `<div style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;margin-bottom:4px;font-size:12px;font-weight:700;${isToday?'background:var(--pink);color:#fff;':'color:'+(weekend?'var(--text-muted)':'var(--text)')+';'}">${day}</div>` : '')
       + evs.slice(0,3).map(ev=>`<div style="font-size:10px;font-weight:600;padding:2px 5px;border-radius:4px;background:${ev.color};color:${ev.text};margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${_esc(ev.label)}"><span class="cal-chip-icn">${ev.icon||ev.statusIcon||''}</span>${_esc(ev.label)}</div>`).join('')
       + (evs.length > 3 ? `<div style="font-size:10px;color:var(--text-muted);padding:1px 4px;">+${evs.length-3} más</div>` : '')
       + `</div>`;
@@ -251,7 +251,7 @@ function openProfileModal(uid) {
       <div style="flex:1;min-width:0;">
         <div style="font-size:13px;font-weight:600;${isDone?'text-decoration:line-through;color:var(--text-muted);':''}">${_esc(t.title)}</div>
         <div style="font-size:11px;color:var(--text-muted);margin-top:2px;display:flex;gap:8px;flex-wrap:wrap;">
-          <span>${t.campaignName}</span>
+          <span>${_esc(t.campaignName)}</span>
           ${t.dueDate?`<span>${formatDate(t.dueDate)}</span>`:''}
         </div>
       </div>
@@ -261,9 +261,9 @@ function openProfileModal(uid) {
     <div onclick="openCampaignDetail('${c.id}');closeModal('profileModal');" style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;cursor:pointer;transition:all var(--dur-quick);" onmouseover="this.style.borderColor='var(--pink)'" onmouseout="this.style.borderColor='var(--border)'">
       <div style="flex:1;min-width:0;">
         <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_esc(c.name)}</div>
-        <div style="font-size:11px;color:var(--text-muted);">${c.client||''}</div>
+        <div style="font-size:11px;color:var(--text-muted);">${_esc(c.client||'')}</div>
       </div>
-      <span class="badge ${statusBadgeClass(c.status)}" style="font-size:10px;">${c.status}</span>
+      <span class="badge ${statusBadgeClass(c.status)}" style="font-size:10px;">${_esc(c.status)}</span>
     </div>`;
 
   document.getElementById('profileModalContent').innerHTML = `
@@ -945,8 +945,8 @@ function _obBuildCampList() {
     return `<div class="ob-camp ${sel?'sel':''}" onclick="obToggleCamp('${c.id}', this)">
       <div class="ob-camp-check">${sel?'✓':''}</div>
       <div class="ob-camp-info">
-        <div class="ob-camp-name">${c.name||'Sin nombre'}</div>
-        <div class="ob-camp-meta">${meta}</div>
+        <div class="ob-camp-name">${_esc(c.name||'Sin nombre')}</div>
+        <div class="ob-camp-meta">${_esc(meta)}</div>
       </div>
     </div>`;
   }).join('');
@@ -1292,11 +1292,15 @@ function _cmdkData() {
   const items = [];
   try { (typeof visibleCampaigns==='function'?visibleCampaigns():getData('campaigns')||[]).forEach(c=>items.push({type:'Campaña', icon:ICN_megaphone, label:c.name, sub:c.client||'', action:()=>{navigate('campannas');setTimeout(()=>openCampaignDetail(c.id),60);}})); } catch(e){}
   try { (getAllInfluencers()||[]).forEach(inf=>items.push({type:'Influencer', icon:ICN_users, label:inf.name, sub:[inf.handle?'@'+inf.handle:'', inf.categoria||'', ...(inf.keywords||[]).slice(0,3)].filter(Boolean).join(' · '), action:()=>{navigate('influencers');setTimeout(()=>openInfluencerDetail(inf.key),60);}})); } catch(e){}
+  // Las campañas de arriba ya pasan por visibleCampaigns(); las tareas y los
+  // documentos leían la colección entera, así que el buscador enseñaba
+  // pendientes y links de campañas que la persona no puede abrir.
+  const _visibles = (typeof visibleCampaigns==='function') ? visibleCampaigns() : (getData('campaigns')||[]);
   try {
     (getData('globalTasks')||[]).forEach(t=>{ if(!t.done) items.push({type:'Tarea', icon:ICN_check, label:t.title, sub:'General', action:()=>navigate('pendientes')}); });
-    (getData('campaigns')||[]).forEach(c=>(c.tasks||[]).forEach(t=>{ if(!t.done) items.push({type:'Tarea', icon:ICN_check, label:t.title, sub:c.name, action:()=>{navigate('campannas');setTimeout(()=>openCampaignDetail(c.id),60);}}); }));
+    _visibles.forEach(c=>(c.tasks||[]).forEach(t=>{ if(!t.done) items.push({type:'Tarea', icon:ICN_check, label:t.title, sub:c.name, action:()=>{navigate('campannas');setTimeout(()=>openCampaignDetail(c.id),60);}}); }));
   } catch(e){}
-  try { (getData('campaigns')||[]).forEach(c=>(c.documents||[]).forEach(d=>items.push({type:'Documento', icon:ICN_doc, label:d.name||d.title||'Documento', sub:c.name, action:()=>{ if(d.url) window.open(_safeUrl(d.url),'_blank','noopener'); else navigate('documentos'); }}))); } catch(e){}
+  try { _visibles.forEach(c=>(c.documents||[]).forEach(d=>items.push({type:'Documento', icon:ICN_doc, label:d.name||d.title||'Documento', sub:c.name, action:()=>{ if(d.url) window.open(_safeUrl(d.url),'_blank','noopener'); else navigate('documentos'); }}))); } catch(e){}
   return items;
 }
 function _cmdkRender() {

@@ -60,8 +60,27 @@
     el.dataset.a11yListo = '1';
   }
 
+  /* Los títulos de sección son <span class="card-title"> y <h4> sueltos: se
+     ven como encabezados pero el lector de pantalla no los ofrece para saltar
+     de sección, así que en el Resumen —cinco bloques— la única forma de
+     recorrerlo era leerlo entero. Se les pone el rol y el nivel en vez de
+     cambiar la etiqueta: un <h3> arrastra márgenes y tamaños propios que
+     descuadran las cabeceras de tarjeta. El nivel es 2 porque el título de la
+     página (topbar) es el h1. */
+  var TITULOS = '.card-title,.detail-title';
+  function marcarTitulo(el) {
+    if (!el || el.dataset.a11yTitulo === '1') return;
+    if (/^H[1-6]$/.test(el.tagName) || el.hasAttribute('role')) { el.dataset.a11yTitulo = '1'; return; }
+    el.setAttribute('role', 'heading');
+    el.setAttribute('aria-level', el.classList.contains('detail-title') ? '2' : '2');
+    el.dataset.a11yTitulo = '1';
+  }
+
   function barrer(raiz) {
     if (!raiz || raiz.nodeType !== 1) return;
+    if (raiz.matches && raiz.matches(TITULOS)) marcarTitulo(raiz);
+    var tits = raiz.querySelectorAll ? raiz.querySelectorAll(TITULOS) : [];
+    for (var t = 0; t < tits.length; t++) marcarTitulo(tits[t]);
     if (raiz.hasAttribute && raiz.hasAttribute('onclick')) marcar(raiz);
     var hijos = raiz.querySelectorAll ? raiz.querySelectorAll('[onclick]') : [];
     for (var i = 0; i < hijos.length; i++) marcar(hijos[i]);

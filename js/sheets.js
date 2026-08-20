@@ -817,14 +817,15 @@ function renderEscenarioBlock(c) {
 function renderCampaignDocs(c) {
   const docIcons={PDF:ICN_doc,Sheets:ICN_sheet,Doc:ICN_doc,'Presentación':ICN_clipboard,Otro:ICN_paperclip};
   const el = document.getElementById('campaignDocsList');
-  el.innerHTML = c.documents.length===0
+  const docs = Array.isArray(c.documents) ? c.documents : [];
+  el.innerHTML = docs.length===0
     ? `<div class="empty-state"><div class="empty-icon">${ICN_paperclip}</div><p>Sin documentos todavía. Sube el brief o el reporte y queda a la mano de toda la campaña.</p></div>`
-    : c.documents.map(d=>`
+    : docs.map(d=>`
     <div class="doc-item" ${d.url?`onclick="if(event.target.closest('button,a'))return;window.open('${_esc(_safeUrl(d.url))}','_blank','noopener')" style="cursor:pointer;"`:''}>
       <div class="doc-icon ${d.type==='PDF'?'doc-pdf':'doc-sheets'}">${docIcons[d.type]||ICN_paperclip}</div>
       <div class="doc-info">
-        <div class="doc-name">${d.name}${(typeof _docVisToggleHtml==='function')?_docVisToggleHtml(c.id,d):''}</div>
-        <div class="doc-campaign">${d.type} · ${formatDateShort(d.date)}</div>
+        <div class="doc-name">${_esc(d.name)}${(typeof _docVisToggleHtml==='function')?_docVisToggleHtml(c.id,d):''}</div>
+        <div class="doc-campaign">${_esc(d.type)} · ${formatDateShort(d.date)||'—'}</div>
       </div>
       ${d.url?`<a href="${_esc(_safeUrl(d.url))}" target="_blank" rel="noopener" class="card-link">Ver →</a>`:''}
       <button onclick="event.stopPropagation();deleteDoc('${d.id}')" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:12px;padding:4px;"><span class="icn-close"></span></button>
@@ -836,7 +837,7 @@ function renderCampaignFlow(c) {
     'Completado':'badge-green','Aprobado':'badge-blue','Enviado':'badge-blue',
     'En proceso':'badge-purple','Pendiente aprobación':'badge-orange','Pendiente':'badge-gray'
   };
-  document.getElementById('campaignFlowList').innerHTML = c.flowSteps.map((step,i)=>`
+  document.getElementById('campaignFlowList').innerHTML = (Array.isArray(c.flowSteps) ? c.flowSteps : []).map((step,i)=>`
     <div class="flow-step">
       <div class="flow-num ${step.status==='Completado'||step.status==='Aprobado'?'done':''}">${i+1}</div>
       <div class="flow-step-name">${step.step}</div>
@@ -1298,7 +1299,16 @@ function deleteDoc(docId) {
   if(!currentCampaignId) return;
   const campaigns = getData('campaigns');
   const c = campaigns.find(x=>x.id===currentCampaignId);
-  if(c) { c.documents=c.documents.filter(d=>d.id!==docId); setData('campaigns',campaigns); renderCampaignDocs(c); }
+  if(!c) return;
+  // Mismo criterio que deleteDocFromPage (pestaña Documentos): era la misma
+  // acción sobre el mismo documento y desde la campaña no pedía nada.
+  if(typeof puedeEditarCampana === 'function' && !puedeEditarCampana(c)) {
+    showToast('Solo un admin, quien creó la campaña o un responsable de área pueden borrar documentos.','error');
+    return;
+  }
+  c.documents = (c.documents||[]).filter(d=>d.id!==docId);
+  setData('campaigns',campaigns);
+  renderCampaignDocs(c);
 }
 
 // ============================================================

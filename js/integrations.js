@@ -65,6 +65,23 @@ async function loadCalendarEvents() {
       localStorage.removeItem('gcalToken'); localStorage.removeItem('gcalTokenExpiry');
       renderCalendarWidget(); renderGmailWidget(); return;
     }
+    // El aviso de "la API no está habilitada" vivía después de un `return`,
+    // o sea que no corría nunca: con la Calendar API apagada el widget se
+    // quedaba vacío, sin decir por qué ni qué hacer. Ahora se comprueba aquí,
+    // que es por donde pasa la petición de verdad.
+    if(!calListRes.ok) {
+      const errData = await calListRes.json().catch(()=>({}));
+      const msg = (errData && errData.error && errData.error.message) || ('Error ' + calListRes.status);
+      const el = document.getElementById('googleCalendarWidget');
+      if(calListRes.status === 403) {
+        showToast('Google Calendar no está habilitado: ' + msg, 'error');
+        if(el) el.innerHTML = `<div class="card"><div class="card-header"><span class="card-title"><span class="icn-inline">${ICN_calendar}</span>Calendario de hoy</span></div><div style="padding:20px;text-align:center;color:var(--red);font-size:13px;">La API de Google Calendar no está habilitada en el proyecto de Google Cloud.<br><br><a href="https://console.cloud.google.com/apis/library/calendar-json.googleapis.com" target="_blank" rel="noopener noreferrer" class="btn btn-primary" style="margin-top:8px;">Habilitar Calendar API →</a></div></div>`;
+      } else {
+        showToast('No se pudo leer tu calendario: ' + msg, 'error');
+        renderCalendarWidget();
+      }
+      return;
+    }
     const calList = await calListRes.json();
     // Only query calendars the user OWNS — subscribed/shared calendars
     // show other people's events even when user isn't invited
@@ -105,31 +122,6 @@ async function loadCalendarEvents() {
       .sort((a,b) => (a.start?.dateTime||a.start?.date||'').localeCompare(b.start?.dateTime||b.start?.date||''));
 
     renderCalendarWidget();
-    return; // skip old single-calendar fetch below
-
-    const res = await fetch(
-      `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${encodeURIComponent(start)}&timeMax=${encodeURIComponent(end)}&singleEvents=true&orderBy=startTime&maxResults=25`,
-      { headers: { Authorization: `Bearer ${calendarAccessToken}` } }
-    );
-    if(res.status === 401) {
-      calendarAccessToken = null;
-      localStorage.removeItem('gcalToken');
-      localStorage.removeItem('gcalTokenExpiry');
-      renderCalendarWidget();
-      renderGmailWidget();
-      return;
-    }
-    if(res.status === 403) {
-      const errData = await res.json().catch(()=>({}));
-      const msg = errData?.error?.message || 'Acceso denegado';
-      showToast('Calendar API no habilitada: ' + msg, 'error');
-      const el = document.getElementById('googleCalendarWidget');
-      if(el) el.innerHTML = `<div class="card"><div class="card-header"><span class="card-title"><span class="icn-inline">${ICN_calendar}</span>Calendario de hoy</span></div><div style="padding:20px;text-align:center;color:var(--red);font-size:13px;">⚠️ Google Calendar API no está habilitada en tu proyecto de Google Cloud.<br><br><a href="https://console.cloud.google.com/apis/library/calendar-json.googleapis.com" target="_blank" rel="noopener noreferrer" class="btn btn-primary" style="margin-top:8px;">Habilitar Calendar API →</a></div></div>`;
-      return;
-    }
-    const data = await res.json();
-    calendarEvents = (data.items || []).filter(e => e.status !== 'cancelled');
-    renderCalendarWidget();
   } catch(e) {
     console.error('Calendar fetch error', e);
     showToast('Error cargando calendario: ' + e.message, 'error');
@@ -140,6 +132,12 @@ async function loadCalendarEvents() {
 // ============================================================
 // GMAIL
 // ============================================================
+// OJO: el asunto, el remitente y el extracto los escribe quien manda el correo,
+// igual que el título y la descripción de un evento de Calendar los escribe
+// quien invita. Es el único contenido de la app que viene de fuera de Think Y:
+// va SIEMPRE por _esc() antes de entrar a un innerHTML. Sin eso, mandar un
+// correo con HTML en el asunto ejecutaba código dentro de la sesión de quien
+// lo recibiera.
 async function loadGmailMessages() {
   if(!calendarAccessToken) { renderGmailWidget(); return; }
   try {
@@ -230,20 +228,20 @@ function renderGmailWidget() {
           ${msgs.map(m => `
             <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer;transition:background var(--dur-quick);position:relative;"
                  onmouseover="this.style.background='var(--bg)';this.querySelector('.gmail-trash-btn').style.opacity='1'" onmouseout="this.style.background='';this.querySelector('.gmail-trash-btn').style.opacity='0'"
-                 onclick="window.open('https://mail.google.com/mail/u/0/#inbox/${m.threadId}','_blank')">
+                 onclick="window.open('https://mail.google.com/mail/u/0/#inbox/${_esc(encodeURIComponent(m.threadId||''))}','_blank')">
               <div style="width:32px;height:32px;border-radius:10px;background:var(--pink-pale);color:var(--pink-deep);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0;">
-                ${(m.from[0]||'?').toUpperCase()}
+                ${_esc((m.from[0]||'?').toUpperCase())}
               </div>
               <div style="flex:1;min-width:0;">
                 <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;">
-                  <span style="font-size:12px;font-weight:${m.unread?'700':'500'};color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${m.from}</span>
+                  <span style="font-size:12px;font-weight:${m.unread?'700':'500'};color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${_esc(m.from)}</span>
                   <span style="font-size:10px;color:var(--text-muted);flex-shrink:0;">${_gmailTimeAgo(m.date)}</span>
                 </div>
-                <div style="font-size:12px;font-weight:${m.unread?'600':'400'};color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:1px;">${m.subject}</div>
-                <div style="font-size:11px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:2px;">${m.snippet}</div>
+                <div style="font-size:12px;font-weight:${m.unread?'600':'400'};color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:1px;">${_esc(m.subject)}</div>
+                <div style="font-size:11px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:2px;">${_esc(m.snippet)}</div>
               </div>
               ${m.unread ? '<div style="width:7px;height:7px;border-radius:50%;background:var(--pink);flex-shrink:0;margin-top:4px;"></div>' : ''}
-              <button class="gmail-trash-btn" onclick="trashGmailMessage('${m.id}',event)" title="Borrar correo"
+              <button class="gmail-trash-btn" onclick="trashGmailMessage('${_esc(m.id)}',event)" title="Borrar correo"
                 style="opacity:0;transition:opacity var(--dur-quick);background:none;border:none;cursor:pointer;padding:2px 4px;color:var(--text-muted);font-size:14px;flex-shrink:0;line-height:1;border-radius:6px;"
                 onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--text-muted)'">🗑</button>
             </div>
@@ -339,15 +337,15 @@ function renderCalendarWidget() {
            ${hasMeet && !past ? `onclick="window.open('${safeLink}','_blank')"` : ''}>
         <div class="cal-dot"></div>
         <div class="cal-time">${fmtRange(ev)}</div>
-        <div class="cal-title">${ev.summary || '(Sin título)'}</div>
+        <div class="cal-title">${_esc(ev.summary || '(Sin título)')}</div>
         ${ongoing ? '<span class="cal-ongoing-badge">En curso</span>' : ''}
         ${hasMeet && !past ? '<span class="cal-meet-badge">Meet</span>' : ''}
         <div class="cal-tooltip-box">
-          <div class="cal-tooltip-title">${ev.summary || 'Sin título'}</div>
+          <div class="cal-tooltip-title">${_esc(ev.summary || 'Sin título')}</div>
           <div class="cal-tooltip-row">🕐 ${fmtRange(ev)}</div>
-          ${organizer ? `<div class="cal-tooltip-row">👤 Organiza: ${organizer}</div>` : ''}
-          ${attendees ? `<div class="cal-tooltip-row">👥 ${attendees}</div>` : ''}
-          ${desc ? `<div class="cal-tooltip-row" style="margin-top:8px;border-top:1px solid rgba(255,255,255,.15);padding-top:8px;">${desc}</div>` : ''}
+          ${organizer ? `<div class="cal-tooltip-row">👤 Organiza: ${_esc(organizer)}</div>` : ''}
+          ${attendees ? `<div class="cal-tooltip-row">👥 ${_esc(attendees)}</div>` : ''}
+          ${desc ? `<div class="cal-tooltip-row" style="margin-top:8px;border-top:1px solid rgba(255,255,255,.15);padding-top:8px;">${_esc(desc)}</div>` : ''}
           ${hasMeet && !past ? `<div class="cal-tooltip-meet">→ Clic para abrir Google Meet</div>` : ''}
         </div>
       </div>`;

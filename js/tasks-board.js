@@ -19,6 +19,23 @@ const TASK_STATUSES = [
 ];
 const TASK_STATUS_BY_ID = Object.fromEntries(TASK_STATUSES.map(s => [s.id, s]));
 
+/* Tinta legible sobre el color de la píldora.
+   Los colores de estado y prioridad vienen de la paleta tipo Monday, y varios
+   son claros: blanco sobre el gris de "Sin empezar" da 1.7:1 y sobre el ámbar
+   de "Trabajando en ello" 1.9:1 — por debajo del 4.5:1 que pide WCAG para
+   texto pequeño. Se elige tinta oscura o clara según la luminancia del fondo,
+   así la píldora conserva su color y el texto se lee en las dos. */
+function _tbInk(bg) {
+  const h = String(bg||'').trim().replace('#','');
+  const hex = h.length === 3 ? h.split('').map(c=>c+c).join('') : h;
+  if(!/^[0-9a-fA-F]{6}$/.test(hex)) return '#fff';
+  const lin = v => { v/=255; return v <= 0.03928 ? v/12.92 : Math.pow((v+0.055)/1.055, 2.4); };
+  const L = 0.2126*lin(parseInt(hex.slice(0,2),16)) + 0.7152*lin(parseInt(hex.slice(2,4),16)) + 0.0722*lin(parseInt(hex.slice(4,6),16));
+  // El umbral sale de comparar el contraste real contra blanco y contra la
+  // tinta oscura: por encima de ~0.23 de luminancia gana el texto oscuro.
+  return L > 0.23 ? '#12121c' : '#fff';
+}
+
 const TASK_PRIOS = [
   { id:'high',   label:'Alta',  color:'#e2445c' },
   { id:'medium', label:'Media', color:'#fdab3d' },
@@ -429,11 +446,11 @@ function _tbPeopleStack(t, size = 26) {
 
 function _tbStatusCell(t) {
   const s = TASK_STATUS_BY_ID[taskStatus(t)];
-  return `<button class="tb-pill tb-status" data-act="status" data-tid="${_esc(t.id)}" data-cid="${_esc(t.campaignId||'')}" style="background:${s.color};">${s.label}</button>`;
+  return `<button class="tb-pill tb-status" data-act="status" data-tid="${_esc(t.id)}" data-cid="${_esc(t.campaignId||'')}" style="background:${s.color};color:${_tbInk(s.color)};">${s.label}</button>`;
 }
 function _tbPrioCell(t) {
   const p = TASK_PRIO_BY_ID[taskPrio(t)];
-  return `<button class="tb-pill tb-prio" data-act="prio" data-tid="${_esc(t.id)}" data-cid="${_esc(t.campaignId||'')}" style="background:${p.color};">${p.label}</button>`;
+  return `<button class="tb-pill tb-prio" data-act="prio" data-tid="${_esc(t.id)}" data-cid="${_esc(t.campaignId||'')}" style="background:${p.color};color:${_tbInk(p.color)};">${p.label}</button>`;
 }
 // La celda muestra los dos deadlines apilados: el interno manda (es el que el
 // equipo trabaja) y el de cliente va debajo, más chico. Si solo hay uno, no se
@@ -535,7 +552,7 @@ function _tbCard(t) {
   return `
   <article class="tb-card" draggable="true" data-tid="${_esc(t.id)}" data-cid="${_esc(cid)}">
     <div class="tb-card-top">
-      <span class="tb-card-prio" style="background:${p.color};">${p.label}</span>
+      <span class="tb-card-prio" style="background:${p.color};color:${_tbInk(p.color)};">${p.label}</span>
       ${_tbDateCell(t)}
     </div>
     <div class="tb-card-title" data-act="open" data-tid="${_esc(t.id)}" data-cid="${_esc(cid)}">${_esc(t.title)}</div>

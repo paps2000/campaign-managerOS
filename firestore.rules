@@ -63,9 +63,24 @@ service cloud.firestore {
          || get(miembroPath(ws)).data.role == 'admin');
     }
 
+    // ── Perfil de cada persona ──
+    // `users/{uid}` es la copia autoritativa: de ahí sale currentUserProfile al
+    // entrar, y con ella el rol. Sólo se podía escribir el propio documento, así
+    // que cuando un admin cambiaba área, puesto o rol desde Equipo la escritura
+    // se rechazaba: la app mostraba "no tienes permiso", el cambio quedaba a
+    // medias en `members` y —lo importante— al siguiente login del interesado el
+    // arranque volvía a copiar el rol viejo de `users` sobre `members`.
+    // Nombrar a alguien admin, en la práctica, no funcionaba.
+    // El admin se comprueba contra su propio doc de `members` del workspace
+    // 'default' (el único que existe; WORKSPACE en js/core.js).
+    function esAdminWorkspace() {
+      return exists(/databases/$(database)/documents/workspaces/default/members/$(request.auth.uid))
+        && get(/databases/$(database)/documents/workspaces/default/members/$(request.auth.uid)).data.role == 'admin';
+    }
+
     match /users/{uid} {
       allow read: if isThinky();
-      allow write: if isThinky() && request.auth.uid == uid;
+      allow write: if isThinky() && (request.auth.uid == uid || esAdminWorkspace());
     }
 
     // El documento del workspace en sí.
@@ -210,9 +225,15 @@ service cloud.firestore {
     }
 
     match /clientShares/{token} {
+      // Lectura pública por token: es la vista de cliente. `list` sigue cerrado
+      // para que nadie pueda enumerar los tokens existentes.
       allow get: if true;
       allow list: if false;
-      allow create, update, delete: if request.auth != null;
+      // `request.auth != null` dejaba escribir a CUALQUIER cuenta de Google que
+      // se autenticara contra este proyecto, aunque la app la rechace después
+      // por dominio: el token de Firebase se emite igual. Publicar o pisar el
+      // snapshot de un cliente es cosa del equipo.
+      allow create, update, delete: if isThinky();
     }
   }
 }

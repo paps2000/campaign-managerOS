@@ -343,7 +343,7 @@ function renderAreaPicker(areaKey) {
   const chips = selected.map(uid => {
     const u = allUsers.find(x => x.uid === uid);
     const name = u ? (u.name || u.email.split('@')[0]) : uid;
-    return `<span class="area-chip"><span>${name}</span><button class="chip-x" onclick="removeFromArea('${areaKey}','${uid}');event.stopPropagation();" type="button">×</button></span>`;
+    return `<span class="area-chip"><span>${_esc(name)}</span><button class="chip-x" onclick="removeFromArea('${areaKey}','${_esc(uid)}');event.stopPropagation();" type="button">×</button></span>`;
   }).join('');
   const addBtn = `<button class="area-add-btn" type="button" onclick="toggleAreaDropdown('${areaKey}');event.stopPropagation();">+</button>`;
   // Build dropdown of unselected users
@@ -430,7 +430,7 @@ function toggleAreaDropdown(areaKey) {
 
 function areaBadge(area) {
   if(!area) return '';
-  return `<span class="badge badge-area-${area}" style="font-size:10px;">${area}</span>`;
+  return `<span class="badge badge-area-${_esc(area)}" style="font-size:10px;">${_esc(area)}</span>`;
 }
 
 function userChip(uid, fallbackName) {
@@ -442,7 +442,7 @@ function userChip(uid, fallbackName) {
   const clickAttr = u ? `class="user-name-link" onclick="event.stopPropagation();openProfileModal('${u.uid}')" style="cursor:pointer;display:inline-flex;align-items:center;gap:5px;font-size:12px;background:var(--white);border:1px solid var(--border);border-radius:20px;padding:3px 10px 3px 4px;"` : `style="display:inline-flex;align-items:center;gap:5px;font-size:12px;background:var(--white);border:1px solid var(--border);border-radius:20px;padding:3px 10px 3px 4px;"`;
   return `<span ${clickAttr}>
     <span style="width:20px;height:20px;border-radius:50%;background:var(--pink-deep);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;">${initial}</span>
-    ${_esc(name)}${area?` <span class="badge badge-area-${area}" style="font-size:9px;padding:1px 5px;">${area}</span>`:''}
+    ${_esc(name)}${area?` <span class="badge badge-area-${_esc(area)}" style="font-size:9px;padding:1px 5px;">${_esc(area)}</span>`:''}
   </span>`;
 }
 
@@ -473,9 +473,12 @@ function openEditCampaignModal() {
   if(!currentCampaignId) return;
   const c = getData('campaigns').find(x=>x.id===currentCampaignId);
   if(!c) return;
-  // Permission: only admin or creator can edit
-  if(!isAdmin() && c.createdBy !== currentUser.uid) {
-    showToast('Solo un admin o quien creó la campaña puede editarla.','error'); return;
+  // Mismo criterio que el resto del detalle (contactos, documentos):
+  // puedeEditarCampana incluye a los responsables de área. Con el chequeo
+  // viejo, quien llevaba Cuentas veía el botón Editar y al pulsarlo recibía
+  // un "no puedes" — el permiso decía una cosa y la interfaz otra.
+  if(!puedeEditarCampana(c)) {
+    showToast('Solo un admin, quien creó la campaña o un responsable de área pueden editarla.','error'); return;
   }
   editingCampaignId = c.id;
   document.getElementById('campaignModalTitle').textContent='Editar campaña';
@@ -1367,7 +1370,7 @@ function openTaskDetail(tid, cid) {
     <div style="display:flex;flex-direction:column;gap:14px;padding:4px 0;">
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
         <span style="font-size:12px;padding:3px 10px;border-radius:10px;background:${pbg};color:${pcol};font-weight:600;">${plbl}</span>
-        <span style="font-size:12px;padding:3px 10px;border-radius:10px;background:${TASK_STATUS_BY_ID[taskStatus(task)].color};color:#fff;font-weight:600;">${TASK_STATUS_BY_ID[taskStatus(task)].label}</span>
+        <span style="font-size:12px;padding:3px 10px;border-radius:10px;background:${TASK_STATUS_BY_ID[taskStatus(task)].color};color:${_tbInk(TASK_STATUS_BY_ID[taskStatus(task)].color)};font-weight:600;">${TASK_STATUS_BY_ID[taskStatus(task)].label}</span>
         ${task.recurring ? `<span style="font-size:12px;padding:3px 10px;border-radius:10px;background:#ede9fe;color:#6d28d9;font-weight:600;">🔄 ${dayNames[task.recurringDay]||''}</span>` : ''}
       </div>
       <div>
@@ -1398,7 +1401,7 @@ function openTaskDetail(tid, cid) {
         </div>
         <div>
           <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px;">Campaña</div>
-          <div style="font-size:14px;">${task.campaignName||'General'}</div>
+          <div style="font-size:14px;">${_esc(task.campaignName||'General')}</div>
         </div>
       </div>
       ${(() => {
@@ -1414,7 +1417,7 @@ function openTaskDetail(tid, cid) {
       })()}
       ${task.notes ? `<div>
         <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px;">Notas</div>
-        <div style="font-size:14px;line-height:1.5;white-space:pre-wrap;">${task.notes}</div>
+        <div style="font-size:14px;line-height:1.5;white-space:pre-wrap;">${_esc(task.notes)}</div>
       </div>` : ''}
     </div>`;
 
@@ -1873,8 +1876,8 @@ function renderDocumentosPage() {
     <div class="doc-item" style="padding:12px 0;${d.url?'cursor:pointer;':''}" ${d.url?`onclick="if(event.target.closest('button,a'))return;window.open('${_esc(_safeUrl(d.url))}','_blank','noopener')"`:''}>
       <div class="doc-icon ${d.type==='PDF'?'doc-pdf':'doc-sheets'}">${docIcons[d.type]||'📎'}</div>
       <div class="doc-info">
-        <div class="doc-name">${d.name}${(typeof _docVisToggleHtml==='function')?_docVisToggleHtml(c.id,d):''}</div>
-        <div class="doc-campaign">${d.type} · ${formatDateShort(d.date)||''}</div>
+        <div class="doc-name">${_esc(d.name)}${(typeof _docVisToggleHtml==='function')?_docVisToggleHtml(c.id,d):''}</div>
+        <div class="doc-campaign">${_esc(d.type)} · ${formatDateShort(d.date)||''}</div>
       </div>
       ${d.url?`<a href="${_esc(_safeUrl(d.url))}" target="_blank" rel="noopener" class="card-link" style="margin-right:8px;">Abrir →</a>`:''}
       <button onclick="event.stopPropagation();deleteDocFromPage('${c.id}','${d.id}')" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:14px;padding:4px;">✕</button>
@@ -2303,7 +2306,7 @@ auth.onAuthStateChanged(async (user) => {
     ws.collection('config').doc('settings').get(),
     ws.collection('members').get()
   ]);
-  _cache.campaigns = campaignsSnap.docs.map(d=>d.data());
+  _cache.campaigns = campaignsSnap.docs.map(d => (typeof _normalizarCampana==='function' ? _normalizarCampana(d.data()) : d.data()));
   _cache.globalTasks = tasksSnap.docs.map(d=>d.data());
   _cache.settings = settingsDoc.exists ? settingsDoc.data() : {};
   allUsers = membersSnap.docs.map(d => ({uid:d.id, ...d.data()}));
@@ -2376,7 +2379,10 @@ auth.onAuthStateChanged(async (user) => {
     const lastPage = localStorage.getItem('cmos:lastPage');
     const lastCid  = localStorage.getItem('cmos:lastCampaignId');
     const lastCtab = localStorage.getItem('cmos:lastCampaignTab');
-    const validPages = new Set(['dashboard','campannas','metricas','influencers','documentos','calendario','generador','pendientes','equipo','ajustes']);
+    // Misma lista que _PAGINAS_VALIDAS (core.js): si aquí falta una página,
+    // recargar te devuelve al dashboard en vez de a donde estabas.
+    const validPages = new Set(['dashboard','campannas','metricas','influencers','clientes',
+      'documentos','calendario','generador','pendientes','equipo','ajustes','thinkypeso','effies']);
     const validTabs  = new Set(['resumen','influencers','tracker','pendientes','documentos','flujo']);
     if(lastPage && validPages.has(lastPage) && lastPage !== 'dashboard') {
       navigate(lastPage);

@@ -38,6 +38,14 @@ const sandbox = {
   location: { search:'', pathname:'/', origin:'http://localhost', href:'http://localhost/' },
   matchMedia: () => ({ matches:false, addEventListener:noop }),
   setTimeout, clearTimeout, setInterval, clearInterval, fetch: () => Promise.reject(new Error('sin red en tests')),
+  // El enrutado por hash (core.js) escucha popstate/hashchange en `window` y
+  // escribe con history.pushState. Sin estos stubs la carga de core.js reventaba
+  // con "window.addEventListener is not a function" y NINGUNA prueba corría.
+  addEventListener: noop, removeEventListener: noop,
+  history: { pushState: noop, replaceState: noop },
+  requestAnimationFrame: cb => setTimeout(cb, 0), cancelAnimationFrame: noop,
+  getComputedStyle: () => ({ getPropertyValue: () => '', animationDuration: '0s' }),
+  Blob: class { constructor(parts){ this.size = String(parts && parts[0] || '').length; } },
   // Firebase: lo justo para que core.js/ui.js carguen sin tocar la red.
   // El batch queda instrumentado desde el inicio porque `db` es const en
   // core.js y no se puede reemplazar después.

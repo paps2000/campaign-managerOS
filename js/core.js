@@ -544,10 +544,10 @@ function attachListeners() {
     if(!Array.isArray(_cache.campaigns)) _cache.campaigns = [];
     const prev = new Map(_cache.campaigns.map(c => [c.id, c]));
     _cache.campaigns = snap.docs.map(d => {
-      const incoming = d.data();
+      const incoming = _normalizarCampana(d.data());
       const existing = prev.get(incoming.id);
       if(!existing) return incoming;
-      const merged = {...incoming};
+      const merged = _normalizarCampana({...incoming});
       ['trackerRows','escenarioRows','ugcRows','cachedMetrics',
        'trackerLastSync','escenarioLastSync','ugcLastSync'].forEach(k => {
         if(existing[k] !== undefined && incoming[k] === undefined) merged[k] = existing[k];
@@ -610,6 +610,19 @@ function attachListeners() {
     if(typeof _invalidateInfMemo==='function') _invalidateInfMemo();
     if(currentPage==='influencers') renderInfluencers();
   }, err => console.error('creators listener',err)));
+}
+
+// Una campaña que llega sin `tasks`, `influencers` o `documents` tumbaba el
+// tablero entero: renderDashboard hace `c.tasks.forEach` y renderCampaignGrid
+// lee `c.influencers.length`, así que un solo documento incompleto —importado,
+// escrito por una versión anterior o recortado a mano en la consola— dejaba a
+// TODO el equipo con el Resumen y la lista de campañas en blanco. Se normaliza
+// al entrar, que es el único punto por el que pasan todas.
+const _CAMPAIGN_ARRAYS = ['tasks','influencers','documents','flowSteps','clientContacts'];
+function _normalizarCampana(c) {
+  if(!c || typeof c !== 'object') return c;
+  _CAMPAIGN_ARRAYS.forEach(k => { if(!Array.isArray(c[k])) c[k] = []; });
+  return c;
 }
 
 function visibleCampaigns() {
@@ -1088,8 +1101,14 @@ function navigate(page) {
 // de mandarle a alguien el link de una campaña — había que decirle "entra a
 // Campañas y búscala". Se usa el hash (#/campannas/<id>) porque el sitio es
 // estático y no hay servidor que reescriba rutas reales.
+// OJO: esta lista tiene que incluir TODAS las páginas que navigate() sabe abrir.
+// Faltaba 'clientes' y el efecto era invisible al probar a mano: la pestaña se
+// abría bien con el clic, pero el hash que escribía escribirRuta() ya no lo
+// reconocía nadie, así que Atrás y recargar (y el link pegado en el chat) se
+// quedaban en la vista anterior.
 const _PAGINAS_VALIDAS = new Set(['dashboard','campannas','metricas','influencers',
-  'documentos','calendario','generador','pendientes','equipo','ajustes','thinkypeso','effies']);
+  'clientes','documentos','calendario','generador','pendientes','equipo','ajustes',
+  'thinkypeso','effies']);
 
 // Bandera para no morderse la cola: aplicar una ruta llama a navigate(), que
 // querría volver a escribir la ruta.

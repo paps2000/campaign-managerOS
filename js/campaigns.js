@@ -53,7 +53,7 @@ function renderDashboard() {
 
   // Collect all tasks
   const allTasks = [...globalTasks];
-  campaigns.forEach(c => c.tasks.forEach(t => allTasks.push({...t, campaignName:c.name, campaignId:c.id})));
+  campaigns.forEach(c => (c.tasks||[]).forEach(t => allTasks.push({...t, campaignName:c.name, campaignId:c.id})));
 
   // Only show tasks assigned to current user (or legacy tasks with no UID)
   const myTasks = allTasks.filter(t => !t.assigneeUid || t.assigneeUid === currentUser.uid);
@@ -66,7 +66,7 @@ function renderDashboard() {
   const weekEndStr = weekEnd.toISOString().split('T')[0];
   const upcomingPubs = [];
   campaigns.forEach(c => {
-    c.influencers.forEach(inf => {
+    (c.influencers||[]).forEach(inf => {
       if(inf.publishDate && inf.publishDate >= today && new Date(inf.publishDate) <= weekEnd) {
         upcomingPubs.push({...inf, campaignName:c.name, client:c.client});
       }
@@ -116,9 +116,9 @@ function renderDashboard() {
       <div class="task-info">
         <div class="task-title ${t.done?'done-text':''}">${_esc(t.title)}</div>
         <div class="task-meta" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-          <span class="tb-pill tb-pill-static" style="background:${TASK_STATUS_BY_ID[taskStatus(t)].color};">${TASK_STATUS_BY_ID[taskStatus(t)].label}</span>
+          <span class="tb-pill tb-pill-static" style="background:${TASK_STATUS_BY_ID[taskStatus(t)].color};color:${_tbInk(TASK_STATUS_BY_ID[taskStatus(t)].color)};">${TASK_STATUS_BY_ID[taskStatus(t)].label}</span>
           ${_tbPeopleStack(t, 18)}
-          <span>${t.campaignName||'General'}${showDate && t.dueDate ? ' · ' + formatDate(t.dueDate) : ''}</span>
+          <span>${_esc(t.campaignName||'General')}${showDate && t.dueDate ? ' · ' + formatDate(t.dueDate) : ''}</span>
         </div>
       </div>
       <button class="task-edit-btn" onclick="openEditTaskModal('${t.id}','${t.campaignId||''}')" title="Editar" aria-label="Editar tarea"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></svg></button>
@@ -141,7 +141,7 @@ function renderDashboard() {
   // Alerts
   const alerts = [];
   campaigns.forEach(c => {
-    c.tasks.filter(t=>!t.done && t.priority==='high').forEach(t=>{
+    (c.tasks||[]).filter(t=>!t.done && t.priority==='high').forEach(t=>{
       alerts.push({msg:t.title, campaign:c.name, time:'Hoy', icon:ICN_alert});
     });
   });
@@ -195,8 +195,8 @@ function renderDashboard() {
       <div class="alert-item">
         <span class="alert-icon" style="width:18px;height:18px;display:inline-flex;color:#c9a449;flex-shrink:0">${a.icon}</span>
         <div class="alert-info">
-          <div class="alert-msg">${a.msg}</div>
-          <div class="alert-campaign">${a.campaign}</div>
+          <div class="alert-msg">${_esc(a.msg)}</div>
+          <div class="alert-campaign">${_esc(a.campaign)}</div>
         </div>
         <span class="alert-time">${a.time}</span>
       </div>`).join('');
@@ -210,7 +210,7 @@ function renderDashboard() {
   // Campaign status table
   const statusBadge = (s) => {
     const map = {'En proceso':'badge-blue','Ajustes':'badge-yellow','Pendiente cliente':'badge-orange','En reporte':'badge-red','En producción':'badge-purple','Completado':'badge-green'};
-    return `<span class="badge ${map[s]||'badge-gray'}">${s}</span>`;
+    return `<span class="badge ${map[s]||'badge-gray'}">${_esc(s)}</span>`;
   };
   const dct = document.getElementById('dashCampaignTable');
   dct.innerHTML = campaigns.map(c => {
@@ -270,16 +270,18 @@ function renderDashboard() {
 
   // Recent docs
   const allDocs = [];
-  campaigns.forEach(c=>c.documents.forEach(d=>allDocs.push({...d,campaignName:c.name})));
-  allDocs.sort((a,b)=>b.date.localeCompare(a.date));
+  campaigns.forEach(c=>(c.documents||[]).forEach(d=>allDocs.push({...d,campaignName:c.name})));
+  // String(a.date) y no a.date: el campo fecha se puede dejar vacío al subir un
+  // documento, y un undefined aquí tiraba localeCompare y con él el Resumen.
+  allDocs.sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
   const docIcons = {PDF:ICN_doc,Sheets:ICN_sheet,Doc:ICN_doc,'Presentación':ICN_clipboard,Otro:ICN_paperclip};
   const rd = document.getElementById('recentDocsList');
   rd.innerHTML = allDocs.slice(0,4).map(d=>`
     <div class="doc-item">
       <div class="doc-icon ${d.type==='PDF'?'doc-pdf':'doc-sheets'}">${docIcons[d.type]||ICN_paperclip}</div>
       <div class="doc-info">
-        <div class="doc-name">${d.name}</div>
-        <div class="doc-campaign">${d.campaignName}</div>
+        <div class="doc-name">${_esc(d.name)}</div>
+        <div class="doc-campaign">${_esc(d.campaignName)}</div>
       </div>
       <span class="doc-date">${formatDateShort(d.date)}</span>
     </div>`).join('') || '<div class="empty-state"><p>Sin documentos todavía. Sube el brief o el reporte y queda a la mano de toda la campaña.</p></div>';
@@ -361,7 +363,7 @@ function renderCampaignGrid() {
   }
   const statusBadge = (s) => {
     const map = {'En proceso':'badge-blue','Ajustes':'badge-yellow','Pendiente cliente':'badge-orange','En reporte':'badge-red','En producción':'badge-purple','Completado':'badge-green'};
-    return `<span class="badge ${map[s]||'badge-gray'}">${s}</span>`;
+    return `<span class="badge ${map[s]||'badge-gray'}">${_esc(s)}</span>`;
   };
   if(campaigns.length===0) {
     grid.innerHTML=`<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">${ICN_clipboard}</div><p>${(q||_campStatusFilter)?'Sin campañas con esos filtros.':'No hay campañas. ¡Crea la primera!'}</p></div>`;
@@ -435,8 +437,8 @@ function renderCampaignGrid() {
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">${statusBadge(c.status)}${subBtn}</div>
       </div>
       <div class="campaign-meta">
-        <span class="badge badge-lavender"><span class="badge-icn">${ICN_users}</span>${c.influencers.length} ${c.influencers.length===1?'creador':'creadores'}</span>
-        <span class="badge badge-mint"><span class="badge-icn">${ICN_calendar}</span>${c.season||'—'}</span>
+        <span class="badge badge-lavender"><span class="badge-icn">${ICN_users}</span>${(c.influencers||[]).length} ${(c.influencers||[]).length===1?'creador':'creadores'}</span>
+        <span class="badge badge-mint"><span class="badge-icn">${ICN_calendar}</span>${_esc(c.season||'—')}</span>
         ${(()=>{ const r=c.responsables||{}; return ['operaciones','cuentas','creativo','data'].map(k=>{ const uids=getAreaUids(r,k); return uids.map(uid=>{ const u=allUsers.find(x=>x.uid===uid); return u?`<span class="badge badge-area-${u.area||k.charAt(0).toUpperCase()+k.slice(1)}">${_esc(u.name||u.email.split('@')[0])}</span>`:'';}).join(''); }).join(''); })()||''}
       </div>
       ${(()=>{ const ppl=(c.influencers||[]).filter(i=>i&&i.name); if(!ppl.length) return ''; const max=5; const shown=ppl.slice(0,max); const extra=ppl.length-shown.length; const av=shown.map(i=>`<div class="t-avatar" data-nombre="${_esc(i.name)}" aria-label="${_esc(i.name)}">${_esc(_inicialCreador(i.name))}</div>`).join('')+(extra>0?`<div class="t-avatar is-more" data-nombre="${_esc(ppl.slice(max).map(x=>x.name).join(', '))}" aria-label="${_esc(ppl.slice(max).map(x=>x.name).join(', '))}">+${extra}</div>`:''); return `<div class="camp-people tdev-avatars"><div class="camp-people-avatars">${av}</div></div>`; })()}
@@ -469,7 +471,7 @@ function showCampaignList() {
 function renderCampaignInfoGrid(c) {
   const statusBadge = (s) => {
     const map = {'En proceso':'badge-blue','Ajustes':'badge-yellow','Pendiente cliente':'badge-orange','En reporte':'badge-red','En producción':'badge-purple','Completado':'badge-green'};
-    return `<span class="badge ${map[s]||'badge-gray'}">${s}</span>`;
+    return `<span class="badge ${map[s]||'badge-gray'}">${_esc(s)}</span>`;
   };
 
   document.getElementById('detailCampaignName').textContent = c.name;
@@ -484,7 +486,7 @@ function renderCampaignInfoGrid(c) {
     const ops = bc > 0 ? bc - (bc * bm / 100) : 0;
     const ganancia = bc - ops;
     // fallback for old single-budget campaigns
-    if(!bc && c.budget) return `<div class="info-field"><div class="info-label">Presupuesto</div><div class="info-value">${c.budget}</div></div>`;
+    if(!bc && c.budget) return `<div class="info-field"><div class="info-label">Presupuesto</div><div class="info-value">${_esc(c.budget)}</div></div>`;
     return `
       <div class="info-field">
         <div class="info-label">Presupuesto cliente</div>
@@ -503,9 +505,9 @@ function renderCampaignInfoGrid(c) {
 
   document.getElementById('campaignInfoGrid').innerHTML = `
     <div class="info-field"><div class="info-label">Cliente</div><div class="info-value">${_esc(c.client)}</div></div>
-    <div class="info-field"><div class="info-label">Temporada</div><div class="info-value">${c.season||'—'}</div></div>
-    <div class="info-field"><div class="info-label">Objetivo</div><div class="info-value">${c.objective||'—'}</div></div>
-    <div class="info-field"><div class="info-label">Core Message</div><div class="info-value">${c.coreMessage||'—'}</div></div>
+    <div class="info-field"><div class="info-label">Temporada</div><div class="info-value">${_esc(c.season||'—')}</div></div>
+    <div class="info-field"><div class="info-label">Objetivo</div><div class="info-value">${_esc(c.objective||'—')}</div></div>
+    <div class="info-field"><div class="info-label">Core Message</div><div class="info-value">${_esc(c.coreMessage||'—')}</div></div>
     ${budgetField}
     ${(()=>{
       const r = c.responsables || {};
@@ -743,10 +745,22 @@ function _campaignCoherenceData(c) {
   };
 }
 
+// Las pestañas del detalle son seis: resumen, influencers, tracker, pendientes,
+// documentos y flujo. Métricas NO es una de ellas —vive dentro de Resumen— y
+// varios botones pedían 'metricas': el resultado era que se apagaban las seis
+// pestañas y el detalle se quedaba en blanco hasta hacer clic en otra. Un
+// destino que no existe cae en Resumen, y si era la sección de métricas se
+// hace scroll hasta ella en vez de dejar al usuario buscándola.
 function _switchCampaignTab(tabName) {
-  document.querySelectorAll('.detail-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tabName));
-  document.querySelectorAll('.tab-content').forEach(t => t.classList.toggle('active', t.id === 'tab-'+tabName));
-  try { localStorage.setItem('cmos:lastCampaignTab', tabName); } catch(e){}
+  const destino = document.getElementById('tab-'+tabName) ? tabName : 'resumen';
+  document.querySelectorAll('.detail-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === destino));
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.toggle('active', t.id === 'tab-'+destino));
+  try { localStorage.setItem('cmos:lastCampaignTab', destino); } catch(e){}
+  if(destino !== tabName) {
+    const secciones = { metricas:'campaignMetricsSection' };
+    const el = document.getElementById(secciones[tabName] || '');
+    if(el) { try { el.scrollIntoView({ behavior:'smooth', block:'start' }); } catch(e) { el.scrollIntoView(); } }
+  }
 }
 
 // ============================================================
@@ -974,8 +988,8 @@ function renderCampaignCoherence(c) {
           <div style="background:${sevBg[i.severity]};border:1px solid ${sevBorder[i.severity]};border-radius:10px;padding:10px 12px;display:flex;align-items:flex-start;gap:10px;">
             <span style="font-size:14px;flex-shrink:0;">${sevIcon[i.severity]}</span>
             <div style="flex:1;min-width:0;">
-              <div style="font-size:13px;font-weight:700;color:${sevColor[i.severity]};">${i.title}</div>
-              <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">${i.detail}</div>
+              <div style="font-size:13px;font-weight:700;color:${sevColor[i.severity]};">${_esc(i.title)}</div>
+              <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">${_esc(i.detail)}</div>
             </div>
             ${i.action ? `<button class="btn btn-ghost btn-sm" onclick="_switchCampaignTab('${i.action.tab}')" style="font-size:11px;flex-shrink:0;">${i.action.label} →</button>` : ''}
           </div>`).join('')}
@@ -1049,7 +1063,7 @@ function renderCampaignInfluencers(c) {
   try { renderEscenarioBlock(c); } catch(e){ console.warn('escenario render error', e); }
   const infStatusBadge = (s) => {
     const map={Publicado:'badge-green',Aprobado:'badge-blue','En producción':'badge-purple',Pendiente:'badge-gray'};
-    return `<span class="badge ${map[s]||'badge-gray'}">${s}</span>`;
+    return `<span class="badge ${map[s]||'badge-gray'}">${_esc(s)}</span>`;
   };
   const visibleInfs = (c.influencers||[]).filter(inf => (typeof _isRealCreatorName==='function') ? _isRealCreatorName(inf.name) : true);
 
@@ -1114,7 +1128,7 @@ function _taskItemHtml(t, cid) {
     <div class="task-info" onclick="openTaskDetail('${t.id}','${cid}')" style="cursor:pointer;">
       <div class="task-title ${t.done?'done-text':''}">${_esc(t.title)}</div>
       <div class="task-meta" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-        <span class="tb-pill tb-pill-static" style="background:${st.color};">${st.label}</span>
+        <span class="tb-pill tb-pill-static" style="background:${st.color};color:${_tbInk(st.color)};">${st.label}</span>
         ${_tbPeopleStack(t, 18)}
         ${t.dueDate?`<span>${formatDate(t.dueDate)}</span>`:''}
       </div>
@@ -1130,7 +1144,7 @@ function _taskItemHtml(t, cid) {
 
 function renderCampaignTasks(c) {
   const el = document.getElementById('campaignTasksList');
-  if(!c.tasks || c.tasks.length===0) {
+  if(!Array.isArray(c.tasks) || c.tasks.length===0) {
     el.innerHTML=`<div class="empty-state"><div class="empty-icon">${ICN_check}</div><p>Sin tareas. ¡Todo al día!</p></div>`;
     return;
   }
@@ -1278,10 +1292,17 @@ function applyTheme(name, accent) {
     currentUserProfile.theme = name || 'default';
     const patch = { theme: name || 'default' };
     if(name === 'custom') { patch.themeAccent = hex; currentUserProfile.themeAccent = hex; }
-    try {
-      db.collection('users').doc(currentUser.uid).set(patch, {merge:true});
-      db.collection('workspaces').doc(WORKSPACE).collection('members').doc(currentUser.uid).set(patch,{merge:true});
-    } catch(e) {}
+    // El try/catch no atrapa el rechazo de una promesa: si Firestore decía que
+    // no (sesión caducada, sin permisos), salía un "Uncaught (in promise)" en
+    // la consola y el tema volvía al viejo en la siguiente recarga sin que
+    // nadie lo supiera. Ahora falla en voz baja pero avisa.
+    Promise.all([
+      db.collection('users').doc(currentUser.uid).set(patch, {merge:true}),
+      db.collection('workspaces').doc(WORKSPACE).collection('members').doc(currentUser.uid).set(patch,{merge:true}),
+    ]).catch(e => {
+      console.warn('guardar tema', e);
+      try { showToast('El tema se ve aquí, pero no se pudo guardar en tu perfil.', 'error'); } catch(_){}
+    });
   }
 }
 
@@ -1394,7 +1415,7 @@ function _renderNotifBell() {
     return `<div class="notif-item ${n.read?'':'unread'}" onclick="markNotifRead('${n.id}')">
       <div class="notif-avatar">${icon}</div>
       <div class="notif-body">
-        <p>${n.text||''}</p>
+        <p>${_esc(n.text||'')}</p>
         ${ago?`<time>${ago}</time>`:''}
       </div>
     </div>`;

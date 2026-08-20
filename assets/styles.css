@@ -346,7 +346,7 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
   background:var(--bg); padding:16px 28px 0;
   display:flex; align-items:center; justify-content:space-between; flex-shrink:0;
 }
-.topbar-left h2 { font-family:'Quicksand',sans-serif; font-size:24px; font-weight:700; color:var(--text); letter-spacing:-0.5px; line-height:1.1; }
+.topbar-left h1 { font-family:'Quicksand',sans-serif; font-size:24px; font-weight:700; color:var(--text); letter-spacing:-0.5px; line-height:1.1; }
 .topbar-left p { font-size:13px; color:var(--text-muted); margin-top:3px; }
 .topbar-right { display:flex; align-items:center; gap:10px; }
 .topbar-date { font-size:12px; color:var(--text); background:#fff; padding:8px 14px; border-radius:14px; border:1px solid var(--border); font-weight:600; }
@@ -434,6 +434,11 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
   width:18px; height:18px; border-radius:50%; border:2px solid var(--border); cursor:pointer;
   flex-shrink:0; display:flex; align-items:center; justify-content:center; transition-property:var(--t-ui); transition-duration:var(--dur-fast); transition-timing-function:var(--ease);
 }
+/* El círculo se ve de 18px pero el área que responde al dedo es de 24, que es
+   el mínimo de WCAG 2.2. Se agranda con un pseudo-elemento transparente para
+   no engordar el dibujo ni descuadrar la fila. */
+.task-check { position:relative; }
+.task-check::before { content:''; position:absolute; inset:-3px; border-radius:50%; }
 .task-check:hover { border-color:var(--pink); transform:scale(1.15); }
 .task-check.done { background:var(--pink); border-color:var(--pink); animation:pop var(--dur-fast) var(--ease); }
 .task-check.done::after { content:''; width:7px; height:4px; border:solid #fff; border-width:0 0 2px 2px; transform:rotate(-45deg); margin-top:-2px; }
@@ -530,7 +535,7 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
 .progress-label { display:flex; justify-content:space-between; font-size:11px; color:var(--text-muted); margin-bottom:4px; }
 .progress-bar { height:4px; background:var(--border); border-radius:2px; overflow:hidden; }
 .progress-fill { height:100%; background:linear-gradient(90deg,var(--pink),var(--lavender)); border-radius:2px; transition:width .8s var(--ease); }
-.sub-btn { font-size:11px; font-family:'Quicksand',sans-serif; font-weight:600; padding:3px 9px; border-radius:20px; border:1.5px solid var(--border); background:var(--white); color:var(--text-muted); cursor:pointer; transition-property:var(--t-ui); transition-duration:var(--dur-quick); transition-timing-function:var(--ease); white-space:nowrap; }
+.sub-btn { font-size:11px; font-family:'Quicksand',sans-serif; font-weight:600; padding:5px 10px; min-height:26px; border-radius:20px; border:1.5px solid var(--border); background:var(--white); color:var(--text-muted); cursor:pointer; transition-property:var(--t-ui); transition-duration:var(--dur-quick); transition-timing-function:var(--ease); white-space:nowrap; }
 .sub-btn:hover { border-color:var(--pink); color:var(--pink-deep); }
 .sub-btn.sub-active { background:var(--pink-pale); border-color:var(--pink); color:var(--pink-deep); }
 .sheets-sync-bar { display:flex; align-items:center; gap:10px; padding:10px 14px; background:var(--mint-pale); border-radius:10px; margin-bottom:14px; flex-wrap:wrap; }
@@ -1540,8 +1545,13 @@ html.dark .pronoun-chip.selected { background:var(--pink-pale); color:#fff; }
   /* Show hamburger, hide desktop topbar actions on small */
   .hamburger-btn { display:flex; }
   .topbar { padding:0 16px; }
-  .topbar-left h2 { font-size:17px; }
-  .topbar-left p { display:none; }
+  .topbar-left h1 { font-size:17px; }
+  /* Con `.topbar-left p` a secas no bastaba: `.t-stagger .t-stagger-line`
+     (dos clases) tiene más especificidad y devolvía el subtítulo a
+     display:block. En 375px eso lo partía en cuatro renglones dentro de una
+     columna de 68px y estiraba la topbar a 131px de alto. */
+  .topbar-left p,
+  .topbar-left p.t-stagger-line { display:none; }
   .topbar-date { display:none; }
   #mainActionBtn { padding:7px 12px; font-size:12px; }
 
@@ -1600,6 +1610,7 @@ html.dark .pronoun-chip.selected { background:var(--pink-pale); color:#fff; }
 
   /* Topbar action button label shorter */
   .topbar-right { gap:6px; }
+
 }
 
 @media (max-width:420px) {
@@ -1613,7 +1624,7 @@ html.dark .pronoun-chip.selected { background:var(--pink-pale); color:#fff; }
 @media (max-width:768px) {
   /* Topbar action button: shorter label */
   #mainActionBtn { padding:6px 10px; font-size:11px; }
-  .topbar-left h2 { font-size:16px; line-height:1.2; }
+  .topbar-left h1 { font-size:16px; line-height:1.2; }
 
   /* Campaign detail header buttons wrap */
   .detail-header-actions { flex-wrap:wrap; gap:6px; }
@@ -1876,6 +1887,15 @@ html.dark .topbar-date {
 .stat-label { color: #3a3844 !important; font-weight: 700 !important; }
 .stat-value { color: var(--text) !important; }
 .stat-sub { color: var(--text-muted) !important; }
+/* La destacada es rosa saturado: su texto va en blanco. Las reglas de arriba
+   llevan !important, así que sin repetirlo aquí el subtítulo quedaba gris
+   sobre rosa — 1.46:1, ilegible. */
+.stat-card.featured .stat-label,
+.stat-card.featured .stat-value,
+.stat-card.featured .stat-sub { color:#fff !important; }
+html.dark .stat-card.featured .stat-label,
+html.dark .stat-card.featured .stat-value,
+html.dark .stat-card.featured .stat-sub { color:#fff !important; }
 .campaign-name { color: var(--text) !important; }
 .campaign-client { color: var(--text-muted) !important; }
 .task-title:not(.done-text) { color: var(--text) !important; }
@@ -2897,7 +2917,9 @@ html.dark .gen-output{ background:rgba(255,255,255,.04) !important; }
 }
 .compare-bar.show { transform:translateX(-50%) translateY(0); opacity:1; pointer-events:auto; }
 .inf-compare-check {
-  position:absolute; top:12px; right:12px; width:20px; height:20px; z-index:2;
+  /* 24px es el mínimo de WCAG 2.2 para un objetivo táctil; a 20 se fallaba el
+     clic en el teléfono justo en la esquina de una tarjeta que además navega. */
+  position:absolute; top:10px; right:10px; width:24px; height:24px; z-index:2;
   accent-color:var(--pink); cursor:pointer; opacity:0; transition:opacity var(--dur-quick) var(--ease);
 }
 .campaign-card:hover .inf-compare-check, .inf-compare-check:checked { opacity:1; }
@@ -5926,7 +5948,7 @@ html[data-text="grande"] { --ts:1.12; }
     { font-size:calc(21px * var(--ts)); }
   html[data-text] .fab-main, html[data-text] .tp-cd
     { font-size:calc(22px * var(--ts)); }
-  html[data-text] .topbar-left h2, html[data-text] .modal-title,
+  html[data-text] .topbar-left h1, html[data-text] .modal-title,
   html[data-text] .placeholder-page h2, html[data-text] .ai-fab, html[data-text] .ob-title,
   html[data-text] .tp-h1
     { font-size:calc(24px * var(--ts)); }
@@ -6489,4 +6511,41 @@ html.dark .cli-confidencial-icn { color:#f0c84a; }
 
 @media (prefers-reduced-motion: reduce) {
   .star-half { transition:none; }
+}
+
+
+/* ============================================================
+   TOPBAR EN TELÉFONO
+   ============================================================
+   Va al final del archivo a propósito: la tira de vidrio de la topbar
+   («3. TOPBAR — frosted glass strip») fija `padding: 22px 36px !important`
+   más abajo que el bloque móvil original, así que en 375px el relleno se
+   comía 72px y el título se quedaba con 25 — «R…» pegado a la lupa.
+
+   Con 72px de relleno y seis acciones de 44px la fila medía 270 y se salía
+   de la pantalla: el botón de tema quedaba cortado contra el borde. Aquí se
+   encogen los controles a 38px (sigue por encima del mínimo táctil de 24) y
+   el título toma lo que sobra, con puntos suspensivos si no cabe. */
+@media (max-width:768px) {
+  .topbar { padding:14px 14px 12px !important; gap:8px; }
+  .topbar > div:first-child { flex:1 1 auto; min-width:0; }
+  .topbar-left { flex:1 1 auto; min-width:0; }
+  .topbar-left h1 { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .topbar-right { flex-shrink:0; gap:6px; }
+  .topbar-right .notif-bell-btn,
+  .topbar-right .theme-toggle-btn { width:38px; height:38px; min-width:38px; }
+  .topbar-search-btn { width:38px; min-width:38px; padding:0; justify-content:center; }
+  .topbar-search-btn .topbar-search-shortcut { display:none; }
+  .logout-btn { min-height:38px; padding:4px 8px; }
+  /* El subtítulo se esconde en móvil; `.t-stagger .t-stagger-line` (dos
+     clases) le ganaba a `.topbar-left p` y lo devolvía a la vista. */
+  .topbar-left p,
+  .topbar-left p.t-stagger-line { display:none; }
+}
+
+@media (max-width:480px) {
+  /* En teléfono la lupa de la topbar es el único control redundante: el FAB ya
+     trae "Buscar (⌘K)". Quitarla le devuelve 44px al título, que si no corta
+     "Pendientes" y "Calendario" a la mitad. */
+  .topbar-search-btn { display:none; }
 }
