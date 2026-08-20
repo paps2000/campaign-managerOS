@@ -1434,18 +1434,26 @@ function _timeAgo(date) {
 function toggleNotifPanel() {
   const panel = document.getElementById('notifPanel');
   if(!panel) return;
-  const isOpen = panel.classList.toggle('open');
+  // data-open en vez de display:none: el panel tiene que seguir pintado para
+  // que .t-panel-slide pueda animarle también el cierre.
+  const isOpen = panel.dataset.open !== 'true';
+  _setNotifOpen(panel, isOpen);
   if(isOpen) {
     // Close on outside click
     setTimeout(()=>document.addEventListener('click', _closeNotifOnOutside, {once:true}),0);
   }
 }
 
+function _setNotifOpen(panel, open) {
+  panel.dataset.open = open ? 'true' : 'false';
+  document.getElementById('notifBellBtn')?.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+
 function _closeNotifOnOutside(e) {
   const panel = document.getElementById('notifPanel');
   const btn = document.getElementById('notifBellBtn');
   if(panel && !panel.contains(e.target) && !btn?.contains(e.target)) {
-    panel.classList.remove('open');
+    _setNotifOpen(panel, false);
   }
 }
 

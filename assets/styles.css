@@ -129,10 +129,16 @@ html.dark body, html.dark body[class*="theme-"] {
 .notif-panel {
   position:fixed; top:58px; right:16px; width:340px; max-height:480px;
   background:var(--white); border:1px solid var(--border); border-radius:18px;
-  box-shadow:var(--shadow-lg); z-index:1000; display:none; flex-direction:column;
+  box-shadow:var(--shadow-lg); z-index:1000; display:flex; flex-direction:column;
   overflow:hidden;
+  /* Cuelga de la campana: sale de arriba y se despliega hacia abajo, no sube
+     medio panel desde el fondo. Recorrido corto => duración corta, y la salida
+     más rápida que la entrada. */
+  --panel-translate-y: -10px;
+  --panel-open-dur: 260ms;
+  --panel-close-dur: 180ms;
+  --panel-blur: 3px;
 }
-.notif-panel.open { display:flex; }
 .notif-panel-header {
   display:flex; align-items:center; justify-content:space-between;
   padding:14px 16px 10px; border-bottom:1px solid var(--border); flex-shrink:0;
@@ -3140,6 +3146,47 @@ html.dark .login-card-logo img { filter: brightness(0) invert(1); }
   opacity:0; filter:blur(var(--icon-swap-blur)); transform:scale(var(--icon-swap-start-scale));
 }
 @media (prefers-reduced-motion: reduce) { .t-icon-swap .t-icon { transition:none !important; } }
+/* Pack 9 — Panel reveal (.t-panel-slide)
+   El panel se desliza en Y, cruza opacidad y desenfoca --panel-blur ↔ 0 con la
+   misma duración y ease, así un recorrido corto sigue leyéndose como una
+   apertura entera. --panel-translate-y es ese recorrido; envolver en algo con
+   overflow:hidden si el estado cerrado tiene que quedar recortado del todo.
+   visibility no está en el pack original: sin ella el panel cerrado sigue
+   siendo tabulable y lo leen los lectores de pantalla. Se apaga al terminar el
+   cierre (delay = --panel-close-dur) para no cortar la animación de salida. */
+:root {
+  --panel-open-dur: 400ms;
+  --panel-close-dur: 350ms;
+  --panel-translate-y: calc(187px * 0.5);
+  --panel-blur: 2px;
+  --panel-ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+.t-panel-slide {
+  transform: translateY(var(--panel-translate-y));
+  opacity: 0;
+  filter: blur(var(--panel-blur));
+  pointer-events: none;
+  visibility: hidden;
+  transition:
+    transform  var(--panel-close-dur) var(--panel-ease),
+    opacity    var(--panel-close-dur) var(--panel-ease),
+    filter     var(--panel-close-dur) var(--panel-ease),
+    visibility 0s linear var(--panel-close-dur);
+  will-change: transform, opacity, filter;
+}
+.t-panel-slide[data-open="true"] {
+  transform: translateY(0);
+  opacity: 1;
+  filter: blur(0);
+  pointer-events: auto;
+  visibility: visible;
+  transition:
+    transform  var(--panel-open-dur) var(--panel-ease),
+    opacity    var(--panel-open-dur) var(--panel-ease),
+    filter     var(--panel-open-dur) var(--panel-ease),
+    visibility 0s;
+}
+@media (prefers-reduced-motion: reduce) { .t-panel-slide { transition:none !important; } }
 /* ============ TEAM PROFILE CARD MODAL ============ */
 .user-name-link { transition: color var(--dur-quick) var(--ease), background var(--dur-quick) var(--ease); border-radius:6px; }
 .user-name-link:hover { color: var(--pink-deep); }
@@ -3330,7 +3377,7 @@ html.dark .ai-input-row textarea { background:rgba(255,255,255,.05); border-colo
 /* ============ ONBOARDING ============ */
 .ob-screen { position:fixed; inset:0; z-index:1200; background:var(--bg); display:none; align-items:center; justify-content:center; padding:24px; overflow-y:auto; }
 .ob-screen.open { display:flex; }
-.ob-card { width:100%; max-width:560px; background:var(--white); border:1px solid var(--border); border-radius:24px; box-shadow:0 24px 80px rgba(0,0,0,.18); padding:32px; position:relative; }
+.ob-card { width:100%; max-width:560px; background:var(--white); border:1px solid var(--border); border-radius:24px; box-shadow:0 24px 80px rgba(0,0,0,.18); padding:32px; position:relative; overflow:hidden; }
 html.dark .ob-card { background:#141120; }
 .ob-steps { display:flex; gap:8px; margin-bottom:20px; }
 .ob-steps .dot { flex:1; height:5px; border-radius:3px; background:var(--border); transition:background var(--dur-fast) var(--ease); }
@@ -3338,9 +3385,14 @@ html.dark .ob-card { background:#141120; }
 .ob-eyebrow { font-size:12px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--pink-text); margin-bottom:6px; }
 .ob-title { font-size:24px; font-weight:800; color:var(--text); margin:0 0 4px; }
 .ob-sub { font-size:13px; color:var(--text-muted); margin:0 0 22px; }
-.ob-panel { display:none; }
-.ob-panel.on { display:block; animation:obFade var(--dur-medium) var(--ease); }
-@keyframes obFade { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
+/* Los dos pasos viven a la vez dentro de .ob-pages: el inactivo queda absoluto
+   y transparente en vez de display:none, que es la única forma de animarle la
+   salida. El pack ancla .t-page con inset:0, y entonces medir la altura del
+   paso activo para escribírsela al contenedor es circular — bottom:auto le
+   devuelve la altura de su propio contenido. */
+.ob-pages { position:relative; }
+.ob-pages .t-page { bottom:auto; }
+.ob-panel { display:block; }
 .ob-field { margin-bottom:14px; }
 .ob-field label { display:block; font-size:12px; font-weight:600; color:var(--text-muted); margin-bottom:6px; }
 .ob-field input, .ob-field select, .ob-field textarea { width:100%; padding:11px 13px; border:1.5px solid var(--border); border-radius:11px; font-family:'Quicksand',sans-serif; font-size:14px; background:var(--white); color:var(--text); }

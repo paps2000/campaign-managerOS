@@ -980,16 +980,51 @@ function startOnboarding() {
   _obBuildSwatches();
   _obBuildCampList();
   obSyncAvatar();
-  obGoStep(1);
   document.getElementById('obScreen').classList.add('open');
+  obGoStep(1);   // después de .open: obGoStep mide, y oculto todo mide 0
 }
 
 function obGoStep(n) {
-  document.getElementById('obPanel1').classList.toggle('on', n===1);
-  document.getElementById('obPanel2').classList.toggle('on', n===2);
+  const pages = document.getElementById('obPages');
+  const p1 = document.getElementById('obPanel1');
+  const p2 = document.getElementById('obPanel2');
+  if(pages) pages.dataset.page = String(n);
+  // El paso que no se ve sigue pintado para poder animar su salida; inert lo
+  // saca del tabulador y del árbol de accesibilidad mientras tanto.
+  if(p1) p1.inert = n !== 1;
+  if(p2) p2.inert = n !== 2;
   document.getElementById('obDot1').classList.toggle('on', n>=1);
   document.getElementById('obDot2').classList.toggle('on', n>=2);
+  _obSyncPagesHeight();
 }
+
+/* .ob-pages no puede heredar la altura de sus hijos: son absolutos. Se la
+   escribimos nosotros y .t-resize la interpola. El estado real es data-page,
+   no el final de la transición: si alguien pulsa Continuar y Atrás seguido, el
+   paso correcto ya está puesto aunque la animación anterior siga viva. */
+function _obSyncPagesHeight() {
+  const pages = document.getElementById('obPages');
+  if(!pages) return;
+  const active = pages.querySelector('.t-page[data-page-id="' + (pages.dataset.page || '1') + '"]');
+  if(!active) return;
+  const h = active.offsetHeight;
+  if(h) pages.style.height = h + 'px';
+}
+
+/* La lista de campañas y los selects cambian de alto después de montar; sin
+   esto el contenedor se queda con la altura del primer render. */
+(function(){
+  if(!window.ResizeObserver) return;
+  const ro = new ResizeObserver(()=>_obSyncPagesHeight());
+  function watch(){
+    ['obPanel1','obPanel2'].forEach(id=>{
+      const el = document.getElementById(id);
+      if(el) ro.observe(el);
+    });
+  }
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', watch);
+  else watch();
+})();
 
 function obNext() {
   const name = (document.getElementById('obName').value||'').trim();
@@ -1009,8 +1044,8 @@ function _obOnCampaignCreated(cid) {
   window._obAwaitingNewCampaign = false;
   if(cid) _obSelectedCamps.add(cid);
   _obBuildCampList();
-  obGoStep(2);
   document.getElementById('obScreen').classList.add('open');
+  obGoStep(2);   // después de .open, por lo mismo que en obStart()
 }
 
 async function obFinish() {

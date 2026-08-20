@@ -120,8 +120,13 @@
       <div class="dot" id="obDot2"></div>
     </div>
 
+    <!-- Pack 4 — página lado a lado. Los dos pasos coexisten: el 1 entra/sale
+         por la izquierda, el 2 por la derecha. .t-resize interpola la altura
+         del contenedor, que se escribe desde obGoStep(). -->
+    <div class="ob-pages t-page-slide t-resize" id="obPages" data-page="1">
+
     <!-- PASO 1: Personalización -->
-    <div class="ob-panel on" id="obPanel1">
+    <div class="ob-panel t-page" data-page-id="1" id="obPanel1">
       <div class="ob-eyebrow">Paso 1 de 2</div>
       <h2 class="ob-title">Personaliza tu perfil ✨</h2>
       <p class="ob-sub">Cuéntanos quién eres para configurar tu espacio.</p>
@@ -180,7 +185,7 @@
     </div>
 
     <!-- PASO 2: Suscripción a campañas -->
-    <div class="ob-panel" id="obPanel2">
+    <div class="ob-panel t-page" data-page-id="2" id="obPanel2" inert>
       <div class="ob-eyebrow">Paso 2 de 2</div>
       <h2 class="ob-title">¿A qué campañas te quieres suscribir?</h2>
       <p class="ob-sub">Elige las que vas a seguir o crea una nueva desde cero.</p>
@@ -193,6 +198,8 @@
         <button class="ob-btn ob-btn-primary" id="obFinishBtn" onclick="obFinish()">Entrar a Campaign OS</button>
       </div>
     </div>
+
+    </div><!-- /.ob-pages -->
   </div>
 </div>
 
@@ -328,7 +335,7 @@
         <span class="topbar-search-shortcut">⌘K</span>
       </button>
       <span class="topbar-date" id="topbarDate"></span>
-      <button class="notif-bell-btn" id="notifBellBtn" onclick="toggleNotifPanel()" title="Notificaciones" style="position:relative;" aria-label="Notificaciones">
+      <button class="notif-bell-btn" id="notifBellBtn" onclick="toggleNotifPanel()" title="Notificaciones" style="position:relative;" aria-label="Notificaciones" aria-expanded="false" aria-controls="notifPanel">
         🔔
         <span class="t-badge" id="notifBadge" data-open="false"><span class="t-badge-dot notif-badge">0</span></span>
       </button>
@@ -344,7 +351,7 @@
       <button class="logout-btn" onclick="logout()" title="Cerrar sesión">Salir</button>
     </div>
     <!-- NOTIFICATION PANEL -->
-    <div class="notif-panel" id="notifPanel">
+    <div class="notif-panel t-panel-slide" id="notifPanel" data-open="false">
       <div class="notif-panel-header">
         <span>🔔 Notificaciones</span>
         <button onclick="markAllNotifsRead()" style="font-size:11px;background:none;border:none;cursor:pointer;color:var(--pink);font-weight:600;">Marcar todo leído</button>
