@@ -789,7 +789,22 @@ function renderCampaignClients(c) {
               <div style="font-size:14px;font-weight:700;color:var(--text);">${_esc(ct.name)||'Sin nombre'}</div>
               ${ct.cargo ? `<div style="font-size:11px;color:var(--text-muted);margin-top:2px;">${_esc(ct.cargo)}</div>` : ''}
               ${ct.email ? `<a href="mailto:${_esc(ct.email)}" style="font-size:12px;color:var(--pink);display:block;margin-top:6px;text-decoration:none;">${_esc(ct.email)}</a>` : ''}
+              ${ct.celular ? (() => {
+                // El enlace lleva a donde la persona pidió: WhatsApp abre el chat,
+                // el resto marca. `tel:` NO se abre en pestaña nueva — en
+                // escritorio dejaría una en blanco cada vez que alguien llama.
+                const href = typeof celClienteHref === 'function' ? celClienteHref(ct) : '';
+                const txt = _esc(ct.celular);
+                const nueva = /^https?:/i.test(href) ? ' target="_blank" rel="noopener"' : '';
+                return href
+                  ? `<a href="${_esc(href)}"${nueva} style="font-size:12px;color:var(--pink);display:block;margin-top:4px;text-decoration:none;">${txt}</a>`
+                  : `<div style="font-size:12px;color:var(--text-muted);margin-top:4px;">${txt}</div>`;
+              })() : ''}
               ${ct.linkedin ? `<a href="${_esc(ct.linkedin)}" target="_blank" rel="noopener" style="font-size:12px;color:#0a66c2;display:inline-flex;align-items:center;gap:4px;margin-top:4px;text-decoration:none;font-weight:600;"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M19 0H5a5 5 0 0 0-5 5v14a5 5 0 0 0 5 5h14a5 5 0 0 0 5-5V5a5 5 0 0 0-5-5zM8 19H5V8h3v11zM6.5 6.7a1.8 1.8 0 1 1 0-3.6 1.8 1.8 0 0 1 0 3.6zM20 19h-3v-5.6c0-3.4-4-3.1-4 0V19h-3V8h3v1.8c1.4-2.6 7-2.8 7 2.5V19z"/></svg> LinkedIn</a>` : ''}
+              ${(() => {
+                const chip = typeof medioClienteChipHtml === 'function' ? medioClienteChipHtml(ct) : '';
+                return chip ? `<div style="margin-top:8px;">${chip}</div>` : '';
+              })()}
               ${ct.notes ? `<div style="font-size:11px;color:var(--text-muted);margin-top:8px;background:var(--bg);padding:6px 8px;border-radius:8px;line-height:1.4;white-space:pre-wrap;">${_esc(ct.notes)}</div>` : ''}
             </div>`).join('')}
         </div>`}`;
@@ -801,7 +816,7 @@ function openClientContactModal(cid, idx) {
   const c = campaigns.find(x => x.id === cid);
   if(!c) return;
   _editingClientContact = { campaignId:cid, idx: typeof idx==='number'?idx:null };
-  const ct = (typeof idx==='number' && c.clientContacts && c.clientContacts[idx]) || {name:'',email:'',cargo:'',linkedin:'',notes:''};
+  const ct = (typeof idx==='number' && c.clientContacts && c.clientContacts[idx]) || {name:'',email:'',cargo:'',celular:'',linkedin:'',notes:'',medioPreferido:'na',medioDetalle:''};
   // Ensure modal exists; create on demand
   if(!document.getElementById('clientContactModal')) {
     const html = `
@@ -813,8 +828,21 @@ function openClientContactModal(cid, idx) {
           </div>
           <div class="form-group"><label class="form-label">Nombre</label><input type="text" id="fClientName" class="form-input" placeholder="Nombre completo"></div>
           <div class="form-group"><label class="form-label">Cargo</label><input type="text" id="fClientCargo" class="form-input" placeholder="Brand Manager, Director, ..."></div>
-          <div class="form-group"><label class="form-label">Correo</label><input type="email" id="fClientEmail" class="form-input" placeholder="nombre@cliente.com"></div>
-          <div class="form-group"><label class="form-label">LinkedIn</label><input type="url" id="fClientLinkedin" class="form-input" placeholder="https://www.linkedin.com/in/..."></div>
+          <div class="form-group"><label class="form-label" for="fClientEmail">Correo</label><input type="email" id="fClientEmail" class="form-input" placeholder="nombre@cliente.com"></div>
+          <div class="form-group"><label class="form-label" for="fClientCelular">Celular</label>
+            <input type="tel" id="fClientCelular" class="form-input" placeholder="+52 55 1234 5678"
+              autocomplete="tel" inputmode="tel">
+            <div class="form-hint">Con lada de país si quieres que el enlace de WhatsApp funcione.</div>
+          </div>
+          <div class="form-group"><label class="form-label" for="fClientMedio">Medio de contacto preferido</label>
+            <select id="fClientMedio" class="form-input" onchange="_toggleMedioOtro()"></select>
+            <div class="form-hint">Por dónde pidió que le escribamos. Se respeta aunque tengamos su celular.</div>
+          </div>
+          <div class="form-group" id="fClientMedioOtroWrap" hidden>
+            <label class="form-label" for="fClientMedioOtro">¿Cuál?</label>
+            <input type="text" id="fClientMedioOtro" class="form-input" placeholder="Discord, Google Chat, la asistente...">
+          </div>
+          <div class="form-group"><label class="form-label" for="fClientLinkedin">LinkedIn</label><input type="url" id="fClientLinkedin" class="form-input" placeholder="https://www.linkedin.com/in/..."></div>
           <div class="form-group"><label class="form-label" for="fClientPoc">Tipo de contacto</label>
             <select id="fClientPoc" class="form-input">
               <option value="principal">POC principal</option>
@@ -839,6 +867,12 @@ function openClientContactModal(cid, idx) {
   document.getElementById('fClientName').value     = ct.name || '';
   document.getElementById('fClientCargo').value    = ct.cargo || '';
   document.getElementById('fClientEmail').value    = ct.email || '';
+  document.getElementById('fClientCelular').value  = ct.celular || '';
+  document.getElementById('fClientMedio').innerHTML =
+    typeof medioClienteOpcionesHtml === 'function' ? medioClienteOpcionesHtml(ct.medioPreferido) : '';
+  document.getElementById('fClientMedio').value    = ct.medioPreferido || 'na';
+  document.getElementById('fClientMedioOtro').value = ct.medioDetalle || '';
+  _toggleMedioOtro();
   document.getElementById('fClientLinkedin').value = ct.linkedin || '';
   document.getElementById('fClientNotes').value    = ct.notes || '';
   document.getElementById('fClientPoc').value      = ct.pocTipo || 'na';
@@ -852,15 +886,28 @@ function saveClientContact() {
   if(!name) { showToast('Nombre requerido','error'); return; }
   const cargo = document.getElementById('fClientCargo').value.trim();
   const email = document.getElementById('fClientEmail').value.trim();
+  // El número se guarda como lo escribieron: los formatos de teléfono son
+  // locales y normalizarlos a la fuerza pierde información que alguien puso a
+  // propósito (una extensión, un "sólo mensajes"). Sólo se colapsan espacios.
+  const celular = document.getElementById('fClientCelular').value.trim().replace(/\s+/g, ' ');
   let linkedin = document.getElementById('fClientLinkedin').value.trim();
   if(linkedin && !/^https?:\/\//i.test(linkedin)) linkedin = 'https://' + linkedin;
   const notes = document.getElementById('fClientNotes').value.trim();
   const pocTipo = document.getElementById('fClientPoc').value || 'na';
+  const medioPreferido = document.getElementById('fClientMedio').value || 'na';
+  // El detalle sólo se guarda con "Otro": si no, quedaría un texto invisible
+  // que reaparecería al volver a elegir Otro meses después.
+  const medioDetalle = medioPreferido === 'otro'
+    ? document.getElementById('fClientMedioOtro').value.trim() : '';
   const campaigns = getData('campaigns');
   const c = campaigns.find(x => x.id === campaignId);
   if(!c) return;
   if(!Array.isArray(c.clientContacts)) c.clientContacts = [];
-  const obj = { name, cargo, email, linkedin, notes, pocTipo };
+  const obj = { name, cargo, email, celular, linkedin, notes, pocTipo, medioPreferido, medioDetalle };
+  if(typeof validarContactoCliente === 'function') {
+    const problema = validarContactoCliente(obj);
+    if(problema) { showToast(problema, 'error'); return; }
+  }
   if(typeof idx === 'number') c.clientContacts[idx] = obj;
   else c.clientContacts.push(obj);
   setData('campaigns', campaigns);
@@ -871,6 +918,16 @@ function saveClientContact() {
   // base se pone al día la próxima vez que se toque.
   try { clienteUpsertDesdeCampana(obj, c); } catch(e){ console.warn('sync cliente', e); }
   if(currentCampaignId === campaignId) renderCampaignClients(c);
+}
+
+/* "Otro" es el único medio que necesita explicación. El campo se muestra al
+   elegirlo en vez de estar siempre: un input vacío que casi nunca aplica hace
+   que el formulario se lea más largo de lo que es. */
+function _toggleMedioOtro() {
+  const sel = document.getElementById('fClientMedio');
+  const wrap = document.getElementById('fClientMedioOtroWrap');
+  if(!sel || !wrap) return;
+  wrap.hidden = sel.value !== 'otro';
 }
 
 async function deleteClientContact(cid, idx) {
