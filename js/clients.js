@@ -30,6 +30,97 @@ const CLIENT_POC = [
   { id: 'na',         label: 'Sin definir'   },
 ];
 
+/* ── Medio de contacto preferido ──
+   Tener el celular de alguien no sirve de nada si a esa persona hay que
+   escribirle por Slack. Cada cuenta tiene su costumbre y no es la nuestra: hay
+   clientes que no abren un correo en tres días y contestan un WhatsApp en dos
+   minutos, y hay quien pide expresamente que no le llamen al celular.
+
+   La lista es cerrada a propósito. Escrito a mano, "wa", "whats" y "WhatsApp"
+   serían tres medios distintos y dejaría de poder filtrarse o contarse. Para
+   lo que no cabe está `otro`, que sí lleva un texto libre al lado.
+
+   `requiere` es el dato sin el cual el medio es una promesa vacía: decir que
+   prefiere WhatsApp sin dejar un celular no le dice a nadie cómo escribirle. */
+const CLIENT_MEDIOS = [
+  { id: 'whatsapp',   label: 'WhatsApp',   requiere: 'celular'  },
+  { id: 'llamada',    label: 'Llamada',    requiere: 'celular'  },
+  { id: 'correo',     label: 'Correo',     requiere: 'email'    },
+  { id: 'slack',      label: 'Slack',      requiere: ''         },
+  { id: 'teams',      label: 'Teams',      requiere: ''         },
+  { id: 'telegram',   label: 'Telegram',   requiere: 'celular'  },
+  { id: 'linkedin',   label: 'LinkedIn',   requiere: 'linkedin' },
+  { id: 'presencial', label: 'En persona', requiere: ''         },
+  { id: 'otro',       label: 'Otro',       requiere: ''         },
+  { id: 'na',         label: 'Sin definir', requiere: ''        },
+];
+const CLIENT_MEDIO_NA = CLIENT_MEDIOS[CLIENT_MEDIOS.length - 1];
+
+function medioCliente(id) {
+  return CLIENT_MEDIOS.find(m => m.id === id) || CLIENT_MEDIO_NA;
+}
+
+/* Lo que se lee en pantalla. Con `otro`, el texto que escribieron gana: poner
+   "Otro" donde alguien anotó "Discord del cliente" borra la única parte útil. */
+function medioClienteLabel(c) {
+  const m = medioCliente(c && c.medioPreferido);
+  if (m.id === 'otro') return String((c && c.medioDetalle) || '').trim() || 'Otro';
+  return m.label;
+}
+
+function medioClienteOpcionesHtml(sel) {
+  const actual = medioCliente(sel).id;
+  return CLIENT_MEDIOS.map(m =>
+    `<option value="${m.id}" ${m.id === actual ? 'selected' : ''}>${m.label}</option>`).join('');
+}
+
+/* El chip sólo aparece si hay algo que decir: un "Sin definir" en cada tarjeta
+   es ruido que se aprende a ignorar, y entonces tampoco se ve el que sí importa. */
+function medioClienteChipHtml(c) {
+  const m = medioCliente(c && c.medioPreferido);
+  if (m.id === 'na') return '';
+  // "WhatsApp" suelto en una tarjeta no dice si es el medio preferido o una
+  // red del cliente. El prefijo lo aclara para quien lee con lector de
+  // pantalla; a la vista lo aclara el punto de color y el sitio donde está.
+  return `<span class="cli-medio cli-medio--${m.id}" title="Medio de contacto preferido">
+    <span class="sr-only">Medio de contacto preferido: </span>
+    <span class="cli-medio-lbl">${_esc(medioClienteLabel(c))}</span></span>`;
+}
+
+/* El celular se guarda tal como lo escribieron — los formatos de teléfono son
+   locales y reescribirlos es perder información — pero los enlaces necesitan
+   sólo dígitos. wa.me exige el número completo con lada de país; si lo
+   anotaron sin ella, el enlace simplemente no encuentra a nadie, así que el
+   número visible sigue siendo el que manda. */
+function _celDigitos(cel) { return String(cel || '').replace(/\D+/g, ''); }
+
+function celClienteHref(c) {
+  const raw = String((c && c.celular) || '').trim();
+  const d = _celDigitos(raw);
+  if (!d) return '';
+  if (medioCliente(c && c.medioPreferido).id === 'whatsapp') return 'https://wa.me/' + d;
+  return 'tel:' + (raw.startsWith('+') ? '+' : '') + d;
+}
+
+/* Se valida al guardar, no al pintar: un contacto que ya está en la base con
+   el dato incompleto se sigue viendo, sólo que no se pueden crear más así. */
+function validarContactoCliente(c) {
+  const m = medioCliente(c && c.medioPreferido);
+  const celular = String((c && c.celular) || '').trim();
+  if (celular && _celDigitos(celular).length < 7) {
+    return 'Ese celular no parece un número. Escríbelo con lada, por ejemplo +52 55 1234 5678.';
+  }
+  const falta = {
+    celular:  { hay: !!celular,                                        pide: 'el celular' },
+    email:    { hay: !!String((c && c.email) || '').trim(),            pide: 'el correo' },
+    linkedin: { hay: !!String((c && c.linkedin) || '').trim(),         pide: 'el LinkedIn' },
+  }[m.requiere];
+  if (falta && !falta.hay) {
+    return `Pusiste ${m.label} como medio preferido: agrega ${falta.pide} o cambia el medio.`;
+  }
+  return '';
+}
+
 let _clientesQuery   = '';
 let _clientesFiltro  = 'activos';   // activos | inactivos | todos
 let _clienteAbierto  = null;
@@ -88,12 +179,23 @@ async function clienteUpsertDesdeCampana(contacto, campana) {
     });
   }
 
+  /* El medio viaja junto con su detalle. Heredar el detalle anterior por
+     separado dejaría un "Discord" colgado de alguien que desde ayer prefiere
+     Slack: el texto libre sólo tiene sentido para el medio que lo trajo. */
+  const medioPreferido = contacto.medioPreferido || previo.medioPreferido || 'na';
+  const medioDetalle = contacto.medioPreferido
+    ? (contacto.medioDetalle || '')
+    : (previo.medioDetalle || '');
+
   const doc = {
     id,
     name: contacto.name,
     cargo: contacto.cargo || previo.cargo || '',
     email: contacto.email || previo.email || '',
+    celular: contacto.celular || previo.celular || '',
     linkedin: contacto.linkedin || previo.linkedin || '',
+    medioPreferido,
+    medioDetalle,
     empresa: campana.client || previo.empresa || '',
     pocTipo: contacto.pocTipo || previo.pocTipo || 'na',
     activo: true,
@@ -218,7 +320,10 @@ async function rellenarClientesDesdeCampanas() {
         name: ct.name,
         cargo: ct.cargo || '',
         email: ct.email || '',
+        celular: ct.celular || '',
         linkedin: ct.linkedin || '',
+        medioPreferido: ct.medioPreferido || 'na',
+        medioDetalle: ct.medioDetalle || '',
         empresa: c.client || '',
         pocTipo: ct.pocTipo || 'na',
         activo: true,
@@ -289,7 +394,8 @@ function renderClientes() {
     if (_clientesFiltro === 'activos'   && !c.activo) return false;
     if (_clientesFiltro === 'inactivos' &&  c.activo) return false;
     if (_clientesQuery) {
-      const heno = [c.name, c.cargo, c.empresa, c.email,
+      const heno = [c.name, c.cargo, c.empresa, c.email, c.celular,
+                    _celDigitos(c.celular), medioClienteLabel(c),
                     ...(c.historial || []).map(h => h.campaignName)].join(' ').toLowerCase();
       if (!heno.includes(_clientesQuery)) return false;
     }
@@ -342,7 +448,7 @@ function renderClientes() {
         ${c.activo ? '' : '<span class="badge badge-gray cli-estado">Ya no está</span>'}
       </div>
       <div class="cli-campanas">${donde}</div>
-      <div class="cli-card-pie">${_pocChip(c)}</div>
+      <div class="cli-card-pie">${_pocChip(c)}${medioClienteChipHtml(c)}</div>
     </div>`;
   }).join('')}</div>`;
 }
@@ -375,11 +481,26 @@ async function abrirFichaCliente(id) {
       </div>
     </div>`).join('') : '<p class="cli-vacio">Sin campañas registradas.</p>';
 
+  /* El enlace del celular apunta a donde la persona pidió que le escribamos:
+     si prefiere WhatsApp abre el chat, si no, marca. Tener el número y aun así
+     buscarlo por otro lado es lo que este campo vino a quitar. */
+  const celHref = celClienteHref(c);
+  const celNueva = /^https?:/i.test(celHref) ? ' target="_blank" rel="noopener"' : '';
+  const celHtml = c.celular
+    ? (celHref
+        ? `<a href="${_esc(celHref)}"${celNueva}>${_esc(c.celular)}</a>`
+        : _esc(c.celular))
+    : '—';
+  const medioId = medioCliente(c.medioPreferido).id;
+  const medioHtml = medioId === 'na' ? 'Sin definir' : medioClienteChipHtml(c);
+
   cuerpo.innerHTML = `
     <div class="cli-ficha-datos">
       <div><span class="cli-dato-lbl">Cargo</span>${_esc(c.cargo || '—')}</div>
       <div><span class="cli-dato-lbl">Cuenta</span>${_esc(c.empresa || '—')}</div>
       <div><span class="cli-dato-lbl">Correo</span>${c.email ? `<a href="mailto:${_esc(c.email)}">${_esc(c.email)}</a>` : '—'}</div>
+      <div><span class="cli-dato-lbl">Celular</span>${celHtml}</div>
+      <div><span class="cli-dato-lbl">Medio preferido</span>${medioHtml}</div>
       <div><span class="cli-dato-lbl">LinkedIn</span>${c.linkedin ? `<a href="${_esc(_safeUrl ? _safeUrl(c.linkedin) : c.linkedin)}" target="_blank" rel="noopener">Ver perfil</a>` : '—'}</div>
       <div><span class="cli-dato-lbl">Tipo</span>${_pocChip(c)}</div>
       <div><span class="cli-dato-lbl">Estado</span>${c.activo ? 'Activo' : 'Ya no está en ninguna campaña'}</div>
@@ -477,3 +598,10 @@ window.clienteUpsertDesdeCampana = clienteUpsertDesdeCampana;
 window.clienteCerrarEnCampana    = clienteCerrarEnCampana;
 window.puedeVerResenasCliente    = puedeVerResenasCliente;
 window.rellenarClientesDesdeCampanas = rellenarClientesDesdeCampanas;
+window.CLIENT_MEDIOS             = CLIENT_MEDIOS;
+window.medioCliente              = medioCliente;
+window.medioClienteLabel         = medioClienteLabel;
+window.medioClienteOpcionesHtml  = medioClienteOpcionesHtml;
+window.medioClienteChipHtml      = medioClienteChipHtml;
+window.celClienteHref            = celClienteHref;
+window.validarContactoCliente    = validarContactoCliente;

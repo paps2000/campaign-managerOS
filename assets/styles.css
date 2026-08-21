@@ -6408,7 +6408,7 @@ html.dark .cli-aviso { background:rgba(var(--accent-rgb),.12); border-color:rgba
 .cli-cargo  { font-size:12px; color:var(--text-muted); margin-top:1px; }
 .cli-estado { flex-shrink:0; font-size:10px; }
 .cli-campanas { font-size:12px; color:var(--text-muted); line-height:1.45; }
-.cli-card-pie { margin-top:auto; }
+.cli-card-pie { margin-top:auto; }  /* la disposición en fila está más abajo */
 
 /* ── Chip de POC ──
    Es un <select> disfrazado de chip: se ve como una etiqueta, pero abre el
@@ -6430,6 +6430,39 @@ html.dark .cli-aviso { background:rgba(var(--accent-rgb),.12); border-color:rgba
 .cli-poc--secundario { background:var(--lavender-pale); border-color:var(--lavender);   color:var(--blue-text); }
 .cli-poc:hover { border-color:var(--pink); }
 .cli-poc:focus-within { outline:2px solid var(--pink); outline-offset:2px; }
+
+/* ── Chip del medio de contacto preferido ──
+   El color va en un punto y no en el fondo del chip: al lado del chip de POC,
+   dos superficies de color compiten y ninguna se lee. El punto también
+   sobrevive al modo oscuro sin una paleta paralela — el chip toma sus
+   superficies de los tokens del tema y sólo el punto lleva color propio.
+
+   El punto nunca es la única señal: la etiqueta dice el medio con todas sus
+   letras, así que quien no distinga los colores lee lo mismo. */
+.cli-medio {
+  display:inline-flex; align-items:center; gap:6px;
+  padding:4px 10px; border-radius:20px; font-size:11px; font-weight:700;
+  border:1px solid var(--border); background:var(--bg); color:var(--text-muted);
+  max-width:100%;
+}
+.cli-medio::before {
+  content:''; width:7px; height:7px; border-radius:50%; flex-shrink:0;
+  background:var(--medio-color, var(--text-muted));
+}
+.cli-medio-lbl { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.cli-medio--whatsapp   { --medio-color:#25d366; }
+.cli-medio--llamada    { --medio-color:#2c6dff; }
+.cli-medio--correo     { --medio-color:var(--pink); }
+.cli-medio--slack      { --medio-color:#611f69; }
+.cli-medio--teams      { --medio-color:#5b5fc7; }
+.cli-medio--telegram   { --medio-color:#229ed9; }
+.cli-medio--linkedin   { --medio-color:#0a66c2; }
+.cli-medio--presencial { --medio-color:#e8a33d; }
+.cli-medio--otro       { --medio-color:#9b8ec4; }
+
+/* El pie de la tarjeta lleva dos chips desde que existe el medio preferido:
+   en pantalla angosta el segundo baja en vez de desbordar. */
+.cli-card-pie { display:flex; flex-wrap:wrap; align-items:center; gap:6px; }
 
 /* ── Ficha ── */
 .cli-ficha-datos {

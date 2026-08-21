@@ -76,7 +76,7 @@ sandbox.globalThis = sandbox;
 vm.createContext(sandbox);
 
 // --- cargar los archivos reales, en el mismo orden que index.html ----------
-['core.js', 'campaigns.js', 'sheets.js', 'ui.js'].forEach(f => {
+['core.js', 'campaigns.js', 'sheets.js', 'ui.js', 'clients.js'].forEach(f => {
   const src = fs.readFileSync(path.join(ROOT, 'js', f), 'utf8');
   try { vm.runInContext(src, sandbox, { filename:'js/'+f }); }
   catch(e) { console.error('No se pudo cargar js/'+f+': '+e.message); process.exit(1); }
@@ -180,6 +180,49 @@ group('parseEscenarioRows — creadores, totales y basura');
   eq(p.goal && p.goal.totalContenidos, 6, 'detecta la fila BIG NUMBERS como meta');
 }
 
+
+// ===========================================================================
+group('medio de contacto preferido — cómo se lee y a dónde lleva');
+{
+  const label = sandbox.medioClienteLabel;
+  eq(label({ medioPreferido:'whatsapp' }), 'WhatsApp', 'medio de la lista');
+  eq(label({ medioPreferido:'inventado' }), 'Sin definir', 'un medio que no existe no rompe la ficha');
+  eq(label({}), 'Sin definir', 'contacto viejo, sin el campo');
+  // Con "Otro" gana el texto libre: poner la etiqueta genérica encima de lo que
+  // alguien escribió borra la única parte que informa.
+  eq(label({ medioPreferido:'otro', medioDetalle:'Discord' }), 'Discord', 'Otro muestra el detalle');
+  eq(label({ medioPreferido:'otro', medioDetalle:'  ' }), 'Otro', 'Otro sin detalle cae a la etiqueta');
+
+  const href = sandbox.celClienteHref;
+  eq(href({ celular:'+52 55 1234 5678', medioPreferido:'whatsapp' }),
+     'https://wa.me/525512345678', 'prefiere WhatsApp → abre el chat, sin separadores');
+  eq(href({ celular:'+52 55 1234 5678', medioPreferido:'llamada' }),
+     'tel:+525512345678', 'prefiere llamada → marca, conservando el +');
+  eq(href({ celular:'5512345678', medioPreferido:'correo' }),
+     'tel:5512345678', 'sin lada no se inventa un +');
+  eq(href({ celular:'', medioPreferido:'whatsapp' }), '', 'sin número no hay enlace');
+}
+
+group('validarContactoCliente — el medio preferido tiene que ser alcanzable');
+{
+  const v = sandbox.validarContactoCliente;
+  eq(v({ name:'Ana', medioPreferido:'na' }), '', 'sin medio ni celular: nada que exigir');
+  eq(v({ name:'Ana', celular:'+52 55 1234 5678', medioPreferido:'whatsapp' }), '',
+     'WhatsApp con celular: pasa');
+  // Decir "prefiere WhatsApp" sin dejar número es una ficha que no sirve para
+  // lo único que este campo vino a resolver.
+  eq(v({ name:'Ana', medioPreferido:'whatsapp' }).includes('agrega el celular'), true,
+     'WhatsApp sin celular: se explica qué falta');
+  eq(v({ name:'Ana', medioPreferido:'correo' }).includes('agrega el correo'), true,
+     'Correo sin correo: se explica qué falta');
+  eq(v({ name:'Ana', medioPreferido:'linkedin' }).includes('agrega el LinkedIn'), true,
+     'LinkedIn sin perfil: se explica qué falta');
+  eq(v({ name:'Ana', medioPreferido:'slack' }), '', 'Slack no depende de ningún campo de la ficha');
+  eq(v({ name:'Ana', celular:'123' }).includes('no parece un número'), true,
+     'un celular de 3 dígitos es un dedo, no un teléfono');
+  eq(v({ name:'Ana', celular:'55 1234 5678 ext. 12', medioPreferido:'llamada' }), '',
+     'se respeta lo que escribieron: extensiones y notas no invalidan el número');
+}
 
 (async function(){
   // ===========================================================================
