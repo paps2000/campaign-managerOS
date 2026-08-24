@@ -1270,6 +1270,18 @@
       <label class="form-label" for="fCampCore">Core message</label>
       <input type="text" class="form-input" id="fCampCore" placeholder="Ej: Vive la pasión">
     </div>
+    <div class="form-group">
+      <label class="form-label">Logo de la marca</label>
+      <div class="camp-logo-row">
+        <div class="camp-logo-preview" id="fCampLogoPreview"><span>Sin logo</span></div>
+        <label class="season-admin-upload">
+          <input type="file" accept="image/*" id="fCampLogoInput" hidden onchange="onCampLogoPick(this)">
+          <span id="fCampLogoLabel">＋ Subir logo</span>
+        </label>
+        <button type="button" class="season-admin-clear" id="fCampLogoClear" onclick="clearCampLogo()" style="display:none;">Quitar</button>
+      </div>
+      <div class="form-hint">PNG con fondo transparente. Se guarda a 256&nbsp;px y quien trabaja en la campaña puede pegarlo como sticker en su credencial.</div>
+    </div>
     <div id="fCampBudgetGroup">
       <div class="form-row">
         <div class="form-group">
@@ -1685,6 +1697,7 @@
           <button type="button" class="btn btn-primary btn-sm" onclick="addCardSticker()">Pegar</button>
         </div>
         <div class="holo-stamp-row" id="holoStickerImgs"></div>
+        <div class="holo-stamp-row" id="holoStickerCamps"></div>
         <div class="form-hint">Arrástralos sobre la tarjeta y suéltalos con impulso: rebotan en los cantos y se quedan donde caigan.</div>
         <div class="holo-sticker-full" id="holoStickerFull" style="display:none;">Máximo 6 stickers. Quita uno para pegar otro.</div>
       </div>

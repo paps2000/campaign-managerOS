@@ -4794,6 +4794,36 @@ html.dark .tb-icon-danger:hover { background: rgba(226,68,92,.18); }
 .holo-stamp-btn img { width: 22px; height: 22px; object-fit: contain; }
 .holo-sticker-chip .holo-chip-stamp { width: 16px; height: 16px; object-fit: contain; }
 
+/* Nota de la fila de campañas: por qué faltan logos, o por qué no hay ninguno.
+   Ocupa una línea entera para no partir la fila de botones a media altura. */
+.holo-camp-hint {
+  flex-basis: 100%; font-size: 11px; line-height: 1.45; color: var(--text-muted);
+}
+/* Los logos de campaña son de proporción libre —un círculo, una tira— así que
+   la caja del botón se deja crecer a lo ancho en vez de recortarlos a cuadro.
+   Y van sobre una placa clara: la mayoría son tinta negra sobre transparente y
+   en modo oscuro desaparecían dentro del botón. */
+.holo-stamp-btn img[src^="data:"],
+.holo-sticker-chip .holo-chip-stamp[src^="data:"] {
+  width: auto; max-width: 44px; height: 20px;
+  background: #fff; border-radius: 4px; padding: 1px 3px;
+}
+.holo-sticker-chip .holo-chip-stamp[src^="data:"] { max-width: 34px; height: 15px; }
+
+/* Subida del logo de la marca, en el modal de campaña. */
+.camp-logo-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.camp-logo-preview {
+  width: 64px; height: 44px; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+  border: 1.5px dashed var(--border); border-radius: 10px; background: var(--bg);
+  font-size: 10px; font-weight: 700; color: var(--text-muted); text-align: center; padding: 4px;
+  /* Un tablero de ajedrez tenue: sin él, un logo blanco sobre fondo claro se ve
+     como un recuadro vacío y parece que la subida falló. */
+  background-image: linear-gradient(45deg, rgba(0,0,0,.05) 25%, transparent 25%, transparent 75%, rgba(0,0,0,.05) 75%),
+                    linear-gradient(45deg, rgba(0,0,0,.05) 25%, transparent 25%, transparent 75%, rgba(0,0,0,.05) 75%);
+  background-size: 10px 10px; background-position: 0 0, 5px 5px;
+}
+.camp-logo-preview img { max-width: 100%; max-height: 100%; object-fit: contain; }
+
 .holo-toggle {
   display: inline-flex; align-items: center; gap: 8px; cursor: pointer;
   font-size: 13px; font-weight: 600; color: var(--text);
