@@ -416,6 +416,16 @@
             <div id="alertsList"></div>
           </div>
 
+          <!-- AVANCE CONTRA META — cierra la cadena: el tablero contaba el
+               proceso (publicaciones) y nunca el resultado (métricas). -->
+          <div class="card" data-widget="avance">
+            <div class="card-header">
+              <span class="card-title">Mis campañas contra su meta</span>
+              <a class="card-link" onclick="navigate('metricas')">Ver métricas →</a>
+            </div>
+            <div id="dashAvanceList"></div>
+          </div>
+
           <!-- CAMPAIGN STATUS -->
           <div class="card" data-widget="campanas">
             <div class="card-header">
@@ -542,6 +552,10 @@
 
         <!-- TAB: RESUMEN -->
         <div class="tab-content active card" id="tab-resumen">
+          <!-- Las cuatro fuentes de datos y las seis casillas de carga, juntas.
+               Antes cada link vivía en una pantalla distinta y no había forma
+               de contestar "¿ya está cargada esta campaña?" sin recorrerlas. -->
+          <div id="campaignSourcesSection"></div>
           <div class="info-grid" id="campaignInfoGrid"></div>
           <div id="campaignClientsSection" style="margin-top:20px;padding-top:20px;border-top:1px solid var(--border);"></div>
           <div id="campaignProgressSection" style="margin-top:20px;padding-top:20px;border-top:1px solid var(--border);"></div>

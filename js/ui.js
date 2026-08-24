@@ -1609,12 +1609,20 @@ function saveTask() {
     .filter(uid => uid && uid !== assigneeUid && !supervisors.includes(uid));
   const done = !recurring && status === 'listo';
 
-  // Foto de quién estaba etiquetado antes: solo se avisa a los que se suman.
-  const prev = { assigneeUid:'', supervisors:[], watchers:[] };
+  // Foto de cómo estaba la tarea antes. Sirve para dos cosas: avisar sólo a
+  // los que se SUMAN (no a los que ya estaban) y contarle a los que ya estaban
+  // QUÉ cambió — mover un deadline sin decírselo a nadie era la forma más
+  // rápida de que alguien trabajara contra una fecha que ya no existe.
+  const prev = { assigneeUid:'', supervisors:[], watchers:[], title:'', dueDate:'', clientDueDate:'', priority:'', status:'' };
   const apply = t => {
     prev.assigneeUid = t.assigneeUid || '';
     prev.supervisors = (t.supervisors || []).slice();
     prev.watchers = (t.watchers || []).slice();
+    prev.title = t.title || '';
+    prev.dueDate = t.dueDate || '';
+    prev.clientDueDate = t.clientDueDate || '';
+    prev.priority = taskPrio(t);
+    prev.status = taskStatus(t);
     t.title=title; t.dueDate=dueDate; t.clientDueDate=clientDueDate; t.priority=priority;
     t.assigneeUid=assigneeUid; t.assignee=assigneeName; t.docLink=docLink; t.docLinks=docLinks; t.notes=notes;
     t.recurring=recurring;
@@ -1627,28 +1635,62 @@ function saveTask() {
 
   if(editingTaskId) {
     const cid = editingTaskCampaignId;
+    let editada = null;
     if(cid) {
       const campaigns = getData('campaigns');
       const c = campaigns.find(x=>x.id===cid);
       if(c) {
         const t = c.tasks.find(x=>x.id===editingTaskId);
-        if(t) apply(t);
+        if(t) { apply(t); editada = t; }
         setData('campaigns', campaigns);
       }
     } else {
       const tasks = getData('globalTasks');
       const t = tasks.find(x=>x.id===editingTaskId);
-      if(t) apply(t);
+      if(t) { apply(t); editada = t; }
       setData('globalTasks', tasks);
     }
+    const nuevos = {
+      assignee: assigneeUid && assigneeUid !== prev.assigneeUid ? assigneeUid : '',
+      supervisors: supervisors.filter(uid => !prev.supervisors.includes(uid)),
+      watchers: watchers.filter(uid => !prev.watchers.includes(uid)),
+    };
     _notifyTaskPeople({
       title, taskId: editingTaskId, campaignId: campId, dueDate, clientDueDate,
-      added: {
-        assignee: assigneeUid && assigneeUid !== prev.assigneeUid ? assigneeUid : '',
-        supervisors: supervisors.filter(uid => !prev.supervisors.includes(uid)),
-        watchers: watchers.filter(uid => !prev.watchers.includes(uid)),
-      },
+      added: nuevos,
     });
+    // Y a los que YA estaban, qué cambió. Un campo por frase: la campanita las
+    // agrupa y manda un solo aviso con todo lo que se movió.
+    if(editada) {
+      const frases = [];
+      if(prev.title && prev.title !== title) frases.push(`nombre: "${title}"`);
+      if(prev.status !== (recurring ? taskStatus(editada) : status)) frases.push(_fraseEstado(recurring ? taskStatus(editada) : status));
+      if(prev.priority !== priority) frases.push(_frasePrioridad(priority));
+      if(prev.dueDate !== (dueDate||'')) frases.push(_fraseFecha('dueDate', dueDate));
+      if(prev.clientDueDate !== (clientDueDate||'')) frases.push(_fraseFecha('clientDueDate', clientDueDate));
+      // Reasignar avisa dos veces a propósito: al que entra, "te asignaron";
+      // a los demás, que el responsable ya es otro.
+      if(prev.assigneeUid !== assigneeUid) frases.push(_fraseResponsable(assigneeUid));
+      if(frases.length) {
+        try {
+          _notifyTaskChange({
+            task: editada, campaignId: cid || '', frases,
+            excluir: [nuevos.assignee, ...nuevos.supervisors, ...nuevos.watchers],
+          });
+        } catch(e){ console.warn('notify task change', e); }
+      }
+      // Quien deja de ser responsable también se entera: si no, sigue creyendo
+      // que la tarea es suya.
+      if(prev.assigneeUid && prev.assigneeUid !== assigneeUid && prev.assigneeUid !== currentUser.uid) {
+        try {
+          _notifyTaskChange({
+            task: { ...editada, assigneeUid: prev.assigneeUid, supervisors: [], watchers: [], createdBy: '' },
+            campaignId: cid || '',
+            frases: [ assigneeUid ? _fraseResponsable(assigneeUid) : 'responsable: nadie' ],
+          });
+        } catch(e){ console.warn('notify task unassign', e); }
+      }
+    }
     closeModal('taskModal');
     showToast('Tarea actualizada','success');
   } else {

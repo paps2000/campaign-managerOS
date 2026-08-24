@@ -62,8 +62,10 @@ async function _autoFetchEscenario(url, campaign) {
     // Persist the parsed rows so they survive reloads (no re-sync needed).
     persistEscenario(campaign.id, rows, url, campaign.escenarioLastSync);
     renderEscenarioBlock(campaign);
+    try { marcarErrorFuente(campaign, 'escenario', ''); } catch(_){}
     showToast('Escenario sincronizado','success');
   } catch(e) {
+    try { marcarErrorFuente(campaign, 'escenario', e.message); } catch(_){}
     const wrap = document.getElementById('escenarioBlock');
     if(wrap) wrap.innerHTML = `<div class="empty-state"><p>Error cargando escenario: ${e.message}</p></div>`;
   }
@@ -111,8 +113,10 @@ async function _autoFetchUgc(url, campaign) {
     }
     renderEscenarioBlock(campaign);
     try { renderCampaignProgress(campaign); renderCampaignCoherence(campaign); } catch(e){}
+    try { marcarErrorFuente(campaign, 'ugc', ''); } catch(_){}
     showToast('Resultados UGC sincronizados','success');
   } catch(e) {
+    try { marcarErrorFuente(campaign, 'ugc', e.message); } catch(_){}
     showToast('Error UGC: '+e.message,'error');
   }
 }
@@ -1204,12 +1208,16 @@ let _trackerAutoRefreshTimer = null;
 
 function toggleTask(tid, cid) {
   let wentDone = false;
+  // Se guarda la tarea tocada para avisarle a los demás etiquetados al final:
+  // terminar o reabrir es el cambio que más le importa a quien supervisa.
+  let tocada = null;
   if(cid) {
     const campaigns = getData('campaigns');
     const c = campaigns.find(x=>x.id===cid);
     if(c) {
       const t=c.tasks.find(x=>x.id===tid);
       if(t) {
+        tocada = t;
         if(t.recurring) {
           const today=new Date().toISOString().split('T')[0];
           const wasDone = t.lastDoneDate===today;
@@ -1227,6 +1235,7 @@ function toggleTask(tid, cid) {
     const tasks = getData('globalTasks');
     const t = tasks.find(x=>x.id===tid);
     if(t) {
+      tocada = t;
       if(t.recurring) {
         const today=new Date().toISOString().split('T')[0];
         const wasDone = t.lastDoneDate===today;
@@ -1241,6 +1250,14 @@ function toggleTask(tid, cid) {
     setData('globalTasks',tasks);
   }
   if(wentDone) { try { _onTaskDone(tid); } catch(e){ console.warn('task done animation failed:', e); } }
+  if(tocada) {
+    try {
+      _notifyTaskChange({
+        task: tocada, campaignId: cid || '',
+        frases: [ wentDone ? 'estado: Listo ✅' : 'estado: reabierta' ],
+      });
+    } catch(e){ console.warn('notify task toggle', e); }
+  }
   if(currentPage==='dashboard') renderDashboard();
   else if(currentPage==='pendientes') renderPendientes();
   else if(currentPage==='campannas' && currentCampaignId) {
@@ -1278,13 +1295,24 @@ function _purgeOldDoneTasks() {
 }
 
 function deleteTask(tid, cid) {
+  // Se avisa ANTES de borrarla: después ya no hay a quién avisarle. Borrar la
+  // tarea que alguien está esperando y que se entere al no encontrarla es la
+  // peor versión de esto.
+  let borrada = null;
   if(cid) {
     const campaigns = getData('campaigns');
     const c = campaigns.find(x=>x.id===cid);
-    if(c) { c.tasks=c.tasks.filter(x=>x.id!==tid); setData('campaigns',campaigns); }
+    if(c) {
+      borrada = c.tasks.find(x=>x.id===tid) || null;
+      c.tasks=c.tasks.filter(x=>x.id!==tid); setData('campaigns',campaigns);
+    }
   } else {
     const tasks = getData('globalTasks');
+    borrada = tasks.find(x=>x.id===tid) || null;
     setData('globalTasks',tasks.filter(x=>x.id!==tid));
+  }
+  if(borrada) {
+    try { _notifyTaskChange({ task: borrada, campaignId: cid || '', frases: ['eliminada'] }); } catch(e){ console.warn('notify task delete', e); }
   }
   if(currentPage==='pendientes') renderPendientes();
   else if(currentPage==='campannas' && currentCampaignId) {
@@ -1522,6 +1550,42 @@ async function selectMetricsTab(gid) {
   } catch(e) { console.warn('selectMetricsTab error:', e.message); }
 }
 
+// Trae las filas de métricas y NADA MÁS: las cachea en la campaña y se calla.
+//
+// _autoFetchMetrics() no sirve para esto: pisa `_metricsCurrentCampaign` y
+// `_selectedMetricsTab` (el estado de la página de Métricas) y llama a
+// displayMetrics(), que dibuja gráficas con Chart.js sobre un DOM que en el
+// Resumen ni siquiera está montado. El tablero necesita los números, no la
+// página.
+async function fetchMetricsRowsQuiet(url, campaign) {
+  if(!url || !campaign) return;
+  const guardar = rows => {
+    if(!rows || !rows.length) return false;
+    _cacheMetricsOnCampaign(campaign, rows);
+    try { marcarErrorFuente(campaign, 'metricas', ''); } catch(_){}
+    return true;
+  };
+  const sheetId = _extractSheetId(url);
+  if(sheetId) {
+    try {
+      const tabs = await _fetchSheetTabs(sheetId);
+      const all = await Promise.all(tabs.map(t => _fetchTabRows(sheetId, t.gid).catch(() => [])));
+      if(guardar(all.flat())) return;
+    } catch(e) { /* sin pestañas: se cae al CSV de la URL */ }
+  }
+  const csvUrl = normalizeCsvUrl(url);
+  if(!csvUrl) return;
+  try {
+    const res = await fetch(csvUrl);
+    if(!res.ok) throw new Error(`HTTP ${res.status}`);
+    const text = await res.text();
+    if(text.trim().startsWith('<!')) throw new Error('El sheet no es público');
+    guardar(parseCSV(text));
+  } catch(e) {
+    try { marcarErrorFuente(campaign, 'metricas', e.message); } catch(_){}
+  }
+}
+
 async function _autoFetchMetrics(url, campaign) {
   _metricsCurrentCampaign = campaign;
   _selectedMetricsTab = 'all';
@@ -1563,7 +1627,9 @@ async function _autoFetchMetrics(url, campaign) {
       _cacheMetricsOnCampaign(campaign, rows);
       displayMetrics(rows, campaign);
     }
+    try { marcarErrorFuente(campaign, 'metricas', ''); } catch(_){}
   } catch(e) {
+    try { marcarErrorFuente(campaign, 'metricas', e.message === 'not public' ? 'El sheet no es público' : e.message); } catch(_){}
     console.warn('Auto-fetch metrics failed:', e.message);
   }
 }

@@ -24,6 +24,7 @@ const DASH_WIDGETS = [
   { id:'stats',     col:'top',  label:'Números de arriba',        fixed:true },
   { id:'hoy',       col:'main', label:'Qué tengo que hacer hoy' },
   { id:'alertas',   col:'main', label:'Alertas importantes' },
+  { id:'avance',    col:'main', label:'Mis campañas contra su meta' },
   { id:'campanas',  col:'main', label:'Status de campañas' },
   { id:'pubs',      col:'main', label:'Próximas publicaciones' },
   { id:'docs',      col:'main', label:'Documentos recientes' },

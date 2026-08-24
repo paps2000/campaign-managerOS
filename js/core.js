@@ -311,7 +311,10 @@ function id() { return Date.now().toString(36) + Math.random().toString(36).slic
 // --- Firestore persistence helpers ---
 // Keys that hold large fetched sheet data — kept in memory but stripped
 // from Firestore writes because they can blow past the 1MB doc limit.
-const _CAMPAIGN_LARGE_KEYS = ['trackerRows','escenarioRows','ugcRows','cachedMetrics'];
+// Lo que NUNCA viaja a Firestore: las filas crudas de los sheets (pesan y se
+// vuelven a bajar en cada sync) y los errores de sincronización, que son del
+// navegador de quien está mirando, no del documento compartido.
+const _CAMPAIGN_LARGE_KEYS = ['trackerRows','escenarioRows','ugcRows','cachedMetrics','_syncErrors'];
 function _stripLargeFields(c) {
   const out = {...c};
   _CAMPAIGN_LARGE_KEYS.forEach(k => { delete out[k]; });
@@ -692,6 +695,7 @@ function _repintarAhora() {
       const c = _cache.campaigns.find(x=>x.id===currentCampaignId);
       if(c) {
         try { renderCampaignInfoGrid(c); } catch(e){ console.warn('info grid render', e); }
+        try { renderCampaignSources(c); } catch(e){ console.warn('sources render', e); }
         renderCampaignInfluencers(c);
         renderCampaignTasks(c);
         renderCampaignDocs(c);

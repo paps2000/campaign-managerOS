@@ -33,6 +33,16 @@ function renderDashboard() {
         _scheduleDashRefresh();
       });
     }
+    // Mismo trato para las métricas: sin esto el avance contra la meta salía
+    // en cero hasta que alguien abriera la página de Métricas campaña por
+    // campaña, que es justo el paseo que este tablero viene a ahorrar.
+    if(c.metricsSheetUrl && (!c.cachedMetrics || !c.cachedMetrics.length) && !c._metricsFetching && typeof fetchMetricsRowsQuiet === 'function') {
+      c._metricsFetching = true;
+      Promise.resolve(fetchMetricsRowsQuiet(c.metricsSheetUrl, c)).finally(() => {
+        c._metricsFetching = false;
+        _scheduleDashRefresh();
+      });
+    }
   });
 
   // Sin campañas propias, el aviso en vez de un tablero de ceros. Ya no se
@@ -42,7 +52,7 @@ function renderDashboard() {
   if(campaigns.length === 0 && _cache.campaigns.length > 0) {
     ['statActive','statToday','statUrgent','statPubs'].forEach(id => { const el=document.getElementById(id); if(el) el.textContent='—'; });
     const hint = `<div class="dashboard-sub-hint">Aún no sigues ninguna campaña.<br><a onclick="navigate('campannas')">Ve a Campañas</a> y haz clic en <strong>+ Seguir</strong> para ver su info aquí.</div>`;
-    ['todayTasksList','alertsList','recentDocsList','upcomingPubs'].forEach(id => { const el=document.getElementById(id); if(el) el.innerHTML=hint; });
+    ['todayTasksList','alertsList','recentDocsList','upcomingPubs','dashAvanceList'].forEach(id => { const el=document.getElementById(id); if(el) el.innerHTML=hint; });
     const dct=document.getElementById('dashCampaignTable'); if(dct) dct.innerHTML=`<tr><td colspan="5">${hint}</td></tr>`;
     setPendientesBadge(0);
     return;
@@ -142,7 +152,7 @@ function renderDashboard() {
   const alerts = [];
   campaigns.forEach(c => {
     (c.tasks||[]).filter(t=>!t.done && t.priority==='high').forEach(t=>{
-      alerts.push({msg:t.title, campaign:c.name, time:'Hoy', icon:ICN_alert});
+      alerts.push({msg:t.title, campaign:c.name, time:'Hoy', icon:ICN_alert, tid:t.id, cid:c.id});
     });
   });
 
@@ -166,9 +176,9 @@ function renderDashboard() {
       }
       if(!statusBlob) statusBlob = Object.values(row).map(v=>String(v||'')).join(' · ');
       if(RE_INT.test(statusBlob)) {
-        reviewAlerts.push({ kind:'int', name:String(name).trim(), campaign:c.name });
+        reviewAlerts.push({ kind:'int', name:String(name).trim(), campaign:c.name, cid:c.id });
       } else if(RE_EXT.test(statusBlob)) {
-        reviewAlerts.push({ kind:'ext', name:String(name).trim(), campaign:c.name });
+        reviewAlerts.push({ kind:'ext', name:String(name).trim(), campaign:c.name, cid:c.id });
       }
     });
   });
@@ -181,8 +191,13 @@ function renderDashboard() {
     const tag   = isInt
       ? '<span style="font-size:9px;font-weight:800;background:#fef08a;color:#854d0e;padding:1px 6px;border-radius:6px;">INT</span>'
       : '<span style="font-size:9px;font-weight:800;background:#fde047;color:#713f12;padding:1px 6px;border-radius:6px;">EXT</span>';
+    // El aviso lleva a la fila: una alerta que sólo describe el problema
+    // obliga a ir a buscarlo a mano, que es la mitad del trabajo.
     return `
-      <div class="alert-item">
+      <div class="alert-item is-clickable" role="button" tabindex="0"
+           title="Abrir el tracker de ${_esc(a.campaign)}"
+           onclick="_abrirCampanaDeAviso('${a.cid}','tracker')"
+           onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();_abrirCampanaDeAviso('${a.cid}','tracker');}">
         <span class="alert-icon" style="width:18px;height:18px;display:inline-flex;flex-shrink:0;">${icon}</span>
         <div class="alert-info">
           <div class="alert-msg" style="display:flex;align-items:center;gap:6px;">${tag} ${_esc(a.name)}</div>
@@ -192,7 +207,10 @@ function renderDashboard() {
   }).join('');
 
   const highHtml = alerts.slice(0,4).map(a=>`
-      <div class="alert-item">
+      <div class="alert-item is-clickable" role="button" tabindex="0"
+           title="Abrir la tarea"
+           onclick="openTaskDetail('${a.tid}','${a.cid}')"
+           onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openTaskDetail('${a.tid}','${a.cid}');}">
         <span class="alert-icon" style="width:18px;height:18px;display:inline-flex;color:#c9a449;flex-shrink:0">${a.icon}</span>
         <div class="alert-info">
           <div class="alert-msg">${_esc(a.msg)}</div>
@@ -286,8 +304,94 @@ function renderDashboard() {
       <span class="doc-date">${formatDateShort(d.date)}</span>
     </div>`).join('') || '<div class="empty-state"><p>Sin documentos todavía. Sube el brief o el reporte y queda a la mano de toda la campaña.</p></div>';
 
+  try { renderDashboardAvance(campaigns); } catch(e){ console.warn('avance render', e); }
+
   renderCalendarWidget();
   populateCampaignSelects();
+}
+
+// ============================================================
+// AVANCE CONTRA META (Resumen)
+// ============================================================
+// Las métricas eran el único eslabón de la cadena que no llegaba al tablero:
+// subías el tracker y aparecían las publicaciones, pero el resultado contra lo
+// que se prometió se quedaba encerrado dentro de la campaña. El Resumen
+// contaba el proceso y nunca el resultado.
+//
+// Los números salen de _campaignCoherenceData(), el mismo motor que ya cuadra
+// tracker, escenario y métricas dentro de la campaña: si el Resumen y la
+// campaña usaran cuentas distintas volveríamos a tener dos verdades.
+
+function _mSumaViews(rows) {
+  if(!Array.isArray(rows) || typeof _mViews !== 'function') return 0;
+  return rows.reduce((a, r) => a + (_mViews(r) || 0), 0);
+}
+
+// El semáforo va por clase, no por hex: _semaforo() devuelve los verdes y rojos
+// oscuros del reporte impreso, que sobre el fondo del modo oscuro se quedan en
+// 2:1. Las clases toman --green-text / --red-text, que ya se voltean solos.
+function _avanceBarra(label, real, meta, formato) {
+  const pct = meta > 0 ? Math.round((real / meta) * 100) : 0;
+  const nivel = meta <= 0 ? 'is-none' : (pct >= 80 ? 'is-good' : (pct >= 40 ? 'is-mid' : 'is-low'));
+  const fmt = formato || (n => formatNum(n));
+  return `
+    <div class="avance-metric ${nivel}">
+      <div class="avance-metric-top">
+        <span class="avance-metric-label">${_esc(label)}</span>
+        <span class="avance-metric-num">${meta > 0 ? `${fmt(real)} / ${fmt(meta)}` : `${fmt(real)} / —`}</span>
+      </div>
+      <div class="avance-bar"><div class="avance-bar-fill" style="width:${Math.min(pct,100)}%;"></div></div>
+      <span class="avance-pct">${meta > 0 ? pct + '%' : 'sin meta'}</span>
+    </div>`;
+}
+
+function renderDashboardAvance(campaigns) {
+  const el = document.getElementById('dashAvanceList');
+  if(!el) return;
+
+  // Sólo las que ya tienen algo que comparar. Una campaña en Brief, sin
+  // escenario ni tracker, no tiene avance: mostrarla con tres ceros hace ruido
+  // y esconde a las que sí importan.
+  const filas = [];
+  campaigns.forEach(c => {
+    let d = null;
+    try { d = _campaignCoherenceData(c); } catch(e) { return; }
+    if(!d) return;
+    const viewsReales = _mSumaViews(c.cachedMetrics);
+    const tieneAlgo = d.totalCerrado > 0 || d.totalPublicado > 0 || viewsReales > 0;
+    if(!tieneAlgo) return;
+    const graves = d.issues.filter(i => i.severity === 'error' || i.severity === 'warn').length;
+    filas.push({ c, d, viewsReales, graves });
+  });
+
+  if(!filas.length) {
+    el.innerHTML = `<div class="empty-state"><p>Todavía no hay nada que comparar. En cuanto una campaña tenga escenario o tracker, aquí sale su avance contra la meta.</p></div>`;
+    return;
+  }
+
+  // Primero lo que peor va: el tablero es para lo que necesita atención hoy.
+  filas.sort((a, b) => {
+    const pa = a.d.totalCerrado > 0 ? a.d.totalPublicado / a.d.totalCerrado : 1;
+    const pb = b.d.totalCerrado > 0 ? b.d.totalPublicado / b.d.totalCerrado : 1;
+    return pa - pb;
+  });
+
+  el.innerHTML = filas.slice(0, 6).map(({ c, d, viewsReales, graves }) => `
+    <div class="avance-row" onclick="_abrirCampanaDeAviso('${c.id}')" role="button" tabindex="0"
+         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();_abrirCampanaDeAviso('${c.id}');}">
+      <div class="avance-head">
+        <span class="avance-name">${_esc(c.name)}</span>
+        ${c.client ? `<span class="avance-client">${_esc(c.client)}</span>` : ''}
+        ${graves ? `<span class="avance-focos" title="Desfases entre tracker, escenario y métricas">${graves} foco${graves>1?'s':''}</span>` : ''}
+      </div>
+      <div class="avance-metrics">
+        ${_avanceBarra('Contenidos publicados', d.totalPublicado, d.totalCerrado, n => String(n))}
+        ${_avanceBarra('Views', viewsReales, d.escenarioViewsEst)}
+      </div>
+      ${!c.metricsSheetUrl && d.totalPublicado > 0
+        ? `<div class="avance-nudge">Ya hay publicaciones y las métricas no están vinculadas — el resultado real todavía no se puede medir.</div>`
+        : ''}
+    </div>`).join('');
 }
 
 // ============================================================
@@ -450,6 +554,7 @@ function renderCampaignGrid() {
         <div class="progress-label"><span>Contenidos publicados</span><span>${totalPub}/${totalCerrado||'—'} · ${contPct}%</span></div>
         <div class="progress-bar"><div class="progress-fill" style="width:${contPct}%;background:linear-gradient(90deg,#bbf7d0,#166534);"></div></div>
       </div>
+      ${campaignLoadDotsHtml(c)}
     </div>`;
   }).join('');
 }
@@ -556,6 +661,7 @@ function openCampaignDetail(cid) {
   document.getElementById('campaignDetailView').classList.add('active');
 
   renderCampaignInfoGrid(c);
+  try { renderCampaignSources(c); } catch(e){ console.warn('sources render', e); }
 
   renderCampaignInfluencers(c);
   renderCampaignTasks(c);
@@ -605,10 +711,20 @@ function _campaignCoherenceData(c) {
     if(nm) trackerByCreator.set(norm(nm), nm);
   });
 
-  // Escenario parsed
+  // Escenario parsed. Memoizado con las mismas marcas que usa la tarjeta de
+  // campaña: desde que el Resumen llama a esto por cada campaña propia, parsear
+  // miles de filas en cada repintado se nota.
   let escenario = null;
   if(c.escenarioRows && c.escenarioRows.length && typeof parseEscenarioRows === 'function') {
-    try { escenario = parseEscenarioRows(c.escenarioRows); } catch(e){}
+    try {
+      if(c._memoEscenario && c._memoEscenarioStamp === c.escenarioRows.length) {
+        escenario = c._memoEscenario;
+      } else {
+        escenario = parseEscenarioRows(c.escenarioRows);
+        c._memoEscenario = escenario;
+        c._memoEscenarioStamp = c.escenarioRows.length;
+      }
+    } catch(e){}
   }
   const escenarioCreators = escenario ? escenario.creators : [];
   const escenarioCreatorNames = new Map(escenarioCreators.map(cr => [norm(cr.nombre), cr]));
@@ -1056,6 +1172,231 @@ function navigateToMetrics(cid) {
   setTimeout(()=>openMetricsCampaign(cid), 80);
 }
 
+// ============================================================
+// FUENTES DE DATOS Y CARGA DE LA CAMPAÑA
+// ============================================================
+// Los cuatro links de Sheets vivían en cuatro pantallas distintas: el del
+// escenario en el modal de creación Y en la pestaña Escenario, el del tracker
+// sólo dentro de la pestaña Tracker —pero las PESTAÑAS AON/Nano de ese mismo
+// tracker se piden en el modal, donde todavía no hay tracker que las tenga—,
+// el de métricas en el Resumen o en otra página, y el de UGC en ningún lado
+// visible. Nadie podía contestar "¿ya está cargada esta campaña?" sin visitar
+// cuatro lugares.
+//
+// Esto es ese lugar: las cuatro fuentes juntas, cada una con su estado real
+// (sin vincular / vinculada sin datos / cuántas filas / última sync / error).
+
+const CAMPAIGN_SOURCES = [
+  { key:'escenario', label:'Escenario',    rol:'Lo que se cerró',      urlKey:'escenarioSheetUrl', rowsKey:'escenarioRows', syncKey:'escenarioLastSync', tab:'influencers' },
+  { key:'tracker',   label:'Master tracker',rol:'Lo que va pasando',   urlKey:'trackerSheetUrl',   rowsKey:'trackerRows',   syncKey:'trackerLastSync',   tab:'tracker' },
+  { key:'metricas',  label:'Métricas / ROI',rol:'Lo que resultó',      urlKey:'metricsSheetUrl',   rowsKey:'cachedMetrics', syncKey:'',                  tab:'resumen' },
+  { key:'ugc',       label:'Resultados UGC',rol:'Lo que reporta la agencia', urlKey:'ugcSheetUrl', rowsKey:'ugcRows',      syncKey:'ugcLastSync',       tab:'influencers', opcional:true },
+];
+
+function _fuenteEstado(c, def) {
+  // El escenario armado en la plataforma no tiene link y está igual de cargado
+  // que uno vinculado: contarlo como "sin vincular" sería mentir.
+  const enApp = def.key === 'escenario' && c.escenarioSource === 'app';
+  const url = String(c[def.urlKey] || '').trim();
+  const filas = Array.isArray(c[def.rowsKey]) ? c[def.rowsKey].length : 0;
+  const error = (c._syncErrors || {})[def.key] || '';
+  const sync = def.syncKey ? c[def.syncKey] : 0;
+  if(error)            return { estado:'error', filas, url, sync, detalle: error };
+  if(enApp)            return { estado:'ok',    filas, url:'', sync, detalle:'Armado en la plataforma' };
+  if(!url)             return { estado:'vacio', filas:0, url:'', sync:0, detalle:'Sin vincular' };
+  if(!filas)           return { estado:'espera',filas:0, url, sync, detalle:'Vinculado, sin datos todavía' };
+  return { estado:'ok', filas, url, sync, detalle: filas + (filas===1?' fila':' filas') };
+}
+
+// Las seis casillas de carga, en el mismo orden en que se cargan de verdad.
+// `pendiente` (no `falta`) para lo que todavía no toca: pedirle métricas a una
+// campaña que apenas está en Brief es ruido, no una alerta.
+function campaignLoadState(c) {
+  if(!c) return [];
+  const resp = c.responsables || {};
+  const gente = Object.keys(resp).some(k => (typeof getAreaUids==='function' ? getAreaUids(resp,k) : []).length);
+  const goal = c.goal || {};
+  const base = !!(c.name && c.client && c.startDate && (goal.contenidos || goal.views || goal.engagement || goal.reach));
+  const esc = _fuenteEstado(c, CAMPAIGN_SOURCES[0]);
+  const trk = _fuenteEstado(c, CAMPAIGN_SOURCES[1]);
+  const met = _fuenteEstado(c, CAMPAIGN_SOURCES[2]);
+  const tareas = (c.tasks || []).some(t => t.assigneeUid);
+  // ¿Ya toca pedir métricas? Cuando el flujo llegó a Publicación o más allá.
+  const pasos = Array.isArray(c.flowSteps) ? c.flowSteps : [];
+  const iPub = pasos.findIndex(f => f.step === 'Publicación');
+  const yaPublica = iPub === -1
+    ? trk.filas > 0
+    : pasos.slice(0, iPub + 1).some(f => f.status === 'Completado' || f.status === 'Aprobado');
+
+  return [
+    { key:'base',      label:'Datos base',  ok: base,               pista:'Cliente, fechas y al menos una meta' },
+    { key:'gente',     label:'Gente',       ok: gente,              pista:'Un responsable de área, mínimo' },
+    { key:'escenario', label:'Escenario',   ok: esc.estado==='ok',  pista:'Sheet vinculado o armado a mano' },
+    { key:'tracker',   label:'Tracker',     ok: trk.estado==='ok',  pista:'Vinculado y sincronizando sin error' },
+    // La pista de métricas cambia con el momento de la campaña: pedirla antes
+    // de que haya publicaciones es ruido, y decir "toca vincularlo" cuando ya
+    // está vinculado es una instrucción para algo que ya se hizo.
+    { key:'metricas',  label:'Métricas',    ok: met.estado==='ok',
+      pista: met.estado === 'ok' ? 'Vinculadas y con datos'
+           : yaPublica ? 'Ya hay publicaciones: toca vincularlas'
+           : 'Se piden cuando empiecen a publicar',
+      pendiente: !yaPublica },
+    { key:'tareas',    label:'Tareas',      ok: tareas,             pista:'Al menos una tarea con dueño' },
+  ];
+}
+
+// Tira compacta para la tarjeta de campaña: seis puntos y un contador. Sin
+// esto la única forma de saber que a una campaña le falta el tracker era
+// entrar y encontrarse la tabla vacía.
+function campaignLoadDotsHtml(c) {
+  const slots = campaignLoadState(c);
+  if(!slots.length) return '';
+  const listos = slots.filter(s => s.ok).length;
+  const faltan = slots.filter(s => !s.ok && !s.pendiente).map(s => s.label);
+  const titulo = faltan.length ? 'Falta: ' + faltan.join(', ') : 'Campaña cargada completa';
+  const puntos = slots.map(s =>
+    `<i class="camp-load-dot${s.ok ? ' is-ok' : (s.pendiente ? ' is-wait' : '')}" aria-hidden="true"></i>`).join('');
+  return `<div class="camp-load" title="${_esc(titulo)}">
+    <span class="camp-load-dots">${puntos}</span>
+    <span class="camp-load-count">${listos}/${slots.length}</span>
+    <span class="sr-only">Carga de la campaña: ${listos} de ${slots.length}. ${_esc(titulo)}.</span>
+  </div>`;
+}
+
+function _fuenteFechaCorta(ms) {
+  if(!ms) return '';
+  try { return new Date(ms).toLocaleString('es-MX',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}); }
+  catch(e) { return ''; }
+}
+
+function renderCampaignSources(c) {
+  const el = document.getElementById('campaignSourcesSection');
+  if(!el || !c) return;
+  const slots = campaignLoadState(c);
+  const listos = slots.filter(s => s.ok).length;
+  const abierto = _sourcesOpen(c.id);
+
+  const casillas = slots.map(s => `
+    <div class="src-slot${s.ok ? ' is-ok' : (s.pendiente ? ' is-wait' : ' is-off')}">
+      <span class="src-slot-mark" aria-hidden="true">${s.ok ? '✓' : (s.pendiente ? '·' : '')}</span>
+      <span class="src-slot-body">
+        <span class="src-slot-label">${_esc(s.label)}</span>
+        <span class="src-slot-hint">${_esc(s.pista)}</span>
+      </span>
+    </div>`).join('');
+
+  // El renglón de UGC sólo aparece donde hay UGC. Una campaña sin nano no
+  // tiene por qué cargar con una fuente que nunca va a vincular.
+  const aplica = def => def.key !== 'ugc' || !!(c.hasNano || c.ugcSheetUrl || (c.ugcRows||[]).length);
+  const filas = CAMPAIGN_SOURCES.filter(aplica).map(def => {
+    const st = _fuenteEstado(c, def);
+    const clase = { ok:'is-ok', espera:'is-wait', error:'is-error', vacio:'is-off' }[st.estado];
+    const sync = _fuenteFechaCorta(st.sync);
+    return `
+      <div class="src-row ${clase}">
+        <div class="src-row-head">
+          <span class="src-row-name">${_esc(def.label)}${def.opcional ? '<span class="src-opt">opcional</span>' : ''}</span>
+          <span class="src-row-rol">${_esc(def.rol)}</span>
+        </div>
+        <div class="src-row-state">
+          <span class="src-pill">${_esc(st.detalle)}</span>
+          ${sync ? `<span class="src-sync">Última sync: ${_esc(sync)}</span>` : ''}
+        </div>
+        <div class="src-row-actions">
+          ${st.url ? `<a class="btn btn-ghost btn-sm" href="${_esc(_safeUrl(st.url))}" target="_blank" rel="noopener noreferrer">Abrir Sheet</a>` : ''}
+          <button class="btn ${st.estado==='vacio' ? 'btn-pink' : 'btn-ghost'} btn-sm" onclick="irAFuente('${c.id}','${def.key}')">
+            ${st.estado==='vacio' ? 'Vincular' : 'Ir y sincronizar'}
+          </button>
+        </div>
+      </div>`;
+  }).join('');
+
+  el.innerHTML = `
+    <div class="src-panel${abierto ? ' is-open' : ''}">
+      <button type="button" class="src-head" aria-expanded="${abierto}" onclick="toggleCampaignSources('${c.id}')">
+        <span class="src-head-title">Carga de la campaña</span>
+        <span class="src-head-count">${listos}/${slots.length}</span>
+        <span class="src-head-chev" aria-hidden="true">▾</span>
+      </button>
+      <div class="src-slots">${casillas}</div>
+      <div class="src-body">
+        <p class="src-intro">Las tres fuentes contestan preguntas distintas sobre los mismos creadores: el <b>escenario</b> es lo que se cerró, el <b>tracker</b> lo que va pasando y las <b>métricas</b> lo que resultó.</p>
+        ${filas}
+      </div>
+    </div>`;
+}
+
+// El panel se abre solo mientras falte algo, y recuerda lo que el usuario
+// decida por campaña: una campaña completa no tiene por qué estar gritando.
+function _sourcesOpen(cid) {
+  try {
+    const guardado = localStorage.getItem('cmos:srcOpen:' + cid);
+    if(guardado !== null) return guardado === '1';
+  } catch(e){}
+  const c = (_cache.campaigns||[]).find(x => x.id === cid);
+  return campaignLoadState(c).some(s => !s.ok && !s.pendiente);
+}
+
+function toggleCampaignSources(cid) {
+  const abierto = _sourcesOpen(cid);
+  try { localStorage.setItem('cmos:srcOpen:' + cid, abierto ? '0' : '1'); } catch(e){}
+  const c = (_cache.campaigns||[]).find(x => x.id === cid);
+  if(c) renderCampaignSources(c);
+}
+
+// Llevar a donde se vincula cada fuente, y sincronizar de una vez si ya hay
+// link: el botón promete "ir y sincronizar", así que hace las dos cosas.
+function irAFuente(cid, key) {
+  const c = (_cache.campaigns||[]).find(x => x.id === cid);
+  const def = CAMPAIGN_SOURCES.find(d => d.key === key);
+  if(!c || !def) return;
+  const st = _fuenteEstado(c, def);
+  if(key === 'metricas') {
+    if(st.url) { navigateToMetrics(cid); return; }
+    _switchCampaignTab('resumen');
+    setTimeout(() => {
+      try { showCampaignMetricsInput(cid); } catch(e){}
+      document.getElementById('campaignMetricsSection')?.scrollIntoView({ behavior:'smooth', block:'center' });
+    }, 60);
+    return;
+  }
+  _switchCampaignTab(def.tab);
+  setTimeout(() => {
+    const inputId = { escenario:'escenarioSheetsUrl', tracker:'trackerSheetsUrl', ugc:'ugcSheetsUrl' }[key];
+    const inp = document.getElementById(inputId);
+    if(inp) {
+      inp.scrollIntoView({ behavior:'smooth', block:'center' });
+      if(!st.url) { inp.focus(); return; }
+    } else if(key === 'ugc') {
+      // El bloque de UGC sólo se pinta cuando el escenario declara nano/micro.
+      showToast('El bloque de UGC aparece cuando el escenario declara nano o micro. Sincroniza el escenario primero.','error');
+      return;
+    }
+    // Con link ya puesto, el clic sincroniza en vez de dejar al usuario
+    // buscando el botón de refrescar.
+    if(st.url) {
+      try {
+        if(key === 'escenario') syncEscenario();
+        else if(key === 'tracker') syncTracker();
+        else if(key === 'ugc') syncUgcResults();
+      } catch(e){ console.warn('sync desde fuentes', e); }
+    }
+  }, 80);
+}
+
+// Las fuentes fallan en silencio: el error se pintaba dentro de la pestaña de
+// turno y desaparecía al cambiar de vista. Se guarda en memoria (nunca viaja a
+// Firestore) para que el panel pueda decir cuál está rota y por qué.
+function marcarErrorFuente(campaign, key, mensaje) {
+  if(!campaign) return;
+  campaign._syncErrors = { ...(campaign._syncErrors || {}) };
+  if(mensaje) campaign._syncErrors[key] = String(mensaje).slice(0, 140);
+  else delete campaign._syncErrors[key];
+  const cached = (_cache.campaigns||[]).find(x => x.id === campaign.id);
+  if(cached && cached !== campaign) cached._syncErrors = campaign._syncErrors;
+  if(currentCampaignId === campaign.id) { try { renderCampaignSources(campaign); } catch(e){} }
+}
+
 function renderCampaignInfluencers(c) {
   const sheetsInput = document.getElementById('campaignSheetsUrl');
   if(sheetsInput) sheetsInput.value = c.sheetsUrl || '';
@@ -1438,7 +1779,7 @@ function _computeDeadlineNotifs() {
 // El texto trae el icono adelante ("✅ Fulano te asignó…"); el avatar del
 // aviso lo repetía al lado. Se quita del texto al pintarlo para no verlo dos
 // veces, sin tocar lo que ya está guardado en Firestore.
-const _NOTIF_ICON = { kudos:'🏆', task_assigned:'✅', deadline:'⏰', campaign_role:'🧭', campaign_update:'📣' };
+const _NOTIF_ICON = { kudos:'🏆', task_assigned:'✅', deadline:'⏰', campaign_role:'🧭', campaign_update:'📣', task_update:'🔁', tracker:'📡' };
 function _notifIcon(n) { return _NOTIF_ICON[n.type] || '💬'; }
 function _notifTexto(n) {
   const t = String(n.text || '');
@@ -1473,7 +1814,7 @@ function _notifItemHtml(n) {
 function _notifDestino(link) {
   if(!link) return '';
   if(link.k === 'task') return 'Ver la tarea';
-  if(link.k === 'campaign') return 'Ver la campaña';
+  if(link.k === 'campaign') return link.p === 'tracker' ? 'Ver el tracker' : 'Ver la campaña';
   if(link.k === 'page') return { equipo:'Ver el equipo', pendientes:'Ver los pendientes', campannas:'Ver campañas' }[link.p] || 'Abrir';
   return '';
 }
@@ -1546,7 +1887,7 @@ function abrirNotif(nid) {
 function _irANotif(link) {
   try {
     if(link.k === 'task') return _abrirTareaDeAviso(link.t, link.c);
-    if(link.k === 'campaign') return _abrirCampanaDeAviso(link.c);
+    if(link.k === 'campaign') return _abrirCampanaDeAviso(link.c, link.p);
     if(link.k === 'page' && link.p) return navigate(link.p);
   } catch(e) { console.warn('ir a notificación', e); }
 }
@@ -1562,7 +1903,9 @@ function verTodosLosDeadlines() {
   } catch(e) { console.warn(e); }
 }
 
-function _abrirCampanaDeAviso(cid) {
+// `tab`: a qué pestaña de la campaña llega el clic. Un aviso de tracker que
+// deja al usuario en Resumen le pide buscar a mano lo que el aviso ya sabía.
+function _abrirCampanaDeAviso(cid, tab) {
   const c = (getData('campaigns')||[]).find(x => x.id === cid);
   if(!c) { showToast('Esa campaña ya no existe.','error'); return; }
   if(typeof canSeeCampaign === 'function' && !canSeeCampaign(c)) {
@@ -1571,6 +1914,7 @@ function _abrirCampanaDeAviso(cid) {
   }
   navigate('campannas');
   openCampaignDetail(cid);
+  if(tab) setTimeout(() => { try { _switchCampaignTab(tab); } catch(e){} }, 60);
 }
 
 function _abrirTareaDeAviso(tid, cid) {
@@ -1673,13 +2017,16 @@ async function markAllNotifsRead() {
 // Etiquetar a alguien SIEMPRE deja aviso, y eso te incluye a ti: si te pones
 // de responsable de Cuentas y no te llega nada, la campanita deja de ser el
 // registro de en qué estás metido y hay que ir a buscarlo a mano.
-async function _createNotification({toUid, type, text, link, email}) {
+async function _createNotification({toUid, type, text, meta, link, email}) {
   if(!toUid) return;
   try {
     const doc = {
       toUid, fromUid: currentUser.uid,
       fromName: currentUserProfile?.name || currentUser.email,
       type, text,
+      // Segunda línea del aviso (quién y en qué campaña). Solo se escribe si
+      // hay algo: Firestore rechaza undefined.
+      ...(meta ? { meta } : {}),
       read: false,
       createdAt: firebase.firestore.FieldValue.serverTimestamp(),
       // Respaldo de fecha para el snapshot local, donde el serverTimestamp
@@ -1838,6 +2185,114 @@ function _notifyTaskAssigned(uid, title, campaignId, taskId) {
   _notifyTaskPeople({ title, taskId, campaignId, added:{ assignee: uid } });
 }
 
+// ============================================================
+// CAMBIOS SOBRE UNA TAREA QUE YA EXISTE
+// ============================================================
+// El alta y el etiquetado ya avisaban. Lo que faltaba era el resto de la vida
+// de la tarea —moverla de estado, terminarla, reabrirla, mover un deadline,
+// cambiarle la prioridad o quitarle el responsable—: el tablero de pendientes
+// no mandaba UNA sola notificación. Un supervisor solo se enteraba de que su
+// tarea avanzó abriendo la app y buscándola.
+//
+// Va a todos los etiquetados (responsable, supervisores, colaboradores y quien
+// la creó) menos a quien hizo el cambio: nadie necesita que le cuenten lo que
+// acaba de hacer.
+//
+// Los cambios se AGRUPAN por tarea y destinatario. Arrastrar una tarjeta tres
+// columnas en diez segundos son tres cambios y un solo aviso; sin esto el
+// tablero convierte la campanita en ruido y se deja de mirar, que es
+// exactamente el problema que se venía a resolver.
+const _CAMBIO_ESPERA_MS = 20000;
+const _cambiosPendientes = new Map(); // `${uid}|${taskId}` -> {frases, ctx, timer}
+
+// `excluir`: gente que en este mismo guardado ya recibió el aviso de "te
+// etiquetaron". Mandarles además el detalle de los campos que cambiaron es
+// contarles la historia de una tarea que acaban de conocer.
+function _notifyTaskChange({ task, campaignId, frases, excluir }) {
+  const lista = (Array.isArray(frases) ? frases : [frases]).filter(Boolean);
+  if(!task || !lista.length || !currentUser) return;
+  const fuera = new Set((excluir || []).filter(Boolean));
+  // taskInvolved vive en tasks-board.js, que carga después de este archivo.
+  // En tiempo de ejecución siempre está; el guard es para no explotar si algo
+  // llama a esto durante el arranque.
+  const involucrados = (typeof taskInvolved === 'function')
+    ? taskInvolved(task)
+    : [task.assigneeUid, ...(task.supervisors||[]), ...(task.watchers||[]), task.createdBy];
+  const destino = [...new Set(involucrados.filter(Boolean))]
+    .filter(uid => uid !== currentUser.uid && !fuera.has(uid));
+  if(!destino.length) return;
+
+  const c = campaignId ? (getData('campaigns')||[]).find(x => x.id === campaignId) : null;
+  const ctx = {
+    title: task.title || 'una tarea',
+    taskId: task.id || '',
+    campaignId: campaignId || '',
+    campaignName: c ? c.name : '',
+  };
+  destino.forEach(uid => _encolarCambioTarea(uid, ctx, lista));
+}
+
+function _encolarCambioTarea(uid, ctx, frases) {
+  const key = uid + '|' + (ctx.taskId || ctx.title);
+  const pend = _cambiosPendientes.get(key) || { frases: [], ctx, timer: null };
+  pend.ctx = ctx; // el título puede haber cambiado en el mismo lote
+  // Un mismo campo movido dos veces cuenta una vez, con el valor final: que el
+  // aviso diga "estado: Trabajando · estado: Listo" no le sirve a nadie.
+  frases.forEach(f => {
+    const campo = String(f).split(':')[0];
+    const i = pend.frases.findIndex(x => String(x).split(':')[0] === campo);
+    if(i >= 0) pend.frases[i] = f; else pend.frases.push(f);
+  });
+  if(pend.timer) clearTimeout(pend.timer);
+  pend.timer = setTimeout(() => _vaciarCambioTarea(uid, key), _CAMBIO_ESPERA_MS);
+  _cambiosPendientes.set(key, pend);
+}
+
+function _vaciarCambioTarea(uid, key) {
+  const pend = _cambiosPendientes.get(key);
+  _cambiosPendientes.delete(key);
+  if(!pend || !pend.frases.length) return;
+  const { ctx, frases } = pend;
+  const who = currentUserProfile?.name || currentUser?.email || 'Alguien';
+  // El cambio es el titular y quién/dónde baja a la segunda línea. Es la misma
+  // forma que ya tienen los avisos de deadline, para que el panel se lea igual
+  // renglón por renglón.
+  _createNotification({
+    toUid: uid,
+    type: 'task_update',
+    text: `🔁 "${ctx.title}" — ${frases.join(' · ')}`,
+    meta: who + (ctx.campaignName ? ' · ' + ctx.campaignName : ''),
+    link: ctx.taskId ? { k:'task', t: ctx.taskId, c: ctx.campaignId } : null,
+  });
+}
+
+// Al salir de la app se intenta mandar lo que quede en la cola: un cambio de
+// hace cinco segundos moriría con el timer. Es el mejor esfuerzo posible —el
+// alta en Firestore puede no alcanzar a salir—, y aun así gana contra perderlo
+// siempre.
+window.addEventListener('pagehide', () => {
+  [..._cambiosPendientes.keys()].forEach(key => {
+    const pend = _cambiosPendientes.get(key);
+    if(pend && pend.timer) clearTimeout(pend.timer);
+    _vaciarCambioTarea(key.split('|')[0], key);
+  });
+});
+
+// Las frases que arma cada mutación. Se nombran por CAMPO ("estado: …") porque
+// _encolarCambioTarea agrupa por esa primera palabra para quedarse con el
+// último valor de cada campo.
+function _fraseEstado(status)  { return 'estado: ' + (TASK_STATUS_BY_ID[status]?.label || status); }
+function _frasePrioridad(prio) { return 'prioridad: ' + (TASK_PRIO_BY_ID[prio]?.label || prio); }
+function _fraseFecha(campo, valor) {
+  const etiqueta = campo === 'clientDueDate' ? 'deadline cliente' : 'deadline interno';
+  return etiqueta + ': ' + (valor ? formatDateShort(valor) : 'sin fecha');
+}
+function _fraseResponsable(uid) {
+  if(!uid) return 'responsable: nadie';
+  const u = (allUsers || []).find(x => x.uid === uid);
+  return 'responsable: ' + (u ? (u.name || u.email.split('@')[0]) : 'otra persona');
+}
+
 // Etiquetar a alguien en una CAMPAÑA avisa igual que etiquetarlo en una tarea.
 // Antes solo avisaban las tareas: te ponían de responsable de Cuentas de una
 // campaña y no te enterabas hasta que alguien te escribía por otro lado.
@@ -1879,6 +2334,128 @@ function _diffResponsables(antes, despues) {
     if(nuevos.length) out[area] = nuevos;
   });
   return out;
+}
+
+// ============================================================
+// CAMBIOS DEL TRACKER → CAMPANITA
+// ============================================================
+// El tracker es la fuente que más vistas alimenta y la única que no avisaba
+// nada. Que una fila entre en Revisión INT (hay que leer el guión) o EXT (hay
+// que empujar al cliente) es trabajo asignado a alguien, y sólo salía como un
+// renglón gris en las alertas del Resumen: sin dueño y sin poder hacer clic.
+//
+// Dos decisiones que evitan convertir esto en spam:
+//
+// 1. Sólo diffea la sincronización QUE PIDIÓ UNA PERSONA. Las syncs de fondo
+//    (el Resumen y el Calendario bajan trackers solos) no avisan. Si no, cada
+//    navegador abierto generaría su propio juego de notificaciones para el
+//    mismo cambio del Sheet.
+// 2. La foto anterior vive en el documento de la campaña, no en el navegador:
+//    así el diff es contra el último estado que vio el equipo, y no contra lo
+//    que este navegador recuerde.
+const _TRACKER_SNAP_MAX = 500;
+
+function _trackerFilaClave(row) {
+  const nombre = (typeof _trackerGet === 'function')
+    ? _trackerGet(row, TRACKER_NAME_KEYS.concat(['Influencer','Creator'])) : '';
+  const fecha = (typeof _trackerGet === 'function')
+    ? _trackerGet(row, ['FECHA DE POST','Fecha de Post','Fecha']) : '';
+  const clave = String(nombre||'').trim().toLowerCase() + '|' + String(fecha||'').trim();
+  return clave === '|' ? '' : clave.slice(0, 80);
+}
+
+// Qué estado ocupa hoy esa fila, en una palabra. Es lo único que se guarda:
+// la foto no es el tracker, es "en qué iba cada fila la última vez".
+function _trackerFase(row) {
+  const blob = [
+    (typeof _trackerStatusOf === 'function') ? _trackerStatusOf(row) : '',
+    (typeof _trackerGet === 'function') ? _trackerGet(row, ['ESTATUS GUIÓN','ESTATUS GUION','Estatus Guión','Estatus Guion']) : '',
+  ].filter(Boolean).join(' · ');
+  if(!blob.trim()) return '';
+  if(typeof _isPublishedStatus === 'function' && _isPublishedStatus((typeof _trackerStatusOf==='function') ? _trackerStatusOf(row) : '')) return 'pub';
+  if(/revisi[oó]n\s*\(?\s*ext/i.test(blob)) return 'ext';
+  if(/revisi[oó]n\s*\(?\s*int/i.test(blob)) return 'int';
+  return 'otro';
+}
+
+function _trackerSnapshot(rows) {
+  const snap = {};
+  (rows || []).slice(0, _TRACKER_SNAP_MAX).forEach(row => {
+    const k = _trackerFilaClave(row);
+    const f = _trackerFase(row);
+    if(k && f) snap[k] = f;
+  });
+  return snap;
+}
+
+const _TRACKER_FASE_COPY = {
+  int: { icono:'🔍', uno:'entró a Revisión INT — hay que leer el guión',        varios:'entraron a Revisión INT' },
+  ext: { icono:'👀', uno:'entró a Revisión EXT — hay que empujar al cliente',   varios:'entraron a Revisión EXT' },
+  pub: { icono:'🚀', uno:'ya se publicó',                                       varios:'ya se publicaron' },
+};
+
+// A quién le importa el tracker de una campaña: los responsables de área y
+// quien la sigue. No se usa _notifyCampaignSubscribers porque ese además
+// arrastra a cualquiera con una tarea abierta ahí, y una tarea de facturación
+// no vuelve a nadie interesado en el estatus de un guión.
+function _publicoDelTracker(campaign) {
+  const resp = campaign.responsables || {};
+  const responsables = Object.keys(resp).flatMap(k => (typeof getAreaUids==='function' ? getAreaUids(resp, k) : []));
+  const siguen = (allUsers || [])
+    .filter(u => Array.isArray(u.subscribedCampaigns) && u.subscribedCampaigns.includes(campaign.id))
+    .map(u => u.uid);
+  const legado = Array.isArray(campaign.subscribers) ? campaign.subscribers : [];
+  return [...new Set([...responsables, ...siguen, ...legado].filter(Boolean))]
+    .filter(uid => uid !== currentUser?.uid);
+}
+
+function _notifyTrackerChanges(campaign, rowsNuevas) {
+  if(!campaign || !currentUser) return;
+  const nueva = _trackerSnapshot(rowsNuevas);
+  const previa = campaign.trackerSnapshot;
+  // Primera sync de esta campaña: no hay contra qué comparar y anunciar 300
+  // filas "nuevas" sería el peor primer contacto posible con la campanita.
+  if(!previa || !Object.keys(previa).length) { _guardarSnapshotTracker(campaign, nueva); return; }
+
+  const cambios = { int:[], ext:[], pub:[] };
+  Object.keys(nueva).forEach(k => {
+    const antes = previa[k];
+    const ahora = nueva[k];
+    if(antes === ahora || !_TRACKER_FASE_COPY[ahora]) return;
+    // El nombre del creador es la primera mitad de la clave.
+    cambios[ahora].push(k.split('|')[0] || 'Una publicación');
+  });
+
+  const gente = _publicoDelTracker(campaign);
+  if(gente.length) {
+    Object.keys(cambios).forEach(fase => {
+      const lista = cambios[fase];
+      if(!lista.length) return;
+      const cp = _TRACKER_FASE_COPY[fase];
+      // Más de tres: un resumen. Bajar un tracker atrasado no puede costar
+      // cuarenta avisos.
+      const texto = lista.length > 3
+        ? `${cp.icono} ${lista.length} publicaciones ${cp.varios}`
+        : `${cp.icono} ${lista.map(n => n.replace(/^./, ch => ch.toUpperCase())).join(', ')} ${cp.uno}`;
+      gente.forEach(uid => _createNotification({
+        toUid: uid,
+        type: 'tracker',
+        text: texto,
+        meta: campaign.name,
+        link: { k:'campaign', c: campaign.id, p:'tracker' },
+      }));
+    });
+  }
+  _guardarSnapshotTracker(campaign, nueva);
+}
+
+function _guardarSnapshotTracker(campaign, snap) {
+  campaign.trackerSnapshot = snap;
+  const campaigns = getData('campaigns');
+  const idx = campaigns.findIndex(x => x.id === campaign.id);
+  if(idx === -1) return;   // se borró mientras bajábamos el sheet
+  campaigns[idx].trackerSnapshot = snap;
+  setData('campaigns', campaigns);
 }
 
 function _notifyCampaignSubscribers(campaign, summary) {
@@ -2674,8 +3251,14 @@ async function _autoFetchTracker(url, campaign, opts = {}) {
       campaigns[idx].trackerLastSync = campaign.trackerLastSync;
       setData('campaigns',campaigns);
     } // else: campaign was deleted while we were fetching — drop the write
-    if(opts.silent !== true) showToast('Tracker sincronizado','success');
+    try { marcarErrorFuente(campaign, 'tracker', ''); } catch(e){}
+    // Sólo la sync que pidió una persona avisa. Ver _notifyTrackerChanges.
+    if(opts.silent !== true) {
+      try { _notifyTrackerChanges(campaign, campaign.trackerRows); } catch(e){ console.warn('notify tracker', e); }
+      showToast('Tracker sincronizado','success');
+    }
   } catch(e) {
+    try { marcarErrorFuente(campaign, 'tracker', e.message); } catch(_){}
     // Clear stale rows so the UI can't show data from a previous successful sync
     campaign.trackerRows = [];
     const wrap = document.getElementById('trackerTableWrap');

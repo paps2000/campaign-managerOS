@@ -6712,3 +6712,183 @@ html.dark .cli-confidencial-icn { color:#f0c84a; }
      "Pendientes" y "Calendario" a la mitad. */
   .topbar-search-btn { display:none; }
 }
+
+/* ============================================================
+   FUENTES DE DATOS Y CARGA DE LA CAMPAÑA
+   ============================================================
+   Todo con tokens (--bg, --white, --border, --text-muted, --green…), que ya
+   cambian solos en html.dark: no hace falta un bloque oscuro aparte. */
+
+.src-panel {
+  background:var(--bg);
+  border:1px solid var(--border);
+  border-radius:var(--radius-sm);
+  margin-bottom:18px;
+  overflow:hidden;
+}
+.src-head {
+  display:flex; align-items:center; gap:10px; width:100%;
+  background:transparent; border:0; cursor:pointer;
+  padding:13px 16px; text-align:left; color:var(--text);
+  font:inherit; min-height:44px;
+}
+.src-head:hover { background:rgba(var(--accent-rgb),.05); }
+.src-head-title { font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:var(--text-muted); }
+.src-head-count {
+  font-size:12px; font-weight:800; font-variant-numeric:tabular-nums;
+  background:var(--white); border:1px solid var(--border);
+  border-radius:20px; padding:2px 9px; color:var(--text);
+}
+.src-head-chev { margin-left:auto; font-size:12px; color:var(--text-muted); transition:transform .2s var(--ease); }
+.src-panel.is-open .src-head-chev { transform:rotate(180deg); }
+
+/* Las seis casillas. Siempre visibles: son el resumen que contesta "¿ya está
+   cargada?" sin desplegar nada. */
+.src-slots {
+  display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+  gap:8px; padding:0 14px 14px;
+}
+.src-slot {
+  display:flex; align-items:flex-start; gap:8px;
+  background:var(--white); border:1px solid var(--border);
+  border-radius:10px; padding:9px 11px;
+}
+.src-slot-mark {
+  flex-shrink:0; width:17px; height:17px; border-radius:50%;
+  display:grid; place-items:center; font-size:11px; font-weight:800; line-height:1;
+  border:1.5px solid var(--border); color:var(--text-muted); margin-top:1px;
+}
+.src-slot.is-ok   .src-slot-mark { background:var(--green); border-color:var(--green); color:#08301f; }
+/* "Todavía no toca" tiene que leerse distinto de "falta": mismo hueco, pero
+   apagado y punteado, para que el ojo cuente sólo los que sí son deuda. */
+.src-slot.is-wait { opacity:.6; }
+.src-slot.is-wait .src-slot-mark { border-style:dotted; border-color:var(--text-muted); }
+.src-slot.is-off  .src-slot-mark { border-color:var(--red); }
+.src-slot-body { display:flex; flex-direction:column; gap:1px; min-width:0; }
+.src-slot-label { font-size:12.5px; font-weight:700; color:var(--text); }
+.src-slot-hint  { font-size:11px; color:var(--text-muted); line-height:1.35; }
+
+/* El detalle por fuente, plegable. */
+.src-body { display:none; padding:0 14px 14px; }
+.src-panel.is-open .src-body { display:block; }
+.src-intro {
+  font-size:12px; color:var(--text-muted); line-height:1.5;
+  margin:0 0 12px; padding-top:12px; border-top:1px solid var(--border);
+}
+.src-intro b { color:var(--text); font-weight:700; }
+
+.src-row {
+  display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+  background:var(--white); border:1px solid var(--border);
+  border-left:3px solid var(--border);
+  border-radius:10px; padding:11px 13px;
+}
+.src-row + .src-row { margin-top:8px; }
+.src-row.is-ok    { border-left-color:var(--green); }
+.src-row.is-wait  { border-left-color:var(--yellow); }
+.src-row.is-error { border-left-color:var(--red); }
+.src-row.is-off   { border-left-color:var(--border); }
+.src-row-head { display:flex; flex-direction:column; gap:1px; min-width:150px; flex:1 1 150px; }
+.src-row-name { font-size:13px; font-weight:700; display:flex; align-items:center; gap:6px; }
+.src-row-rol  { font-size:11px; color:var(--text-muted); }
+.src-opt {
+  font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.5px;
+  background:var(--bg); border:1px solid var(--border); border-radius:20px;
+  padding:1px 6px; color:var(--text-muted);
+}
+.src-row-state { display:flex; flex-direction:column; gap:2px; min-width:0; }
+.src-pill {
+  font-size:11px; font-weight:700; border-radius:20px; padding:2px 9px;
+  background:var(--bg); border:1px solid var(--border); color:var(--text-muted);
+  max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.src-row.is-ok    .src-pill { background:var(--mint-pale); border-color:var(--mint); color:var(--green-text); }
+.src-row.is-error .src-pill { background:var(--pink-pale); border-color:var(--red); color:var(--red-text); }
+.src-sync { font-size:10.5px; color:var(--text-muted); }
+.src-row-actions { display:flex; gap:6px; margin-left:auto; flex-wrap:wrap; }
+.src-row-actions .btn { text-decoration:none; }
+
+/* Tira de carga en la tarjeta de campaña. */
+.camp-load { display:flex; align-items:center; gap:7px; margin-top:10px; }
+.camp-load-dots { display:inline-flex; gap:4px; }
+.camp-load-dot {
+  width:7px; height:7px; border-radius:50%;
+  background:transparent; border:1.5px solid var(--red); box-sizing:border-box;
+}
+.camp-load-dot.is-ok   { background:var(--green); border-color:var(--green); }
+.camp-load-dot.is-wait { border-color:var(--text-muted); border-style:dotted; opacity:.6; }
+.camp-load-count {
+  font-size:10.5px; font-weight:700; color:var(--text-muted);
+  font-variant-numeric:tabular-nums;
+}
+
+@media (max-width:640px) {
+  .src-slots { grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); }
+  .src-row-actions { margin-left:0; width:100%; }
+}
+
+/* ============================================================
+   AVANCE CONTRA META (widget del Resumen)
+   ============================================================ */
+.avance-row {
+  padding:12px 4px;
+  border-bottom:1px solid var(--border);
+  cursor:pointer;
+  transition:background-color .15s var(--ease);
+}
+.avance-row:last-child { border-bottom:0; }
+.avance-row:hover { background:rgba(var(--accent-rgb),.04); }
+.avance-row:focus-visible { outline:2px solid var(--pink); outline-offset:-2px; border-radius:8px; }
+
+.avance-head { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:9px; }
+.avance-name { font-size:13.5px; font-weight:700; }
+.avance-client { font-size:11.5px; color:var(--text-muted); }
+.avance-focos {
+  font-size:10px; font-weight:800; margin-left:auto;
+  background:var(--pink-pale); color:var(--pink-text);
+  border-radius:20px; padding:2px 8px; white-space:nowrap;
+}
+
+.avance-metrics { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; }
+.avance-metric { display:flex; flex-direction:column; gap:4px; min-width:0; }
+.avance-metric-top { display:flex; align-items:baseline; justify-content:space-between; gap:8px; }
+.avance-metric-label {
+  font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.6px;
+  color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.avance-metric-num { font-size:11.5px; font-weight:700; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.avance-bar { height:6px; border-radius:20px; background:var(--border); overflow:hidden; }
+.avance-bar-fill { height:100%; border-radius:20px; transition:width .4s var(--ease); background:var(--text-muted); }
+.avance-pct { font-size:10.5px; font-weight:800; font-variant-numeric:tabular-nums; color:var(--text-muted); }
+
+/* Semáforo por tokens: en oscuro --green-text y --red-text vuelven al color
+   vivo, así que el porcentaje se lee en los dos temas. */
+.avance-metric.is-good .avance-bar-fill { background:var(--green); }
+.avance-metric.is-good .avance-pct      { color:var(--green-text); }
+.avance-metric.is-mid  .avance-bar-fill { background:var(--yellow); }
+.avance-metric.is-mid  .avance-pct      { color:var(--amber-text); }
+.avance-metric.is-low  .avance-bar-fill { background:var(--red); }
+.avance-metric.is-low  .avance-pct      { color:var(--red-text); }
+
+.avance-nudge {
+  margin-top:9px; font-size:11px; line-height:1.45;
+  background:var(--pink-pale); border-radius:8px; padding:7px 10px; color:var(--pink-text);
+}
+
+/* Alertas del Resumen que llevan a algún lado. Sin la señal de que se puede
+   hacer clic, la alerta se lee como un reporte y no como un pendiente. */
+.alert-item.is-clickable {
+  cursor:pointer;
+  border-radius:8px;
+  padding-left:8px; padding-right:8px;
+  margin-left:-8px; margin-right:-8px;
+  transition:background-color .15s var(--ease);
+}
+.alert-item.is-clickable:hover { background:rgba(var(--accent-rgb),.05); }
+.alert-item.is-clickable:focus-visible { outline:2px solid var(--pink); outline-offset:-2px; }
+
+/* Ámbar legible como TEXTO. El --yellow de la paleta (#f0c84a) es un relleno:
+   sobre el fondo claro da 1.8:1 y no pasa AA para texto chico. Este es el mismo
+   tono bajado hasta 5.1:1; en oscuro vuelve al vivo, que ahí sí contrasta. */
+:root { --amber-text:#8a6100; }
+html.dark body, html.dark body[class*="theme-"] { --amber-text:var(--yellow); }

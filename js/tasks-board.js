@@ -872,19 +872,25 @@ function setTaskStatus(tid, cid, status) {
   const { t, commit } = found;
   if(t.recurring) { toggleTask(tid, cid); return; }
   const wasDone = !!t.done;
+  const antes = taskStatus(t);
   t.status = status;
   t.done = status === 'listo';
   t.doneAt = t.done ? (t.doneAt || Date.now()) : null;
   commit();
   if(t.done && !wasDone) { try { _onTaskDone(tid); } catch {} }
+  // Los demás etiquetados se enteran. Sin esto, mover una tarjeta de columna
+  // era invisible para el supervisor que la está esperando.
+  if(antes !== status) { try { _notifyTaskChange({ task:t, campaignId:cid, frases:[_fraseEstado(status)] }); } catch {} }
   rerenderCurrent();
 }
 
 function setTaskPriority(tid, cid, prio) {
   const found = _tbFindTask(tid, cid);
   if(!found) return;
+  const antes = taskPrio(found.t);
   found.t.priority = prio;
   found.commit();
+  if(antes !== prio) { try { _notifyTaskChange({ task:found.t, campaignId:cid, frases:[_frasePrioridad(prio)] }); } catch {} }
   rerenderCurrent();
 }
 
