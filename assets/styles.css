@@ -145,18 +145,65 @@ html.dark body, html.dark body[class*="theme-"] {
 }
 .notif-panel-header span { font-size:14px; font-weight:700; }
 .notif-list { overflow-y:auto; flex:1; }
+.td-camp-link {
+  background:none; border:none; padding:0; font-family:inherit; font-size:14px;
+  font-weight:600; color:var(--pink-text); cursor:pointer;
+}
+.td-camp-link:hover { text-decoration:underline; }
+.notif-readall {
+  font-size:11px; background:none; border:none; cursor:pointer;
+  color:var(--pink); font-weight:600; border-radius:8px; padding:4px 6px;
+}
+.notif-readall:hover { background:var(--pink-pale); }
+/* Título de sección: separa "lo que vence" de "lo que pasó". Pegajoso porque
+   la lista hace scroll y sin eso se pierde de vista a qué bloque pertenece
+   cada aviso. */
+.notif-sec {
+  position:sticky; top:0; z-index:1;
+  display:flex; align-items:center; justify-content:space-between; gap:8px;
+  padding:8px 16px 6px;
+  background:color-mix(in srgb, var(--white) 86%, transparent);
+  backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
+  font-size:10px; font-weight:800; letter-spacing:.06em; text-transform:uppercase;
+  color:var(--text-muted); border-bottom:1px solid var(--border);
+}
+.notif-sec em { font-style:normal; color:var(--pink-text); font-weight:800; text-transform:none; letter-spacing:0; font-size:11px; }
 .notif-item {
-  display:flex; gap:10px; padding:12px 16px; border-bottom:1px solid var(--border);
+  display:flex; gap:10px; align-items:flex-start; width:100%; text-align:left;
+  padding:12px 16px; border:none; border-bottom:1px solid var(--border);
+  background:none; font-family:inherit; color:inherit;
   cursor:pointer; transition:background var(--dur-quick);
 }
 .notif-item:hover { background:var(--bg); }
 .notif-item.unread { background:var(--pink-pale); }
 .notif-item.unread:hover { background:var(--pink-pale); filter:brightness(.97); }
 .notif-avatar { width:32px; height:32px; border-radius:10px; background:var(--pink); color:#fff; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:700; flex-shrink:0; }
-.notif-body { flex:1; min-width:0; }
-.notif-body p { font-size:12px; color:var(--text); line-height:1.4; }
-.notif-body time { font-size:10px; color:var(--text-muted); margin-top:2px; display:block; }
-.notif-empty { padding:32px 16px; text-align:center; color:var(--text-muted); font-size:13px; }
+.notif-body { flex:1; min-width:0; display:block; }
+.notif-body p, .notif-text { font-size:12px; color:var(--text); line-height:1.4; display:block; }
+.notif-meta { display:block; font-size:10.5px; color:var(--text-muted); margin-top:2px; }
+.notif-foot { display:flex; align-items:center; gap:8px; margin-top:3px; }
+.notif-more {
+  display:block; width:100%; text-align:left; padding:10px 16px; border:none;
+  background:none; font-family:inherit; font-size:11px; font-weight:700;
+  color:var(--pink-text); cursor:pointer; border-bottom:1px solid var(--border);
+}
+.notif-more:hover { background:var(--bg); }
+.notif-body time { font-size:10px; color:var(--text-muted); display:block; }
+/* La promesa del clic, escrita. Un aviso que lleva a algún lado tiene que
+   decirlo antes de que lo toquen. */
+.notif-go { font-size:10px; font-weight:700; color:var(--pink-text); opacity:.85; }
+.notif-item:hover .notif-go { opacity:1; }
+.notif-dot { width:7px; height:7px; border-radius:50%; background:var(--pink); flex-shrink:0; margin-top:6px; }
+.notif-panel-foot {
+  padding:9px 16px; border-top:1px solid var(--border); flex-shrink:0;
+  font-size:10.5px; color:var(--text-muted); text-align:center;
+  /* Con fondo transparente, la lista al hacer scroll se leía POR DEBAJO de
+     esta línea y las dos frases se encimaban. */
+  background:color-mix(in srgb, var(--white) 92%, transparent);
+  backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
+}
+.notif-empty { padding:30px 20px; text-align:center; color:var(--text-muted); font-size:12px; display:flex; flex-direction:column; gap:5px; }
+.notif-empty b { font-size:13px; color:var(--text); }
 
 /* ============================================================
    EMOJI REACTIONS
@@ -859,6 +906,7 @@ html.dark .badge-area-Administración { background:rgba(230,150,40,.14); color:#
 html.dark .badge-area-Creativo { background:rgba(44,109,255,.13); color:#6fa3ff; }
 html.dark .badge-area-Data { background:rgba(122,61,240,.12); color:#a57bff; }
 html.dark .notif-panel { background:var(--white); border-color:var(--border); }
+html.dark .notif-sec { background:color-mix(in srgb, var(--white) 86%, transparent); }
 html.dark .area-dropdown { background:var(--white); border-color:var(--border); }
 html.dark select option { background:#1a1a24; color:var(--text); }
 html.dark table tr:hover td { background:rgba(var(--accent-rgb),.07) !important; }
@@ -4049,16 +4097,6 @@ body.client-mode #loginScreen.login-screen:not(.hidden) { display:none !importan
 }
 .tb-search input::-webkit-search-cancel-button { cursor:pointer; }
 
-.tb-select {
-  display:inline-flex; align-items:center; gap:6px; font-size:11px; font-weight:700;
-  text-transform:uppercase; letter-spacing:.6px; color:var(--text-muted);
-}
-.tb-select select {
-  font-family:'Quicksand',sans-serif; font-size:12.5px; font-weight:600; text-transform:none;
-  letter-spacing:0; color:var(--text); background:var(--white);
-  border:1.5px solid var(--border); border-radius:9px; padding:7px 10px; cursor:pointer;
-}
-.tb-select select:focus { outline:none; border-color:var(--pink); }
 
 .tb-chip {
   display:inline-flex; align-items:center; gap:6px; padding:5px 11px; border-radius:20px;
@@ -4111,8 +4149,16 @@ body.client-mode #loginScreen.login-screen:not(.hidden) { display:none !importan
 .tb-person-chip b { display:block; font-size:12.5px; font-weight:700; color:var(--text); }
 .tb-person-chip i { display:block; font-style:normal; font-size:10.5px; color:var(--text-muted); }
 
+/* ── Agrupar: etiqueta + botones ── */
+.tb-seg-group { align-items:center; padding-left:10px; }
+.tb-seg-label {
+  font-size:10px; font-weight:800; letter-spacing:.06em; text-transform:uppercase;
+  color:var(--text-muted); padding-right:4px;
+}
+
 /* ── Grupos ── */
 .tb-board { display:flex; flex-direction:column; gap:16px; }
+.tb-hint { font-size:11.5px; color:var(--text-muted); margin:-4px 0 0 2px; }
 .tb-group {
   background:var(--white); border:1px solid var(--border); border-radius:14px;
   overflow:hidden; border-left:4px solid var(--g-color);
@@ -4137,6 +4183,28 @@ body.client-mode #loginScreen.login-screen:not(.hidden) { display:none !importan
   background:#e2445c; color:#fff;
 }
 .tb-group-stack { margin-left:auto; }
+/* Sólo aparece mientras se arrastra: decir "suelta aquí" todo el tiempo es
+   ruido, y no decirlo nunca deja el gesto escondido. */
+.tb-group-drop {
+  display:none; font-size:10.5px; font-weight:700; color:var(--g-color);
+  border:1px dashed var(--g-color); border-radius:10px; padding:3px 9px;
+}
+.tb-board.dragging-rows .tb-group-drop { display:inline-block; }
+.tb-board.dragging-rows .tb-group-stack { display:none; }
+.tb-group.over { box-shadow:0 0 0 2px var(--g-color) inset; }
+.tb-row-drag { cursor:grab; }
+.tb-row-drag:active { cursor:grabbing; }
+.tb-row.dragging { opacity:.45; }
+/* Aterrizar desde una notificación: el resalte dice "es esta" sin robar el
+   clic. Se apaga solo. */
+@keyframes tbFlash {
+  0%   { background:var(--pink-pale); box-shadow:0 0 0 2px var(--pink) inset; }
+  100% { background:transparent; box-shadow:0 0 0 2px transparent inset; }
+}
+.tb-flash { animation:tbFlash 2.4s var(--ease) forwards; }
+@media (prefers-reduced-motion:reduce) {
+  .tb-flash { animation:none; background:var(--pink-pale); }
+}
 
 /* ── Filas ── */
 .tb-row {
@@ -4364,8 +4432,15 @@ body.client-mode #loginScreen.login-screen:not(.hidden) { display:none !importan
      cinco filas. Se aprietan los paddings y se cae la etiqueta "Agrupar por":
      el select ya dice qué hace. */
   .tb-bar { row-gap:8px; gap:6px; }
-  .tb-select { gap:0; font-size:0; }
-  .tb-select select { font-size:12px; padding:6px 8px; }
+  /* La etiqueta se cae en móvil: los botones ya dicen qué hacen y la barra
+     cabe en dos líneas en vez de cinco. */
+  .tb-seg-label { display:none; }
+  /* En un teléfono los cinco botones no caben en una línea y la fila se salía
+     de la pantalla con el último cortado a la mitad: se envuelven, que es la
+     única forma de que se vean TODAS las agrupaciones sin adivinar que hay que
+     desplazar de lado. */
+  .tb-seg-group { padding-left:2px; flex-wrap:wrap; border-radius:14px; max-width:100%; }
+  .tb-seg-group .tb-seg-btn { border-radius:12px; }
   .tb-filter-btn { padding:7px 11px; }
   .tb-seg .tb-seg-btn { padding:6px 10px; font-size:11.5px; }
   .tb-result { font-size:11px; }
@@ -4421,7 +4496,7 @@ body.client-mode #loginScreen.login-screen:not(.hidden) { display:none !importan
   border-color: rgba(255,255,255,0.72);
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.9);
 }
-.tb-search, .tb-select select {
+.tb-search {
   background: rgba(255,255,255,0.60);
   backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
   border-color: rgba(255,255,255,0.82);
@@ -4484,7 +4559,7 @@ html.dark .tb-chip:not(.on):not(.tb-seg-btn), html.dark .tb-watcher:not(.on) {
   background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.13);
   backdrop-filter: none; -webkit-backdrop-filter: none; box-shadow: none;
 }
-html.dark .tb-search, html.dark .tb-select select {
+html.dark .tb-search {
   background: rgba(255,255,255,.06); border-color: rgba(255,255,255,.12);
   backdrop-filter: none; -webkit-backdrop-filter: none; box-shadow: none;
 }
@@ -5935,7 +6010,7 @@ html[data-text="grande"] { --ts:1.12; }
   html[data-text] .cmd-item-sub, html[data-text] .cmd-footer, html[data-text] .stat-trend,
   html[data-text] .season-upload, html[data-text] .camp-people-label,
   html[data-text] .tb-panel-hint, html[data-text] .tb-seg-sm .tb-seg-btn,
-  html[data-text] .tb-select, html[data-text] .tb-av-empty, html[data-text] .tb-chev,
+  html[data-text] .tb-av-empty, html[data-text] .tb-chev,
   html[data-text] .tb-col-count, html[data-text] .form-hint, html[data-text] .sb-mode-desc,
   html[data-text] .tp-hero-bartxt, html[data-text] .tp-panel-title,
   html[data-text] .tp-panel-hint, html[data-text] .tp-row-sub, html[data-text] .tp-row-got,
@@ -5969,7 +6044,7 @@ html[data-text="grande"] { --ts:1.12; }
   html[data-text] .tp-rule-t
     { font-size:calc(12px * var(--ts)); }
   html[data-text] .tb-filter-btn, html[data-text] .tb-panel .tb-search-sm input,
-  html[data-text] .tb-select select, html[data-text] .tb-person-chip b,
+  html[data-text] .tb-person-chip b,
   html[data-text] .tb-menu-item, html[data-text] .tb-col-head, html[data-text] .pp-empty,
   html[data-text] .pp-search, html[data-text] .profile-meta-mail,
   html[data-text] .profile-meta-status, html[data-text] .sb-mode-name, html[data-text] .td-link,

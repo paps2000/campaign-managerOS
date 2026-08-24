@@ -619,6 +619,25 @@ function openEditCampaignModal() {
 
    No es destructivo, así que el botón de seguir es el primario y se lleva el
    foco: lo normal aquí es continuar. */
+/* Confirmación de que el aviso salió. Etiquetar a alguien y no ver nada en
+   pantalla deja la duda de si se enteró; con esto se lee "Avisamos a Fulano" en
+   el mismo momento del guardado. Incluye avisarte a ti: eres el caso donde el
+   silencio confundía más. */
+function _avisarQuienFueNotificado(added) {
+  const uids = [...new Set(Object.values((added && added.responsables) || {}).flat().filter(Boolean))];
+  if(!uids.length) return;
+  const nombre = uid => {
+    if(uid === currentUser?.uid) return 'ti';
+    const u = (allUsers || []).find(x => x.uid === uid);
+    return u ? (u.name || (u.email||'').split('@')[0]) : 'alguien';
+  };
+  const lista = uids.map(nombre);
+  const texto = lista.length === 1 ? lista[0]
+    : lista.length === 2 ? `${lista[0]} y ${lista[1]}`
+    : `${lista[0]} y ${lista.length - 1} más`;
+  setTimeout(() => showToast(`Avisamos a ${texto} 🔔`), 1200);
+}
+
 async function confirmarAccesoCampana(nombresUids, nombreCampana, campanaAntes) {
   // Se avisa sólo por quien GANA acceso. A ti mismo no hay nada que avisarte, y
   // quien ya entraba por otra vía —ya era responsable, o ya estaba asignado— no
@@ -1195,7 +1214,10 @@ async function saveCampaign() {
     try { showSuccessCheck(); } catch(e){}
     // Solo si el guardado se confirmó: avisar de algo que no llegó al servidor
     // manda a la gente a buscar una campaña que no existe.
-    try { _notifyCampaignRoles(name, _saved && _saved.id, _added); } catch(e){ console.warn('notify roles', e); }
+    try {
+      _notifyCampaignRoles(name, _saved && _saved.id, _added);
+      _avisarQuienFueNotificado(_added);
+    } catch(e){ console.warn('notify roles', e); }
   }
   // Si la campaña se creó durante el onboarding, volver a ese flujo con la nueva ya seleccionada
   if(!editingCampaignId && window._obAwaitingNewCampaign) {
@@ -1449,9 +1471,15 @@ function openAddGlobalTaskModal() {
 
 function openTaskDetail(tid, cid) {
   let task = null;
-  if(cid) { const c = _cache.campaigns.find(x=>x.id===cid); if(c) task = c.tasks.find(x=>x.id===tid); }
+  let campana = null;
+  if(cid) { const c = _cache.campaigns.find(x=>x.id===cid); if(c) { campana = c; task = c.tasks.find(x=>x.id===tid); } }
   else { task = (_cache.globalTasks||[]).find(x=>x.id===tid); }
   if(!task) { showToast('Tarea no encontrada','error'); return; }
+  /* El nombre de la campaña no vive en la tarea: sólo las tareas sueltas
+     guardan `campaignName`. El detalle leía ese campo a secas, así que TODA
+     tarea de campaña se presentaba como "General" — justo el dato que hay que
+     ver cuando se llega aquí desde una notificación. */
+  const nombreCampana = campana ? campana.name : (task.campaignName || 'General');
 
   const u = allUsers.find(x=>x.uid===task.assigneeUid);
   const assigneeName = u ? (u.name||u.email.split('@')[0]) : (task.assignee||'—');
@@ -1495,7 +1523,9 @@ function openTaskDetail(tid, cid) {
         </div>
         <div>
           <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px;">Campaña</div>
-          <div style="font-size:14px;">${_esc(task.campaignName||'General')}</div>
+          <div style="font-size:14px;">${campana
+            ? `<button type="button" class="td-camp-link" onclick="_verCampanaDeTarea('${_esc(campana.id)}')">${_esc(nombreCampana)} →</button>`
+            : _esc(nombreCampana)}</div>
         </div>
       </div>
       ${(() => {
@@ -1544,6 +1574,13 @@ function openEditTaskModal(tid, cid) {
   if(task.assigneeUid) document.getElementById('fTaskAssignee').value = task.assigneeUid;
   document.querySelector('#taskModal .modal-title').textContent='Editar tarea';
   openModal('taskModal');
+}
+
+// Del detalle de la tarea a su campaña, sin pasar por el listado.
+function _verCampanaDeTarea(cid) {
+  closeModal('taskDetailModal');
+  navigate('campannas');
+  openCampaignDetail(cid);
 }
 
 function saveTask() {
@@ -1605,7 +1642,7 @@ function saveTask() {
       setData('globalTasks', tasks);
     }
     _notifyTaskPeople({
-      title, campaignId: campId, dueDate, clientDueDate,
+      title, taskId: editingTaskId, campaignId: campId, dueDate, clientDueDate,
       added: {
         assignee: assigneeUid && assigneeUid !== prev.assigneeUid ? assigneeUid : '',
         supervisors: supervisors.filter(uid => !prev.supervisors.includes(uid)),
@@ -1633,7 +1670,7 @@ function saveTask() {
       setData('globalTasks',tasks);
     }
     _notifyTaskPeople({
-      title, campaignId: campId, dueDate, clientDueDate,
+      title, taskId: task.id, campaignId: campId, dueDate, clientDueDate,
       added: { assignee: assigneeUid, supervisors, watchers },
     });
     closeModal('taskModal');

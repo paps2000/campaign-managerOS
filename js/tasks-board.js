@@ -158,7 +158,12 @@ function _userName(u, fallback) {
 // ============================================================
 // ESTADO DEL TABLERO (persistido en localStorage)
 // ============================================================
-const _TB_KEY = 'pendientesBoardPrefs';
+/* v2: la clave cambió a propósito. La preferencia de agrupación se guardaba
+   desde la primera versión, así que quien alguna vez la movió se quedaba con
+   una lista plana por estado y ya no encontraba cómo volver. Al cambiar la
+   clave, todo el mundo arranca otra vez en "por campaña" —que es como se piensa
+   el trabajo aquí— sin perder nada más que unos filtros. */
+const _TB_KEY = 'pendientesBoardPrefs.v2';
 const _tb = {
   view: 'tabla',        // 'tabla' | 'kanban'
   groupBy: 'campaign',  // campaign | person | status | priority | date
@@ -394,6 +399,14 @@ function _tbGroup(tasks) {
     list.sort((a, b) => order.indexOf(a.key) - order.indexOf(b.key));
   } else if(_tb.groupBy === 'date') {
     list.sort((a, b) => a.key.localeCompare(b.key));
+  } else if(_tb.groupBy === 'campaign') {
+    // Una campaña con algo vencido va antes que una con más tareas pero al día:
+    // el bloque de arriba tiene que ser el que hay que mirar hoy. "General"
+    // (las tareas sueltas) cierra siempre: no es una campaña.
+    const venc = g => g.tasks.filter(t => _tbDateState(t) === 'overdue').length;
+    const pend = g => g.tasks.filter(t => taskStatus(t) !== 'listo').length;
+    const suelto = g => (g.key === 'c:general' ? 1 : 0);
+    list.sort((a, b) => suelto(a) - suelto(b) || venc(b) - venc(a) || pend(b) - pend(a) || a.label.localeCompare(b.label));
   } else {
     list.sort((a, b) => b.tasks.length - a.tasks.length || a.label.localeCompare(b.label));
   }
@@ -473,11 +486,19 @@ function _tbDateCell(t) {
 const _TB_ICN_EDIT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></svg>';
 const _TB_ICN_TRASH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>';
 
+/* Agrupaciones que además se pueden GESTIONAR: arrastrar una fila a otro bloque
+   cambia el dato por el que está agrupada. Sirve para prioridad y estado, que
+   son campos de la tarea; no para campaña (mover una tarea de campaña es otra
+   cosa, con permisos de por medio) ni para deadline o responsable. */
+const _TB_DRAG_GROUPS = { priority:'prio', status:'status' };
+function _tbDragMode() { return _TB_DRAG_GROUPS[_tb.groupBy] || ''; }
+
 function _tbRow(t) {
   const done = taskStatus(t) === 'listo';
   const cid = t.campaignId || '';
+  const drag = _tbDragMode() ? ' draggable="true"' : '';
   return `
-  <div class="tb-row${done ? ' tb-row-done' : ''}" data-tid="${_esc(t.id)}" data-cid="${_esc(cid)}">
+  <div class="tb-row${done ? ' tb-row-done' : ''}${_tbDragMode() ? ' tb-row-drag' : ''}"${drag} data-tid="${_esc(t.id)}" data-cid="${_esc(cid)}">
     <div class="tb-cell tb-cell-check">
       <span class="task-check ${done ? 'done' : ''}" data-act="toggle" data-tid="${_esc(t.id)}" data-cid="${_esc(cid)}" title="${done ? 'Reabrir' : 'Marcar listo'}"></span>
     </div>
@@ -517,14 +538,16 @@ function _tbGroupHtml(g) {
   const stack = uids.slice(0, 5).map(uid => `<span class="tb-av-wrap" data-uid="${_esc(uid)}" title="${_esc(_userName(_userByUid(uid), ''))}">${_tbAvatar(_userByUid(uid), 22, false)}</span>`).join('')
     + (uids.length > 5 ? `<span class="tb-av tb-av-more" style="width:22px;height:22px;font-size:9px;">+${uids.length - 5}</span>` : '');
 
+  const arrastrable = !!_tbDragMode();
   return `
-  <section class="tb-group${collapsed ? ' collapsed' : ''}" style="--g-color:${g.color};">
+  <section class="tb-group${collapsed ? ' collapsed' : ''}" data-gkey="${_esc(g.key)}" style="--g-color:${g.color};">
     <header class="tb-group-head" data-act="collapse" data-key="${_esc(g.key)}">
       <span class="tb-chev">▾</span>
       <span class="tb-group-name">${_esc(g.label)}</span>
       <span class="tb-group-count">${pend} pendiente${pend !== 1 ? 's' : ''} · ${g.tasks.length} total</span>
       ${overdue ? `<span class="tb-group-overdue">${overdue} vencida${overdue !== 1 ? 's' : ''}</span>` : ''}
       <span class="tb-stack tb-group-stack">${stack}</span>
+      ${arrastrable ? `<span class="tb-group-drop">Suelta aquí para marcar ${_esc(g.label.toLowerCase())}</span>` : ''}
     </header>
     <div class="tb-group-body">
       <div class="tb-group-inner">
@@ -597,6 +620,16 @@ function toggleTbPanel(force) {
 const _TB_DATE_OPTS = [
   ['todos','Todas'], ['vencidas','Vencidas'], ['hoy','Hoy'],
   ['semana','Próx. 7 días'], ['sin_fecha','Sin fecha'],
+];
+
+/* Agrupar dejó de ser un <select> escondido entre los filtros: era la decisión
+   más importante del tablero —"enséñame el trabajo por campaña" vs "por lo que
+   urge"— y estaba a dos clics y sin señal de cuál estaba puesta. Ahora es una
+   fila de botones con el actual marcado. El orden empieza por Campaña porque
+   es el default y la forma en que el equipo habla del trabajo. */
+const _TB_GROUPS = [
+  ['campaign','Campaña'], ['priority','Prioridad'], ['person','Responsable'],
+  ['status','Estado'], ['date','Deadline'],
 ];
 
 const _TB_ICN_FILTER = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16M7 12h10M10 19h4"/></svg>';
@@ -751,16 +784,12 @@ function _tbToolbarHtml(all, shown) {
         aria-expanded="${_tbPanelOpen}" aria-controls="tbFilterPanel">
         ${_TB_ICN_FILTER}Filtros${nFilters ? `<span class="tb-chip-n">${nFilters}</span>` : ''}
       </button>
-      <label class="tb-select">Agrupar por
-        <select onchange="setTbGroupBy(this.value)">
-          <option value="campaign" ${_tb.groupBy==='campaign'?'selected':''}>Campaña</option>
-          <option value="person"   ${_tb.groupBy==='person'  ?'selected':''}>Responsable</option>
-          <option value="status"   ${_tb.groupBy==='status'  ?'selected':''}>Estado</option>
-          <option value="priority" ${_tb.groupBy==='priority'?'selected':''}>Prioridad</option>
-          <option value="date"     ${_tb.groupBy==='date'    ?'selected':''}>Deadline</option>
-        </select>
-      </label>
-      <div class="tb-seg">
+      <div class="tb-seg tb-seg-group" role="group" aria-label="Agrupar tareas">
+        <span class="tb-seg-label">Ver por</span>
+        ${_TB_GROUPS.map(([v, l]) => chip(_tb.groupBy === v, 'tb-seg-btn', `data-act="group" data-val="${v}"`, l)).join('')}
+      </div>
+      <div class="tb-seg tb-seg-group" role="group" aria-label="Vista del tablero">
+        <span class="tb-seg-label">Vista</span>
         ${chip(_tb.view === 'tabla',  'tb-seg-btn', 'data-act="view" data-val="tabla"', 'Tabla')}
         ${chip(_tb.view === 'kanban', 'tb-seg-btn', 'data-act="view" data-val="kanban"', 'Kanban')}
       </div>
@@ -805,7 +834,15 @@ function renderPendientes() {
   } else if(_tb.view === 'kanban') {
     el.innerHTML = _tbKanbanHtml(filtered, fresh);
   } else {
-    el.innerHTML = `<div class="tb-board${fresh}">${_tbGroup(filtered).map(_tbGroupHtml).join('')}</div>`;
+    // La alternativa sin arrastre se nombra en la misma frase: WCAG 2.2 pide
+    // que arrastrar no sea el único camino, y de paso quien no descubre el
+    // gesto no se queda sin la función.
+    const campo = _tb.groupBy === 'priority' ? 'la prioridad' : 'el estado';
+    const pildora = _tb.groupBy === 'priority' ? 'Prioridad' : 'Estado';
+    const pista = _tbDragMode()
+      ? `<p class="tb-hint">Arrastra una tarea a otro bloque para cambiarle ${campo} — o tócala en la columna ${pildora}.</p>`
+      : '';
+    el.innerHTML = `<div class="tb-board${fresh}">${pista}${_tbGroup(filtered).map(_tbGroupHtml).join('')}</div>`;
   }
 
   // El badge siempre cuenta MIS pendientes, no lo que muestre el filtro.
@@ -924,6 +961,7 @@ function _tbBind() {
       case 'del':      _tbConfirmarBorrado(tid, cid || ''); break;
       case 'status':   _tbOpenMenu(btn, TASK_STATUSES, v => setTaskStatus(tid, cid || '', v)); break;
       case 'prio':     _tbOpenMenu(btn, TASK_PRIOS, v => setTaskPriority(tid, cid || '', v)); break;
+      case 'group':    setTbGroupBy(val); break;
       case 'scope':    setTbScope(val); break;
       case 'view':     setTbView(val); break;
       case 'date':     setTbDate(val); break;
@@ -948,38 +986,83 @@ function _tbBind() {
     }
   });
 
-  // Kanban: arrastrar tarjeta a otra columna cambia el estado.
+  // Arrastrar: en kanban la tarjeta cambia de estado; en tabla la fila cambia
+  // el campo por el que está agrupada (prioridad o estado). Es el mismo gesto
+  // en las dos vistas, así que comparten manejadores.
   let dragged = null;
   page.addEventListener('dragstart', e => {
-    const card = e.target.closest('.tb-card');
-    if(!card) return;
-    dragged = { tid: card.dataset.tid, cid: card.dataset.cid };
-    card.classList.add('dragging');
+    const pieza = e.target.closest('.tb-card, .tb-row[draggable="true"]');
+    if(!pieza) return;
+    dragged = { tid: pieza.dataset.tid, cid: pieza.dataset.cid };
+    pieza.classList.add('dragging');
+    if(pieza.classList.contains('tb-row')) page.querySelector('.tb-board')?.classList.add('dragging-rows');
     e.dataTransfer.effectAllowed = 'move';
-    try { e.dataTransfer.setData('text/plain', card.dataset.tid); } catch {}
+    try { e.dataTransfer.setData('text/plain', pieza.dataset.tid); } catch {}
   });
   page.addEventListener('dragend', e => {
-    const card = e.target.closest('.tb-card');
-    if(card) card.classList.remove('dragging');
-    page.querySelectorAll('.tb-col.over').forEach(c => c.classList.remove('over'));
+    const pieza = e.target.closest('.tb-card, .tb-row');
+    if(pieza) pieza.classList.remove('dragging');
+    page.querySelector('.tb-board')?.classList.remove('dragging-rows');
+    page.querySelectorAll('.tb-col.over, .tb-group.over').forEach(c => c.classList.remove('over'));
     dragged = null;
   });
   page.addEventListener('dragover', e => {
-    const col = e.target.closest('.tb-col');
-    if(!col || !dragged) return;
+    if(!dragged) return;
+    const zona = e.target.closest('.tb-col, .tb-group');
+    if(!zona) return;
+    if(zona.classList.contains('tb-group') && !_tbDragMode()) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
-    page.querySelectorAll('.tb-col.over').forEach(c => { if(c !== col) c.classList.remove('over'); });
-    col.classList.add('over');
+    page.querySelectorAll('.tb-col.over, .tb-group.over').forEach(c => { if(c !== zona) c.classList.remove('over'); });
+    zona.classList.add('over');
   });
   page.addEventListener('drop', e => {
-    const col = e.target.closest('.tb-col');
-    if(!col || !dragged) return;
+    if(!dragged) return;
+    const zona = e.target.closest('.tb-col, .tb-group');
+    if(!zona) return;
     e.preventDefault();
-    col.classList.remove('over');
-    setTaskStatus(dragged.tid, dragged.cid, col.dataset.status);
+    zona.classList.remove('over');
+    if(zona.classList.contains('tb-col')) {
+      setTaskStatus(dragged.tid, dragged.cid, zona.dataset.status);
+    } else {
+      // La clave del grupo lleva el valor: 'r:high' (prioridad), 's:listo'.
+      const [, valor] = String(zona.dataset.gkey || '').split(':');
+      if(valor) {
+        if(_tbDragMode() === 'prio') setTaskPriority(dragged.tid, dragged.cid, valor);
+        else setTaskStatus(dragged.tid, dragged.cid, valor);
+      }
+    }
     dragged = null;
   });
+}
+
+/* Llegar a una tarea desde una notificación. El tablero recuerda filtros, así
+   que la tarea del aviso puede estar escondida detrás de ellos: en ese caso se
+   quitan y se dice por qué, en vez de dejar al usuario mirando una lista donde
+   "no está" lo que le acaban de avisar. Devuelve true si quedó a la vista. */
+function _tbEnfocarTarea(tid, cid) {
+  const t = _tbCollectTasks().find(x => x.id === tid && (x.campaignId || '') === (cid || ''));
+  if(!t) return false;
+  if(!_tbFilter([t]).length) {
+    tbClearFilters();
+    showToast('Quitamos los filtros del tablero para mostrarte esta tarea.');
+  } else {
+    renderPendientes();
+  }
+  // El grupo donde cae puede estar plegado.
+  const fila = document.querySelector(`#page-pendientes [data-tid="${CSS.escape(tid)}"][data-cid="${CSS.escape(cid || '')}"]`);
+  const grupo = fila && fila.closest('.tb-group.collapsed');
+  if(grupo) {
+    const i = _tb.collapsed.indexOf(grupo.dataset.gkey);
+    if(i >= 0) { _tb.collapsed.splice(i, 1); _tbSave(); }
+    grupo.classList.remove('collapsed');
+  }
+  const destino = document.querySelector(`#page-pendientes .tb-row[data-tid="${CSS.escape(tid)}"], #page-pendientes .tb-card[data-tid="${CSS.escape(tid)}"]`);
+  if(!destino) return false;
+  try { destino.scrollIntoView({ block:'center', behavior:'smooth' }); } catch { destino.scrollIntoView(); }
+  destino.classList.add('tb-flash');
+  setTimeout(() => destino.classList.remove('tb-flash'), 2400);
+  return true;
 }
 
 if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _tbBind);

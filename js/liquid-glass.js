@@ -46,7 +46,7 @@
     '.profile-status-preview', '.toast', '.task-area-group',
     // tablero de pendientes
     '.tb-toolbar', '.tb-group', '.tb-card', '.tb-menu', '.tb-col',
-    '.tb-search', '.tb-select select', '.tb-chip:not(.on):not(.tb-seg-btn)',
+    '.tb-search', '.tb-chip:not(.on):not(.tb-seg-btn)',
     // login screen glass
     '#loginScreen .lr-card', '#loginScreen .lr-card-wrap', '#loginScreen .lr-shell',
     '#loginScreen .lr-topbar', '#loginScreen .lr-brand-pill', '#loginScreen .lr-status-pill',

@@ -1331,6 +1331,23 @@ function loadTheme(profile) {
 // ============================================================
 let _notifUnsub = null;
 let _notifs = [];
+// El primer snapshot trae el historial entero: no es "acaba de pasar" y no
+// debe soltar veinte toasts al entrar.
+let _notifPrimed = false;
+
+/* Cuándo pasó. `createdAt` es un serverTimestamp y en el snapshot LOCAL —el que
+   ve quien acaba de escribir la notificación— llega null hasta que el servidor
+   confirma. Con el orden puesto solo en ese campo, tu propio aviso (etiquetarte
+   a ti en una campaña) nacía con fecha 0, se iba al fondo de la lista y con más
+   de 30 avisos ni siquiera entraba: parecía que nunca se creó. `createdAtMs` es
+   la hora del cliente y sirve de respaldo mientras el servidor responde. */
+function _notifMs(n) {
+  if(!n) return 0;
+  const srv = n.createdAt?.toMillis?.();
+  if(srv) return srv;
+  if(typeof n.createdAt === 'number') return n.createdAt;
+  return n.createdAtMs || 0;
+}
 
 function initNotifications() {
   if(!currentUser || !db) return;
@@ -1348,8 +1365,17 @@ function initNotifications() {
     .where('toUid','==',currentUser.uid);
   _notifUnsub = q.onSnapshot(snap => {
     _notifs = snap.docs.map(d=>({id:d.id,...d.data()}))
-      .sort((a,b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0))
+      .sort((a,b) => _notifMs(b) - _notifMs(a))
       .slice(0, 30);
+    // Aviso en vivo: el que llega mientras estás en la app se dice en pantalla.
+    // Sin esto la única señal era el número de la campanita, que nadie mira si
+    // no está esperando algo — por eso "me etiquetaron y no me enteré".
+    if(_notifPrimed) {
+      snap.docChanges()
+        .filter(ch => ch.type === 'added' && !ch.doc.data().read)
+        .forEach(ch => _avisarEnVivo({ id: ch.doc.id, ...ch.doc.data() }));
+    }
+    _notifPrimed = true;
     _renderNotifBell();
   }, err => console.warn('notifications listener failed:', err.message));
   // Refresh deadline notifications periodically + once now (Firestore snapshot
@@ -1378,7 +1404,7 @@ function _computeDeadlineNotifs() {
     const involved = typeof taskPeople === 'function' ? taskPeople(t) : [t.assigneeUid];
     return !t.assigneeUid || involved.includes(currentUser.uid);
   };
-  const consider = (t, campaignName) => {
+  const consider = (t, campaignName, campaignId) => {
     if(t.done || !mine(t)) return;
     const where = campaignName ? ` · ${campaignName}` : '';
     // Los dos deadlines avisan por separado: el interno es del equipo y el de
@@ -1390,36 +1416,194 @@ function _computeDeadlineNotifs() {
       const days = Math.round((due - today)/86400000);
       if(days > DEADLINE_WARN_DAYS) return;
       const id = 'dl_'+(t.id||t.title)+'_'+field+'_'+raw;
-      const text = days < 0 ? `⏰ Deadline ${label} vencido hace ${-days}d: "${t.title}"${where}`
-        : days === 0 ? `⏰ Deadline ${label} es HOY: "${t.title}"${where}`
-        : `⏰ Deadline ${label} en ${days}d: "${t.title}"${where}`;
-      out.push({ id, type:'deadline', text, read: seen.has(id), createdAt: due.getTime(), _sort: days });
+      // La urgencia primero y el nombre de la tarea después: leyendo tres
+      // palabras ya se sabe si hay que actuar. El "de qué deadline y de qué
+      // campaña" baja a la segunda línea, que es donde va el detalle.
+      const cuando = days < 0 ? `Venció hace ${-days} día${-days !== 1 ? 's' : ''}`
+        : days === 0 ? 'Vence hoy'
+        : `Vence en ${days} día${days !== 1 ? 's' : ''}`;
+      out.push({
+        id, type:'deadline', read: seen.has(id), createdAt: due.getTime(), _sort: days,
+        text: `${cuando}: ${t.title}`,
+        meta: `Deadline ${label}${where}`,
+        link: { k:'task', t: t.id || '', c: campaignId || '' },
+      });
     });
   };
-  (getData('globalTasks')||[]).forEach(t=>consider(t,''));
-  (getData('campaigns')||[]).forEach(c => (c.tasks||[]).forEach(t=>consider(t,c.name)));
+  (getData('globalTasks')||[]).forEach(t=>consider(t,'',''));
+  (getData('campaigns')||[]).forEach(c => (c.tasks||[]).forEach(t=>consider(t,c.name,c.id)));
   return out.sort((a,b)=>a._sort-b._sort);
+}
+
+// El texto trae el icono adelante ("✅ Fulano te asignó…"); el avatar del
+// aviso lo repetía al lado. Se quita del texto al pintarlo para no verlo dos
+// veces, sin tocar lo que ya está guardado en Firestore.
+const _NOTIF_ICON = { kudos:'🏆', task_assigned:'✅', deadline:'⏰', campaign_role:'🧭', campaign_update:'📣' };
+function _notifIcon(n) { return _NOTIF_ICON[n.type] || '💬'; }
+function _notifTexto(n) {
+  const t = String(n.text || '');
+  const limpio = t.replace(/^(?:\s|\p{Extended_Pictographic}|\uFE0F|\u200D)+/u, '').trim();
+  return limpio || t;
+}
+
+// Índice por id: el clic del panel busca aquí en vez de pasar el aviso entero
+// serializado dentro de un atributo.
+let _notifIdx = new Map();
+
+function _notifItemHtml(n) {
+  const ago = n.type === 'deadline' ? '' : _timeAgo(new Date(_notifMs(n) || Date.now()));
+  const abre = _notifDestino(n.link);
+  return `<button type="button" class="notif-item${n.read?'':' unread'}${abre?' has-link':''}" data-nid="${_esc(n.id)}">
+    <span class="notif-avatar" aria-hidden="true">${_notifIcon(n)}</span>
+    <span class="notif-body">
+      <span class="notif-text">${_esc(_notifTexto(n))}</span>
+      ${n.meta?`<span class="notif-meta">${_esc(n.meta)}</span>`:''}
+      <span class="notif-foot">
+        ${ago?`<time>${ago}</time>`:''}
+        ${abre?`<span class="notif-go">${_esc(abre)} →</span>`:''}
+      </span>
+    </span>
+    ${n.read?'':'<span class="notif-dot" aria-label="Sin leer"></span>'}
+  </button>`;
+}
+
+// Qué se va a abrir con el clic. Es la promesa que hace el aviso: si no se
+// puede cumplir (la tarea ya no existe, la campaña ya no se puede ver) no se
+// escribe nada y el aviso solo se marca como leído.
+function _notifDestino(link) {
+  if(!link) return '';
+  if(link.k === 'task') return 'Ver la tarea';
+  if(link.k === 'campaign') return 'Ver la campaña';
+  if(link.k === 'page') return { equipo:'Ver el equipo', pendientes:'Ver los pendientes', campannas:'Ver campañas' }[link.p] || 'Abrir';
+  return '';
 }
 
 function _renderNotifBell() {
   const deadlines = _computeDeadlineNotifs();
-  const all = [...deadlines, ..._notifs];
+  const actividad = _notifs.slice().sort((a,b) => _notifMs(b) - _notifMs(a));
+  const all = [...deadlines, ...actividad];
+  _notifIdx = new Map(all.map(n => [String(n.id), n]));
   const unread = all.filter(n=>!n.read).length;
   _setTBadge('notifBadge', unread);
+  // El número del badge lo lee un lector de pantalla como "7" a secas. El
+  // estado se anuncia aparte, con sujeto, y sin mover el foco.
+  const vivo = document.getElementById('notifLive');
+  // "notificaciónes" no existe: el acento se cae en plural.
+  const frase = unread ? `${unread} ${unread === 1 ? 'notificación' : 'notificaciones'} sin leer` : 'Sin avisos nuevos';
+  if(vivo && vivo.textContent !== frase) vivo.textContent = frase;
+  document.getElementById('notifBellBtn')?.setAttribute('aria-label', `Notificaciones · ${frase.toLowerCase()}`);
   const list = document.getElementById('notifList');
   if(!list) return;
-  if(!all.length) { list.innerHTML='<div class="notif-empty">Sin notificaciones 🎉</div>'; return; }
-  list.innerHTML = all.map(n => {
-    const ago = n.type==='deadline' ? '' : _timeAgo(n.createdAt?.toDate ? n.createdAt.toDate() : new Date(n.createdAt||Date.now()));
-    const icon = n.type==='kudos'?'🏆':n.type==='task_assigned'?'✅':n.type==='deadline'?'⏰':'💬';
-    return `<div class="notif-item ${n.read?'':'unread'}" onclick="markNotifRead('${n.id}')">
-      <div class="notif-avatar">${icon}</div>
-      <div class="notif-body">
-        <p>${_esc(n.text||'')}</p>
-        ${ago?`<time>${ago}</time>`:''}
-      </div>
-    </div>`;
-  }).join('');
+  if(!all.length) {
+    list.innerHTML = '<div class="notif-empty"><b>Todo al día</b><span>Aquí caen los avisos cuando alguien te etiqueta o se acerca un deadline.</span></div>';
+    return;
+  }
+  // Dos secciones en vez de una sola lista: los deadlines se recalculan cada
+  // media hora y siempre encabezaban, así que sepultaban lo que acababa de
+  // pasar. Con títulos, cada cosa se busca donde está.
+  const bloques = [];
+  // La actividad va PRIMERO. Los deadlines se recalculan solos y también se ven
+  // en el tablero; que alguien te etiquete sólo se entera aquí, y con cinco
+  // vencimientos arriba eso quedaba fuera de pantalla — que es exactamente cómo
+  // se pierde un "te sumaron a esta campaña".
+  if(actividad.length) {
+    const nuevos = actividad.filter(n => !n.read).length;
+    bloques.push(`<div class="notif-sec"><span>Actividad del equipo</span>${nuevos?`<em>${nuevos} sin leer</em>`:''}</div>`
+      + actividad.map(_notifItemHtml).join(''));
+  }
+  if(deadlines.length) {
+    const vencidas = deadlines.filter(n => n._sort < 0).length;
+    // Sólo los tres más urgentes: la campanita avisa, el tablero es donde se
+    // trabaja la lista completa.
+    const top = deadlines.slice(0, 3);
+    bloques.push(`<div class="notif-sec"><span>Deadlines cerca</span>${vencidas?`<em>${vencidas} vencido${vencidas!==1?'s':''}</em>`:''}</div>`
+      + top.map(_notifItemHtml).join('')
+      + (deadlines.length > top.length
+          ? `<button type="button" class="notif-more" onclick="verTodosLosDeadlines()">Ver los ${deadlines.length - top.length} restantes en Pendientes →</button>`
+          : ''));
+  }
+  list.innerHTML = bloques.join('');
+}
+
+// Un solo listener para todo el panel: los avisos se repintan en cada snapshot
+// y un onclick por fila se vuelve a serializar cada vez.
+document.addEventListener('click', e => {
+  const item = e.target.closest?.('#notifList .notif-item');
+  if(item) { e.preventDefault(); abrirNotif(item.dataset.nid); }
+}, true);
+
+/* Clic en un aviso: lo marca leído, cierra el panel y LLEVA a lo que avisa.
+   Antes solo marcaba leído: enterarte de que te asignaron algo y tener que ir
+   a buscarlo a mano es la mitad del trabajo del aviso. */
+function abrirNotif(nid) {
+  const n = _notifIdx.get(String(nid));
+  const panel = document.getElementById('notifPanel');
+  markNotifRead(nid);
+  if(panel) _setNotifOpen(panel, false);
+  if(n && n.link) _irANotif(n.link);
+}
+
+function _irANotif(link) {
+  try {
+    if(link.k === 'task') return _abrirTareaDeAviso(link.t, link.c);
+    if(link.k === 'campaign') return _abrirCampanaDeAviso(link.c);
+    if(link.k === 'page' && link.p) return navigate(link.p);
+  } catch(e) { console.warn('ir a notificación', e); }
+}
+
+// Los deadlines completos viven en el tablero, filtrados por vencimiento.
+function verTodosLosDeadlines() {
+  const panel = document.getElementById('notifPanel');
+  if(panel) _setNotifOpen(panel, false);
+  navigate('pendientes');
+  try {
+    setTbGroupBy('date');
+    setTbDate('vencidas');
+  } catch(e) { console.warn(e); }
+}
+
+function _abrirCampanaDeAviso(cid) {
+  const c = (getData('campaigns')||[]).find(x => x.id === cid);
+  if(!c) { showToast('Esa campaña ya no existe.','error'); return; }
+  if(typeof canSeeCampaign === 'function' && !canSeeCampaign(c)) {
+    showToast('Ya no estás en esa campaña. Pide que te vuelvan a agregar.','error');
+    return;
+  }
+  navigate('campannas');
+  openCampaignDetail(cid);
+}
+
+function _abrirTareaDeAviso(tid, cid) {
+  const buscar = () => {
+    if(cid) {
+      const c = (getData('campaigns')||[]).find(x => x.id === cid);
+      return c ? (c.tasks||[]).find(t => t.id === tid) : null;
+    }
+    return (getData('globalTasks')||[]).find(t => t.id === tid);
+  };
+  if(!buscar()) {
+    // La tarea se borró o se movió: al menos se deja al usuario en su campaña
+    // en vez de en una pantalla que no explica nada.
+    if(cid) { _abrirCampanaDeAviso(cid); return; }
+    showToast('Esa tarea ya no existe.','error');
+    return;
+  }
+  navigate('pendientes');
+  // El tablero puede tener filtros que dejen la tarea fuera de la lista. El
+  // detalle se abre igual —el aviso prometió esa tarea— y además se resalta la
+  // fila si sí está a la vista.
+  setTimeout(() => {
+    try { if(typeof _tbEnfocarTarea === 'function') _tbEnfocarTarea(tid, cid || ''); } catch(e) { console.warn(e); }
+    try { openTaskDetail(tid, cid || ''); } catch(e) { console.warn(e); }
+  }, 60);
+}
+
+// Aviso en vivo, con botón para ir directo a lo que avisa.
+function _avisarEnVivo(n) {
+  const texto = _notifIcon(n) + ' ' + _notifTexto(n);
+  const destino = _notifDestino(n.link);
+  if(destino) showToast(texto, '', { label: destino.replace(/^Ver la /,'Ver ').replace('Abrir','Abrir'), fn: () => { markNotifRead(n.id); _irANotif(n.link); } });
+  else showToast(texto);
 }
 
 function _timeAgo(date) {
@@ -1436,17 +1620,26 @@ function toggleNotifPanel() {
   if(!panel) return;
   // data-open en vez de display:none: el panel tiene que seguir pintado para
   // que .t-panel-slide pueda animarle también el cierre.
-  const isOpen = panel.dataset.open !== 'true';
-  _setNotifOpen(panel, isOpen);
-  if(isOpen) {
-    // Close on outside click
-    setTimeout(()=>document.addEventListener('click', _closeNotifOnOutside, {once:true}),0);
-  }
+  _setNotifOpen(panel, panel.dataset.open !== 'true');
 }
 
 function _setNotifOpen(panel, open) {
+  const yaEstaba = panel.dataset.open === 'true';
   panel.dataset.open = open ? 'true' : 'false';
   document.getElementById('notifBellBtn')?.setAttribute('aria-expanded', open ? 'true' : 'false');
+  if(open) {
+    // El listener se pone en el siguiente tick para que el clic que ABRE el
+    // panel no lo cierre de inmediato, y se queda puesto hasta que el panel se
+    // cierre. Antes era {once:true}: el primer clic DENTRO del panel lo
+    // consumía y a partir de ahí clicar fuera ya no cerraba nada.
+    setTimeout(() => document.addEventListener('click', _closeNotifOnOutside), 0);
+    document.addEventListener('keydown', _closeNotifOnEsc);
+  } else {
+    document.removeEventListener('click', _closeNotifOnOutside);
+    document.removeEventListener('keydown', _closeNotifOnEsc);
+    // Cerrar con Escape sin devolver el foco deja al teclado en el limbo.
+    if(yaEstaba) document.getElementById('notifBellBtn')?.focus?.();
+  }
 }
 
 function _closeNotifOnOutside(e) {
@@ -1455,6 +1648,12 @@ function _closeNotifOnOutside(e) {
   if(panel && !panel.contains(e.target) && !btn?.contains(e.target)) {
     _setNotifOpen(panel, false);
   }
+}
+
+function _closeNotifOnEsc(e) {
+  if(e.key !== 'Escape') return;
+  const panel = document.getElementById('notifPanel');
+  if(panel) _setNotifOpen(panel, false);
 }
 
 async function markNotifRead(nid) {
@@ -1474,16 +1673,22 @@ async function markAllNotifsRead() {
 // Etiquetar a alguien SIEMPRE deja aviso, y eso te incluye a ti: si te pones
 // de responsable de Cuentas y no te llega nada, la campanita deja de ser el
 // registro de en qué estás metido y hay que ir a buscarlo a mano.
-async function _createNotification({toUid, type, text, email}) {
+async function _createNotification({toUid, type, text, link, email}) {
   if(!toUid) return;
   try {
-    await db.collection('workspaces').doc(WORKSPACE).collection('notifications').add({
+    const doc = {
       toUid, fromUid: currentUser.uid,
       fromName: currentUserProfile?.name || currentUser.email,
       type, text,
       read: false,
       createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-    });
+      // Respaldo de fecha para el snapshot local, donde el serverTimestamp
+      // todavía viene null. Ver _notifMs().
+      createdAtMs: Date.now(),
+    };
+    // A dónde lleva el clic. Sin campos undefined: Firestore los rechaza.
+    if(link && link.k) doc.link = { k: link.k, t: link.t || '', c: link.c || '', p: link.p || '' };
+    await db.collection('workspaces').doc(WORKSPACE).collection('notifications').add(doc);
   } catch(e) { console.warn('notification create failed:', e.message); }
   // El correo a uno mismo sí sobra: acabas de hacerlo tú, ya lo sabes.
   if(email && toUid !== currentUser?.uid) _queueEmail(toUid, email.subject, email.html);
@@ -1594,7 +1799,7 @@ const _TASK_ROLE_COPY = {
   watcher:    { icon:'👥', verb:'te sumó a',                  self:'Te sumaste a',             role:'Colaborador'   },
 };
 
-function _notifyTaskPeople({ title, campaignId, dueDate, clientDueDate, notes, added }) {
+function _notifyTaskPeople({ title, taskId, campaignId, dueDate, clientDueDate, notes, added }) {
   if(!added) return;
   const c = campaignId ? (getData('campaigns')||[]).find(x => x.id === campaignId) : null;
   const campaignName = c ? c.name : 'General';
@@ -1613,6 +1818,9 @@ function _notifyTaskPeople({ title, campaignId, dueDate, clientDueDate, notes, a
       toUid: uid,
       type: 'task_assigned',
       text: frase,
+      // El aviso abre la tarea, no la lista de pendientes: quien lo recibe ya
+      // sabe cuál es; buscarla otra vez entre filtros es trabajo de más.
+      link: taskId ? { k:'task', t: taskId, c: campaignId || '' } : (campaignId ? { k:'campaign', c: campaignId } : null),
       email: {
         subject: `${cp.role} · ${title}`,
         html: _taskEmailHtml({ role:cp.role, who, title, campaignName, dueDate, clientDueDate, notes }),
@@ -1626,8 +1834,8 @@ function _notifyTaskPeople({ title, campaignId, dueDate, clientDueDate, notes, a
 }
 
 // Compat: el resto de la app sigue llamando a la versión vieja de un solo uid.
-function _notifyTaskAssigned(uid, title, campaignId) {
-  _notifyTaskPeople({ title, campaignId, added:{ assignee: uid } });
+function _notifyTaskAssigned(uid, title, campaignId, taskId) {
+  _notifyTaskPeople({ title, taskId, campaignId, added:{ assignee: uid } });
 }
 
 // Etiquetar a alguien en una CAMPAÑA avisa igual que etiquetarlo en una tarea.
@@ -1648,6 +1856,7 @@ function _notifyCampaignRoles(campaignName, campaignId, added) {
       toUid: uid,
       type: 'campaign_role',
       text: uid === currentUser?.uid ? texoPropio : texto,
+      link: campaignId ? { k:'campaign', c: campaignId } : null,
     });
   };
 
@@ -1690,7 +1899,8 @@ function _notifyCampaignSubscribers(campaign, summary) {
   all.forEach(uid => _createNotification({
     toUid: uid,
     type: 'campaign_update',
-    text: `📣 ${who} actualizó ${campaign.name}: ${summary}`
+    text: `📣 ${who} actualizó ${campaign.name}: ${summary}`,
+    link: { k:'campaign', c: campaign.id },
   }));
 }
 
@@ -1713,7 +1923,8 @@ async function sendKudos(toUid, e) {
   await _createNotification({
     toUid,
     type: 'kudos',
-    text: `${pick} ${currentUserProfile?.name||'Alguien'} te envió kudos. ¡Buen trabajo!`
+    text: `${pick} ${currentUserProfile?.name||'Alguien'} te envió kudos. ¡Buen trabajo!`,
+    link: { k:'page', p:'equipo' },
   });
   showToast(`Kudos enviado a ${name} ${pick}`,'success');
 }

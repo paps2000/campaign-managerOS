@@ -337,8 +337,9 @@
       <span class="topbar-date" id="topbarDate"></span>
       <button class="notif-bell-btn" id="notifBellBtn" onclick="toggleNotifPanel()" title="Notificaciones" style="position:relative;" aria-label="Notificaciones" aria-expanded="false" aria-controls="notifPanel">
         🔔
-        <span class="t-badge" id="notifBadge" data-open="false"><span class="t-badge-dot notif-badge">0</span></span>
+        <span class="t-badge" id="notifBadge" data-open="false"><span class="t-badge-dot notif-badge" aria-hidden="true">0</span></span>
       </button>
+      <span class="sr-only" id="notifLive" role="status" aria-atomic="true"></span>
       <button class="notif-bell-btn" id="aiTopBtn" onclick="toggleAgentPanel()" title="Asistente IA" aria-label="Asistente IA" style="position:relative;padding:4px;">
         <img src="assets/y-pink-transparent-128.png" decoding="async" alt="" style="width:24px;height:24px;object-fit:contain;pointer-events:none;">
       </button>
@@ -351,14 +352,15 @@
       <button class="logout-btn" onclick="logout()" title="Cerrar sesión">Salir</button>
     </div>
     <!-- NOTIFICATION PANEL -->
-    <div class="notif-panel t-panel-slide" id="notifPanel" data-open="false">
+    <div class="notif-panel t-panel-slide" id="notifPanel" data-open="false" role="dialog" aria-label="Notificaciones">
       <div class="notif-panel-header">
-        <span>🔔 Notificaciones</span>
-        <button onclick="markAllNotifsRead()" style="font-size:11px;background:none;border:none;cursor:pointer;color:var(--pink);font-weight:600;">Marcar todo leído</button>
+        <span>Notificaciones</span>
+        <button class="notif-readall" onclick="markAllNotifsRead()">Marcar todo leído</button>
       </div>
       <div class="notif-list" id="notifList">
-        <div class="notif-empty">Sin notificaciones</div>
+        <div class="notif-empty"><b>Todo al día</b><span>Aquí caen los avisos cuando alguien te etiqueta o se acerca un deadline.</span></div>
       </div>
+      <div class="notif-panel-foot">Cada aviso abre la tarea o la campaña de la que habla.</div>
     </div>
   </div>
 
