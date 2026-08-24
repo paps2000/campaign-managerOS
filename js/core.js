@@ -311,7 +311,10 @@ function id() { return Date.now().toString(36) + Math.random().toString(36).slic
 // --- Firestore persistence helpers ---
 // Keys that hold large fetched sheet data — kept in memory but stripped
 // from Firestore writes because they can blow past the 1MB doc limit.
-const _CAMPAIGN_LARGE_KEYS = ['trackerRows','escenarioRows','ugcRows','cachedMetrics'];
+// Lo que NUNCA viaja a Firestore: las filas crudas de los sheets (pesan y se
+// vuelven a bajar en cada sync) y los errores de sincronización, que son del
+// navegador de quien está mirando, no del documento compartido.
+const _CAMPAIGN_LARGE_KEYS = ['trackerRows','escenarioRows','ugcRows','cachedMetrics','_syncErrors'];
 function _stripLargeFields(c) {
   const out = {...c};
   _CAMPAIGN_LARGE_KEYS.forEach(k => { delete out[k]; });
@@ -732,7 +735,7 @@ function _repintarAhora() {
       // que es la más cara de la app— y además hacía que al abrir cualquier
       // pestaña el contenido ya llevara encima varios repintados. El resto se
       // pinta al entrar a la campaña y al cambiar de pestaña, que es cuando se
-      // va a ver.
+      // va a ver. El panel de fuentes va dentro de renderCampaignTab.
       if(c) { try { renderCampaignTab(c); } catch(e){ console.warn('campaign tab render', e); } }
     } else {
       renderCampaignGrid();
