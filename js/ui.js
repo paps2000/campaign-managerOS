@@ -452,6 +452,94 @@ function toggleNanoSection() {
   if(section) section.style.display = checked ? '' : 'none';
 }
 
+/* ============================================================
+   LOGO DE LA MARCA
+   ============================================================
+   El logo del cliente vive DENTRO del documento de la campaña, como data URL.
+   No hay Storage montado en el proyecto, y meterlo habría significado reglas
+   nuevas que alguien tiene que publicar a mano antes de que el logo se vea; el
+   documento ya se escribe y se lee por los caminos que existen.
+
+   El precio es el límite de 1MB por documento de Firestore, así que la imagen
+   no se guarda como llega: se re-encoda SIEMPRE a 256 px de lado mayor. Un PNG
+   de marca a ese tamaño ronda las decenas de KB, que es ruido frente al resto
+   del documento; el archivo original que arrastra la gente suele pesar cientos
+   de veces más. */
+const CAMP_LOGO_MAX_PX = 256;
+const CAMP_LOGO_MAX_BYTES = 220 * 1024;
+let _editCampLogo = '';
+
+function _campLogoScale(im, lado) {
+  const ar = im.naturalWidth / Math.max(1, im.naturalHeight);
+  const cv = document.createElement('canvas');
+  cv.width  = Math.max(1, ar >= 1 ? lado : Math.round(lado * ar));
+  cv.height = Math.max(1, ar >= 1 ? Math.round(lado / ar) : lado);
+  const ctx = cv.getContext('2d');
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(im, 0, 0, cv.width, cv.height);
+  // PNG y no JPEG: los logos vienen con fondo transparente y un JPEG lo
+  // rellenaría de negro, que es justo lo que se ve mal recortado sobre la
+  // credencial.
+  return cv.toDataURL('image/png');
+}
+
+function _campLogoDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('No se pudo leer el archivo.'));
+    reader.onload = ev => {
+      const im = new Image();
+      im.onerror = () => reject(new Error('Ese archivo no es una imagen que el navegador pueda abrir.'));
+      im.onload = () => {
+        // Un SVG sin tamaño intrínseco carga con 0×0: dibujarlo daría un lienzo
+        // en blanco y el logo se guardaría vacío sin avisar.
+        if (!im.naturalWidth || !im.naturalHeight) {
+          return reject(new Error('La imagen no trae tamaño. Exporta el logo como PNG y reintenta.'));
+        }
+        let lado = CAMP_LOGO_MAX_PX, out = '';
+        for (let i = 0; i < 3; i++) {
+          out = _campLogoScale(im, lado);
+          if (out.length <= CAMP_LOGO_MAX_BYTES) break;
+          lado = Math.round(lado * 0.7);
+        }
+        if (out.length > CAMP_LOGO_MAX_BYTES) {
+          return reject(new Error('El logo sigue pesando demasiado aun reducido. Prueba con un PNG más simple.'));
+        }
+        resolve(out);
+      };
+      im.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+async function onCampLogoPick(input) {
+  const f = input.files && input.files[0];
+  // Se limpia el input SIEMPRE: sin esto, elegir el mismo archivo dos veces
+  // seguidas no dispara change y parece que la subida se ignoró.
+  input.value = '';
+  if (!f) return;
+  if (!/^image\//.test(f.type)) { showToast('Elige una imagen. Un PNG con fondo transparente es lo que mejor se ve.', 'error'); return; }
+  try {
+    _setCampLogo(await _campLogoDataUrl(f));
+    showToast('Logo listo. Guarda la campaña para que lo vea el equipo.');
+  } catch (e) { showToast(e.message || 'No se pudo procesar el logo.', 'error'); }
+}
+
+function clearCampLogo() { _setCampLogo(''); }
+
+function _setCampLogo(url) {
+  _editCampLogo = url || '';
+  const prev = document.getElementById('fCampLogoPreview');
+  if (prev) prev.innerHTML = _editCampLogo
+    ? `<img src="${_editCampLogo}" alt="Logo de la campaña">`
+    : '<span>Sin logo</span>';
+  const lbl = document.getElementById('fCampLogoLabel');
+  if (lbl) lbl.textContent = _editCampLogo ? '✓ Cambiar logo' : '＋ Subir logo';
+  const clr = document.getElementById('fCampLogoClear');
+  if (clr) clr.style.display = _editCampLogo ? 'inline-flex' : 'none';
+}
+
 function openNewCampaignModal() {
   editingCampaignId = null;
   document.getElementById('campaignModalTitle').textContent='Nueva campaña';
@@ -460,6 +548,7 @@ function openNewCampaignModal() {
   document.getElementById('fCampStatus').value='En proceso';
   const nanoChk = document.getElementById('fCampHasNano');
   if(nanoChk) { nanoChk.checked = false; toggleNanoSection(); }
+  _setCampLogo('');
   const aonInp = document.getElementById('fCampAonTab');
   const nanoInp2 = document.getElementById('fCampNanoTab');
   if(aonInp) aonInp.value='';
@@ -503,6 +592,7 @@ function openEditCampaignModal() {
   if(escUrlInp) escUrlInp.value = c.escenarioSheetUrl || '';
   const nanoChk = document.getElementById('fCampHasNano');
   if(nanoChk) { nanoChk.checked = !!c.hasNano; toggleNanoSection(); }
+  _setCampLogo(c.logo || '');
   // Se escriben SIEMPRE, aunque la campaña no tenga nano: si solo se llenaban
   // cuando hasNano, editar una campaña con nano y luego una sin él dejaba los
   // inputs con las pestañas de la anterior, y saveCampaign las guardaba en la
@@ -1052,6 +1142,9 @@ async function saveCampaign() {
         trackerAonTab: document.getElementById('fCampAonTab')?.value?.trim()||'',
         trackerNanoTab: document.getElementById('fCampNanoTab')?.value?.trim()||'',
         goal: _goal,
+        // Vacío significa "quítalo", igual que el link del escenario: si solo
+        // se escribiera cuando hay logo, no habría forma de borrar uno.
+        logo: _editCampLogo || '',
         // Se escribe aunque venga vacío: el input siempre se llena al abrir el
         // modal, así que un vacío significa "quítame el link", no "no sé".
         // Con el guard anterior era imposible desligar una campaña de su sheet.
@@ -1077,6 +1170,7 @@ async function saveCampaign() {
       trackerAonTab: document.getElementById('fCampAonTab')?.value?.trim()||'',
       trackerNanoTab: document.getElementById('fCampNanoTab')?.value?.trim()||'',
       goal: _goal,
+      logo: _editCampLogo || '',
       escenarioSheetUrl: _escUrl,
       createdBy: currentUser.uid,
       flowSteps:FLOW_STEPS.map(s=>({step:s,status:'Pendiente'})),
@@ -2497,6 +2591,7 @@ async function toggleSubscribeCampaign(cid, e) {
   if(currentPage==='dashboard') renderDashboard();
   if(currentCampaignId === cid && typeof openCampaignDetail === 'function') openCampaignDetail(cid);
   try { if(typeof refreshHoloCamps === 'function') refreshHoloCamps(); } catch(err){}
+  try { if(typeof refreshHoloStickers === 'function') refreshHoloStickers(); } catch(err){}
   showToast(yaSeguia ? 'Dejaste de seguir esta campaña' : 'Ahora sigues esta campaña', 'success');
 }
 

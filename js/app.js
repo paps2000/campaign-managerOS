@@ -513,9 +513,40 @@ function _buildHoloPickers() {
          <img src="${i.src}" alt="" loading="lazy">${_esc(i.label)}
        </button>`).join('');
   }
+  // Las campañas se repintan en CADA apertura, no una sola vez como el resto de
+  // los catálogos: de una vez a otra te pueden haber metido a una campaña nueva
+  // o haberle subido el logo a una que ya llevabas.
+  _renderCampStickerRow();
+
   const campsChk = document.getElementById('holoCampsToggle');
   if(campsChk) campsChk.checked = _editCardCampaigns !== false;
   _renderStickerList();
+}
+
+/* Los logos de las campañas que llevas, listos para pegar. Solo las tuyas: la
+   credencial dice en qué trabajas, no es un catálogo de las cuentas de la
+   agencia. Y solo las que tienen logo cargado — el resto se cuentan en una
+   línea, porque el hueco entre "llevo seis campañas" y "veo dos logos" se
+   explica solo si alguien lo dice. */
+function _renderCampStickerRow() {
+  const el = document.getElementById('holoStickerCamps');
+  if(!el) return;
+  const mias = (typeof holoUserCampaigns === 'function' && currentUser)
+    ? holoUserCampaigns({ uid: currentUser.uid }) : [];
+  if(!mias.length) {
+    el.innerHTML = '<span class="holo-camp-hint">Cuando lleves una campaña, su logo aparecerá aquí para pegarlo.</span>';
+    return;
+  }
+  const conLogo = mias.filter(c => c.logo);
+  const sinLogo = mias.length - conLogo.length;
+  const botones = conLogo.map(c =>
+    `<button type="button" class="holo-stamp-btn" onclick="addCardCampaignSticker('${_esc(c.id)}')" title="Pegar ${_esc(c.name)}">
+       <img src="${_esc(c.logo)}" alt="">${_esc(c.name)}
+     </button>`).join('');
+  const nota = sinLogo
+    ? `<span class="holo-camp-hint">${sinLogo === 1 ? 'Una campaña tuya no tiene logo' : `${sinLogo} campañas tuyas no tienen logo`}: súbelo en Editar campaña › Logo de la marca.</span>`
+    : '';
+  el.innerHTML = botones + nota;
 }
 
 /* La tira de campañas cambia el HTML de la tarjeta, así que aquí sí toca
@@ -544,7 +575,9 @@ function _renderStickerList() {
   el.innerHTML = _editCardStickers.length
     ? _editCardStickers.map((s,i)=>{
         const img = s.i ? (HOLO_STICKER_IMAGE_BY_KEY[s.i]||null) : null;
-        const face = img ? `<img src="${img.src}" alt="" class="holo-chip-stamp">` : '';
+        const camp = s.m ? (typeof holoStickerCampaign==='function' ? holoStickerCampaign(s.m) : null) : null;
+        const src = img ? img.src : (camp ? camp.logo : '');
+        const face = src ? `<img src="${_esc(src)}" alt="" class="holo-chip-stamp">` : '';
         return `<span class="holo-sticker-chip">${face}${_esc(holoStickerLabel(s)||'')}<button type="button" onclick="removeCardSticker(${i})" title="Quitar">✕</button></span>`;
       }).join('')
     : '<span style="font-size:12px;color:var(--text-muted);">Sin stickers todavía.</span>';
@@ -588,6 +621,18 @@ function addCardSticker() {
 function addCardImageSticker(key) {
   if(!HOLO_STICKER_IMAGE_BY_KEY[key]) return;
   _pushCardSticker({ i: key, c: document.getElementById('holoStickerColor')?.value || 'fresa' });
+}
+
+/* Sticker de campaña. El logo se carga ANTES de empujarlo: el tablero salta
+   los stickers cuya imagen todavía no está decodificada, así que pegar y
+   rasterizar en el mismo tic dejaba la tarjeta igual que antes y parecía que el
+   botón no hacía nada. */
+async function addCardCampaignSticker(cid) {
+  const c = typeof holoStickerCampaign === 'function' ? holoStickerCampaign(cid) : null;
+  if(!c) { showToast('Esa campaña ya no tiene logo disponible','error'); return; }
+  if(_editCardStickers.some(s => s.m === cid)) { showToast(`"${c.name}" ya está en tu credencial`,'error'); return; }
+  try { await holoStickerLogosReady([{ m: cid }]); } catch(e) { console.warn('logo campaña', e); }
+  _pushCardSticker({ m: cid, c: document.getElementById('holoStickerColor')?.value || 'papel' });
 }
 
 function removeCardSticker(i) {

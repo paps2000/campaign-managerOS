@@ -879,9 +879,11 @@ function mountHoloCard(host, u, opts) {
       onChange: o.onStickersChange,
       onDragChange: (v) => { stickerDrag = v; },
     });
-    holoStickerAssetsReady().then(() => {
-      if (board) board.setStickers(u.cardStickers || []);
-    });
+    // Los logos de campaña van aparte del catálogo: no se sabe cuáles hacen
+    // falta hasta ver los stickers de esta persona.
+    holoStickerAssetsReady()
+      .then(() => holoStickerLogosReady(u.cardStickers || []))
+      .then(() => { if (board) board.setStickers(u.cardStickers || []); });
   }
 
   return {
@@ -955,6 +957,27 @@ function refreshHoloCamps() {
   });
 }
 window.refreshHoloCamps = refreshHoloCamps;
+
+/* Los stickers de marca dependen de la caché de campañas, que llega DESPUÉS de
+   que la credencial se monta: hasta que llega, un sticker de campaña no tiene
+   logo que rasterizar y el tablero lo salta. Cuando los datos aterrizan hay que
+   volver a intentarlo.
+
+   Solo cuando falta alguno por pintar. Repintar de más devolvería a su sitio
+   guardado los stickers que la persona esté arrastrando en ese momento, y eso
+   se siente como si la tarjeta se peleara con el cursor. */
+function refreshHoloStickers() {
+  _holoMounts.forEach(inst => {
+    if (!inst || !inst.board || !inst.user) return;
+    const defs = inst.user.cardStickers || [];
+    if (!defs.some(d => d && d.m)) return;
+    if (inst.board.items.length >= defs.length) return;
+    holoStickerLogosReady(defs).then(() => {
+      if (inst.board && inst.board.items.length < defs.length) inst.board.setStickers(defs);
+    });
+  });
+}
+window.refreshHoloStickers = refreshHoloStickers;
 
 // ============================================================
 // COMPARTIR
@@ -1150,6 +1173,7 @@ async function holoRenderShare(u, width) {
   // tarjeta viva, solo que al tamaño de la exportación.
   if (typeof holoRenderStickerDef === 'function' && (u.cardStickers || []).length) {
     await holoStickerAssetsReady();
+    await holoStickerLogosReady(u.cardStickers || []);
     // Sin el tope de 34px del tablero: ese existe para que en una tarjeta muy
     // ancha los stickers no se vuelvan carteles, pero la exportación es la MISMA
     // tarjeta a 1200px, así que topándolo salían a menos de la mitad del tamaño

@@ -652,6 +652,9 @@ function rerenderCurrent() {
   // La credencial puede estar abierta encima de cualquier página: su tira de
   // campañas depende de estos mismos datos.
   try { if(typeof refreshHoloCamps==='function') refreshHoloCamps(); } catch(e){}
+  // Y sus stickers de marca: el logo vive en el documento de la campaña, así
+  // que hasta este momento no había imagen que pegar.
+  try { if(typeof refreshHoloStickers==='function') refreshHoloStickers(); } catch(e){}
   if(currentPage==='dashboard') renderDashboard();
   else if(currentPage==='campannas') {
     if(currentCampaignId) {

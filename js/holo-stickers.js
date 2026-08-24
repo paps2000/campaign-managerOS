@@ -67,6 +67,64 @@ const HOLO_STICKER_IMAGES = [
 ];
 const HOLO_STICKER_IMAGE_BY_KEY = Object.fromEntries(HOLO_STICKER_IMAGES.map(i => [i.key, i]));
 
+/* Stickers de MARCA: el logo de una campaña donde la persona trabaja. Mismo
+   vinil que las estampas —el troquel se genera igual— pero la imagen no viene
+   de un catálogo fijo: la sube quien edita la campaña y vive en su documento,
+   así que hay que ir a buscarla a la caché de campañas cada vez.
+
+   No se guarda el logo dentro del sticker, solo el id de la campaña. Si mañana
+   cambian el logo, la credencial se actualiza sola; y si a alguien le quitan la
+   campaña —o quien mira la credencial no tiene permiso de verla— el sticker
+   simplemente no se pinta, en vez de convertirse en una filtración de qué
+   cuentas lleva la agencia. */
+
+/* Ancho de referencia del logo, en múltiplos del tamaño de letra de los
+   stickers de texto. Los logos vienen en proporciones muy distintas —Spotify es
+   un círculo, Rexona es una tira— así que no se puede fijar el ancho: con ancho
+   fijo el círculo sale enorme y la tira, ilegible. Se reparte por la RAÍZ de la
+   proporción, que hace crecer el ancho de los anchos sin dejar que se disparen,
+   y así los dos ocupan más o menos la misma mancha en la tarjeta. */
+const HOLO_LOGO_BOX = 2.2;
+
+/* Los logos ya cargados, por id de campaña. Se guarda también el `src` con el
+   que se cargó: si el logo de la campaña cambia, la entrada vieja deja de
+   valer y hay que volver a cargar. */
+const _holoCampLogoCache = {};
+
+/* La campaña de un sticker de marca, si existe, tiene logo y quien MIRA la
+   credencial puede verla. Devuelve la campaña entera porque el nombre también
+   hace falta para las listas del editor. */
+function holoStickerCampaign(cid) {
+  if (!cid) return null;
+  let list = [];
+  try {
+    if (typeof _cache !== 'undefined' && Array.isArray(_cache.campaigns)) list = _cache.campaigns;
+    else if (typeof getData === 'function') list = getData('campaigns') || [];
+  } catch (e) { return null; }
+  const c = list.find(x => x && x.id === cid);
+  if (!c || !c.logo) return null;
+  if (typeof canSeeCampaign === 'function' && !canSeeCampaign(c)) return null;
+  return c;
+}
+
+/* Carga los logos que necesita una lista de stickers. Mismo trato que las
+   fuentes y las estampas: rasterizar antes de que la imagen esté decodificada
+   deja el sticker vacío, y ese vacío no se repinta solo. */
+function holoStickerLogosReady(list) {
+  const ids = [];
+  (list || []).forEach(d => { if (d && d.m && ids.indexOf(d.m) < 0) ids.push(d.m); });
+  return Promise.all(ids.map(cid => new Promise(res => {
+    const c = holoStickerCampaign(cid);
+    if (!c) { delete _holoCampLogoCache[cid]; return res(); }
+    const hit = _holoCampLogoCache[cid];
+    if (hit && hit.src === c.logo) return res();
+    const im = new Image();
+    im.onload = () => { _holoCampLogoCache[cid] = { src: c.logo, img: im }; res(); };
+    im.onerror = () => { delete _holoCampLogoCache[cid]; res(); };
+    im.src = c.logo;
+  })));
+}
+
 const HOLO_STICKER_MAX = 6;
 
 // ============================================================
@@ -120,7 +178,7 @@ function holoStickerAssetsReady() {
    La silueta se saca con `source-in`: se pinta la imagen y encima un rectángulo
    del color del borde, que solo sobrevive donde la imagen tiene alfa. */
 function renderImageStickerCanvas(opts) {
-  const im = _holoStickerImgCache[opts.key];
+  const im = opts.img;
   if (!im || !im.naturalWidth) return null;
 
   const dpr = opts.dpr || Math.min(window.devicePixelRatio || 1, 2);
@@ -232,7 +290,29 @@ function holoRenderStickerDef(def, fontPx, dpr) {
     const d = HOLO_STICKER_IMAGE_BY_KEY[def.i];
     if (!d) return null;
     return renderImageStickerCanvas({
-      key: d.key, outline: c.outline, widthPx: fontPx * (d.w || 2.4), dpr,
+      img: _holoStickerImgCache[d.key], outline: c.outline,
+      widthPx: fontPx * (d.w || 2.4), dpr,
+    });
+  }
+  if (def.m) {
+    // El permiso se vuelve a mirar AQUÍ, no solo al precargar: la caché de
+    // logos sobrevive a que te saquen de la campaña, y un repintado por resize
+    // habría seguido pintando un logo que ya no se debería ver. Y si el logo
+    // cambió, se espera a que la precarga traiga el nuevo en vez de pintar el
+    // viejo.
+    const camp = holoStickerCampaign(def.m);
+    const hit = _holoCampLogoCache[def.m];
+    if (!camp || !hit || hit.src !== camp.logo || !hit.img.naturalWidth) return null;
+    const ar = hit.img.naturalWidth / Math.max(1, hit.img.naturalHeight);
+    return renderImageStickerCanvas({
+      img: hit.img, outline: c.outline,
+      widthPx: fontPx * HOLO_LOGO_BOX * Math.min(2.2, Math.max(0.55, Math.sqrt(ar))),
+      // El grosor del troquel se ata al tamaño de LETRA, no al del logo: si
+      // saliera del ancho, una tira como Rexona llevaría un borde el doble de
+      // gordo que el sticker de al lado y los dos dejarían de parecer del mismo
+      // material.
+      border: Math.max(3, Math.round(fontPx * 0.16)),
+      dpr,
     });
   }
   const f = HOLO_STICKER_FONT_BY_KEY[def.f] || HOLO_STICKER_FONTS[0];
@@ -245,6 +325,7 @@ function holoRenderStickerDef(def, fontPx, dpr) {
 /* Etiqueta legible de un def, para las listas del editor. */
 function holoStickerLabel(def) {
   if (def.i) return (HOLO_STICKER_IMAGE_BY_KEY[def.i] || {}).label || def.i;
+  if (def.m) { const c = holoStickerCampaign(def.m); return c ? c.name : 'Campaña'; }
   return def.w;
 }
 
@@ -400,6 +481,7 @@ class HoloStickerBoard {
       // `w: undefined` acaba en Firestore como campo nulo y luego se rasteriza
       // como texto vacío.
       if (it.def.i) out.i = it.def.i;
+      else if (it.def.m) out.m = it.def.m;
       else { out.w = it.def.w; out.f = it.def.f; }
       return out;
     });
