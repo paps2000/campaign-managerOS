@@ -1355,7 +1355,10 @@ function renderMetrics() {
     document.getElementById('metricsCampDetail').style.display = 'none';
   }
   const grid = document.getElementById('metricsCampGrid');
-  const camps = visibleCampaigns().filter(c => c.status !== 'Completado');
+  // El mismo alcance que la pestaña de Campañas (Mías / Todas): un admin no
+  // quiere el tablero de métricas de la agencia entera cada vez que entra.
+  const camps = (typeof campanasEnAlcance === 'function' ? campanasEnAlcance() : visibleCampaigns())
+    .filter(c => c.status !== 'Completado');
   if(!camps.length) { grid.innerHTML='<div class="empty-state"><p>Ninguna campaña activa. Crea la primera y aquí verás su avance.</p></div>'; return; }
   grid.innerHTML = camps.map(c=>`
     <div class="campaign-card" onclick="openMetricsCampaign('${c.id}')">

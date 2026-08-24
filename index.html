@@ -498,10 +498,11 @@
       <!-- LIST VIEW -->
       <div id="campaignList">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
-          <h3 style="font-size:28px;font-weight:700;letter-spacing:-0.4px;">Todas las campañas</h3>
+          <h3 id="campListTitle" style="font-size:28px;font-weight:700;letter-spacing:-0.4px;">Mis campañas</h3>
           <button class="btn btn-primary" onclick="openNewCampaignModal()">+ Nueva campaña</button>
         </div>
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
+          <div id="campScopePills" style="display:flex;gap:6px;" role="group" aria-label="Qué campañas ver"></div>
           <input type="text" id="campFilterSearch" class="form-input" style="flex:1;min-width:200px;font-size:13px;" placeholder="Buscar por nombre o cliente..." oninput="renderCampaignGrid()" aria-label="Buscar campañas por nombre o cliente">
           <div id="campStatusPills" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
           <button class="btn btn-ghost btn-sm" onclick="saveCampaignView()" title="Guardar filtros actuales como vista" aria-label="Guardar vista"><span class="icn-inline" data-icn="bookmark"></span>Guardar vista</button>
@@ -592,6 +593,11 @@
 
         <!-- TAB: PENDIENTES -->
         <div class="tab-content" id="tab-pendientes">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+            <h4 style="font-size:13px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;">Eventos de esta campaña</h4>
+            <button class="btn btn-ghost btn-sm" onclick="openAddEventModal(currentCampaignId)">+ Agregar evento</button>
+          </div>
+          <div id="campaignEventsList" style="margin-bottom:22px;"></div>
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
             <h4 style="font-size:13px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;">Pendientes de esta campaña</h4>
             <button class="btn btn-primary btn-sm" onclick="openAddTaskModal()">+ Agregar tarea</button>
@@ -660,6 +666,17 @@
       <div style="display:flex;justify-content:flex-end;margin-bottom:14px;">
         <button class="btn btn-primary" onclick="openAddGlobalTaskModal()">+ Nueva tarea</button>
       </div>
+
+      <!-- EVENTOS — las fechas a las que se atan las campañas. No son tareas:
+           no se marcan como hechas, pero ordenan todo lo que hay alrededor. -->
+      <section class="ev-section" aria-labelledby="eventosTitulo">
+        <div class="ev-head">
+          <h3 id="eventosTitulo" class="ev-head-title">Eventos <span id="eventosCount" class="ev-head-count"></span></h3>
+          <button class="btn btn-ghost btn-sm" onclick="openAddEventModal()">+ Agregar evento</button>
+        </div>
+        <div id="eventosList"></div>
+      </section>
+
       <div id="pendientesToolbar"></div>
       <div id="allTasksList"></div>
     </div>
@@ -1499,6 +1516,56 @@
 </div>
 
 <!-- MODAL: TASK DETAIL -->
+<div class="modal-overlay" id="eventModal" role="dialog" aria-modal="true" aria-labelledby="eventModal__title">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="eventModal__title">Nuevo evento</div>
+      <button class="modal-close" aria-label="Cerrar" onclick="closeModal('eventModal')"><span class="icn-close"></span></button>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="fEvTitle">Evento</label>
+      <input type="text" class="form-input" id="fEvTitle" placeholder="Activación en Plaza Carso, premiere, junta con cliente...">
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="fEvCampaign">Campaña</label>
+      <select class="form-input" id="fEvCampaign"></select>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label" for="fEvDate">Fecha</label>
+        <input type="date" class="form-input" id="fEvDate">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="fEvEndDate">Termina (opcional)</label>
+        <input type="date" class="form-input" id="fEvEndDate">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label" for="fEvTime">Hora (opcional)</label>
+        <input type="time" class="form-input" id="fEvTime">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="fEvPlace">Dónde (opcional)</label>
+        <input type="text" class="form-input" id="fEvPlace" placeholder="Lugar o link de la sala">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="fEvUrl">Link (opcional)</label>
+      <input type="url" class="form-input" id="fEvUrl" placeholder="https://...">
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="fEvNotes">Notas</label>
+      <textarea class="form-input" id="fEvNotes" rows="3" placeholder="Qué hay que llevar, quién va, a qué hora hay que estar..."></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" id="evDeleteBtn" onclick="deleteEventFromModal()" style="display:none;margin-right:auto;color:#e2445c;">Borrar</button>
+      <button class="btn btn-ghost" onclick="closeModal('eventModal')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveEvent()">Guardar evento</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="taskDetailModal" role="dialog" aria-modal="true" aria-labelledby="tdTitle">
   <div class="modal" style="width:480px;">
     <div class="modal-header">
@@ -2028,6 +2095,7 @@
 <script src="js/campaigns.js" defer></script>
 <script src="js/sheets.js" defer></script>
 <script src="js/tasks-board.js" defer></script>
+<script src="js/events.js" defer></script>
 <script src="js/holo-stickers.js" defer></script>
 <script src="js/holo-card.js" defer></script>
 <script src="js/ui.js" defer></script>
@@ -2067,6 +2135,9 @@
   <div class="fab-actions" id="fabActions">
     <button class="fab-action" onclick="closeFab();openAddGlobalTaskModal();" aria-label="Nueva tarea">
       <span class="fab-action-icon" aria-hidden="true" data-icn="check"></span> Nueva tarea
+    </button>
+    <button class="fab-action" onclick="closeFab();openAddEventModal();" aria-label="Nuevo evento">
+      <span class="fab-action-icon" aria-hidden="true" data-icn="calendar"></span> Nuevo evento
     </button>
     <button class="fab-action" onclick="closeFab();openNewCampaignModal();" aria-label="Nueva campaña">
       <span class="fab-action-icon" aria-hidden="true" data-icn="megaphone"></span> Nueva campaña

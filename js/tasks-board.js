@@ -267,9 +267,22 @@ function _tbDateLabel(t, field) { return _tbDayLabel(taskDue(t, field || _tb.dat
 // RECOLECCIÓN + FILTRADO
 // ============================================================
 function _tbCollectTasks() {
-  const campaigns = visibleCampaigns();
+  /* MIS campañas, no todas las visibles. Un admin ve el workspace entero, y
+     con visibleCampaigns() su lista de pendientes traía las tareas de setenta
+     campañas en las que no está metido: lo suyo quedaba enterrado. Quien no es
+     admin no nota diferencia (ve lo mismo por los dos caminos). */
+  const campaigns = (typeof misCampanas === 'function') ? misCampanas() : visibleCampaigns();
   const globalTasks = getData('globalTasks') || [];
-  const all = globalTasks.map(t => ({ ...t, campaignId:'', campaignName: t.campaignName || 'General' }));
+  // `campaignId` se deja vacío a propósito aunque la tarea nombre una campaña:
+  // es la dirección donde _tbFindTask va a buscarla para marcarla, y una tarea
+  // suelta vive en globalTasks. El nombre sí se resuelve, para que la etiqueta
+  // diga la campaña de verdad y no "General".
+  const nombreDe = t => {
+    if(!t.campaignId) return t.campaignName || 'General';
+    const c = (_cache.campaigns||[]).find(x => x.id === t.campaignId);
+    return c ? c.name : (t.campaignName || 'General');
+  };
+  const all = globalTasks.map(t => ({ ...t, campaignId:'', campaignName: nombreDe(t) }));
   campaigns.forEach(c => (c.tasks || []).forEach(t =>
     all.push({ ...t, campaignId: c.id, campaignName: c.name })));
 

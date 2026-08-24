@@ -220,7 +220,7 @@ function nivelLabel(n) {
 const STATUS_OPTIONS = STATUS_OPTIONS_FLOW;
 
 // In-memory cache backed by Firestore. Reads = sync (cache). Writes = sync cache + async Firestore.
-const _cache = { campaigns:[], globalTasks:[], settings:{}, influencerRatings:[], creators:[], thinkyPesos:[], _initialized:false };
+const _cache = { campaigns:[], globalTasks:[], settings:{}, influencerRatings:[], creators:[], thinkyPesos:[], events:[], _initialized:false };
 
 function getData(key, def) {
   if(key in _cache) return _cache[key];
@@ -456,6 +456,13 @@ async function persistCampaigns(campaigns) {
 // del try, que solo envolvía el commit, así que la promesa se rompía entera:
 // ninguna tarea global llegaba al servidor y la app seguía diciendo "Tarea
 // actualizada". Se sanea antes de escribir y cada doc va en su propio try.
+// Huella de lo último confirmado por el servidor para cada pendiente suelto.
+// Mismo papel que _persistedFp con las campañas: marcar UNA tarea como hecha
+// reescribía las CIEN, y cada escritura vuelve como snapshot y como repintado.
+// Esa tormenta era buena parte del parpadeo de la app.
+const _tareasFp = new Map();
+function _tareaFingerprint(t) { return _stableStringify(_sanitizeForFirestore(t)); }
+
 async function persistGlobalTasks(tasks) {
   if(!currentUser) return;
   const col = db.collection('workspaces').doc(WORKSPACE).collection('globalTasks');
@@ -470,13 +477,23 @@ async function persistGlobalTasks(tasks) {
   }
   const newIds = new Set(tasks.map(t=>t.id));
   const batch = db.batch();
+  const escritas = [];
+  let ops = 0;
   tasks.forEach(t => {
     if(!t || !t.id) return;
-    try { batch.set(col.doc(t.id), _sanitizeForFirestore(t)); }
+    let fp;
+    try { fp = _tareaFingerprint(t); } catch(e) { fp = null; }
+    // Ya está así en el servidor y el doc existe: reescribirlo es un no-op caro.
+    if(fp && _tareasFp.get(t.id) === fp && existingIds.has(t.id)) return;
+    try { batch.set(col.doc(t.id), _sanitizeForFirestore(t)); ops++; escritas.push([t.id, fp]); }
     catch(e) { console.error('persistGlobalTasks: tarea inválida', t.id, e); }
   });
-  existingIds.forEach(eid => { if(!newIds.has(eid)) batch.delete(col.doc(eid)); });
-  try { await batch.commit(); } catch(e) {
+  existingIds.forEach(eid => { if(!newIds.has(eid)) { batch.delete(col.doc(eid)); _tareasFp.delete(eid); ops++; } });
+  if(ops === 0) return;
+  try {
+    await batch.commit();
+    escritas.forEach(([tid, fp]) => { if(fp) _tareasFp.set(tid, fp); });
+  } catch(e) {
     console.error('persistGlobalTasks error',e);
     try { showToast('No se pudieron guardar los pendientes: ' + (e.message||e), 'error'); } catch(_){}
   }
@@ -569,6 +586,12 @@ function attachListeners() {
 
   unsubscribers.push(ws.collection('globalTasks').onSnapshot(snap => {
     _cache.globalTasks = snap.docs.map(d => d.data());
+    // El servidor acaba de decir qué hay: se re-siembran las huellas para que
+    // el próximo setData('globalTasks') sepa qué NO necesita reescribir.
+    try {
+      _tareasFp.clear();
+      snap.docs.forEach(d => { try { _tareasFp.set(d.id, _tareaFingerprint(d.data())); } catch(e){} });
+    } catch(e){}
     rerenderCurrent();
   }, err => console.error('globalTasks listener',err)));
 
@@ -608,6 +631,20 @@ function attachListeners() {
     _cache.clients = snap.docs.map(d => d.data());
     if(currentPage === 'clientes' && typeof renderClientes === 'function') renderClientes();
   }, err => console.error('clients listener', err)));
+
+  /* Eventos. Una campaña se ata a fechas que no ponemos nosotros (activaciones,
+     premieres, el evento del cliente) y eso no es un pendiente: no se marca
+     como hecho ni tiene quien lo entregue. Ver js/events.js. */
+  unsubscribers.push(ws.collection('events').onSnapshot(snap => {
+    _cache.events = snap.docs.map(d => d.data());
+    try { if(typeof renderEventos === 'function' && currentPage === 'pendientes') renderEventos(); } catch(e){}
+    try {
+      if(typeof renderCampaignEventos === 'function' && currentPage === 'campannas' && currentCampaignId) {
+        const c = (_cache.campaigns||[]).find(x => x.id === currentCampaignId);
+        if(c) renderCampaignEventos(c);
+      }
+    } catch(e){}
+  }, err => console.error('events listener',err)));
 
   // Master creators DB listener (base de datos de talento)
   unsubscribers.push(ws.collection('creators').onSnapshot(snap => {
@@ -690,19 +727,18 @@ function _repintarAhora() {
   else if(currentPage==='campannas') {
     if(currentCampaignId) {
       const c = _cache.campaigns.find(x=>x.id===currentCampaignId);
-      if(c) {
-        try { renderCampaignInfoGrid(c); } catch(e){ console.warn('info grid render', e); }
-        renderCampaignInfluencers(c);
-        renderCampaignTasks(c);
-        renderCampaignDocs(c);
-        renderCampaignFlow(c);
-        renderCampaignTracker(c);
-      }
+      // Sólo la pestaña que se está viendo. Repintar las seis en cada snapshot
+      // reconstruía cinco listas que nadie mira —incluida la tabla del tracker,
+      // que es la más cara de la app— y además hacía que al abrir cualquier
+      // pestaña el contenido ya llevara encima varios repintados. El resto se
+      // pinta al entrar a la campaña y al cambiar de pestaña, que es cuando se
+      // va a ver.
+      if(c) { try { renderCampaignTab(c); } catch(e){ console.warn('campaign tab render', e); } }
     } else {
       renderCampaignGrid();
     }
   }
-  else if(currentPage==='pendientes') renderPendientes();
+  else if(currentPage==='pendientes') { renderPendientes(); try { renderEventos(); } catch(e){} }
   else if(currentPage==='metricas') renderMetrics();
   else if(currentPage==='calendario') renderCalendar();
   else if(currentPage==='influencers') renderInfluencers();
@@ -810,7 +846,9 @@ function _refreshPendCount() {
   let n = 0;
   const mine = t => !t.done && (!t.assigneeUid || t.assigneeUid === currentUser.uid);
   (getData('globalTasks')||[]).forEach(t => { if(mine(t)) n++; });
-  (visibleCampaigns()||[]).forEach(c => (c.tasks||[]).forEach(t => { if(mine(t)) n++; }));
+  // misCampanas() y no visibleCampaigns(): el badge cuenta MIS pendientes, y
+  // para un admin "visible" es el workspace entero.
+  (misCampanas()||[]).forEach(c => (c.tasks||[]).forEach(t => { if(mine(t)) n++; }));
   setPendientesBadge(n);
 }
 // Render a number into an element as a transitions.dev .t-digit-group,
@@ -1055,13 +1093,36 @@ function toggleMobileSidebar() {
   overlay.classList.toggle('open', open);
 }
 
+/* Marca una vista como "recién llegada" para que sus tarjetas hagan la entrada
+   escalonada UNA vez. El CSS de esas animaciones cuelga de `.page.is-fresh`
+   (ver assets/styles.css, bloque ANIMATIONS): sin esta marca, un repintado por
+   datos no re-anima nada — que es justo lo que hacía parpadear la app entera,
+   porque cada snapshot de Firestore recrea las listas con innerHTML y cada
+   tarjeta nueva volvía a entrar desde opacidad 0.
+
+   La marca se quita sola: dura lo que dura la entrada más larga (--dur-very-slow
+   + su retardo), redondeado a 1.2s. Mientras esté puesta, un repintado sí
+   re-anima; es una ventana tan corta que coincide con la propia entrada. */
+function marcarFresco(el) {
+  if(!el || !el.classList) return;
+  el.classList.remove('is-fresh');
+  void el.offsetWidth;                 // reinicia las animaciones ya corriendo
+  el.classList.add('is-fresh');
+  clearTimeout(el._frescoTimer);
+  el._frescoTimer = setTimeout(() => el.classList.remove('is-fresh'), 1200);
+}
+
 function navigate(page) {
-  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.page').forEach(p=>{ p.classList.remove('active'); p.classList.remove('is-fresh'); });
   // La clase .active sólo pinta: el lector de pantalla no la ve. aria-current
   // es lo que hace que anuncie "página actual" al pasar por el item.
   document.querySelectorAll('.nav-item').forEach(n=>{ n.classList.remove('active'); n.removeAttribute('aria-current'); });
   document.querySelectorAll('.mobile-nav-item').forEach(n=>{ n.classList.remove('active'); n.removeAttribute('aria-current'); });
-  document.getElementById('page-'+page).classList.add('active');
+  const pageEl = document.getElementById('page-'+page);
+  pageEl.classList.add('active');
+  // Antes de que los render*() de abajo creen las tarjetas: la marca tiene que
+  // estar puesta cuando nacen, o no les toca la animación de entrada.
+  marcarFresco(pageEl);
   const navAct = document.querySelector(`.nav-item[data-page="${page}"]`);
   navAct?.classList.add('active'); navAct?.setAttribute('aria-current','page');
   const navMob = document.querySelector(`.mobile-nav-item[data-page="${page}"]`);
@@ -1112,7 +1173,7 @@ function navigate(page) {
 
   if(page==='dashboard') renderDashboard();
   if(page==='campannas') { showCampaignList(); renderCampaignGrid(); }
-  if(page==='pendientes') renderPendientes();
+  if(page==='pendientes') { renderPendientes(); try { renderEventos(); } catch(e){} }
   if(page==='metricas') renderMetrics();
   if(page==='calendario') renderCalendar();
   if(page==='generador') populateCampaignSelects();

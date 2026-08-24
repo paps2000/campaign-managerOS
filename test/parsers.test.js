@@ -62,14 +62,20 @@ const sandbox = {
         doc: () => ({
           get: () => Promise.resolve({exists:false}),
           set: noop,
-          collection: () => ({ doc: id => ({ __id: id }) }),
+          // `get()` en la subcolección: persistGlobalTasks lee los ids que ya
+          // existen para saber cuáles borrar. Devuelve lo que la prueba deje
+          // en OPS.existentes.
+          collection: () => ({
+            doc: id => ({ __id: id }),
+            get: () => Promise.resolve({ docs: OPS.existentes.map(id => ({ id })) }),
+          }),
         }),
       }),
     }), { FieldValue: { serverTimestamp: noop } }),
   },
 };
 // Registro de operaciones de Firestore que hacen las pruebas
-const OPS = { set: [], delete: [], commits: 0 };
+const OPS = { set: [], delete: [], commits: 0, existentes: [] };
 sandbox.OPS = OPS;
 sandbox.window = sandbox;
 sandbox.globalThis = sandbox;
@@ -229,6 +235,71 @@ group('parseEscenarioRows — creadores, totales y basura');
     menos[0].trackerRows = [{a:1},{b:2}];
     await persist(menos);
     eq(ops.set.length, 0, 'cambiar trackerRows no dispara escritura (no se persiste)');
+  }
+
+  // ===========================================================================
+  // Persistencia diferencial de pendientes sueltos.
+  // persistGlobalTasks reescribía TODOS los documentos en cada llamada: marcar
+  // una tarea como hecha disparaba N escrituras, cada una volvía como snapshot
+  // y cada snapshot pedía un repintado. Esa tormenta era buena parte del
+  // parpadeo de la app.
+  group('persistGlobalTasks — solo escribe lo que cambió');
+  {
+    const ops = OPS;
+    vm.runInContext('currentUser = { uid: "u1" };', sandbox);
+    const persist = sandbox.persistGlobalTasks;
+    const tareas = [
+      { id:'t1', title:'Uno', done:false },
+      { id:'t2', title:'Dos', done:false },
+    ];
+    const reset = () => { ops.set = []; ops.delete = []; ops.commits = 0; };
+
+    reset(); ops.existentes = [];
+    await persist(tareas);
+    eq(ops.set.sort(), ['t1','t2'], 'primera escritura: persiste las 2 tareas');
+
+    reset(); ops.existentes = ['t1','t2'];
+    await persist(tareas);
+    eq(ops.set.length, 0, 'sin cambios: 0 escrituras');
+    eq(ops.commits, 0, 'sin cambios: ni siquiera abre commit');
+
+    reset(); ops.existentes = ['t1','t2'];
+    tareas[1].done = true;
+    await persist(tareas);
+    eq(ops.set, ['t2'], 'marcar una como hecha reescribe SOLO esa');
+
+    reset(); ops.existentes = ['t1','t2'];
+    await persist([tareas[0]]);
+    eq(ops.delete, ['t2'], 'la tarea eliminada se borra del servidor');
+    eq(ops.set.length, 0, 'y no se reescribe la que quedó igual');
+    ops.existentes = [];
+  }
+
+  // ===========================================================================
+  // Pendientes de una campaña: los sueltos que la nombran también cuentan.
+  // Una tarea creada desde el botón flotante con la campaña elegida vivía en
+  // globalTasks con `campaignId`, salía en Pendientes-de-todo y NO salía en la
+  // pestaña de Pendientes de esa campaña. El pendiente existía, pero no donde
+  // se le busca.
+  group('tareasDeCampana — junta las propias y las sueltas etiquetadas');
+  {
+    vm.runInContext(`
+      _cache.globalTasks = [
+        { id:'g1', title:'Suelta que nombra la campaña', campaignId:'c1' },
+        { id:'g2', title:'Suelta de agencia', campaignId:'' },
+        { id:'g3', title:'Suelta de otra campaña', campaignId:'c2' },
+        { id:'t1', title:'Duplicada por id', campaignId:'c1' },
+      ];
+    `, sandbox);
+    const c = { id:'c1', name:'Mundial', tasks:[{ id:'t1', title:'Propia de la campaña' }] };
+    const titulos = sandbox.tareasDeCampana(c).map(t => t.title);
+    eq(titulos, ['Propia de la campaña', 'Suelta que nombra la campaña'],
+       'suma la suelta etiquetada y deja fuera las de otras campañas');
+    eq(sandbox.tareasDeCampana({ id:'c1', tasks:[] }).map(t=>t.id), ['g1','t1'],
+       'sin tareas propias, las sueltas etiquetadas siguen apareciendo');
+    // Una campaña sin `tasks` (documento viejo o importado) no debe reventar.
+    eq(sandbox.tareasDeCampana({ id:'c9' }).length, 0, 'campaña sin array de tareas: 0, sin excepción');
+    vm.runInContext('_cache.globalTasks = [];', sandbox);
   }
   // ===========================================================================
   console.log('\n' + (fail === 0

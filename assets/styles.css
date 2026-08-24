@@ -278,18 +278,35 @@ body { font-family:'Quicksand',-apple-system,sans-serif; background:var(--bg); c
 @keyframes countUp { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
 
 .page.active { animation: fadeUp var(--dur-slow) var(--ease); }
-.stat-card { animation: fadeUp var(--dur-very-slow) var(--ease) backwards; }
-.stat-card:nth-child(1) { animation-delay:var(--dur-stagger); }
-.stat-card:nth-child(2) { animation-delay:var(--dur-micro); }
-.stat-card:nth-child(3) { animation-delay:var(--dur-quick); }
-.stat-card:nth-child(4) { animation-delay:var(--dur-fast); }
-.card { animation: fadeUp var(--dur-very-slow) var(--ease) backwards; animation-delay:var(--dur-quick); }
-.campaign-card { animation: pop var(--dur-slow) var(--ease) backwards; }
-.campaign-card:nth-child(1) { animation-delay:var(--dur-stagger); }
-.campaign-card:nth-child(2) { animation-delay:var(--dur-micro); }
-.campaign-card:nth-child(3) { animation-delay:var(--dur-quick); }
-.campaign-card:nth-child(4) { animation-delay:var(--dur-fast); }
-.task-item, .influencer-row, .alert-item, .doc-item, .flow-step { animation: slideInLeft var(--dur-medium) var(--ease) backwards; }
+
+/* ---- Entradas escalonadas: SOLO al llegar a la vista ----
+   Estas animaciones se disparan cuando el elemento NACE, y todas estas listas
+   se pintan con innerHTML: cada snapshot de Firestore (campañas, tareas,
+   ajustes, miembros… más el eco local de cada escritura propia) destruía y
+   recreaba las tarjetas, y cada una volvía a entrar desde opacidad 0. Eso es
+   lo que se veía como "toda la app parpadea": no era el render, era que la
+   animación de bienvenida se repetía docenas de veces por minuto.
+
+   Ahora piden `.is-fresh` en la página (lo pone marcarFresco() al navegar y al
+   abrir/cerrar el detalle de campaña, y se quita sola al terminar). Un
+   repintado por datos ya no la lleva, así que la lista cambia sin re-animarse.
+   Mismo patrón que ya usaba el tablero de pendientes con .tb-board.is-fresh. */
+.page.is-fresh .stat-card { animation: fadeUp var(--dur-very-slow) var(--ease) backwards; }
+.page.is-fresh .stat-card:nth-child(1) { animation-delay:var(--dur-stagger); }
+.page.is-fresh .stat-card:nth-child(2) { animation-delay:var(--dur-micro); }
+.page.is-fresh .stat-card:nth-child(3) { animation-delay:var(--dur-quick); }
+.page.is-fresh .stat-card:nth-child(4) { animation-delay:var(--dur-fast); }
+.page.is-fresh .card { animation: fadeUp var(--dur-very-slow) var(--ease) backwards; animation-delay:var(--dur-quick); }
+.page.is-fresh .campaign-card { animation: pop var(--dur-slow) var(--ease) backwards; }
+.page.is-fresh .campaign-card:nth-child(1) { animation-delay:var(--dur-stagger); }
+.page.is-fresh .campaign-card:nth-child(2) { animation-delay:var(--dur-micro); }
+.page.is-fresh .campaign-card:nth-child(3) { animation-delay:var(--dur-quick); }
+.page.is-fresh .campaign-card:nth-child(4) { animation-delay:var(--dur-fast); }
+.page.is-fresh .task-item,
+.page.is-fresh .influencer-row,
+.page.is-fresh .alert-item,
+.page.is-fresh .doc-item,
+.page.is-fresh .flow-step { animation: slideInLeft var(--dur-medium) var(--ease) backwards; }
 /* El retardo lo pone el JS en --nav-delay contando solo items de navegación.
    Con :nth-child se descuadraba en cuanto entraba al markup algo que no fuera
    un item (el marcador deslizante, las etiquetas de sección). */
@@ -6711,4 +6728,93 @@ html.dark .cli-confidencial-icn { color:#f0c84a; }
      trae "Buscar (⌘K)". Quitarla le devuelve 44px al título, que si no corta
      "Pendientes" y "Calendario" a la mitad. */
   .topbar-search-btn { display:none; }
+}
+
+/* ============================================================
+   EVENTOS — las fechas a las que se atan las campañas
+   ============================================================
+   Deliberadamente NO se parecen a una tarea: sin casilla, sin punto de
+   prioridad y con la cuenta atrás mandando en la columna izquierda. Un evento
+   no se completa, llega — y lo único que hace falta saber de un vistazo es
+   cuánto falta. */
+.ev-section { margin-bottom: 26px; }
+.ev-head {
+  display:flex; align-items:center; justify-content:space-between;
+  gap:12px; margin-bottom:12px;
+}
+.ev-head-title {
+  font-size:13px; font-weight:600; color:var(--text-muted);
+  text-transform:uppercase; letter-spacing:1px; margin:0;
+  display:flex; align-items:center; gap:8px;
+}
+.ev-head-count:not(:empty) {
+  font-size:11px; font-weight:700; letter-spacing:0;
+  background:var(--pink-pale, rgba(255,45,135,.12)); color:var(--pink-deep, var(--pink));
+  border-radius:20px; padding:2px 8px; text-transform:none;
+}
+.ev-list { display:flex; flex-direction:column; gap:8px; }
+.ev-list-past { margin-top:10px; opacity:.72; }
+
+.ev-card {
+  display:grid;
+  /* La columna de la fecha es fija para que las cuentas atrás queden alineadas
+     entre tarjetas; `minmax(0,1fr)` en el cuerpo y no `1fr` a secas porque un
+     título largo sin espacios desborda la rejilla (min-width:auto por defecto). */
+  grid-template-columns: 116px minmax(0,1fr) auto;
+  align-items:center; gap:14px;
+  background:var(--white); border:1px solid var(--border);
+  border-radius:14px; padding:12px 14px;
+  transition: border-color var(--dur-quick) var(--ease), transform var(--dur-quick) var(--ease);
+}
+@media (hover:hover) and (pointer:fine) {
+  .ev-card:hover { border-color:var(--pink); transform:translateY(-1px); }
+}
+.ev-card.is-past { opacity:.6; }
+
+.ev-when { display:flex; flex-direction:column; gap:2px; min-width:0; }
+.ev-count { font-size:13px; font-weight:700; color:var(--pink-deep, var(--pink)); }
+.ev-card.is-past .ev-count { color:var(--text-muted); }
+.ev-date  { font-size:11px; color:var(--text-muted); }
+
+.ev-body { min-width:0; }
+.ev-title { font-size:14px; font-weight:600; color:var(--text); line-height:1.35; }
+.ev-meta { display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; }
+.ev-chip {
+  font-size:11px; font-weight:600; color:var(--text-muted);
+  background:var(--bg); border:1px solid var(--border);
+  border-radius:20px; padding:2px 9px; text-decoration:none;
+  max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+button.ev-chip { cursor:pointer; font-family:inherit; }
+.ev-chip-camp { color:var(--pink-deep, var(--pink)); border-color:var(--pink); }
+.ev-chip-link { color:var(--blue); border-color:var(--blue); }
+.ev-notes {
+  font-size:12px; color:var(--text-muted); line-height:1.45;
+  margin-top:8px; white-space:pre-wrap;
+}
+.ev-edit {
+  background:none; border:none; cursor:pointer; color:var(--text-muted);
+  padding:6px; border-radius:8px; line-height:0;
+  /* 44px de área táctil sin agrandar el icono: el ::after invisible es el
+     patrón que ya usa el resto de la app (ver base de accesibilidad). */
+  position:relative;
+}
+.ev-edit svg { width:15px; height:15px; }
+.ev-edit::after { content:''; position:absolute; inset:-11px; }
+.ev-edit:hover { color:var(--pink); background:var(--bg); }
+
+/* Entrada escalonada SOLO al llegar a la vista, igual que el resto: un
+   repintado por datos no debe re-animar la lista. Ver bloque ANIMATIONS. */
+.page.is-fresh .ev-card { animation: slideInLeft var(--dur-medium) var(--ease) backwards; }
+.page.is-fresh .ev-card:nth-child(2) { animation-delay: var(--dur-stagger); }
+.page.is-fresh .ev-card:nth-child(n+3) { animation-delay: var(--dur-micro); }
+@media (prefers-reduced-motion: reduce) {
+  .ev-card { animation:none !important; transition:none !important; }
+}
+
+@media (max-width: 640px) {
+  /* En teléfono la columna de fecha fija deja el título en dos letras por
+     línea: se apila y la cuenta atrás pasa a ser la primera línea. */
+  .ev-card { grid-template-columns: minmax(0,1fr) auto; gap:8px 12px; }
+  .ev-when { flex-direction:row; align-items:baseline; gap:8px; grid-column:1 / -1; }
 }

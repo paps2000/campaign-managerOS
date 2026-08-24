@@ -777,6 +777,14 @@ window.tpTeardown = function(){
 // va a borrar el texto ni a sacarme del textarea.
 window.tpOnData = function(){
   tpSidebarBadge();
+  /* El abono mensual no lo escribe nadie —se deriva del calendario, ver la
+     nota de arriba—, así que tampoco hay servidor que avise de que volvió a
+     empezar el mes. El aviso se arma en el cliente: la campanita lo recalcula
+     y, la primera vez de cada periodo, además se dice en pantalla. Sin esto la
+     moneda se perdía por olvido: el saldo vuelve a 10, la ventana dura siete
+     días y lo que no se reparte no se acumula. */
+  try { if(typeof _renderNotifBell === 'function') _renderNotifBell(); } catch(e){}
+  try { if(typeof _avisarThinkyReinicio === 'function') _avisarThinkyReinicio(); } catch(e){}
   if(typeof currentPage!=='undefined' && currentPage !== 'thinkypeso') return;
   renderHero();
   // La lista sí se refresca (alguien nuevo en el equipo, o el contador de lo

@@ -328,7 +328,38 @@ function _inicialCreador(nombre) {
   return (limpio[0] || String(nombre || '?')[0] || '?').toUpperCase();
 }
 
+/* ¿Todas las campañas del workspace, o sólo en las que estoy?
+   El listado leía `_cache.campaigns` a pelo: no filtraba ni siquiera por
+   permiso, así que todo el mundo veía campañas ajenas —y para quien lleva tres
+   cuentas, la pantalla de campañas era el catálogo de la agencia entera.
+   Por defecto se abre en "Mías". El interruptor sigue estando para cuando de
+   verdad hay que ir a buscar una que no llevas. */
+let _campScope = (() => {
+  try { return localStorage.getItem('cmos:campScope') || 'mias'; } catch(e) { return 'mias'; }
+})();
+function setCampScope(v) {
+  _campScope = (v === 'todas') ? 'todas' : 'mias';
+  try { localStorage.setItem('cmos:campScope', _campScope); } catch(e){}
+  renderCampaignGrid();
+}
+function campanasEnAlcance() {
+  const todas = (typeof visibleCampaigns === 'function') ? visibleCampaigns() : (_cache.campaigns||[]);
+  if(_campScope === 'todas') return todas;
+  const mias = (typeof misCampanas === 'function') ? misCampanas() : todas;
+  return mias;
+}
+
 function renderCampaignGrid() {
+  // Mías / Todas
+  const scopeWrap = document.getElementById('campScopePills');
+  if(scopeWrap) {
+    const nTodas = ((typeof visibleCampaigns === 'function') ? visibleCampaigns() : (_cache.campaigns||[])).length;
+    const nMias  = ((typeof misCampanas === 'function') ? misCampanas() : []).length;
+    scopeWrap.innerHTML = [['mias','Mías',nMias],['todas','Todas',nTodas]].map(([v,label,n]) =>
+      `<button class="metrics-tab-pill ${_campScope===v?'active':''}" onclick="setCampScope('${v}')" aria-pressed="${_campScope===v}">${label} · ${n}</button>`).join('');
+  }
+  const titulo = document.getElementById('campListTitle');
+  if(titulo) titulo.textContent = _campScope === 'todas' ? 'Todas las campañas' : 'Mis campañas';
   // Status filter pills
   const pillWrap = document.getElementById('campStatusPills');
   if(pillWrap) pillWrap.innerHTML = CAMP_STATUSES.map(s=>`<button class="metrics-tab-pill ${_campStatusFilter===s?'active':''}" onclick="setCampStatusFilter('${s}')">${s}</button>`).join('');
@@ -341,7 +372,7 @@ function renderCampaignGrid() {
       : '';
   }
   const q = (document.getElementById('campFilterSearch')?.value||'').toLowerCase().trim();
-  const campaigns = _cache.campaigns.filter(c => {
+  const campaigns = campanasEnAlcance().filter(c => {
     if(_campStatusFilter && c.status !== _campStatusFilter) return false;
     if(q && !((c.name||'').toLowerCase().includes(q) || (c.client||'').toLowerCase().includes(q))) return false;
     return true;
@@ -366,7 +397,12 @@ function renderCampaignGrid() {
     return `<span class="badge ${map[s]||'badge-gray'}">${_esc(s)}</span>`;
   };
   if(campaigns.length===0) {
-    grid.innerHTML=`<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">${ICN_clipboard}</div><p>${(q||_campStatusFilter)?'Sin campañas con esos filtros.':'No hay campañas. ¡Crea la primera!'}</p></div>`;
+    const vacio = (q||_campStatusFilter)
+      ? 'Sin campañas con esos filtros.'
+      : (_campScope === 'mias'
+          ? 'No estás en ninguna campaña todavía. Toca <strong>Todas</strong> para buscar una y seguirla.'
+          : 'No hay campañas. ¡Crea la primera!');
+    grid.innerHTML=`<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">${ICN_clipboard}</div><p>${vacio}</p></div>`;
     return;
   }
   grid.innerHTML = campaigns.map(c=>{
@@ -462,6 +498,7 @@ function showCampaignList() {
   // Después de limpiar currentCampaignId, si no rutaActual() seguiría armando
   // la ruta de la campaña que acabamos de cerrar.
   try { escribirRuta(); } catch(e){}
+  try { marcarFresco(document.getElementById('page-campannas')); } catch(e){}
   renderCampaignGrid();
 }
 
@@ -554,11 +591,15 @@ function openCampaignDetail(cid) {
 
   document.getElementById('campaignList').style.display='none';
   document.getElementById('campaignDetailView').classList.add('active');
+  // Marca de entrada ANTES de pintar: las tarjetas del detalle sólo hacen su
+  // entrada escalonada si nacen con `.is-fresh` puesto en la página.
+  try { marcarFresco(document.getElementById('page-campannas')); } catch(e){}
 
   renderCampaignInfoGrid(c);
 
   renderCampaignInfluencers(c);
   renderCampaignTasks(c);
+  try { renderCampaignEventos(c); } catch(e){ console.warn('eventos render', e); }
   renderCampaignDocs(c);
   renderCampaignFlow(c);
   try { renderCampaignApproval(c); } catch(e){ console.warn('approval render', e); }
@@ -751,10 +792,53 @@ function _campaignCoherenceData(c) {
 // pestañas y el detalle se quedaba en blanco hasta hacer clic en otra. Un
 // destino que no existe cae en Resumen, y si era la sección de métricas se
 // hace scroll hasta ella en vez de dejar al usuario buscándola.
+/* Qué pestaña del detalle está abierta ahora mismo. */
+function campaignTabActiva() {
+  const el = document.querySelector('#campaignDetailView .tab-content.active');
+  return el ? el.id.replace(/^tab-/, '') : 'resumen';
+}
+
+/* Repinta SOLO la pestaña abierta (y el resumen, que es la portada del
+   detalle). rerenderCurrent() entra por aquí en cada snapshot: antes repintaba
+   las seis pestañas, incluida la tabla del tracker, estuvieran o no a la vista.
+
+   `forzar` = se acaba de cambiar de pestaña, así que hay que pintar aunque sea
+   la misma que ya estaba. */
+function renderCampaignTab(c, tab, completo) {
+  if(!c) return;
+  const t = tab || campaignTabActiva();
+  try { renderCampaignInfoGrid(c); } catch(e){ console.warn('info grid render', e); }
+  if(t === 'resumen') {
+    /* Los bloques del Resumen sólo se rehacen al ABRIR la pestaña, no en cada
+       snapshot. Varios tienen un campo dentro (la URL del sheet de métricas,
+       la nota de aprobación): repintarlos mientras alguien escribe le borra lo
+       tecleado. Y ninguno cambia por su cuenta — cambian cuando cambia la
+       campaña, y eso ya trae su propio paso por aquí. */
+    if(completo) {
+      try { renderCampaignApproval(c); } catch(e){ console.warn('approval render', e); }
+      try { renderCampaignMetricsSection(c); } catch(e){ console.warn('metrics render', e); }
+      try { renderCampaignClients(c); } catch(e){ console.warn('clients render', e); }
+      try { renderCampaignProgress(c); } catch(e){ console.warn('progress render', e); }
+      try { renderCampaignCoherence(c); } catch(e){ console.warn('coherence render', e); }
+    }
+  }
+  else if(t === 'influencers') renderCampaignInfluencers(c);
+  else if(t === 'pendientes')  { renderCampaignTasks(c); try { renderCampaignEventos(c); } catch(e){} }
+  else if(t === 'documentos')  renderCampaignDocs(c);
+  else if(t === 'flujo')       renderCampaignFlow(c);
+  else if(t === 'tracker')     renderCampaignTracker(c);
+}
+
 function _switchCampaignTab(tabName) {
   const destino = document.getElementById('tab-'+tabName) ? tabName : 'resumen';
   document.querySelectorAll('.detail-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === destino));
   document.querySelectorAll('.tab-content').forEach(t => t.classList.toggle('active', t.id === 'tab-'+destino));
+  // La pestaña que se abre puede llevar varios snapshots sin repintarse (ver
+  // renderCampaignTab): se pone al día justo al mostrarla.
+  try {
+    const c = (_cache.campaigns||[]).find(x => x.id === currentCampaignId);
+    if(c) renderCampaignTab(c, destino, true);
+  } catch(e){ console.warn('switch tab render', e); }
   try { localStorage.setItem('cmos:lastCampaignTab', destino); } catch(e){}
   if(destino !== tabName) {
     const secciones = { metricas:'campaignMetricsSection' };
@@ -1119,6 +1203,13 @@ function renderCampaignInfluencers(c) {
     </tr>`;}).join('');
 }
 
+/* Dónde vive de verdad esta tarea. Una suelta que sólo lleva `campaignId` se
+   muestra en la campaña, pero se marca y se edita contra globalTasks: pasarle
+   el id de la campaña haría que toggleTask la buscara donde no está. */
+function _cidDeTarea(t, c) {
+  return (Array.isArray(c.tasks) && c.tasks.some(x => x.id === t.id)) ? c.id : '';
+}
+
 function _taskItemHtml(t, cid) {
   const st = TASK_STATUS_BY_ID[taskStatus(t)];
   return `
@@ -1142,9 +1233,25 @@ function _taskItemHtml(t, cid) {
   </div>`;
 }
 
+/* Todo lo que cuenta como pendiente DE esta campaña.
+
+   No basta con `c.tasks`: una tarea suelta puede llevar la campaña marcada
+   (`campaignId`), y ésas salían en Pendientes-de-todo pero no en la pestaña de
+   Pendientes de la campaña — el pendiente existía, pero no donde se le busca.
+   Se suman las dos fuentes, sin duplicar por id. */
+function tareasDeCampana(c) {
+  const propias = Array.isArray(c.tasks) ? c.tasks : [];
+  const vistos = new Set(propias.map(t => t.id));
+  const sueltas = (getData('globalTasks')||[])
+    .filter(t => t && t.campaignId === c.id && !vistos.has(t.id));
+  return propias.concat(sueltas);
+}
+
 function renderCampaignTasks(c) {
   const el = document.getElementById('campaignTasksList');
-  if(!Array.isArray(c.tasks) || c.tasks.length===0) {
+  if(!el) return;
+  const tareas = tareasDeCampana(c);
+  if(tareas.length===0) {
     el.innerHTML=`<div class="empty-state"><div class="empty-icon">${ICN_check}</div><p>Sin tareas. ¡Todo al día!</p></div>`;
     return;
   }
@@ -1153,7 +1260,7 @@ function renderCampaignTasks(c) {
 
   // Group tasks by assignee's area
   const groups = {};
-  c.tasks.forEach(t => {
+  tareas.forEach(t => {
     const u = allUsers.find(x=>x.uid===t.assigneeUid);
     const area = u?.area || 'Sin área';
     if(!groups[area]) groups[area] = [];
@@ -1164,7 +1271,7 @@ function renderCampaignTasks(c) {
 
   // If only one area group, render flat (no grouping chrome needed)
   if(areas.length <= 1) {
-    el.innerHTML = c.tasks.map(t=>_taskItemHtml(t,c.id)).join('');
+    el.innerHTML = tareas.map(t=>_taskItemHtml(t, _cidDeTarea(t, c))).join('');
     return;
   }
 
@@ -1180,7 +1287,7 @@ function renderCampaignTasks(c) {
         <span class="task-area-count">${pending} pendiente${pending!==1?'s':''} · ${tasks.length} total</span>
         <span class="task-area-chevron">▶</span>
       </summary>
-      <div class="task-area-body">${tasks.map(t=>_taskItemHtml(t,c.id)).join('')}</div>
+      <div class="task-area-body">${tasks.map(t=>_taskItemHtml(t, _cidDeTarea(t, c))).join('')}</div>
     </details>`;
   }).join('');
 }
@@ -1435,10 +1542,86 @@ function _computeDeadlineNotifs() {
   return out.sort((a,b)=>a._sort-b._sort);
 }
 
+/* --- ThinkyPesos: el aviso de que el mes volvió a empezar ---
+
+   El abono mensual no lo escribe nadie: se DERIVA del calendario (ver la nota
+   de arriba en js/thinky-peso.js — no hay cron, y por eso no hay servidor que
+   pueda mandar el aviso). Así que el aviso también se deriva aquí, del mismo
+   calendario, y es local a cada quien: en cuanto abre la app dentro de la
+   ventana de reparto, la campanita se lo dice.
+
+   Sin esto los ThinkyPesos se perdían por olvido: el saldo vuelve a 10, la
+   ventana dura una semana, y lo que no se reparte no se acumula. La moneda
+   sólo sirve si la gente se entera de que la tiene.
+
+   Los ids llevan el prefijo `dl_` a propósito: markNotifRead() ya sabe que un
+   id así no vive en Firestore y lo despacha por localStorage. Y llevan el
+   periodo dentro, así que descartar el de septiembre no calla el de octubre. */
+function _computeThinkyNotifs() {
+  const tp = window.thinkyPeso;
+  if(!currentUser || !tp) return [];
+  let st, saldo, periodo;
+  try { st = tp.windowState(); saldo = tp.myBalance(); periodo = tp.currentPeriod(); }
+  catch(e) { return []; }
+  if(!st || !st.open) return [];
+  if(!(saldo > 0)) return [];   // ya los repartió: no hay nada que recordarle
+
+  const seen = _dlSeen();
+  const out = [];
+  const cierra = st.end ? new Date(st.end) : null;
+  const diasRestantes = cierra
+    ? Math.ceil((cierra - new Date()) / 86400000)
+    : null;
+  const cierraTxt = cierra
+    ? cierra.toLocaleDateString('es-MX', { day:'numeric', month:'long' })
+    : 'a fin de mes';
+
+  const idAbono = 'dl_tp_open_' + periodo;
+  out.push({
+    id: idAbono, type:'thinkypeso', read: seen.has(idAbono),
+    createdAt: st.start ? new Date(st.start).getTime() : Date.now(), _sort: -50,
+    text: `Tienes ${saldo} ThinkyPeso${saldo !== 1 ? 's' : ''} para repartir`,
+    meta: `Se reiniciaron este mes · el reparto cierra el ${cierraTxt}. Lo que no repartas se pierde.`,
+    link: { k:'page', p:'thinkypeso' },
+  });
+
+  // Último empujón: con la ventana a punto de cerrarse el aviso sube arriba.
+  if(diasRestantes !== null && diasRestantes <= 2) {
+    const idUltimo = 'dl_tp_last_' + periodo;
+    out.push({
+      id: idUltimo, type:'thinkypeso', read: seen.has(idUltimo),
+      createdAt: Date.now(), _sort: -100,
+      text: `Últimos días para repartir tus ${saldo} ThinkyPeso${saldo !== 1 ? 's' : ''}`,
+      meta: `Cierra el ${cierraTxt} y no se acumulan.`,
+      link: { k:'page', p:'thinkypeso' },
+    });
+  }
+  return out;
+}
+
+/* El aviso en pantalla, una sola vez por periodo y por persona. La campanita
+   ya lo lleva; esto es para quien no la mira. */
+function _avisarThinkyReinicio() {
+  const tp = window.thinkyPeso;
+  if(!currentUser || !tp) return;
+  let st, saldo, periodo;
+  try { st = tp.windowState(); saldo = tp.myBalance(); periodo = tp.currentPeriod(); }
+  catch(e) { return; }
+  if(!st || !st.open || !(saldo > 0)) return;
+  const clave = 'cmos:tpAvisoPeriodo';
+  try {
+    if(localStorage.getItem(clave) === periodo) return;
+    localStorage.setItem(clave, periodo);
+  } catch(e) { return; }   // sin localStorage no hay forma de no repetirlo
+  try {
+    showToast(`Se reiniciaron tus ThinkyPesos: tienes ${saldo} para repartir este mes 🪙`, 'success');
+  } catch(e){}
+}
+
 // El texto trae el icono adelante ("✅ Fulano te asignó…"); el avatar del
 // aviso lo repetía al lado. Se quita del texto al pintarlo para no verlo dos
 // veces, sin tocar lo que ya está guardado en Firestore.
-const _NOTIF_ICON = { kudos:'🏆', task_assigned:'✅', deadline:'⏰', campaign_role:'🧭', campaign_update:'📣' };
+const _NOTIF_ICON = { kudos:'🏆', task_assigned:'✅', deadline:'⏰', campaign_role:'🧭', campaign_update:'📣', thinkypeso:'🪙' };
 function _notifIcon(n) { return _NOTIF_ICON[n.type] || '💬'; }
 function _notifTexto(n) {
   const t = String(n.text || '');
@@ -1474,14 +1657,15 @@ function _notifDestino(link) {
   if(!link) return '';
   if(link.k === 'task') return 'Ver la tarea';
   if(link.k === 'campaign') return 'Ver la campaña';
-  if(link.k === 'page') return { equipo:'Ver el equipo', pendientes:'Ver los pendientes', campannas:'Ver campañas' }[link.p] || 'Abrir';
+  if(link.k === 'page') return { equipo:'Ver el equipo', pendientes:'Ver los pendientes', campannas:'Ver campañas', thinkypeso:'Repartir ahora' }[link.p] || 'Abrir';
   return '';
 }
 
 function _renderNotifBell() {
   const deadlines = _computeDeadlineNotifs();
+  const thinky = _computeThinkyNotifs();
   const actividad = _notifs.slice().sort((a,b) => _notifMs(b) - _notifMs(a));
-  const all = [...deadlines, ...actividad];
+  const all = [...thinky, ...deadlines, ...actividad];
   _notifIdx = new Map(all.map(n => [String(n.id), n]));
   const unread = all.filter(n=>!n.read).length;
   _setTBadge('notifBadge', unread);
@@ -1502,6 +1686,13 @@ function _renderNotifBell() {
   // media hora y siempre encabezaban, así que sepultaban lo que acababa de
   // pasar. Con títulos, cada cosa se busca donde está.
   const bloques = [];
+  // Los ThinkyPesos van arriba del todo por una razón concreta: caducan. La
+  // ventana dura una semana al mes y lo que no se reparte se pierde, así que
+  // es el único aviso de la campanita que deja de poder atenderse solo.
+  if(thinky.length) {
+    bloques.push('<div class="notif-sec"><span>ThinkyPesos</span></div>'
+      + thinky.map(_notifItemHtml).join(''));
+  }
   // La actividad va PRIMERO. Los deadlines se recalculan solos y también se ven
   // en el tablero; que alguien te etiquete sólo se entera aquí, y con cinco
   // vencimientos arriba eso quedaba fuera de pantalla — que es exactamente cómo
@@ -1665,6 +1856,7 @@ async function markNotifRead(nid) {
 
 async function markAllNotifsRead() {
   _computeDeadlineNotifs().filter(n=>!n.read).forEach(n=>_dlMarkSeen(n.id));
+  _computeThinkyNotifs().filter(n=>!n.read).forEach(n=>_dlMarkSeen(n.id));
   const unread = _notifs.filter(n=>!n.read);
   await Promise.all(unread.map(n=>markNotifRead(n.id)));
   _renderNotifBell();

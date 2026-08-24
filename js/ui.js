@@ -7,12 +7,33 @@
 // ============================================================
 // TEXT GENERATOR
 // ============================================================
+/* Rellena los <select> de campaña.
+
+   OJO con el innerHTML: rerenderCurrent() llama aquí en CADA snapshot de
+   Firestore, y reescribir las <option> BORRA lo que la persona había elegido.
+   Con el modal de tarea abierto, elegir una campaña y tardar un segundo en
+   escribir el título bastaba para que el selector volviera solo a "— Sin
+   campaña —": la tarea se guardaba como pendiente suelto, no aparecía dentro
+   de la campaña, y desde fuera se veía como que el selector "no deja elegir".
+
+   Dos defensas: no se toca el DOM si la lista de opciones es idéntica a la que
+   ya está puesta (el caso normal), y si sí cambió se restaura la selección
+   siempre que esa campaña siga existiendo. */
 function populateCampaignSelects() {
   const campaigns = visibleCampaigns();
   const opts = campaigns.map(c=>`<option value="${c.id}">${_esc(c.name)} (${_esc(c.client)})</option>`).join('');
+  const html = `<option value="">— Sin campaña —</option>` + opts;
   ['dashGenCampaign','fullGenCampaign','fTaskCampaign'].forEach(id=>{
     const el=document.getElementById(id);
-    if(el) el.innerHTML = `<option value="">— Sin campaña —</option>` + opts;
+    if(!el) return;
+    if(el.dataset.optsFp === html) return;   // mismas campañas: no se toca nada
+    const prev = el.value;
+    el.dataset.optsFp = html;
+    el.innerHTML = html;
+    if(prev) {
+      const sigue = Array.prototype.some.call(el.options, o => o.value === prev);
+      if(sigue) el.value = prev;
+    }
   });
 }
 
@@ -1442,7 +1463,10 @@ function openAddTaskModal() {
   document.getElementById('fTaskRecurring').checked = false;
   document.getElementById('fTaskRecurringDayGroup').style.display = 'none';
   document.getElementById('fTaskRecurringDay').value = new Date().getDay().toString();
-  if(currentCampaignId) document.getElementById('fTaskCampaign').value=currentCampaignId;
+  // Siempre explícito: el <select> ya no se reconstruye en cada render (ver
+  // populateCampaignSelects), así que si no se fija aquí se queda con lo que
+  // eligió la vez pasada.
+  document.getElementById('fTaskCampaign').value = currentCampaignId || '';
   document.querySelector('#taskModal .modal-title').textContent='Nueva tarea';
   openModal('taskModal');
 }
@@ -1465,6 +1489,9 @@ function openAddGlobalTaskModal() {
   document.getElementById('fTaskRecurring').checked = false;
   document.getElementById('fTaskRecurringDayGroup').style.display = 'none';
   document.getElementById('fTaskRecurringDay').value = new Date().getDay().toString();
+  // Estando dentro de una campaña, el botón flotante crea la tarea AHÍ: es lo
+  // que espera quien lo toca teniendo la campaña abierta. Fuera, sin campaña.
+  document.getElementById('fTaskCampaign').value = currentCampaignId || '';
   document.querySelector('#taskModal .modal-title').textContent='Nueva tarea';
   openModal('taskModal');
 }
@@ -1570,7 +1597,7 @@ function openEditTaskModal(tid, cid) {
   document.getElementById('fTaskRecurring').checked = !!task.recurring;
   document.getElementById('fTaskRecurringDayGroup').style.display = task.recurring ? '' : 'none';
   document.getElementById('fTaskRecurringDay').value = task.recurringDay !== undefined ? task.recurringDay.toString() : '1';
-  if(cid) document.getElementById('fTaskCampaign').value = cid;
+  document.getElementById('fTaskCampaign').value = cid || task.campaignId || '';
   if(task.assigneeUid) document.getElementById('fTaskAssignee').value = task.assigneeUid;
   document.querySelector('#taskModal .modal-title').textContent='Editar tarea';
   openModal('taskModal');
@@ -1626,20 +1653,67 @@ function saveTask() {
   };
 
   if(editingTaskId) {
-    const cid = editingTaskCampaignId;
-    if(cid) {
-      const campaigns = getData('campaigns');
-      const c = campaigns.find(x=>x.id===cid);
-      if(c) {
-        const t = c.tasks.find(x=>x.id===editingTaskId);
+    const origen  = editingTaskCampaignId || '';
+    const destino = campId || '';
+    if(origen === destino) {
+      // Se queda donde está: sólo se actualizan sus campos.
+      if(origen) {
+        const campaigns = getData('campaigns');
+        const c = campaigns.find(x=>x.id===origen);
+        if(c) {
+          const t = c.tasks.find(x=>x.id===editingTaskId);
+          if(t) apply(t);
+          setData('campaigns', campaigns);
+        }
+      } else {
+        const tasks = getData('globalTasks');
+        const t = tasks.find(x=>x.id===editingTaskId);
         if(t) apply(t);
-        setData('campaigns', campaigns);
+        setData('globalTasks', tasks);
       }
     } else {
-      const tasks = getData('globalTasks');
-      const t = tasks.find(x=>x.id===editingTaskId);
-      if(t) apply(t);
-      setData('globalTasks', tasks);
+      /* Cambió de campaña (o dejó de tener). Antes el selector se leía sólo al
+         CREAR: al editar se ignoraba, así que mover una tarea suelta a su
+         campaña no hacía nada y la tarea seguía sin salir en la pestaña de
+         Pendientes de esa campaña. Se saca del sitio viejo y se mete en el
+         nuevo, en una sola pasada por cada colección tocada. */
+      const campaigns = getData('campaigns');
+      // Si el destino no existe, no se saca de donde está: mejor no guardar
+      // que dejar la tarea sin dueño en ninguna de las dos listas.
+      if(destino && !campaigns.find(x=>x.id===destino)) {
+        showToast('Esa campaña ya no existe. Recarga y vuelve a intentar.','error');
+        return;
+      }
+      let tarea = null;
+      if(origen) {
+        const c = campaigns.find(x=>x.id===origen);
+        if(c) {
+          const i = c.tasks.findIndex(x=>x.id===editingTaskId);
+          if(i >= 0) tarea = c.tasks.splice(i,1)[0];
+        }
+      } else {
+        const tasks = getData('globalTasks');
+        const i = tasks.findIndex(x=>x.id===editingTaskId);
+        if(i >= 0) tarea = tasks.splice(i,1)[0];
+        setData('globalTasks', tasks);
+      }
+      if(tarea) {
+        apply(tarea);
+        if(destino) {
+          const c = campaigns.find(x=>x.id===destino);
+          if(c) {
+            delete tarea.campaignId; delete tarea.campaignName;
+            c.tasks.push(tarea);
+          }
+        } else {
+          const tasks = getData('globalTasks');
+          tasks.push({...tarea, campaignName:'General', campaignId:''});
+          setData('globalTasks', tasks);
+        }
+      }
+      // Se escribe siempre: si el origen era una campaña, ahí quedó un hueco.
+      setData('campaigns', campaigns);
+      editingTaskCampaignId = destino || null;
     }
     _notifyTaskPeople({
       title, taskId: editingTaskId, campaignId: campId, dueDate, clientDueDate,
@@ -1684,6 +1758,7 @@ function saveTask() {
     const c=campaigns.find(x=>x.id===currentCampaignId);
     if(c) renderCampaignTasks(c);
   }
+  try { _refreshPendCount(); } catch(e){}
 }
 
 function openAddInfluencerModal() {
@@ -1971,7 +2046,7 @@ function saveDoc() {
 
 // === DOCUMENTOS PAGE ===
 function renderDocumentosPage() {
-  const camps = visibleCampaigns();
+  const camps = (typeof campanasEnAlcance === 'function') ? campanasEnAlcance() : visibleCampaigns();
   const sel = document.getElementById('docPageCampaign');
   const prev = sel.value;
   sel.innerHTML = '<option value="">— Selecciona una campaña —</option>' +
