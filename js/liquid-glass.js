@@ -193,12 +193,31 @@
   }
 
   // ---- apply the bend to an element, preserving its own blur ----
+  /* Lo que el usuario no ve no lleva lente. `visibility` es el criterio real,
+     pero un panel que se está cerrando la conserva durante la animación de
+     salida (--panel-close-dur), y este barrido corre en tiempo idle: puede
+     caer justo dentro de esa ventana y volver a ponerle lente a algo que ya
+     nadie va a mirar. data-open="false" es el estado declarado, sin depender
+     de en qué punto de la transición estemos. */
+  function invisible(el, cs){
+    if(el.dataset.open === 'false') return true;
+    return (cs || getComputedStyle(el)).visibility !== 'visible';
+  }
+
   // rect llega del IntersectionObserver, que lo calcula fuera del hilo de
   // layout: pedirlo aquí con getBoundingClientRect forzaría un reflow
   // sincrónico por elemento.
   function applyGlass(el, rect){
     if(el.dataset.lg) return true;
     const cs = getComputedStyle(el);
+    // Un panel cerrado sigue en el layout: .t-panel-slide lo deja pintado para
+    // poder animarle el cierre, así que el IntersectionObserver lo ve y le mide
+    // un rect de verdad. Ponerle lente ahí deja un backdrop-filter encadenado a
+    // un filtro SVG, en capa promovida, FIJO ENCIMA del contenido y sin que
+    // nadie lo vea: un backdrop root permanente que obliga a re-rasterizar lo
+    // que tiene detrás. La lente se pone cuando el panel se abre —el observador
+    // vigila data-open— y se quita al cerrarse.
+    if(invisible(el, cs)) return false;
     const base = cs.backdropFilter || cs.webkitBackdropFilter || '';
     if(!/blur/.test(base)) return false;   // not a glass surface (no blur) — todavía
     if(/url\(/.test(base)) { el.dataset.lg='1'; return true; }
@@ -227,11 +246,31 @@
     el.dataset.lg = '1';
     el.dataset.lgw = W; el.dataset.lgh = H;
     ensureFilter(W, H, Math.round(R), scale, id => {
-      const val = base + ' url(#' + id + ')';
-      el.style.setProperty('backdrop-filter', val, 'important');
-      el.style.setProperty('-webkit-backdrop-filter', val, 'important');
+      encolarEstilo(el, base + ' url(#' + id + ')');
     });
     return true;
+  }
+
+  /* Cada mapa termina en su propio callback (toBlob es asíncrono) y el primero
+     de un tamaño nuevo tarda más que los que ya lo tienen en caché. Escribiendo
+     el estilo ahí mismo, las lentes del arranque aterrizaban de una en una:
+     dos segundos de superficies cambiando de aspecto por turnos, que es medio
+     parpadeo por sí solo. Se juntan y se aplican todas en el mismo frame. */
+  const estilosPendientes = [];
+  let escrituraPedida = false;
+  function encolarEstilo(el, val){
+    estilosPendientes.push([el, val]);
+    if(escrituraPedida) return;
+    escrituraPedida = true;
+    requestAnimationFrame(() => {
+      escrituraPedida = false;
+      const lote = estilosPendientes.splice(0, estilosPendientes.length);
+      for(const [e, v] of lote){
+        if(!e.isConnected || !e.dataset.lg) continue;   // se le quitó la lente mientras tanto
+        e.style.setProperty('backdrop-filter', v, 'important');
+        e.style.setProperty('-webkit-backdrop-filter', v, 'important');
+      }
+    });
   }
 
   // ---- visibilidad: solo se mide lo que el usuario llega a ver ----
@@ -327,14 +366,15 @@
       sweep(node);
     }
     // Varios selectores dependen de una clase (.nav-item.active,
-    // .filter-tab:not(.active), .tb-chip:not(.on)…). Un cambio de clase no
-    // añade nodos, así que hay que reevaluar el elemento tocado: si ahora
-    // encaja se le pone lente, y si dejó de encajar se le quita. Resetear el
+    // .filter-tab:not(.active), .tb-chip:not(.on)…) y el panel de avisos de un
+    // atributo (data-open). Ninguno de los dos añade nodos, así que hay que
+    // reevaluar el elemento tocado: si ahora encaja y se ve, se le pone lente;
+    // si dejó de encajar —o se cerró y ya no se ve— se le quita. Resetear el
     // estado es correcto justamente porque la clase es lo que decide su estilo.
     for(const el of cls){
       if(!el.isConnected) continue;
       if(gated && !el.closest('#loginScreen')) continue;
-      if(el.matches(SEL)){ state.delete(el); register(el); }
+      if(el.matches(SEL) && !invisible(el)){ state.delete(el); register(el); }
       else unglass(el);
     }
   }
@@ -399,7 +439,9 @@
     } else {
       sweep(document);
     }
-    obs.observe(document.body, { childList:true, subtree:true, attributes:true, attributeFilter:['class'] });
+    // data-open además de class: es el interruptor de .t-panel-slide, y sin
+    // vigilarlo un panel que se abre no recibiría la lente nunca.
+    obs.observe(document.body, { childList:true, subtree:true, attributes:true, attributeFilter:['class','data-open'] });
   }
   // Nunca antes del primer paint: el bend es decoración y bloqueaba ~1.5 s de
   // arranque generando mapas de superficies que ni se veían.

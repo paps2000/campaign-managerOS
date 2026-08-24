@@ -555,8 +555,14 @@ function attachListeners() {
       return merged;
     });
     // El servidor acaba de decirnos qué hay: se re-siembran las huellas para
-    // que persistCampaigns sepa qué NO necesita reescribir.
-    try { _seedPersistedFp(snap.docs.map(d => d.data())); } catch(e){}
+    // que persistCampaigns sepa qué NO necesita reescribir. Se normaliza el doc
+    // del servidor con la MISMA función que la copia en memoria: si no,
+    // _normalizarCampana añade `tasks: []` (o `clientContacts: []`, que es más
+    // nuevo que muchos documentos) sólo del lado del cliente, las dos huellas
+    // salen distintas y el primer setData('campaigns') del arranque reescribe
+    // TODAS las campañas — con su tanda de snapshots y repintados detrás.
+    // Rellenar un array vacío no es un cambio de contenido y no debe contar.
+    try { _seedPersistedFp(snap.docs.map(d => _normalizarCampana(d.data()))); } catch(e){}
     if(typeof _invalidateInfMemo==='function') _invalidateInfMemo();
     rerenderCurrent();
   }, err => console.error('campaigns listener',err)));
@@ -648,7 +654,32 @@ function misCampanas() {
   );
 }
 
+/* Repintar la página entera es caro y VISIBLE: `innerHTML` tira todo el
+   subárbol y lo vuelve a construir, así que cada llamada apaga y enciende cada
+   icono de la vista. En el arranque llegan seguidos los snapshots iniciales de
+   campaigns, globalTasks, config y members —más los que devuelven las
+   escrituras de migración—, y cada uno pedía su propio repintado completo: la
+   app se reconstruía media docena de veces en los dos primeros segundos y se
+   veía como un parpadeo general.
+
+   Se agrupan en un solo repintado por frame. Ninguna de las llamadas lee el DOM
+   justo después (los listeners no devuelven nada y los del tablero sólo
+   commitean el dato), así que aplazar un frame no cambia el resultado — sólo
+   evita pintar estados intermedios que nadie necesita ver. */
+let _repintadoPedido = false;
 function rerenderCurrent() {
+  if(_repintadoPedido) return;
+  _repintadoPedido = true;
+  // rAF para pintar justo antes del frame, y un temporizador de respaldo porque
+  // en una pestaña de fondo el navegador NO entrega frames: sin él, marcar una
+  // tarea con la ventana detrás de otra no repintaría nada hasta volver. Gana
+  // el primero que llegue; el otro se encuentra la bandera baja y no hace nada.
+  const repintar = () => { if(!_repintadoPedido) return; _repintadoPedido = false; _repintarAhora(); };
+  requestAnimationFrame(repintar);
+  setTimeout(repintar, 250);
+}
+
+function _repintarAhora() {
   // La credencial puede estar abierta encima de cualquier página: su tira de
   // campañas depende de estos mismos datos.
   try { if(typeof refreshHoloCamps==='function') refreshHoloCamps(); } catch(e){}
@@ -878,8 +909,13 @@ function _setTBadge(id, count) {
   if(!el) return;
   const dot = el.querySelector('.t-badge-dot');
   const n = parseInt(count)||0;
-  if(dot) dot.textContent = n > 9 ? '9+' : (n || '');
-  el.setAttribute('data-open', n > 0 ? 'true' : 'false');
+  const txt = n > 9 ? '9+' : String(n || '');
+  if(dot && dot.textContent !== txt) dot.textContent = txt;
+  // Solo si cambió: esto corre en cada render de la campanita y del contador de
+  // pendientes, y data-open lo vigila el observador de liquid-glass. Reescribir
+  // el mismo valor no cambia nada en pantalla pero sí genera trabajo.
+  const abierto = n > 0 ? 'true' : 'false';
+  if(el.getAttribute('data-open') !== abierto) el.setAttribute('data-open', abierto);
 }
 
 // ============================================================

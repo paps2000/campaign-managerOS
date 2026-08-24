@@ -2491,16 +2491,17 @@ auth.onAuthStateChanged(async (user) => {
   document.getElementById('topbarDate').textContent = now.toLocaleDateString('es-MX',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
 
   populateCampaignSelects();
-  renderDashboard();
-  // Load calendar and Gmail if token already stored (returning user)
-  if(calendarAccessToken) { loadCalendarEvents(); loadGmailMessages(); }
-  else { renderCalendarWidget(); renderGmailWidget(); }
+  // Calendar y Gmail ya se pidieron doce líneas más arriba, junto a
+  // initNotifications(). Repetirlo aquí eran dos fetches de más a Google y dos
+  // repintados de los widgets en el mismo arranque.
 
   // Restore last page + campaign detail across reload
+  let _navegado = false;   // ¿ya pintó navigate() una vista? (ver más abajo)
   try {
     // Si llegaste por un link con ruta (#/campannas/abc), esa manda sobre lo
     // último que viste: alguien te mandó el link justamente para llevarte ahí.
     const _porRuta = aplicarRuta();
+    if(_porRuta) _navegado = true;
     const _ctab = localStorage.getItem('cmos:lastCampaignTab');
     if(_porRuta) {
       if(currentCampaignId && _ctab) {
@@ -2521,7 +2522,9 @@ auth.onAuthStateChanged(async (user) => {
     if(lastCid && (lastPage === 'campannas' || !lastPage)) {
       const c = (_cache.campaigns||[]).find(x => x.id === lastCid);
       if(c && (typeof canSeeCampaign !== 'function' || canSeeCampaign(c))) {
-        navigate('campannas');
+        // Si lastPage ya era 'campannas' acabamos de navegar ahí: repetirlo
+        // reconstruye la rejilla entera para tirarla en el mismo tick.
+        if(currentPage !== 'campannas') navigate('campannas');
         openCampaignDetail(lastCid);
         if(lastCtab && validTabs.has(lastCtab)) setTimeout(() => { try { _switchCampaignTab(lastCtab); } catch(e){} }, 50);
       } else {
@@ -2531,6 +2534,13 @@ auth.onAuthStateChanged(async (user) => {
     }
     }
   } catch(e){ console.warn('restore last view failed', e); }
+  /* El Resumen es la vista por defecto, pero pintarlo ANTES de restaurar la
+     última vista significaba construirlo entero para tirarlo un tick después:
+     al arrancar se veía aparecer el Resumen y saltar a otra página. Se pinta
+     al final y sólo si de verdad nos quedamos en él y nadie lo pintó ya:
+     navigate() pinta la página a la que lleva, y una ruta #/dashboard entra
+     justamente por ahí. */
+  if(currentPage === 'dashboard' && !_navegado) renderDashboard();
   // La primera vista no debe dejar una entrada de historial anterior a ella:
   // con pushState, el primer Atrás no haría nada visible.
   try { escribirRuta(true); } catch(e){}
