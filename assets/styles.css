@@ -6555,6 +6555,13 @@ html.dark .cli-aviso { background:rgba(var(--accent-rgb),.12); border-color:rgba
   border:none; -webkit-appearance:none; appearance:none;
 }
 .cli-poc--principal  { background:var(--pink-pale);     border-color:var(--pink-light); color:var(--pink-text); }
+/* El chip de canal se distingue del de POC por color, pero lo que lo hace
+   legible es que su etiqueta ya dice el canal completo ("Por correo"), no una
+   abreviatura que dependa del color para entenderse. */
+.cli-poc--canal      { background:var(--lavender-pale); border-color:var(--lavender);   color:var(--blue-text); }
+/* En oscuro el azul de acento sobre el lavanda claro se queda en 3.6:1, así que
+   el chip se voltea: fondo azul translúcido sobre el oscuro y texto claro. */
+html.dark .cli-poc--canal { background:rgba(108,152,255,.16); border-color:rgba(108,152,255,.45); color:#a9c6ff; }
 .cli-poc--secundario { background:var(--lavender-pale); border-color:var(--lavender);   color:var(--blue-text); }
 .cli-poc:hover { border-color:var(--pink); }
 .cli-poc:focus-within { outline:2px solid var(--pink); outline-offset:2px; }
@@ -6586,6 +6593,27 @@ html.dark .cli-aviso { background:rgba(var(--accent-rgb),.12); border-color:rgba
 .cli-hist-camp   { font-size:13px; font-weight:700; color:var(--text); }
 .cli-hist-emp    { font-weight:600; color:var(--text-muted); font-size:12px; }
 .cli-hist-fechas { font-size:12px; color:var(--text-muted); margin-top:1px; }
+
+/* ── Cómo le gusta el seguimiento ── */
+.cli-prefs { display:flex; flex-direction:column; gap:12px; margin-bottom:22px; }
+.cli-pref-fila { min-width:0; }
+.cli-pref { display:flex; flex-direction:column; align-items:flex-start; gap:6px; min-width:0; }
+/* El texto de "otro" nace escondido y aparece al elegirlo. `hidden` lo hace
+   solo, pero .form-input trae display:block y ganaría, así que se fuerza. */
+.cli-pref-otro { max-width:340px; font-size:13px; }
+.cli-pref-otro[hidden] { display:none; }
+
+/* En el formulario de la campaña las dos preguntas van juntas dentro de un
+   fieldset, para que el lector de pantalla anuncie de qué van los dos selects. */
+.cli-pref-set { border:1px solid var(--border); border-radius:10px; padding:12px 14px; }
+.cli-pref-set legend { padding:0 4px; }
+.cli-pref-ayuda { font-size:11px; color:var(--text-muted); line-height:1.45; margin:0 0 10px; }
+.cli-pref-set input[hidden] { display:none; }
+
+/* En la tarjeta se enseña sólo el canal de contacto: es lo que se necesita
+   saber sin abrir a nadie ("¿por dónde le escribo?"). */
+.cli-canal { display:flex; align-items:baseline; gap:5px; font-size:12px; color:var(--text); flex-wrap:wrap; }
+.cli-canal-lbl { color:var(--text-muted); }
 
 /* ── Reseñas ── */
 .cli-confidencial {

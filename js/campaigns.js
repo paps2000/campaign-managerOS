@@ -994,9 +994,32 @@ function renderCampaignClients(c) {
               ${ct.cargo ? `<div style="font-size:11px;color:var(--text-muted);margin-top:2px;">${_esc(ct.cargo)}</div>` : ''}
               ${ct.email ? `<a href="mailto:${_esc(ct.email)}" style="font-size:12px;color:var(--pink);display:block;margin-top:6px;text-decoration:none;">${_esc(ct.email)}</a>` : ''}
               ${ct.linkedin ? `<a href="${_esc(ct.linkedin)}" target="_blank" rel="noopener" style="font-size:12px;color:#0a66c2;display:inline-flex;align-items:center;gap:4px;margin-top:4px;text-decoration:none;font-weight:600;"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M19 0H5a5 5 0 0 0-5 5v14a5 5 0 0 0 5 5h14a5 5 0 0 0 5-5V5a5 5 0 0 0-5-5zM8 19H5V8h3v11zM6.5 6.7a1.8 1.8 0 1 1 0-3.6 1.8 1.8 0 0 1 0 3.6zM20 19h-3v-5.6c0-3.4-4-3.1-4 0V19h-3V8h3v1.8c1.4-2.6 7-2.8 7 2.5V19z"/></svg> LinkedIn</a>` : ''}
+              ${_clientPrefsHtml(ct)}
               ${ct.notes ? `<div style="font-size:11px;color:var(--text-muted);margin-top:8px;background:var(--bg);padding:6px 8px;border-radius:8px;line-height:1.4;white-space:pre-wrap;">${_esc(ct.notes)}</div>` : ''}
             </div>`).join('')}
         </div>`}`;
+}
+
+/* Lo que sabemos de cómo quiere el seguimiento se lee del contacto y, si ahí no
+   está, de su ficha en Clientes: es la misma persona y la respuesta no cambia
+   por campaña. Sin respuesta no se pinta nada — una fila que dice "Sin definir"
+   ocupa lugar sin decir nada. */
+function _clientPrefsHtml(ct) {
+  if(typeof prefClienteLabel !== 'function') return '';
+  const prefs = (typeof clientePrefs === 'function') ? clientePrefs(ct) : {};
+  const filas = [
+    ['canalSeguimiento', 'Seguimiento'],
+    ['canalContacto',    'Contacto'],
+  ].map(([campo, titulo]) => {
+    const valor = (ct[campo] && ct[campo] !== 'na') ? ct[campo] : prefs[campo];
+    if(!valor || valor === 'na') return '';
+    const otro = ct[campo + 'Otro'] || prefs[campo + 'Otro'] || '';
+    return `<div style="display:flex;gap:6px;font-size:11px;line-height:1.4;">
+      <span style="color:var(--text-muted);flex-shrink:0;">${titulo}:</span>
+      <span style="color:var(--text);font-weight:600;">${_esc(prefClienteLabel(campo, valor, otro))}</span>
+    </div>`;
+  }).filter(Boolean).join('');
+  return filas ? `<div style="margin-top:8px;display:flex;flex-direction:column;gap:3px;">${filas}</div>` : '';
 }
 
 let _editingClientContact = { campaignId:null, idx:null };
@@ -1006,6 +1029,12 @@ function openClientContactModal(cid, idx) {
   if(!c) return;
   _editingClientContact = { campaignId:cid, idx: typeof idx==='number'?idx:null };
   const ct = (typeof idx==='number' && c.clientContacts && c.clientContacts[idx]) || {name:'',email:'',cargo:'',linkedin:'',notes:''};
+  // Cómo quiere el seguimiento es un dato de la PERSONA, no de la campaña: si ya
+  // lo contestaron en la pestaña Clientes, el formulario abre con eso en vez de
+  // pedir el mismo dato otra vez.
+  const prefs = (typeof clientePrefs === 'function') ? clientePrefs(ct) : {};
+  const pref = (campo) => (ct[campo] && ct[campo] !== 'na') ? ct[campo] : (prefs[campo] || 'na');
+  const prefOtro = (campo) => ct[campo + 'Otro'] || prefs[campo + 'Otro'] || '';
   // Ensure modal exists; create on demand
   if(!document.getElementById('clientContactModal')) {
     const html = `
@@ -1026,6 +1055,18 @@ function openClientContactModal(cid, idx) {
               <option value="na">Sin definir</option>
             </select>
           </div>
+          <fieldset class="form-group cli-pref-set">
+            <legend class="form-label">Cómo le gusta el seguimiento</legend>
+            <p class="cli-pref-ayuda">Son dos conversaciones distintas: dónde se revisa el contenido y por dónde se le escribe para todo lo demás.</p>
+            <label class="form-label" for="fClientSeguimiento">Seguimiento de contenidos</label>
+            <select id="fClientSeguimiento" class="form-input" onchange="toggleClientPrefOtro('Seguimiento')">${prefOpcionesHtml('canalSeguimiento','na')}</select>
+            <input type="text" id="fClientSeguimientoOtro" class="form-input" style="margin-top:8px;" hidden
+              aria-label="¿Cómo prefiere revisar el contenido?" placeholder="¿Cómo prefiere revisar el contenido?">
+            <label class="form-label" for="fClientContacto" style="margin-top:12px;">Método de contacto preferido</label>
+            <select id="fClientContacto" class="form-input" onchange="toggleClientPrefOtro('Contacto')">${prefOpcionesHtml('canalContacto','na')}</select>
+            <input type="text" id="fClientContactoOtro" class="form-input" style="margin-top:8px;" hidden
+              aria-label="¿Por dónde prefiere que le escribamos?" placeholder="¿Por dónde prefiere que le escribamos?">
+          </fieldset>
           <div class="form-group"><label class="form-label">Notas</label><textarea id="fClientNotes" class="form-input" rows="3" placeholder="Preferencias, horarios, contexto..."></textarea></div>
           <div class="modal-footer">
             <button class="btn btn-ghost" onclick="closeModal('clientContactModal')">Cancelar</button>
@@ -1046,7 +1087,23 @@ function openClientContactModal(cid, idx) {
   document.getElementById('fClientLinkedin').value = ct.linkedin || '';
   document.getElementById('fClientNotes').value    = ct.notes || '';
   document.getElementById('fClientPoc').value      = ct.pocTipo || 'na';
+  document.getElementById('fClientSeguimiento').value     = pref('canalSeguimiento');
+  document.getElementById('fClientSeguimientoOtro').value = prefOtro('canalSeguimiento');
+  document.getElementById('fClientContacto').value        = pref('canalContacto');
+  document.getElementById('fClientContactoOtro').value    = prefOtro('canalContacto');
+  toggleClientPrefOtro('Seguimiento');
+  toggleClientPrefOtro('Contacto');
   openModal('clientContactModal');
+}
+
+/* El campo de texto libre sólo existe cuando se eligió "otro": pedir la
+   explicación siempre visible es ruido para las cuatro opciones que ya la
+   traen. */
+function toggleClientPrefOtro(cual) {
+  const sel = document.getElementById('fClient' + cual);
+  const inp = document.getElementById('fClient' + cual + 'Otro');
+  if(!sel || !inp) return;
+  inp.hidden = sel.value !== 'otro';
 }
 
 function saveClientContact() {
@@ -1060,11 +1117,17 @@ function saveClientContact() {
   if(linkedin && !/^https?:\/\//i.test(linkedin)) linkedin = 'https://' + linkedin;
   const notes = document.getElementById('fClientNotes').value.trim();
   const pocTipo = document.getElementById('fClientPoc').value || 'na';
+  const canalSeguimiento = document.getElementById('fClientSeguimiento').value || 'na';
+  const canalContacto    = document.getElementById('fClientContacto').value || 'na';
+  // El texto de "otro" sólo se guarda si "otro" sigue elegido: si no, quedaría
+  // una explicación colgada de una opción que ya no es.
+  const canalSeguimientoOtro = canalSeguimiento === 'otro' ? document.getElementById('fClientSeguimientoOtro').value.trim() : '';
+  const canalContactoOtro    = canalContacto    === 'otro' ? document.getElementById('fClientContactoOtro').value.trim()    : '';
   const campaigns = getData('campaigns');
   const c = campaigns.find(x => x.id === campaignId);
   if(!c) return;
   if(!Array.isArray(c.clientContacts)) c.clientContacts = [];
-  const obj = { name, cargo, email, linkedin, notes, pocTipo };
+  const obj = { name, cargo, email, linkedin, notes, pocTipo, canalSeguimiento, canalSeguimientoOtro, canalContacto, canalContactoOtro };
   if(typeof idx === 'number') c.clientContacts[idx] = obj;
   else c.clientContacts.push(obj);
   setData('campaigns', campaigns);

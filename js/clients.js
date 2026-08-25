@@ -30,6 +30,43 @@ const CLIENT_POC = [
   { id: 'na',         label: 'Sin definir'   },
 ];
 
+/* ── Cómo quiere que le demos seguimiento ──
+   Son DOS preguntas y no una porque son dos conversaciones distintas: dónde se
+   revisa el contenido (el ida y vuelta del trabajo, que casi siempre pasa donde
+   viven los archivos) y por dónde se le escribe para todo lo demás. Preguntar
+   una sola cosa obliga a elegir un canal para las dos, y en la práctica casi
+   nadie usa el mismo: hay quien revisa comentando en el Drive pero sólo contesta
+   por WhatsApp.
+
+   `otro` guarda además un texto libre, porque la gracia del dato es saber qué
+   hacer — "otro" a secas no le dice nada a quien lo lea. `na` va al final de la
+   lista a propósito: es el que se usa como respaldo cuando el valor guardado ya
+   no existe en la lista. */
+const CLIENT_SEGUIMIENTO = [
+  { id: 'drive',        label: 'Directo en el Drive' },
+  { id: 'mensaje',      label: 'Por mensaje (WhatsApp o Slack)' },
+  { id: 'correo',       label: 'Por correo' },
+  { id: 'videollamada', label: 'En videollamada' },
+  { id: 'otro',         label: 'Otro' },
+  { id: 'na',           label: 'Sin definir' },
+];
+const CLIENT_CONTACTO = [
+  { id: 'whatsapp', label: 'WhatsApp' },
+  { id: 'correo',   label: 'Correo' },
+  { id: 'slack',    label: 'Slack' },
+  { id: 'otro',     label: 'Otro' },
+  { id: 'na',       label: 'Sin definir' },
+];
+
+/* Los dos campos se manejan con las mismas cuatro funciones en vez de duplicarlas:
+   el nombre del campo en el documento es la llave de todo. */
+const CLIENT_PREFS = {
+  canalSeguimiento: { lista: CLIENT_SEGUIMIENTO, label: 'Seguimiento de contenidos',
+                      hint: '¿Cómo prefiere revisar el contenido?' },
+  canalContacto:    { lista: CLIENT_CONTACTO,    label: 'Método de contacto preferido',
+                      hint: '¿Por dónde prefiere que le escribamos?' },
+};
+
 let _clientesQuery   = '';
 let _clientesFiltro  = 'activos';   // activos | inactivos | todos
 let _clienteAbierto  = null;
@@ -62,6 +99,111 @@ function _notesCol()   { return db.collection('workspaces').doc(WORKSPACE).colle
 
 function getClientes() { return Array.isArray(_cache.clients) ? _cache.clients : []; }
 
+/* ── Preferencias de seguimiento: leer, escribir y pintar ──
+   El valor guardado se resuelve SIEMPRE contra la lista, nunca se enseña tal
+   cual: si mañana se renombra una opción, las fichas viejas se leen con el
+   nombre nuevo y las que guardaron algo que ya no existe caen en "Sin definir"
+   en vez de mostrar un id suelto. */
+function _prefLista(campo) { return (CLIENT_PREFS[campo] || CLIENT_PREFS.canalContacto).lista; }
+
+function prefClienteLabel(campo, valor, detalle) {
+  const lista = _prefLista(campo);
+  const op = lista.find(o => o.id === valor) || lista[lista.length - 1];   // el último es 'na'
+  const d = String(detalle || '').trim();
+  // Con "otro" lo útil es el texto que escribieron; la palabra "Otro" no dice
+  // qué hacer. Si eligieron otro y no escribieron nada, se pide.
+  if (op.id === 'otro') return d || 'Otro (sin especificar)';
+  return op.label;
+}
+
+function prefOpcionesHtml(campo, valor) {
+  return _prefLista(campo).map(o =>
+    `<option value="${o.id}" ${o.id === (valor || 'na') ? 'selected' : ''}>${o.label}</option>`).join('');
+}
+
+/* Lo que ya sabemos de esta persona, venga de donde venga. Sirve para que el
+   formulario de la campaña abra con lo que se contestó en la pestaña Clientes:
+   la pregunta es sobre la persona, no sobre la campaña, así que contestarla dos
+   veces sería pedir el mismo dato dos veces. */
+function clientePrefs(contacto) {
+  const vacio = { canalSeguimiento: 'na', canalSeguimientoOtro: '', canalContacto: 'na', canalContactoOtro: '' };
+  if (!contacto || !contacto.name) return vacio;
+  const c = getClientes().find(x => x.id === _clientKey(contacto.name, contacto.email));
+  if (!c) return vacio;
+  return {
+    canalSeguimiento:     c.canalSeguimiento     || 'na',
+    canalSeguimientoOtro: c.canalSeguimientoOtro || '',
+    canalContacto:        c.canalContacto        || 'na',
+    canalContactoOtro:    c.canalContactoOtro    || '',
+  };
+}
+
+/* Igual que el chip de POC: un <select> nativo disfrazado de etiqueta. El
+   detalle de "otro" es un input que sólo aparece cuando hace falta — un campo
+   de texto siempre visible para una opción que casi nadie elige es ruido. */
+function _prefChip(c, campo) {
+  const lista  = _prefLista(campo);
+  const valor  = c[campo] || 'na';
+  const otro   = c[campo + 'Otro'] || '';
+  const activo = valor !== 'na';
+  const cfg    = CLIENT_PREFS[campo];
+  return `<div class="cli-pref" data-campo="${campo}">
+    <label class="cli-poc ${activo ? 'cli-poc--canal' : ''}">
+      <span class="cli-poc-txt">${_esc(prefClienteLabel(campo, valor, otro))}</span>
+      <select aria-label="${cfg.label} de ${_esc(c.name)}"
+        onchange="cambiarPrefCliente('${c.id}', '${campo}', this.value, this)">${prefOpcionesHtml(campo, valor)}</select>
+    </label>
+    <input type="text" class="form-input cli-pref-otro" value="${_esc(otro)}"
+      aria-label="${cfg.hint}" placeholder="${cfg.hint}" ${valor === 'otro' ? '' : 'hidden'}
+      onchange="guardarPrefOtroCliente('${c.id}', '${campo}', this.value, this)">
+  </div>`;
+}
+
+/* Al guardar se repinta el chip a mano en vez de volver a dibujar la ficha
+   entera: la ficha carga reseñas de red y redibujarla las pediría otra vez y
+   tiraría lo que alguien estuviera escribiendo. */
+function _pintarChipPref(el, campo, valor, otro) {
+  const caja = el && el.closest('.cli-pref');
+  if (!caja) return;
+  const chip = caja.querySelector('.cli-poc');
+  const txt  = caja.querySelector('.cli-poc-txt');
+  const inp  = caja.querySelector('.cli-pref-otro');
+  if (txt)  txt.textContent = prefClienteLabel(campo, valor, otro);
+  if (chip) chip.classList.toggle('cli-poc--canal', valor !== 'na');
+  if (inp) {
+    inp.hidden = valor !== 'otro';
+    if (valor === 'otro' && document.activeElement !== inp) { try { inp.focus(); } catch (e) {} }
+  }
+}
+
+async function cambiarPrefCliente(id, campo, valor, el) {
+  if (!CLIENT_PREFS[campo]) return;
+  const previo = getClientes().find(x => x.id === id) || {};
+  // Al salir de "otro" se borra el texto: dejarlo guardado haría que reaparezca
+  // meses después si alguien vuelve a elegir "otro", con la explicación de otra
+  // época.
+  const otro = valor === 'otro' ? (previo[campo + 'Otro'] || '') : '';
+  try {
+    await _clientsCol().doc(id).set({ [campo]: valor, [campo + 'Otro']: otro, updatedAt: Date.now() }, { merge: true });
+    _pintarChipPref(el, campo, valor, otro);
+    showToast(CLIENT_PREFS[campo].label + ' actualizado', 'success');
+  } catch (e) {
+    if (typeof avisarError === 'function') avisarError(e, 'guardar la preferencia', 'cambiarPrefCliente');
+  }
+}
+
+async function guardarPrefOtroCliente(id, campo, texto, el) {
+  if (!CLIENT_PREFS[campo]) return;
+  const t = String(texto || '').trim();
+  try {
+    await _clientsCol().doc(id).set({ [campo]: 'otro', [campo + 'Otro']: t, updatedAt: Date.now() }, { merge: true });
+    _pintarChipPref(el, campo, 'otro', t);
+    showToast('Preferencia guardada', 'success');
+  } catch (e) {
+    if (typeof avisarError === 'function') avisarError(e, 'guardar la preferencia', 'guardarPrefOtroCliente');
+  }
+}
+
 /* ── Sincronización desde la campaña ──
    Se llama al guardar un contacto. Hace upsert de la persona y deja ABIERTO su
    periodo en esta campaña. Es idempotente: guardar dos veces no duplica el
@@ -88,6 +230,15 @@ async function clienteUpsertDesdeCampana(contacto, campana) {
     });
   }
 
+  // 'na' es "no contestaron", no una respuesta: si el formulario de la campaña
+  // lo deja sin definir NO se pisa lo que alguien ya haya contestado en la
+  // pestaña Clientes.
+  const pref = (campo) => {
+    const v = contacto[campo];
+    if (v && v !== 'na') return { [campo]: v, [campo + 'Otro']: contacto[campo + 'Otro'] || '' };
+    return { [campo]: previo[campo] || 'na', [campo + 'Otro']: previo[campo + 'Otro'] || '' };
+  };
+
   const doc = {
     id,
     name: contacto.name,
@@ -96,6 +247,8 @@ async function clienteUpsertDesdeCampana(contacto, campana) {
     linkedin: contacto.linkedin || previo.linkedin || '',
     empresa: campana.client || previo.empresa || '',
     pocTipo: contacto.pocTipo || previo.pocTipo || 'na',
+    ...pref('canalSeguimiento'),
+    ...pref('canalContacto'),
     activo: true,
     historial,
     createdAt: previo.createdAt || Date.now(),
@@ -342,6 +495,9 @@ function renderClientes() {
         ${c.activo ? '' : '<span class="badge badge-gray cli-estado">Ya no está</span>'}
       </div>
       <div class="cli-campanas">${donde}</div>
+      ${c.canalContacto && c.canalContacto !== 'na'
+        ? `<div class="cli-canal"><span class="cli-canal-lbl">Escríbele por</span>${_esc(prefClienteLabel('canalContacto', c.canalContacto, c.canalContactoOtro))}</div>`
+        : ''}
       <div class="cli-card-pie">${_pocChip(c)}</div>
     </div>`;
   }).join('')}</div>`;
@@ -383,6 +539,18 @@ async function abrirFichaCliente(id) {
       <div><span class="cli-dato-lbl">LinkedIn</span>${c.linkedin ? `<a href="${_esc(_safeUrl ? _safeUrl(c.linkedin) : c.linkedin)}" target="_blank" rel="noopener">Ver perfil</a>` : '—'}</div>
       <div><span class="cli-dato-lbl">Tipo</span>${_pocChip(c)}</div>
       <div><span class="cli-dato-lbl">Estado</span>${c.activo ? 'Activo' : 'Ya no está en ninguna campaña'}</div>
+    </div>
+
+    <h4 class="cli-seccion">Cómo le gusta el seguimiento</h4>
+    <div class="cli-prefs">
+      <div class="cli-pref-fila">
+        <span class="cli-dato-lbl">${CLIENT_PREFS.canalSeguimiento.label}</span>
+        ${_prefChip(c, 'canalSeguimiento')}
+      </div>
+      <div class="cli-pref-fila">
+        <span class="cli-dato-lbl">${CLIENT_PREFS.canalContacto.label}</span>
+        ${_prefChip(c, 'canalContacto')}
+      </div>
     </div>
 
     <h4 class="cli-seccion">Historial</h4>
@@ -473,6 +641,11 @@ window.setClientesQuery          = setClientesQuery;
 window.abrirFichaCliente         = abrirFichaCliente;
 window.enviarResenaCliente       = enviarResenaCliente;
 window.cambiarPocCliente         = cambiarPocCliente;
+window.cambiarPrefCliente        = cambiarPrefCliente;
+window.guardarPrefOtroCliente    = guardarPrefOtroCliente;
+window.prefClienteLabel          = prefClienteLabel;
+window.prefOpcionesHtml          = prefOpcionesHtml;
+window.clientePrefs              = clientePrefs;
 window.clienteUpsertDesdeCampana = clienteUpsertDesdeCampana;
 window.clienteCerrarEnCampana    = clienteCerrarEnCampana;
 window.puedeVerResenasCliente    = puedeVerResenasCliente;
