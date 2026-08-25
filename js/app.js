@@ -67,10 +67,15 @@ function renderCalendar() {
   // mes o de pestaña y volviera. Además cada render nuevo cancelaba el
   // temporizador del anterior, así que el aviso del fetch viejo se perdía.
   misCampanas().forEach(c => {
-    if(c.trackerSheetUrl && (!c.trackerRows || !c.trackerRows.length) && !_fetchTrackerEnCurso.has(c.id)) {
+    // Igual que en el Resumen: si la bajada no trajo nada, no se vuelve a pedir
+    // en el acto. La condición "tiene URL y no tiene filas" no se apaga sola y
+    // cada bajada agenda el repintado que la volvería a disparar.
+    if(c.trackerSheetUrl && (!c.trackerRows || !c.trackerRows.length) && !_fetchTrackerEnCurso.has(c.id)
+       && !_fuenteEnEspera(c.id, 'tracker', c.trackerSheetUrl)) {
       _fetchTrackerEnCurso.add(c.id);
       _autoFetchTracker(c.trackerSheetUrl, c, {silent:true}).finally(()=>{
         _fetchTrackerEnCurso.delete(c.id);
+        _marcarFuenteVacia(c.id, 'tracker', c.trackerSheetUrl, !(c.trackerRows && c.trackerRows.length));
         _agendarRefrescoCalendario();
       });
     }

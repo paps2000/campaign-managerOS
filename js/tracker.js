@@ -615,8 +615,31 @@ function renderCampaignTracker(c) {
     _renderTrackerSummaryAndTable();
     _startTrackerAutoRefresh(c);
   } else if(c.trackerSheetUrl) {
-    wrap.innerHTML = `<div class="empty-state"><p>Cargando datos del tracker...</p></div>`;
-    _autoFetchTracker(c.trackerSheetUrl, c, {silent:true});
+    // Esta rama pedía el sheet en CADA repintado de la pestaña, sin guarda de
+    // ninguna clase: con el tracker caído —o simplemente vacío— entraba aquí
+    // una y otra vez, una petición por snapshot de Firestore, y el mensaje de
+    // "Cargando datos del tracker..." tapaba cualquier error que llegara a
+    // pintarse. Las mismas dos marcas que usan el Resumen y el Calendario:
+    // `_fetchTrackerEnCurso` mientras está en vuelo, `_fuenteEnEspera` cuando
+    // ya se intentó y no trajo filas.
+    const enVuelo = _fetchTrackerEnCurso.has(c.id);
+    const enEspera = _fuenteEnEspera(c.id, 'tracker', c.trackerSheetUrl);
+    if(enVuelo || !enEspera) {
+      wrap.innerHTML = `<div class="empty-state"><p>Cargando datos del tracker...</p></div>`;
+    } else {
+      const err = (c._syncErrors && c._syncErrors.tracker) || '';
+      wrap.innerHTML = err
+        ? `<div class="empty-state"><p>No se pudo leer el tracker: ${_esc(err)}</p></div>`
+        : `<div class="empty-state"><p>El tracker vinculado no trajo publicaciones.</p></div>`;
+    }
+    if(!enVuelo && !enEspera) {
+      _fetchTrackerEnCurso.add(c.id);
+      _autoFetchTracker(c.trackerSheetUrl, c, {silent:true}).finally(() => {
+        _fetchTrackerEnCurso.delete(c.id);
+        _marcarFuenteVacia(c.id, 'tracker', c.trackerSheetUrl, !(c.trackerRows && c.trackerRows.length));
+        if(currentCampaignId === c.id) { try { renderCampaignTracker(c); } catch(e){} }
+      });
+    }
   } else {
     wrap.innerHTML = `<div class="empty-state"><p>Vincula el master tracker para ver las publicaciones</p></div>`;
   }
@@ -629,7 +652,20 @@ function _renderTrackerTable(rows) {
 
 async function _autoFetchTracker(url, campaign, opts = {}) {
   const csvUrl = normalizeCsvUrl(url);
-  if(!csvUrl) return;
+  // Una URL que no es de Sheets salía por aquí en silencio y sin tocar el DOM:
+  // la pestaña se quedaba con "Cargando datos del tracker..." para siempre y
+  // quien la mirara no tenía forma de saber que el link estaba mal. Encima
+  // volvía en el acto, sin red de por medio, así que el repintado perezoso del
+  // Resumen y del Calendario la volvía a llamar en bucle. Se avisa y se corta.
+  if(!csvUrl) {
+    try { marcarErrorFuente(campaign, 'tracker', 'La URL no es un Google Sheet'); } catch(e){}
+    const wrap = document.getElementById('trackerTableWrap');
+    if(wrap && currentCampaignId === campaign.id) {
+      wrap.innerHTML = '<div class="empty-state"><p>La URL del tracker no es un Google Sheet.</p></div>';
+    }
+    if(opts.silent !== true) showToast('La URL del tracker no es un Google Sheet.','error');
+    return;
+  }
   try {
     const res = await fetch(csvUrl);
     if(!res.ok) throw new Error(`HTTP ${res.status}`);

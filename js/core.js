@@ -602,6 +602,33 @@ const _escenarioFetching = new Set();
 const _fetchTrackerEnCurso = new Set();
 const _fetchMetricasEnCurso = new Set();
 const _fetchUgcEnCurso = new Set();
+
+/* Y una segunda marca: la bajada que YA SE INTENTÓ y no trajo filas.
+   La condición de las bajadas perezosas es "tiene URL pero no tiene filas".
+   Cuando la bajada falla —el sheet no es público, la URL está mal escrita, el
+   documento se borró— las filas siguen vacías, así que la condición sigue
+   siendo cierta y el siguiente repintado vuelve a pedir exactamente lo mismo.
+   Y el repintado llega solo: cada bajada agenda uno al terminar. Eso es un
+   bucle cerrado —repintar, pedir, fallar, repintar— a varias vueltas por
+   segundo, y con una URL inválida `_autoFetchTracker` ni siquiera llega a la
+   red: vuelve en el acto y el bucle gira tan rápido como el navegador deje.
+   Ese era el "se recarga mil veces" y, de rebote, el motivo de que los botones
+   del tablero no se dejaran apretar: cada vuelta los reconstruía.
+
+   Se recuerda el intento fallido por campaña + fuente + URL durante un rato.
+   Va por URL para que corregir el link en la campaña vuelva a intentarlo al
+   instante, sin esperar a que expire. */
+const _fuenteFallo = new Map();          // 'id|fuente|url' -> cuándo falló
+const FUENTE_ESPERA = 10 * 60 * 1000;    // 10 min
+function _fuenteEnEspera(id, fuente, url) {
+  const t = _fuenteFallo.get(id + '|' + fuente + '|' + (url||''));
+  return !!t && (Date.now() - t) < FUENTE_ESPERA;
+}
+function _marcarFuenteVacia(id, fuente, url, vacia) {
+  const k = id + '|' + fuente + '|' + (url||'');
+  if(vacia) _fuenteFallo.set(k, Date.now());
+  else _fuenteFallo.delete(k);
+}
 function _rerenderEscenarioIfActive(campaignId) {
   if(currentCampaignId !== campaignId) return;
   const c = (_cache.campaigns||[]).find(x=>x.id===campaignId);
@@ -679,9 +706,22 @@ function attachListeners() {
     // TODAS las campañas — con su tanda de snapshots y repintados detrás.
     // Rellenar un array vacío no es un cambio de contenido y no debe contar.
     try { _seedPersistedFp(snap.docs.map(d => _normalizarCampana(d.data()))); } catch(e){}
+    // Ya llegó el servidor: se acabaron los esqueletos de carga.
+    // `_initialized` nacía en false y NADIE lo subía nunca, así que la lista de
+    // campañas enseñaba las cuatro tarjetas grises de "cargando" cada vez que
+    // el filtro no encontraba nada — un estatus sin campañas, una búsqueda sin
+    // resultados, o "Mías" para quien no sigue ninguna. Esperando para siempre
+    // datos que ya estaban.
+    _cache._initialized = true;
     if(typeof _invalidateInfMemo==='function') _invalidateInfMemo();
     rerenderCurrent();
-  }, err => console.error('campaigns listener',err)));
+  }, err => {
+    // Si el listener se cae (permisos, red), tampoco se deja el esqueleto
+    // puesto: enseñar "cargando" para siempre esconde el error.
+    console.error('campaigns listener', err);
+    _cache._initialized = true;
+    rerenderCurrent();
+  }));
 
   unsubscribers.push(ws.collection('globalTasks').onSnapshot(snap => {
     _cache.globalTasks = snap.docs.map(d => d.data());
@@ -803,6 +843,30 @@ function misCampanas() {
    commitean el dato), así que aplazar un frame no cambia el resultado — sólo
    evita pintar estados intermedios que nadie necesita ver. */
 let _repintadoPedido = false;
+
+/* Y no se repinta con el dedo apretado.
+   El navegador sólo dispara `click` si el `mousedown` y el `mouseup` caen
+   sobre el mismo nodo. Repintar una vista es `innerHTML = ...`: el botón que
+   se apretó deja de existir a media pulsación y el clic no llega nunca. Con
+   snapshots entrando de nueve colecciones, ese hueco se abre docenas de veces
+   por minuto y el resultado es el que se reportó — "los botones se traban",
+   "no me deja clickear". El repintado espera a que se suelte; los datos no se
+   pierden, sólo se pintan un momento después.
+   El repintado no se manda en el `pointerup` sino en la tarea siguiente,
+   porque el `click` se despacha DESPUÉS del `pointerup` y dentro de la misma:
+   repintar ahí volvería a comerse el clic que se está intentando salvar.
+   El sello de tiempo es la red de seguridad: si el `pointerup` se pierde
+   (soltar fuera de la ventana, un menú del sistema encima), la app no se queda
+   congelada esperándolo. */
+let _dedoDesde = 0;
+const DEDO_MAX = 1500;
+function _dedoAbajo(){ return _dedoDesde > 0 && (Date.now() - _dedoDesde) < DEDO_MAX; }
+window.addEventListener('pointerdown', () => { _dedoDesde = Date.now(); }, true);
+['pointerup','pointercancel'].forEach(ev => window.addEventListener(ev, () => {
+  _dedoDesde = 0;
+  if(_repintadoPedido) setTimeout(() => { if(!_repintadoPedido) return; _repintadoPedido = false; _repintarAhora(); }, 0);
+}, true));
+
 function rerenderCurrent() {
   if(_repintadoPedido) return;
   _repintadoPedido = true;
@@ -810,7 +874,12 @@ function rerenderCurrent() {
   // en una pestaña de fondo el navegador NO entrega frames: sin él, marcar una
   // tarea con la ventana detrás de otra no repintaría nada hasta volver. Gana
   // el primero que llegue; el otro se encuentra la bandera baja y no hace nada.
-  const repintar = () => { if(!_repintadoPedido) return; _repintadoPedido = false; _repintarAhora(); };
+  const repintar = () => {
+    if(!_repintadoPedido) return;
+    if(_dedoAbajo()) { setTimeout(repintar, 120); return; }   // lo despierta el pointerup
+    _repintadoPedido = false;
+    _repintarAhora();
+  };
   requestAnimationFrame(repintar);
   setTimeout(repintar, 250);
 }

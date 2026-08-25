@@ -2114,6 +2114,9 @@
      `npm run lint` comprueba que ninguna llame a algo que no existe y
      test/estructura.test.js que ningún onclick de aquí apunte al vacío. -->
 
+<!-- Repintado idempotente: tiene que estar puesto antes de la primera escritura -->
+<script src="js/render-guard.js" defer></script>
+
 <!-- Base: datos, caché, navegación, fechas y los helpers de toda la app -->
 <script src="js/core.js" defer></script>
 <script src="js/utils.js" defer></script>

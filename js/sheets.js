@@ -42,7 +42,14 @@ async function syncEscenario() {
 
 async function _autoFetchEscenario(url, campaign) {
   const csvUrl = normalizeCsvUrl(url);
-  if(!csvUrl) return;
+  // Igual que en el tracker: salir en silencio dejaba el bloque en "Cargando
+  // escenario..." para siempre, sin decir que el link no era un Sheet.
+  if(!csvUrl) {
+    try { marcarErrorFuente(campaign, 'escenario', 'La URL no es un Google Sheet'); } catch(e){}
+    const wrap = document.getElementById('escenarioBlock');
+    if(wrap) wrap.innerHTML = '<div class="empty-state"><p>La URL del escenario no es un Google Sheet.</p></div>';
+    return;
+  }
   try {
     const res = await fetch(csvUrl);
     if(!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -481,9 +488,18 @@ function renderEscenarioBlock(c) {
   }
   if(!c.escenarioRows || !c.escenarioRows.length) {
     const checked = _escenarioStoreChecked.has(c.id);
-    wrap.innerHTML = (c.escenarioSheetUrl || !checked)
+    // "Cargando" sólo mientras algo está de verdad en camino. Si la bajada ya
+    // se intentó y falló, decirlo: el bloque se quedaba con el mensaje de carga
+    // eternamente y se leía como que la app se colgó.
+    const errEsc = (c._syncErrors && c._syncErrors.escenario) || '';
+    const cargando = !checked || _escenarioFetching.has(c.id);
+    wrap.innerHTML = cargando
       ? `<div class="empty-state"><p>Cargando escenario...</p></div>`
-      : `<div class="empty-state" style="padding:14px;"><p style="font-size:12px;">Vincula el escenario para ver views estimadas, contenidos cerrados y costos por creador</p></div>`;
+      : errEsc
+        ? `<div class="empty-state" style="padding:14px;"><p style="font-size:12px;">No se pudo leer el escenario: ${_esc(errEsc)}</p></div>`
+        : c.escenarioSheetUrl
+          ? `<div class="empty-state" style="padding:14px;"><p style="font-size:12px;">El escenario vinculado no trajo filas.</p></div>`
+          : `<div class="empty-state" style="padding:14px;"><p style="font-size:12px;">Vincula el escenario para ver views estimadas, contenidos cerrados y costos por creador</p></div>`;
     // 1) First try the saved copy in Firestore (survives reloads, no re-sync).
     //    Guard with id-based Sets so repeated snapshots don't re-trigger and flash.
     if(!checked && !_escenarioLoading.has(c.id)) {
@@ -498,7 +514,17 @@ function renderEscenarioBlock(c) {
       return;
     }
     // 2) No saved copy — fall back to live fetch if a URL is linked.
-    if(c.escenarioSheetUrl && c.escenarioSource!=='app' && !_escenarioFetching.has(c.id)) { _escenarioFetching.add(c.id); _autoFetchEscenario(c.escenarioSheetUrl, c).finally(()=>{_escenarioFetching.delete(c.id);}); }
+    // El `_fuenteEnEspera` corta lo que antes era un bucle: con el sheet caído,
+    // `escenarioRows` se queda vacío, así que el siguiente repintado de la
+    // pestaña —y llega uno por snapshot— volvía a pedir el mismo sheet roto.
+    if(c.escenarioSheetUrl && c.escenarioSource!=='app' && !_escenarioFetching.has(c.id)
+       && !_fuenteEnEspera(c.id, 'escenario', c.escenarioSheetUrl)) {
+      _escenarioFetching.add(c.id);
+      _autoFetchEscenario(c.escenarioSheetUrl, c).finally(()=>{
+        _escenarioFetching.delete(c.id);
+        _marcarFuenteVacia(c.id, 'escenario', c.escenarioSheetUrl, !(c.escenarioRows && c.escenarioRows.length));
+      });
+    }
     return;
   }
   // Lazy auto-fetch UGC results sheet if linked but uncached
@@ -506,16 +532,24 @@ function renderEscenarioBlock(c) {
   // listener de Firestore reconstruye las campañas en cada snapshot y la marca
   // se perdía a media descarga, así que el mismo sheet se volvía a pedir en
   // cada repintado. Ver _fetchTrackerEnCurso en js/core.js.
-  if(c.ugcSheetUrl && (!c.ugcRows || !c.ugcRows.length) && !_fetchUgcEnCurso.has(c.id)) {
+  if(c.ugcSheetUrl && (!c.ugcRows || !c.ugcRows.length) && !_fetchUgcEnCurso.has(c.id)
+     && !_fuenteEnEspera(c.id, 'ugc', c.ugcSheetUrl)) {
     _fetchUgcEnCurso.add(c.id);
-    _autoFetchUgc(c.ugcSheetUrl, c).finally(()=>{ _fetchUgcEnCurso.delete(c.id); });
+    _autoFetchUgc(c.ugcSheetUrl, c).finally(()=>{
+      _fetchUgcEnCurso.delete(c.id);
+      _marcarFuenteVacia(c.id, 'ugc', c.ugcSheetUrl, !(c.ugcRows && c.ugcRows.length));
+    });
   }
   // Lazy auto-fetch metrics sheet so per-creator real views/engagement
   // show up in the Escenario tab without requiring the user to visit the
   // Métricas tab first.
-  if(c.metricsSheetUrl && (!c.cachedMetrics || !c.cachedMetrics.length) && !_fetchMetricasEnCurso.has(c.id)) {
+  if(c.metricsSheetUrl && (!c.cachedMetrics || !c.cachedMetrics.length) && !_fetchMetricasEnCurso.has(c.id)
+     && !_fuenteEnEspera(c.id, 'metricas', c.metricsSheetUrl)) {
     _fetchMetricasEnCurso.add(c.id);
-    _autoFetchMetrics(c.metricsSheetUrl, c).finally(()=>{ _fetchMetricasEnCurso.delete(c.id); });
+    _autoFetchMetrics(c.metricsSheetUrl, c).finally(()=>{
+      _fetchMetricasEnCurso.delete(c.id);
+      _marcarFuenteVacia(c.id, 'metricas', c.metricsSheetUrl, !(c.cachedMetrics && c.cachedMetrics.length));
+    });
   }
 
   const parsed = parseEscenarioRows(c.escenarioRows);

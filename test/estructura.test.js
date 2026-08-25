@@ -98,10 +98,14 @@ ok(colisiones.length === 0,
 // ===========================================================================
 group('index.html — el orden de carga sigue siendo el esperado');
 
+// render-guard.js parcha el setter de innerHTML y no depende de nadie: tiene
+// que estar puesto antes de la primera escritura de cualquier vista.
 // core.js define el scope base (_cache, db, navigate, los helpers de fecha) y
 // tiene código que corre al evaluarse. Todo lo demás lo asume cargado.
-ok(archivos[1] === 'js/core.js', 'core.js se carga primero (después del login-shell)',
+ok(archivos[1] === 'js/render-guard.js', 'render-guard.js va antes que las vistas',
    'orden actual: ' + archivos.slice(0, 3).join(', '));
+ok(archivos[2] === 'js/core.js', 'core.js se carga primero (después del render-guard)',
+   'orden actual: ' + archivos.slice(0, 4).join(', '));
 ok(archivos.every(f => fs.existsSync(path.join(ROOT, f))),
    'todos los <script src> apuntan a un archivo que existe',
    archivos.filter(f => !fs.existsSync(path.join(ROOT, f))).join(', '));

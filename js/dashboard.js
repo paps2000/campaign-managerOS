@@ -32,20 +32,27 @@ function renderDashboard() {
     }, 400);
   };
   campaigns.forEach(c => {
-    if(c.trackerSheetUrl && (!c.trackerRows || !c.trackerRows.length) && !_fetchTrackerEnCurso.has(c.id)) {
+    // `_fuenteEnEspera` es lo que corta el bucle cuando el sheet no responde:
+    // sin él, "tiene URL y no tiene filas" sigue siendo cierto para siempre y
+    // cada repintado vuelve a pedirlo. Ver la nota en core.js.
+    if(c.trackerSheetUrl && (!c.trackerRows || !c.trackerRows.length) && !_fetchTrackerEnCurso.has(c.id)
+       && !_fuenteEnEspera(c.id, 'tracker', c.trackerSheetUrl)) {
       _fetchTrackerEnCurso.add(c.id);
       _autoFetchTracker(c.trackerSheetUrl, c, {silent:true}).finally(() => {
         _fetchTrackerEnCurso.delete(c.id);
+        _marcarFuenteVacia(c.id, 'tracker', c.trackerSheetUrl, !(c.trackerRows && c.trackerRows.length));
         _scheduleDashRefresh();
       });
     }
     // Mismo trato para las métricas: sin esto el avance contra la meta salía
     // en cero hasta que alguien abriera la página de Métricas campaña por
     // campaña, que es justo el paseo que este tablero viene a ahorrar.
-    if(c.metricsSheetUrl && (!c.cachedMetrics || !c.cachedMetrics.length) && !_fetchMetricasEnCurso.has(c.id) && typeof fetchMetricsRowsQuiet === 'function') {
+    if(c.metricsSheetUrl && (!c.cachedMetrics || !c.cachedMetrics.length) && !_fetchMetricasEnCurso.has(c.id)
+       && !_fuenteEnEspera(c.id, 'metricas', c.metricsSheetUrl) && typeof fetchMetricsRowsQuiet === 'function') {
       _fetchMetricasEnCurso.add(c.id);
       Promise.resolve(fetchMetricsRowsQuiet(c.metricsSheetUrl, c)).finally(() => {
         _fetchMetricasEnCurso.delete(c.id);
+        _marcarFuenteVacia(c.id, 'metricas', c.metricsSheetUrl, !(c.cachedMetrics && c.cachedMetrics.length));
         _scheduleDashRefresh();
       });
     }

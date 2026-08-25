@@ -26,6 +26,7 @@ async function connectGoogleCalendar() {
   if(_calendarConnecting) return;
   _calendarConnecting = true;
   const btn = document.querySelector('[onclick="connectGoogleCalendar()"]');
+  const rotulo = btn ? btn.textContent : '';
   if(btn) { btn.disabled = true; btn.textContent = 'Conectando...'; }
   try {
     const provider = new firebase.auth.GoogleAuthProvider();
@@ -46,6 +47,12 @@ async function connectGoogleCalendar() {
     renderCalendarWidget();
   } finally {
     _calendarConnecting = false;
+    // El botón se devolvía a la vida sólo de rebote, porque el repintado del
+    // widget lo construía de cero. Ahora que un repintado idéntico no toca el
+    // DOM (js/render-guard.js), quien lo apagó tiene que encenderlo: si no,
+    // cerrar el popup de Google dejaba "Conectando..." apagado para siempre y
+    // ya no había forma de reintentar.
+    if(btn && btn.isConnected) { btn.disabled = false; btn.textContent = rotulo || 'Conectar Google'; }
   }
 }
 

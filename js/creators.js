@@ -838,6 +838,10 @@ function scenarioSave() {
   // bajo historyApp[campaignId] (re-guardar el mismo escenario solo la actualiza).
   try { _scenarioFeedCreatorsDB(campaigns[idx]); } catch(e){ console.warn('feed creators db', e); }
   showToast('Escenario guardado y vinculado a la campaña','success');
+  // Se apagó al empezar a guardar: hay que volver a encenderlo aquí. Contaba
+  // con que reabrir el editor lo reconstruyera, y un repintado con el mismo
+  // HTML ya no reconstruye nada (js/render-guard.js).
+  if(btn) { btn.disabled = false; btn.textContent = 'Guardar escenario'; }
   closeScenarioEditor();
   // Refrescar la pestaña Escenario si la campaña abierta es la misma
   if(currentCampaignId === _scenarioState.campaignId) {
