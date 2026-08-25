@@ -48,7 +48,7 @@ function _evPorFecha(a, b) {
   return da.localeCompare(db_);
 }
 
-function _evHoy() { return new Date().toISOString().split('T')[0]; }
+function _evHoy() { return hoyISO(); }
 
 /* Cuándo termina: si no se puso fecha de cierre, el evento dura su día. */
 function _evFin(e) { return e.endDate || e.date || ''; }
@@ -238,7 +238,7 @@ function _evTarjeta(e, conCampana) {
         ${conCampana && !c && e.campaignName ? `<span class="ev-chip">${_esc(e.campaignName)}</span>` : ''}
         ${!e.campaignId ? `<span class="ev-chip">Agencia</span>` : ''}
         ${e.place ? `<span class="ev-chip">${_esc(e.place)}</span>` : ''}
-        ${e.url ? `<a class="ev-chip ev-chip-link" href="${_esc(e.url)}" target="_blank" rel="noopener noreferrer">Link</a>` : ''}
+        ${e.url ? `<a class="ev-chip ev-chip-link" href="${_esc(_safeUrl(e.url))}" target="_blank" rel="noopener noreferrer">Link</a>` : ''}
       </div>
       ${e.notes ? `<div class="ev-notes">${_esc(e.notes)}</div>` : ''}
     </div>

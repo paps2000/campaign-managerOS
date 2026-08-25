@@ -82,10 +82,33 @@ sandbox.globalThis = sandbox;
 vm.createContext(sandbox);
 
 // --- cargar los archivos reales, en el mismo orden que index.html ----------
-['core.js', 'campaigns.js', 'sheets.js', 'ui.js'].forEach(f => {
-  const src = fs.readFileSync(path.join(ROOT, 'js', f), 'utf8');
-  try { vm.runInContext(src, sandbox, { filename:'js/'+f }); }
-  catch(e) { console.error('No se pudo cargar js/'+f+': '+e.message); process.exit(1); }
+// La lista se LEE de index.html en vez de escribirse aquí: estaba fija en
+// ['core.js','campaigns.js','sheets.js','ui.js'] y al partir esos archivos por
+// vista las pruebas dejaron de encontrar la mitad de las funciones. Derivarla
+// hace que partir un archivo o agregar uno nuevo no rompa nada, y de paso
+// prueba lo que se quiere probar: que el conjunto REAL de scripts se evalúa
+// entero, en orden, sin reventar.
+//
+// Se saltan los que sólo tocan el DOM o pintan (la credencial, los efectos, el
+// modo cliente): traerlos obligaría a stubear medio navegador y no aportan
+// ninguna de las funciones que estas pruebas ejercitan.
+const SIN_DOM = new Set([
+  'js/core.js', 'js/utils.js', 'js/modales.js', 'js/dashboard.js',
+  'js/campaigns.js', 'js/campaign-form.js', 'js/tracker.js', 'js/sheets.js',
+  'js/tasks-board.js', 'js/tareas.js', 'js/contenido.js', 'js/equipo.js',
+  'js/generador.js', 'js/ajustes.js', 'js/auth.js',
+]);
+const { archivosDeIndex } = require('../tools/globales.js');
+const aCargar = archivosDeIndex(ROOT).filter(f => SIN_DOM.has(f));
+if(aCargar.length < 10) {
+  console.error('Se esperaban al menos 10 archivos que cargar y salieron ' + aCargar.length +
+                '. ¿Cambiaron los <script> de index.html o los nombres de js/?');
+  process.exit(1);
+}
+aCargar.forEach(rel => {
+  const src = fs.readFileSync(path.join(ROOT, rel), 'utf8');
+  try { vm.runInContext(src, sandbox, { filename: rel }); }
+  catch(e) { console.error('No se pudo cargar ' + rel + ': ' + e.message); process.exit(1); }
 });
 
 // Las `function` declaradas a top-level sí quedan en el objeto global, pero

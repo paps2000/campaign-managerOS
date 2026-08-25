@@ -1,3 +1,6 @@
 .DS_Store
 Campaign Manager.html
 .claude/worktrees/
+
+# El sitio se sirve estático; node_modules es sólo para lint y pruebas.
+node_modules/

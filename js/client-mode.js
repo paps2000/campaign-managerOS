@@ -61,7 +61,7 @@ window.toggleDocClientVisible = function(cid, docId, btn){
   if(c.clientShare && Array.isArray(c.clientShare.hiddenDocs)){
     c.clientShare.hiddenDocs = c.clientShare.hiddenDocs.filter(x=>x!==docId);
   }
-  setData('campaigns', campaigns);
+  guardarCampana(c);
   if(btn){
     const label = on ? 'Visible para el cliente. Click para ocultarlo.'
                      : 'Oculto para el cliente. Click para compartirlo.';
@@ -275,7 +275,7 @@ function _renderClientShareBody(c){
       <div style="display:flex;gap:8px;">
         <input type="text" class="form-input" id="clientShareUrlInput" readonly value="${_esc(url)}" style="flex:1;font-size:12px;" onclick="this.select()">
         <button class="btn btn-primary btn-sm" onclick="copyClientShareLink()">Copiar</button>
-        <a class="btn btn-ghost btn-sm" href="${_esc(url)}" target="_blank" rel="noopener" style="text-decoration:none;">Abrir ↗</a>
+        <a class="btn btn-ghost btn-sm" href="${_esc(_safeUrl(url))}" target="_blank" rel="noopener" style="text-decoration:none;">Abrir ↗</a>
       </div>
     </div>
     <div class="form-group">
@@ -300,7 +300,7 @@ window.enableClientShare = async function(){
   const c = campaigns.find(x=>x.id===currentCampaignId);
   if(!c) return;
   c.clientShare = { token: (c.clientShare && c.clientShare.token) || _genShareToken(), enabled:true, hiddenDocs:(c.clientShare && c.clientShare.hiddenDocs)||[], updatedAt: Date.now() };
-  setData('campaigns', campaigns);
+  guardarCampana(c);
   _renderClientShareBody(c);
   try {
     await publishClientShare(c);
@@ -319,7 +319,7 @@ window.disableClientShare = async function(){
   if(!c || !c.clientShare) return;
   const token = c.clientShare.token;
   c.clientShare.enabled = false;
-  setData('campaigns', campaigns);
+  guardarCampana(c);
   try { await db.collection('clientShares').doc(token).delete(); } catch(e){ console.warn('delete share', e); }
   _renderClientShareBody(c);
   showToast('Link de cliente desactivado','success');
@@ -335,7 +335,7 @@ window.toggleClientShareDoc = function(docId, visible){
   if(c.clientShare && Array.isArray(c.clientShare.hiddenDocs)){
     c.clientShare.hiddenDocs = c.clientShare.hiddenDocs.filter(x=>x!==docId);
   }
-  setData('campaigns', campaigns); // el hook debounced republica el snapshot
+  guardarCampana(c); // el hook debounced republica el snapshot
   if(currentCampaignId === c.id) { try { renderCampaignDocs(c); } catch(e){} }
 };
 
@@ -353,7 +353,7 @@ window.refreshClientShareNow = async function(){
     await publishClientShare(c);
     c.clientShare.updatedAt = Date.now();
     const campaigns = getData('campaigns');
-    setData('campaigns', campaigns);
+    guardarCampana(c);
     _renderClientShareBody(c);
     showToast('Datos del cliente actualizados','success');
   } catch(e){
@@ -498,7 +498,7 @@ function _renderClientView(root, payload){
   const docsHtml = docs.length ? `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px;">` +
     docs.map(d=>{
       const u=_cvSafeUrl(d.url);
-      return `<a class="cv-doc" ${u?`href="${_esc(u)}" target="_blank" rel="noopener"`:''}>
+      return `<a class="cv-doc" ${u?`href="${_esc(_safeUrl(u))}" target="_blank" rel="noopener"`:''}>
         <span style="font-size:20px;">${docIcon[d.type]||'📎'}</span>
         <span style="min-width:0;">
           <span style="display:block;font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${_esc(d.name)}</span>
@@ -622,7 +622,7 @@ function _cvRenderCalendar(){
   });
   const firstDow = (new Date(y,m,1).getDay()+6)%7; // lunes=0
   const daysInMonth = new Date(y,m+1,0).getDate();
-  const todayISO = new Date().toISOString().slice(0,10);
+  const todayISO = hoyISO();
   let cells = ['L','M','X','J','V','S','D'].map(d=>`<div class="cv-cal-dow">${d}</div>`).join('');
   for(let i=0;i<firstDow;i++) cells += `<div class="cv-cal-cell cv-out"></div>`;
   for(let d=1;d<=daysInMonth;d++){

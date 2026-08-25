@@ -12,7 +12,7 @@ function saveEscenarioUrl() {
   if(!currentCampaignId || !url) return;
   const campaigns = getData('campaigns');
   const c = campaigns.find(x=>x.id===currentCampaignId);
-  if(c) { c.escenarioSheetUrl = url; setData('campaigns', campaigns); }
+  if(c) { c.escenarioSheetUrl = url; guardarCampana(c); }
 }
 
 async function syncEscenario() {
@@ -33,7 +33,7 @@ async function syncEscenario() {
     c.escenarioPublicOk = true;
   }
   c.escenarioSheetUrl = url;
-  setData('campaigns', campaigns);
+  guardarCampana(c);
   const wrap = document.getElementById('escenarioBlock');
   if(wrap) wrap.innerHTML = `<div class="empty-state"><p>Cargando escenario...</p></div>`;
   showToast('Sincronizando escenario…','success');
@@ -57,7 +57,7 @@ async function _autoFetchEscenario(url, campaign) {
       campaigns[idx].escenarioSheetUrl = url;
       campaigns[idx].escenarioRows = rows;
       campaigns[idx].escenarioLastSync = campaign.escenarioLastSync;
-      setData('campaigns', campaigns);
+      guardarCampana(campaigns[idx]);
     }
     // Persist the parsed rows so they survive reloads (no re-sync needed).
     persistEscenario(campaign.id, rows, url, campaign.escenarioLastSync);
@@ -77,7 +77,7 @@ function saveUgcUrl() {
   if(!currentCampaignId) return;
   const campaigns = getData('campaigns');
   const c = campaigns.find(x=>x.id===currentCampaignId);
-  if(c) { c.ugcSheetUrl = url||''; setData('campaigns', campaigns); }
+  if(c) { c.ugcSheetUrl = url||''; guardarCampana(c); }
 }
 
 function syncUgcResults() {
@@ -87,7 +87,7 @@ function syncUgcResults() {
   const c = campaigns.find(x=>x.id===currentCampaignId);
   if(!c) return;
   c.ugcSheetUrl = url;
-  setData('campaigns', campaigns);
+  guardarCampana(c);
   showToast('Sincronizando UGC…','success');
   _autoFetchUgc(url, c);
 }
@@ -109,7 +109,7 @@ async function _autoFetchUgc(url, campaign) {
       campaigns[idx].ugcSheetUrl = url;
       campaigns[idx].ugcRows = rows;
       campaigns[idx].ugcLastSync = campaign.ugcLastSync;
-      setData('campaigns', campaigns);
+      guardarCampana(campaigns[idx]);
     }
     renderEscenarioBlock(campaign);
     try { renderCampaignProgress(campaign); renderCampaignCoherence(campaign); } catch(e){}
@@ -502,16 +502,20 @@ function renderEscenarioBlock(c) {
     return;
   }
   // Lazy auto-fetch UGC results sheet if linked but uncached
-  if(c.ugcSheetUrl && (!c.ugcRows || !c.ugcRows.length) && !c._ugcFetching) {
-    c._ugcFetching = true;
-    _autoFetchUgc(c.ugcSheetUrl, c).finally(()=>{ c._ugcFetching = false; });
+  // Los guardas van en Sets por id de campaña, no como bandera en el objeto: el
+  // listener de Firestore reconstruye las campañas en cada snapshot y la marca
+  // se perdía a media descarga, así que el mismo sheet se volvía a pedir en
+  // cada repintado. Ver _fetchTrackerEnCurso en js/core.js.
+  if(c.ugcSheetUrl && (!c.ugcRows || !c.ugcRows.length) && !_fetchUgcEnCurso.has(c.id)) {
+    _fetchUgcEnCurso.add(c.id);
+    _autoFetchUgc(c.ugcSheetUrl, c).finally(()=>{ _fetchUgcEnCurso.delete(c.id); });
   }
   // Lazy auto-fetch metrics sheet so per-creator real views/engagement
   // show up in the Escenario tab without requiring the user to visit the
   // Métricas tab first.
-  if(c.metricsSheetUrl && (!c.cachedMetrics || !c.cachedMetrics.length) && !c._metricsFetching) {
-    c._metricsFetching = true;
-    _autoFetchMetrics(c.metricsSheetUrl, c).finally(()=>{ c._metricsFetching = false; });
+  if(c.metricsSheetUrl && (!c.cachedMetrics || !c.cachedMetrics.length) && !_fetchMetricasEnCurso.has(c.id)) {
+    _fetchMetricasEnCurso.add(c.id);
+    _autoFetchMetrics(c.metricsSheetUrl, c).finally(()=>{ _fetchMetricasEnCurso.delete(c.id); });
   }
 
   const parsed = parseEscenarioRows(c.escenarioRows);
@@ -857,7 +861,7 @@ function updateFlowStep(cid, idx, status) {
   if(!c) return;
   const stepName = c.flowSteps[idx]?.step || 'paso';
   c.flowSteps[idx].status = status;
-  setData('campaigns', campaigns);
+  guardarCampana(c);
   _notifyCampaignSubscribers(c, `${stepName} → ${status}`);
 }
 
@@ -885,7 +889,7 @@ function renderCampaignApproval(c) {
   el.innerHTML = items.map(it => {
     const stateOpts = APPROVAL_STATES.map(s=>`<option ${s.key===it.status?'selected':''}>${s.key}</option>`).join('');
     const linkHtml = it.link
-      ? `<a href="${_esc(it.link)}" target="_blank" rel="noopener" style="color:var(--blue);font-size:12px;">Ver contenido →</a>`
+      ? `<a href="${_esc(_safeUrl(it.link))}" target="_blank" rel="noopener" style="color:var(--blue);font-size:12px;">Ver contenido →</a>`
       : `<span style="font-size:12px;color:var(--text-muted);">Sin link</span>`;
     const comments = Array.isArray(it.comments) ? it.comments : [];
     const commentsHtml = comments.length
@@ -941,7 +945,7 @@ function addApprovalItem() {
   if(!c) return;
   if(!Array.isArray(c.approvalItems)) c.approvalItems = [];
   c.approvalItems.push({ id:'ap'+Date.now().toString(36), creator, platform, link, status:'Borrador', comments:[], createdAt:Date.now() });
-  setData('campaigns', campaigns);
+  guardarCampana(c);
   document.getElementById('approvalAddModal')?.remove();
   renderCampaignApproval(c);
   showToast('Contenido agregado','success');
@@ -953,7 +957,7 @@ function setApprovalStatus(cid, itemId, status) {
   const it = (c.approvalItems||[]).find(x=>x.id===itemId);
   if(!it) return;
   it.status = status;
-  setData('campaigns', campaigns);
+  guardarCampana(c);
   renderCampaignApproval(c);
   _notifyCampaignSubscribers(c, `${it.creator||'Contenido'} → ${status}`);
 }
@@ -968,7 +972,7 @@ function addApprovalComment(cid, itemId) {
   if(!it) return;
   if(!Array.isArray(it.comments)) it.comments = [];
   it.comments.push({ user: currentUserProfile?.name || currentUser?.email || 'Usuario', text, at: Date.now() });
-  setData('campaigns', campaigns);
+  guardarCampana(c);
   renderCampaignApproval(c);
 }
 function deleteApprovalItem(cid, itemId) {
@@ -976,7 +980,7 @@ function deleteApprovalItem(cid, itemId) {
   const c = campaigns.find(x=>x.id===cid);
   if(!c) return;
   c.approvalItems = (c.approvalItems||[]).filter(x=>x.id!==itemId);
-  setData('campaigns', campaigns);
+  guardarCampana(c);
   renderCampaignApproval(c);
 }
 
@@ -1219,7 +1223,7 @@ function toggleTask(tid, cid) {
       if(t) {
         tocada = t;
         if(t.recurring) {
-          const today=new Date().toISOString().split('T')[0];
+          const today=hoyISO();
           const wasDone = t.lastDoneDate===today;
           t.lastDoneDate = wasDone ? '' : today;
           wentDone = !wasDone;
@@ -1229,7 +1233,7 @@ function toggleTask(tid, cid) {
         t.status = t.done ? 'listo' : (t.status && t.status !== 'listo' ? t.status : 'trabajando');
       }
       }
-      setData('campaigns',campaigns);
+      guardarCampana(c);
     }
   } else {
     const tasks = getData('globalTasks');
@@ -1237,7 +1241,7 @@ function toggleTask(tid, cid) {
     if(t) {
       tocada = t;
       if(t.recurring) {
-        const today=new Date().toISOString().split('T')[0];
+        const today=hoyISO();
         const wasDone = t.lastDoneDate===today;
         t.lastDoneDate = wasDone ? '' : today;
         wentDone = !wasDone;
@@ -1291,6 +1295,8 @@ function _purgeOldDoneTasks() {
     const kept = c.tasks.filter(t => !(t.done && !t.recurring && t.doneAt && (now - t.doneAt) > _DONE_TASK_TTL));
     if(kept.length !== c.tasks.length) { c.tasks = kept; campaignsChanged = true; }
   });
+  // Colección entera a propósito: la purga recorre todas las campañas y puede
+  // haber tocado varias en la misma pasada.
   if(campaignsChanged || stampedCampaigns) setData('campaigns', campaigns);
 }
 
@@ -1304,7 +1310,7 @@ function deleteTask(tid, cid) {
     const c = campaigns.find(x=>x.id===cid);
     if(c) {
       borrada = c.tasks.find(x=>x.id===tid) || null;
-      c.tasks=c.tasks.filter(x=>x.id!==tid); setData('campaigns',campaigns);
+      c.tasks=c.tasks.filter(x=>x.id!==tid); guardarCampana(c);
     }
   } else {
     const tasks = getData('globalTasks');
@@ -1335,7 +1341,7 @@ function deleteDoc(docId) {
     return;
   }
   c.documents = (c.documents||[]).filter(d=>d.id!==docId);
-  setData('campaigns',campaigns);
+  guardarCampana(c);
   renderCampaignDocs(c);
 }
 
@@ -1702,7 +1708,7 @@ async function loadMetrics() {
       if(idx!==-1) {
         campaigns[idx].metricsSheetUrl = raw;
         campaigns[idx].cachedMetrics = rows;
-        setData('campaigns', campaigns);
+        guardarCampana(campaigns[idx]);
         campaign = campaigns[idx];
         _cache.campaigns = campaigns;
       }

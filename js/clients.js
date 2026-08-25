@@ -93,7 +93,7 @@ function _clientKey(name, email) {
     .replace(/[^a-z0-9]+/g, '_');
 }
 
-function _hoyISO() { return new Date().toISOString().slice(0, 10); }
+function _hoyISO() { return hoyISO(); }
 function _clientsCol() { return db.collection('workspaces').doc(WORKSPACE).collection('clients'); }
 function _notesCol()   { return db.collection('workspaces').doc(WORKSPACE).collection('clientNotes'); }
 

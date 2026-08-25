@@ -1,0 +1,33 @@
+# Lint + pruebas en cada push y cada PR.
+#
+# El sitio se despliega estático (Vercel sirve index.html y js/ tal cual), así
+# que aquí no se construye nada: se comprueba que el JavaScript que se va a
+# servir no llame a cosas que no existen y que los parsers de los sheets sigan
+# contando bien.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      # `npm ci` y no `npm install`: instala exactamente lo del lockfile, así
+      # una versión nueva de eslint no cambia el resultado de un PR viejo.
+      - run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Pruebas
+        run: npm test

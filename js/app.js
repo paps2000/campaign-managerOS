@@ -40,35 +40,41 @@ function _trackerStatusEventStyle(estatusRaw) {
   return { key:'unknown', bg:'#e5e7eb', color:'#374151', icon:ICN_pin, label:'Sin estatus', statusKey:'unknown' };
 }
 
+let _calRefreshTimer = null;
+function _agendarRefrescoCalendario() {
+  clearTimeout(_calRefreshTimer);
+  _calRefreshTimer = setTimeout(() => {
+    _calRefreshTimer = null;
+    if(currentPage === 'calendario') { try { renderCalendar(); } catch(e){} }
+  }, 300);
+}
+
 function renderCalendar() {
-  const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const MONTHS =['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
   document.getElementById('calMonthTitle').textContent = MONTHS[calMonth] + ' ' + calYear;
   const grid = document.getElementById('calGrid');
   if(!grid) return;
 
-  // Lazy: for any visible campaign with a tracker URL but no cached rows,
-  // fetch in the background so events appear on the next render. Idempotent.
-  // Debounced: schedule a single calendar re-render once any fetch settles
-  // so we don't cascade N re-renders for N campaigns.
-  let _calNeedsRefresh = false;
+  // Lazy: para cada campaña propia con tracker vinculado pero sin filas
+  // cacheadas, se baja en segundo plano para que sus publicaciones salgan en el
+  // calendario. Idempotente vía _fetchTrackerEnCurso.
+  //
+  // El repintado se agenda CUANDO TERMINA cada bajada, no antes. Antes la
+  // bandera («¿llegó algo?») era una variable local de esta llamada y el
+  // temporizador de 800 ms se armaba en el acto: si el sheet tardaba más que
+  // eso —lo normal— el temporizador se encontraba la bandera en false, no
+  // repintaba, y las publicaciones no aparecían hasta que alguien cambiara de
+  // mes o de pestaña y volviera. Además cada render nuevo cancelaba el
+  // temporizador del anterior, así que el aviso del fetch viejo se perdía.
   misCampanas().forEach(c => {
-    if(c.trackerSheetUrl && (!c.trackerRows || !c.trackerRows.length) && !c._trackerFetching) {
-      c._trackerFetching = true;
+    if(c.trackerSheetUrl && (!c.trackerRows || !c.trackerRows.length) && !_fetchTrackerEnCurso.has(c.id)) {
+      _fetchTrackerEnCurso.add(c.id);
       _autoFetchTracker(c.trackerSheetUrl, c, {silent:true}).finally(()=>{
-        c._trackerFetching = false;
-        _calNeedsRefresh = true;
+        _fetchTrackerEnCurso.delete(c.id);
+        _agendarRefrescoCalendario();
       });
     }
   });
-  // Single deferred re-render after current event loop drains
-  if(typeof window._calRefreshTimer === 'undefined') window._calRefreshTimer = null;
-  if(window._calRefreshTimer) clearTimeout(window._calRefreshTimer);
-  window._calRefreshTimer = setTimeout(() => {
-    window._calRefreshTimer = null;
-    if(_calNeedsRefresh && currentPage === 'calendario') {
-      try { renderCalendar(); } catch(e){}
-    }
-  }, 800);
 
   // Build event map: date string → [{type,label,color,campName}]
   const events = {};
@@ -125,7 +131,7 @@ function renderCalendar() {
   const lastDay  = new Date(calYear, calMonth+1, 0);
   // dow: Mon=0 … Sun=6
   const startDow = (firstDay.getDay()+6) % 7;
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = hoyISO();
   const pad = n => String(n).padStart(2,'0');
   const dateStr = d => `${calYear}-${pad(calMonth+1)}-${pad(d)}`;
 
@@ -235,7 +241,10 @@ function openProfileModal(uid) {
     ..._cache.globalTasks.filter(t => t.assigneeUid === uid).map(t => ({...t, campaignName: t.campaignName||'General'}))
   ];
   const active = allTasks.filter(t => !t.done);
-  const done   = allTasks.filter(t => t.done).slice(0,5);
+  const done   = allTasks.filter(t => t.done);
+  // La lista se corta a cinco; el CONTADOR no. Antes se cortaba antes de contar
+  // y la ficha decía "5 completadas" a quien llevaba treinta.
+  const doneRecientes = done.slice(0, 5);
 
   // Las campañas de esta persona: responsable de un área, o suscrita.
   const userCampaigns = _cache.campaigns.filter(c => {
@@ -319,9 +328,9 @@ function openProfileModal(uid) {
       <!-- Active tasks -->
       <div style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">Tareas activas</div>
       ${active.length ? active.map(t=>taskRow(t,false)).join('') : '<div style="color:var(--text-muted);font-size:13px;padding:12px 0;">Sin tareas activas 🎉</div>'}
-      ${done.length ? `
+      ${doneRecientes.length ? `
         <div style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin:20px 0 10px;">Completadas recientes</div>
-        ${done.map(t=>taskRow(t,true)).join('')}
+        ${doneRecientes.map(t=>taskRow(t,true)).join('')}
       ` : ''}
     </div>`;
   // Después del innerHTML: el host tiene que existir para poder medirlo.
@@ -1715,7 +1724,7 @@ function _agentRunSuggestion(q) {
 function _buildAgentContext() {
   const trim = (s, n=200) => { const v = String(s||'').trim(); return v.length>n ? v.slice(0,n)+'…' : v; };
   const fmt = (n) => Number.isFinite(n) ? n : 0;
-  const today = new Date().toISOString().split('T')[0];
+  const today = hoyISO();
 
   const team = (allUsers||[]).map(u => ({
     name: u.name||u.email||'—',
@@ -1729,19 +1738,33 @@ function _buildAgentContext() {
 
   const uidName = uid => { const u = (allUsers||[]).find(x=>x.uid===uid); return u ? (u.name||u.email) : uid; };
 
-  const campaigns = (_cache.campaigns||[]).map(c => {
+  // Mismo recorte que el buscador (Cmd+K): lo que va al modelo es lo que esta
+  // persona puede abrir. Con `_cache.campaigns` a pelo, preguntarle al
+  // asistente por "las campañas" le contaba también las que no tiene permiso
+  // de ver — y encima infla el prompt con el workspace entero.
+  const _visibles = (typeof visibleCampaigns === 'function') ? visibleCampaigns() : (_cache.campaigns||[]);
+  const campaigns = _visibles.map(c => {
     // Escenario summary
     let escenario = null;
     try {
       if(c.escenarioRows && c.escenarioRows.length && typeof parseEscenarioRows === 'function') {
         const p = parseEscenarioRows(c.escenarioRows);
+        // Los nombres de campo son los que DEVUELVE parseEscenarioRows (ver
+        // js/sheets.js): `nombre`, `contenidosTotal`, `seguidoresMax`,
+        // `engagementEstTotal`, `platforms[]`. Antes se leían `name`,
+        // `totalContenidos`, `seguidores`, `engagementEst`, `platform` — que no
+        // existen — así que el asistente recibía la lista de creadores con el
+        // nombre en null y todos los contadores en 0, y respondía "0 contenidos
+        // planeados" a la pregunta que trae de sugerencia el propio panel.
         const creators = (p.creators||[]).slice(0,80).map(cr => ({
-          name: cr.name, platform: cr.platform, tier: cr.tier,
-          seguidores: fmt(cr.totalSeguidores||cr.seguidores),
-          contenidos: fmt(cr.totalContenidos||cr.cantidadContenido),
-          contenidoTipo: trim(cr.contenido, 80),
+          name: cr.nombre,
+          platform: (cr.platforms||[]).map(x => x.platform).filter(Boolean).join(', '),
+          tier: cr.tier,
+          seguidores: fmt(cr.seguidoresMax),
+          contenidos: fmt(cr.contenidosTotal),
+          contenidoTipo: trim((cr.platforms||[]).map(x => x.contenido).filter(Boolean).join(', '), 80),
           viewsEst: fmt(cr.viewsEstTotal),
-          engagementEst: fmt(cr.engagementEst),
+          engagementEst: fmt(cr.engagementEstTotal),
         }));
         const totalContenidos = creators.reduce((a,b)=>a+(b.contenidos||0),0);
         escenario = {
@@ -1775,7 +1798,7 @@ function _buildAgentContext() {
     const tasks = (c.tasks||[]).map(t => ({
       title: trim(t.title, 120),
       done: !!t.done,
-      due: t.due||null,
+      due: t.dueDate||null,   // el campo se llama dueDate en todo el resto de la app
       assignee: t.assigneeUid ? uidName(t.assigneeUid) : (t.assignee||null),
       priority: t.priority||null,
     }));
@@ -1805,7 +1828,7 @@ function _buildAgentContext() {
   });
 
   const globalTasks = (_cache.globalTasks||[]).map(t => ({
-    title: trim(t.title, 120), done: !!t.done, due: t.due||null,
+    title: trim(t.title, 120), done: !!t.done, due: t.dueDate||null,
     assignee: t.assigneeUid ? uidName(t.assigneeUid) : null,
     priority: t.priority||null,
   }));

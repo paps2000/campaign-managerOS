@@ -2105,14 +2105,38 @@
 <!-- TOAST -->
 <div class="toast" id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
 
+<!-- Scripts CLÁSICOS a propósito (NO type="module"): el HTML de arriba llama
+     estas funciones desde atributos onclick/onchange, que sólo resuelven contra
+     el scope global. Todos los archivos comparten ese scope y ESTE es el orden
+     en que se evalúan. Cambiarlo sólo importa para el poco código que corre al
+     cargar (registrar listeners, aplicar el tema); las funciones se llaman
+     siempre después, ya con todo dentro.
+     `npm run lint` comprueba que ninguna llame a algo que no existe y
+     test/estructura.test.js que ningún onclick de aquí apunte al vacío. -->
+
+<!-- Base: datos, caché, navegación, fechas y los helpers de toda la app -->
 <script src="js/core.js" defer></script>
+<script src="js/utils.js" defer></script>
+<script src="js/modales.js" defer></script>
+
+<!-- Vistas -->
+<script src="js/dashboard.js" defer></script>
 <script src="js/campaigns.js" defer></script>
+<script src="js/campaign-form.js" defer></script>
+<script src="js/tracker.js" defer></script>
 <script src="js/sheets.js" defer></script>
 <script src="js/tasks-board.js" defer></script>
+<script src="js/tareas.js" defer></script>
+<script src="js/contenido.js" defer></script>
 <script src="js/events.js" defer></script>
+<script src="js/equipo.js" defer></script>
+<script src="js/notificaciones.js" defer></script>
+
+<!-- Credencial -->
 <script src="js/holo-stickers.js" defer></script>
 <script src="js/holo-card.js" defer></script>
-<script src="js/ui.js" defer></script>
+
+<script src="js/generador.js" defer></script>
 <script src="js/integrations.js" defer></script>
 <script src="js/creators.js" defer></script>
 <script src="js/effies.js" defer></script>
@@ -2120,7 +2144,12 @@
 <script src="js/app.js" defer></script>
 <script src="js/prefs.js" defer></script>
 <script src="js/clients.js" defer></script>
+<script src="js/ajustes.js" defer></script>
 <script src="js/a11y.js" defer></script>
+
+<!-- Al final: engancha los listeners globales y arranca la sesión, que es lo
+     único que necesita que TODO lo de arriba ya esté cargado. -->
+<script src="js/auth.js" defer></script>
 
 <!-- AI COMPANION -->
 <button class="ai-fab" id="aiFab" onclick="toggleAgentPanel()" aria-label="Asistente IA" title="Asistente IA" style="display:none !important;">

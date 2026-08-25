@@ -821,7 +821,7 @@ function scenarioSave() {
     escenarioSource: 'app',
     escenarioLastSync: stamp,
   };
-  setData('campaigns', campaigns);
+  guardarCampana(campaigns[idx]);
   // Persistir las filas en el store aparte (escenarioRows se strip de Firestore)
   persistEscenario(_scenarioState.campaignId, escRows, '', stamp);
   // Reflejar en cache + invalidar memo de parseo
@@ -885,7 +885,7 @@ async function enableEscenarioSheets() {
   c.escenarioSource = 'sheets';
   const campaigns = getData('campaigns');
   const idx = campaigns.findIndex(x=>x.id===c.id);
-  if(idx>=0) { campaigns[idx].escenarioSource = 'sheets'; setData('campaigns', campaigns); }
+  if(idx>=0) { campaigns[idx].escenarioSource = 'sheets'; guardarCampana(campaigns[idx]); }
   renderEscenarioBlock(c);
   showToast('Carga por Google Sheets habilitada','success');
 }
@@ -919,7 +919,7 @@ function scenarioExportXLSX() {
 
 async function _scenarioFeedCreatorsDB(campaign) {
   const col = db.collection('workspaces').doc(WORKSPACE).collection('creators');
-  const mes = new Date().toISOString().slice(0,7);
+  const mes = hoyISO().slice(0,7);
   const batch = db.batch();
   let count = 0;
   (_scenarioState.creators||[]).forEach(cr => {
@@ -1501,7 +1501,7 @@ function renderInfluencerDetailContent(inf) {
         ${platformBadge(p)}
         <span style="font-size:12px;font-weight:700;">${d.seguidores?formatNum(d.seguidores)+' seguidores':''}</span>
         <div style="flex:1;"></div>
-        ${d.link?`<a href="${_esc(d.link)}" target="_blank" rel="noopener" onclick="event.stopPropagation();" style="font-size:11px;color:var(--pink);font-weight:700;">Ver perfil ↗</a>`:''}
+        ${d.link?`<a href="${_esc(_safeUrl(d.link))}" target="_blank" rel="noopener" onclick="event.stopPropagation();" style="font-size:11px;color:var(--pink);font-weight:700;">Ver perfil ↗</a>`:''}
       </div>`).join('');
     const aud = m.audiencia||{};
     const audCell = (label, raw) => raw ? `<div style="background:var(--bg);border-radius:10px;padding:8px 10px;"><div style="font-size:9px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;">${label}</div><div style="font-size:11px;white-space:pre-line;line-height:1.5;">${_esc(raw)}</div></div>` : '';

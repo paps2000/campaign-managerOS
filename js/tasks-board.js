@@ -231,10 +231,10 @@ function _tbFilterCount() {
 // ============================================================
 // FECHAS
 // ============================================================
-function _tbToday() { return new Date().toISOString().split('T')[0]; }
+function _tbToday() { return hoyISO(); }
 function _tbPlusDays(n) {
   const d = new Date(); d.setDate(d.getDate() + n);
-  return d.toISOString().split('T')[0];
+  return fechaISO(d);
 }
 // Estado de UNA fecha suelta (sirve para interno y para cliente).
 function _tbDayState(due, done) {
@@ -293,7 +293,7 @@ function _tbCollectTasks() {
     const diff = ((t.recurringDay - new Date(today + 'T12:00:00').getDay()) + 7) % 7;
     const occ = new Date(today + 'T12:00:00');
     occ.setDate(occ.getDate() + diff);
-    const occStr = occ.toISOString().split('T')[0];
+    const occStr = fechaISO(occ);
     return { ...t, dueDate: occStr, done: t.lastDoneDate === occStr, _isRecurring: true };
   });
 }
@@ -870,7 +870,7 @@ function _tbFindTask(tid, cid) {
     const campaigns = getData('campaigns');
     const c = campaigns.find(x => x.id === cid);
     const t = c && (c.tasks || []).find(x => x.id === tid);
-    return t ? { t, commit: () => setData('campaigns', campaigns) } : null;
+    return t ? { t, commit: () => guardarCampana(c) } : null;
   }
   const tasks = getData('globalTasks');
   const t = tasks.find(x => x.id === tid);

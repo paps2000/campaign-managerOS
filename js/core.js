@@ -220,7 +220,7 @@ function nivelLabel(n) {
 const STATUS_OPTIONS = STATUS_OPTIONS_FLOW;
 
 // In-memory cache backed by Firestore. Reads = sync (cache). Writes = sync cache + async Firestore.
-const _cache = { campaigns:[], globalTasks:[], settings:{}, influencerRatings:[], creators:[], thinkyPesos:[], events:[], _initialized:false };
+const _cache = { campaigns:[], globalTasks:[], settings:{}, influencerRatings:[], creators:[], thinkyPesos:[], events:[], clients:[], _initialized:false };
 
 function getData(key, def) {
   if(key in _cache) return _cache[key];
@@ -308,13 +308,57 @@ function avisarError(e, accion, etiqueta) {
 
 function id() { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
 
+// ============================================================
+// HOY, EN LA ZONA HORARIA DE QUIEN MIRA
+// ============================================================
+// `new Date().toISOString().split('T')[0]` da la fecha en UTC, no la del reloj
+// de quien está usando la app. En CDMX (UTC-6) eso significa que a partir de
+// las 18:00 la app entera se adelanta un día: los pendientes de hoy dejan de
+// aparecer en el Resumen, el calendario marca mañana como "hoy", el modal de
+// nueva tarea se abre con la fecha de mañana y el tablero manda a "vencidas"
+// todo lo que vencía hoy. Justo en las horas de cierre.
+//
+// Las fechas de la app son día natural ('YYYY-MM-DD'), sin hora: se leen del
+// reloj local, que es el que ve la persona.
+//
+// OJO: fechaISO() sólo vale para Date construidos LOCALMENTE (new Date(),
+// new Date(y, m, d)). Un `new Date('2024-05-01')` se parsea como medianoche
+// UTC y en México cae el día anterior — para eso está fechaISOdeUTC().
+function fechaISO(d) {
+  const f = (d instanceof Date) ? d : new Date(d);
+  if(isNaN(f)) return '';
+  const p = n => String(n).padStart(2, '0');
+  return f.getFullYear() + '-' + p(f.getMonth() + 1) + '-' + p(f.getDate());
+}
+function hoyISO() { return fechaISO(new Date()); }
+// Hoy + n días, en local. n negativo va hacia atrás.
+function hoyMasDias(n) { const d = new Date(); d.setDate(d.getDate() + (n || 0)); return fechaISO(d); }
+// Para instantes que SÍ están en UTC a propósito: el serial de Excel/Sheets
+// (epoch 1899-12-30 UTC) y los strings ISO con Z. Leerlos en local los correría
+// un día hacia atrás.
+function fechaISOdeUTC(d) {
+  const f = (d instanceof Date) ? d : new Date(d);
+  if(isNaN(f)) return '';
+  return f.toISOString().slice(0, 10);
+}
+
 // --- Firestore persistence helpers ---
 // Keys that hold large fetched sheet data — kept in memory but stripped
 // from Firestore writes because they can blow past the 1MB doc limit.
 // Lo que NUNCA viaja a Firestore: las filas crudas de los sheets (pesan y se
 // vuelven a bajar en cada sync) y los errores de sincronización, que son del
 // navegador de quien está mirando, no del documento compartido.
-const _CAMPAIGN_LARGE_KEYS = ['trackerRows','escenarioRows','ugcRows','cachedMetrics','_syncErrors'];
+// También lo DERIVADO de esas filas. `_memoEscenario` es el resultado completo
+// de parseEscenarioRows —la lista entera de creadores con sus plataformas— y
+// `_memoUgc` el del sheet de UGC: se cuelgan del objeto de la campaña como
+// caché de parseo y desde ahí viajaban a Firestore en cada escritura. Dos
+// efectos, los dos malos: el documento engordaba con una copia parseada de las
+// filas que justamente se excluyen por pesadas, y —peor— la huella local salía
+// distinta de la del servidor (que nunca las trae), así que el primer
+// setData('campaigns') reescribía TODAS las campañas aunque nada hubiera
+// cambiado, con su tanda de snapshots y repintados detrás.
+const _CAMPAIGN_LARGE_KEYS = ['trackerRows','escenarioRows','ugcRows','cachedMetrics','_syncErrors',
+  '_memoEscenario','_memoEscenarioStamp','_memoUgc','_memoUgcStamp'];
 function _stripLargeFields(c) {
   const out = {...c};
   _CAMPAIGN_LARGE_KEYS.forEach(k => { delete out[k]; });
@@ -322,7 +366,7 @@ function _stripLargeFields(c) {
 }
 // Huella del contenido que sabemos que está en el servidor, por campaña.
 // Sirve para no reescribir documentos que no cambiaron: antes cada
-// setData('campaigns') —hay 47 puntos que lo llaman— leía la colección
+// setData('campaigns') —que era lo que llamaba todo el mundo— leía la colección
 // entera y reescribía TODAS las campañas, así que un solo click costaba N
 // lecturas + N escrituras y disparaba N eventos del listener.
 const _persistedFp = new Map();
@@ -401,11 +445,45 @@ async function persistCampaignNow(campaign) {
     } catch(e){}
     return true;
   } catch(e) {
-    console.error('persistCampaignNow', e);
     _persistedFp.delete(campaign.id);   // que el siguiente intento no lo salte
-    try { showToast('No se pudo guardar en el servidor: ' + (e.message||e), 'error'); } catch(_){}
+    // Por errorHumano y no en crudo: este es AHORA el camino por el que pasa
+    // casi toda la escritura (guardarCampana), así que su mensaje de error es
+    // el que va a leer la gente. "Missing or insufficient permissions" está
+    // escrito para quien programa y no dice qué hacer; errorHumano traduce el
+    // código a qué pasó y cómo salir. El detalle técnico sigue yendo a consola.
+    try { avisarError(e, `guardar "${campaign.name || 'la campaña'}"`, 'persistCampaignNow'); }
+    catch(_) { console.error('persistCampaignNow', e); }
     return false;
   }
+}
+
+/* Guardar UNA campaña. Es lo que quiere casi todo el que escribe.
+   ------------------------------------------------------------------
+   El camino de siempre era `setData('campaigns', campaigns)`: reasigna la
+   colección entera en memoria y llama a persistCampaigns, que recorre TODAS las
+   campañas comparando huellas y —esto es lo importante— borra en Firestore todo
+   id que no venga en la lista que le pasaron. Para "marqué una tarea como
+   hecha" eso es un recorrido completo por cada click, y sobre todo es un
+   cuchillo apuntando al equipo: basta con que una sola de las ~45 llamadas
+   pase una lista filtrada (un `visibleCampaigns()`, un `.filter()` de más) para
+   que las campañas que no venían en ella desaparezcan del servidor.
+
+   Esto escribe el documento de esa campaña y nada más. No puede borrar nada.
+
+   `setData('campaigns', ...)` se queda para lo que de verdad toca la colección:
+   crear, eliminar y las migraciones que reescriben varias a la vez. */
+function guardarCampana(campaign) {
+  if(!campaign || !campaign.id) return Promise.resolve(false);
+  if(!Array.isArray(_cache.campaigns)) _cache.campaigns = [];
+  // La caché se pone al día aquí y no en el llamador: casi siempre `campaign`
+  // ES el objeto que ya vive en _cache (getData devuelve la misma referencia),
+  // pero cuando no lo es —una copia recién armada— el índice tiene que
+  // apuntar a la versión nueva o la vista seguiría pintando la vieja.
+  const i = _cache.campaigns.findIndex(x => x.id === campaign.id);
+  if(i >= 0) _cache.campaigns[i] = campaign;
+  else _cache.campaigns.push(campaign);
+  if(typeof _invalidateInfMemo === 'function') { try { _invalidateInfMemo(); } catch(e){} }
+  return persistCampaignNow(campaign);
 }
 
 async function persistCampaigns(campaigns) {
@@ -515,6 +593,15 @@ async function persistSettings(settings) {
 const _escenarioStoreChecked = new Set();
 const _escenarioLoading = new Set();
 const _escenarioFetching = new Set();
+// Mismo motivo, para las bajadas perezosas del Resumen y del Calendario: la
+// bandera vivía como `c._trackerFetching` / `c._metricsFetching` en el objeto de
+// la campaña, y el listener de arriba reconstruye esos objetos en cada snapshot
+// conservando SÓLO las filas ya bajadas. La marca se perdía a media descarga y
+// el siguiente repintado volvía a pedir el mismo sheet: con siete campañas
+// abiertas, siete peticiones repetidas por snapshot.
+const _fetchTrackerEnCurso = new Set();
+const _fetchMetricasEnCurso = new Set();
+const _fetchUgcEnCurso = new Set();
 function _rerenderEscenarioIfActive(campaignId) {
   if(currentCampaignId !== campaignId) return;
   const c = (_cache.campaigns||[]).find(x=>x.id===campaignId);
@@ -569,7 +656,16 @@ function attachListeners() {
       if(!existing) return incoming;
       const merged = _normalizarCampana({...incoming});
       ['trackerRows','escenarioRows','ugcRows','cachedMetrics',
-       'trackerLastSync','escenarioLastSync','ugcLastSync'].forEach(k => {
+       'trackerLastSync','escenarioLastSync','ugcLastSync',
+       // Y el resultado ya parseado de esas mismas filas. parseEscenarioRows()
+       // recorre miles de renglones y corre una vez POR CAMPAÑA en cada tarjeta
+       // del listado y en cada cálculo de coherencia; el memo existe para eso.
+       // Como no viajaba en el merge, cada snapshot lo tiraba y el parseo se
+       // rehacía entero — con siete campañas y un snapshot por escritura, eso
+       // es el trabajo que se veía como tirones al marcar una tarea.
+       // El stamp se copia junto al valor: separarlos daría un memo válido
+       // emparejado con una marca de otras filas.
+       '_memoEscenario','_memoEscenarioStamp','_memoUgc','_memoUgcStamp'].forEach(k => {
         if(existing[k] !== undefined && incoming[k] === undefined) merged[k] = existing[k];
       });
       return merged;
@@ -746,83 +842,15 @@ function _repintarAhora() {
   else if(currentPage==='calendario') renderCalendar();
   else if(currentPage==='influencers') renderInfluencers();
   else if(currentPage==='thinkypeso' && typeof tpOnData==='function') tpOnData();
+  // Estas tres faltaban y el efecto era el mismo en las tres: la vista se
+  // quedaba con los datos del momento en que se entró. Con Equipo abierto,
+  // alguien cambiaba de puesto y no se veía hasta recargar; con Clientes
+  // abierto, un contacto nuevo en una campaña no aparecía; y Documentos seguía
+  // enseñando la lista vieja después de subir un archivo desde la campaña.
+  else if(currentPage==='equipo' && typeof renderEquipo==='function') renderEquipo();
+  else if(currentPage==='clientes' && typeof renderClientes==='function') renderClientes();
+  else if(currentPage==='documentos' && typeof renderDocumentosPage==='function') renderDocumentosPage();
   populateCampaignSelects();
-}
-
-// ============================================================
-// SAMPLE DATA
-// ============================================================
-function initSampleData() {
-  // Deprecated: data now seeded to Firestore via seedSampleData() after auth.
-  return;
-  if (getData('_initialized')) return;
-  const today = new Date();
-  const fmt = (d) => d.toISOString().split('T')[0];
-  const add = (d,days) => { const r=new Date(d); r.setDate(r.getDate()+days); return r; };
-
-  const campaigns = [
-    {
-      id:'c1', name:'Mundial', client:'Coppel', status:'En proceso',
-      season:'Abril - Junio 2024', objective:'Awareness', coreMessage:'Vive la pasión',
-      budget:'$250,000 MXN', responsible:'Génesis', deadline: fmt(add(today,22)),
-      flowSteps: FLOW_STEPS.map((s,i)=>({step:s, status: i<4?'Completado': i===4?'Pendiente aprobación': i===5?'En proceso':'Pendiente'})),
-      influencers:[
-        {id:id(),name:'Hanna',handle:'@hannamx',platform:'Instagram',format:'Reel',publishDate:fmt(add(today,1)),status:'Aprobado',reach:235678,impressions:456789,interactions:18765,er:'7.96%'},
-        {id:id(),name:'Fer Jalil',handle:'@ferjalil',platform:'Instagram',format:'Story',publishDate:fmt(add(today,3)),status:'En producción',reach:0,impressions:0,interactions:0,er:'—'},
-        {id:id(),name:'Mariana C.',handle:'@marianac',platform:'Instagram',format:'Story',publishDate:fmt(add(today,-3)),status:'Publicado',reach:92345,impressions:145678,interactions:5678,er:'6.15%'},
-      ],
-      documents:[
-        {id:id(),name:'PRESS MUNDIAL_v3.pdf',type:'PDF',date:fmt(add(today,-1)),url:''},
-        {id:id(),name:'BRIEF MUNDIAL.pdf',type:'PDF',date:fmt(add(today,-5)),url:''},
-      ],
-      tasks:[
-        {id:id(),title:'Enviar follow up a César por SKUs Mundial',dueDate:fmt(today),priority:'high',done:false,assignee:'Génesis'},
-        {id:id(),title:'Confirmar publicación de Hanna',dueDate:fmt(today),priority:'medium',done:false,assignee:'Génesis'},
-        {id:id(),title:'Falta aprobar SKUs de 3 perfiles',dueDate:fmt(today),priority:'high',done:false,assignee:'Génesis'},
-      ]
-    },
-    {
-      id:'c2', name:'AON', client:'Sportline', status:'Ajustes',
-      season:'Mayo 2024', objective:'Ventas', coreMessage:'Tu equipo, tu look',
-      budget:'$180,000 MXN', responsible:'Génesis', deadline: fmt(add(today,21)),
-      flowSteps: FLOW_STEPS.map((s,i)=>({step:s, status: i<3?'Completado': i===3?'Aprobado':'Pendiente'})),
-      influencers:[
-        {id:id(),name:'Fer Jalil',handle:'@ferjalil',platform:'Instagram',format:'Story',publishDate:fmt(add(today,-1)),status:'Publicado',reach:78245,impressions:120456,interactions:4321,er:'5.52%'},
-        {id:id(),name:'Pao',handle:'@paorojas',platform:'Instagram',format:'Post',publishDate:fmt(add(today,4)),status:'Pendiente',reach:0,impressions:0,interactions:0,er:'—'},
-      ],
-      documents:[
-        {id:id(),name:'BUDGET AON.xlsx',type:'Sheets',date:fmt(add(today,-2)),url:''},
-      ],
-      tasks:[
-        {id:id(),title:'Revisar ajustes de costo en budget AON',dueDate:fmt(today),priority:'high',done:false,assignee:'Génesis'},
-        {id:id(),title:'Falta enviar brief a 2 influencers',dueDate:fmt(today),priority:'medium',done:false,assignee:'Génesis'},
-      ]
-    },
-    {
-      id:'c3', name:'Semana Santa', client:'Avène', status:'En reporte',
-      season:'Abril 2024', objective:'Awareness', coreMessage:'Tu piel, tu ritual',
-      budget:'$120,000 MXN', responsible:'Génesis', deadline: fmt(add(today,25)),
-      flowSteps: FLOW_STEPS.map((s,i)=>({step:s, status: i<8?'Completado': i===8?'En proceso':'Pendiente'})),
-      influencers:[
-        {id:id(),name:'Pao',handle:'@paorojas',platform:'Instagram',format:'Post',publishDate:fmt(add(today,-2)),status:'Publicado',reach:156789,impressions:289456,interactions:12345,er:'7.87%'},
-        {id:id(),name:'Alex Tienda',handle:'@alextienda',platform:'TikTok',format:'Reel',publishDate:fmt(add(today,-2)),status:'Publicado',reach:344567,impressions:612345,interactions:28765,er:'8.33%'},
-      ],
-      documents:[
-        {id:id(),name:'BRIEF SEMANA SANTA.pdf',type:'PDF',date:fmt(add(today,-2)),url:''},
-        {id:id(),name:'REPORTE ABRIL.pdf',type:'PDF',date:fmt(add(today,-3)),url:''},
-      ],
-      tasks:[
-        {id:id(),title:'Pedir métricas a Pao (Semana Santa)',dueDate:fmt(today),priority:'medium',done:false,assignee:'Génesis'},
-        {id:id(),title:'Consolidar métricas',dueDate:fmt(add(today,5)),priority:'low',done:false,assignee:'Génesis'},
-      ]
-    }
-  ];
-
-  setData('campaigns', campaigns);
-  setData('globalTasks', [
-    {id:id(),title:'Actualizar minuta del weekly',campaignId:'',campaignName:'Interno',dueDate:fmt(today),priority:'medium',done:false,assignee:'Génesis'},
-  ]);
-  setData('_initialized', true);
 }
 
 // ============================================================
