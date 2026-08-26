@@ -100,7 +100,9 @@ function renderDashboard() {
     // cada fila en cada búsqueda, y este bucle corre sobre el tracker entero de
     // cada campaña propia en cada repintado del Resumen. `_trackerGet` indexa
     // la fila una sola vez. De paso deja de haber dos reglas distintas para
-    // decidir si "FECHA/POST" es la columna de fecha.
+    // decidir qué rótulo es cuál: la copia local no colapsaba los espacios
+    // repetidos, así que una columna escrita "FECHA  DE  POST" la reconocía el
+    // resto de la app y el Resumen no.
     const gst = (r, ...keys) => _trackerGet(r, keys);
     const campYear = (c.startDate && parseInt(c.startDate.slice(0,4))) || new Date().getFullYear();
     (c.trackerRows||[]).forEach(row=>{
