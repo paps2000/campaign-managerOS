@@ -40,6 +40,18 @@ function _trackerStatusEventStyle(estatusRaw) {
   return { key:'unknown', bg:'#e5e7eb', color:'#374151', icon:ICN_pin, label:'Sin estatus', statusKey:'unknown' };
 }
 
+/* Rejilla de mes o agenda, nunca las dos.
+   El CSS esconde `.cal-agenda` en escritorio y `.cal-month` en móvil, pero
+   renderCalendar() construía SIEMPRE las dos. La agenda además no corta a tres
+   eventos por día como la rejilla —a propósito, ahí sí se leen enteros—, así
+   que un mes con doscientas publicaciones armaba doscientos chips que en
+   escritorio nadie iba a ver, en cada repintado. Se arma la que se está
+   mirando; al cruzar el corte se repinta. */
+const _calAgendaMQ = window.matchMedia('(max-width:768px)');
+try { _calAgendaMQ.addEventListener('change', () => {
+  if(currentPage === 'calendario') { try { renderCalendar(); } catch(e){} }
+}); } catch(e) { /* Safari viejo: se queda con la vista del arranque */ }
+
 let _calRefreshTimer = null;
 function _agendarRefrescoCalendario() {
   clearTimeout(_calRefreshTimer);
@@ -117,8 +129,13 @@ function renderCalendar() {
       const sty = _trackerStatusEventStyle(estatusRaw);
       // Skip cancelled rows — user request: not shown on calendar
       if(sty.statusKey === 'cancelado') return;
-      const icon = sty.icon;
-      const label = icon + (creativa? creativa+' · ':'') + (name || 'Publicación');
+      // El icono NO va dentro del rótulo. Los dos sitios que pintan un chip ya
+      // lo ponen aparte (`ev.icon || ev.statusIcon`) y al rótulo lo pasan por
+      // `_esc`, así que meterlo aquí lo imprimía DOS veces: una como dibujo y
+      // otra como texto escapado. En pantalla el chip decía
+      // `<svg viewBox="0 0 24 24" fill="n…` y el nombre de la publicación se
+      // quedaba fuera del corte. Lo mismo en el `title=` de la rejilla.
+      const label = (creativa ? creativa + ' · ' : '') + (name || 'Publicación');
       add(iso, {type:'pub', status: sty.statusKey, statusLabel: sty.label, statusIcon: sty.icon, label, color: sty.bg, text: sty.color, campaignId:c.id, campaignName:c.name});
     });
     // Campaign tasks
@@ -140,11 +157,14 @@ function renderCalendar() {
   const pad = n => String(n).padStart(2,'0');
   const dateStr = d => `${calYear}-${pad(calMonth+1)}-${pad(d)}`;
 
+  const enAgenda = _calAgendaMQ.matches;
+
   let html = '';
   const totalCells = startDow + lastDay.getDate();
   const rows = Math.ceil(totalCells/7);
+  const celdas = enAgenda ? 0 : rows*7;   // en móvil la rejilla no se ve: no se arma
 
-  for(let i=0; i < rows*7; i++) {
+  for(let i=0; i < celdas; i++) {
     const day = i - startDow + 1;
     const inMonth = day >= 1 && day <= lastDay.getDate();
     const ds = inMonth ? dateStr(day) : '';
@@ -158,7 +178,7 @@ function renderCalendar() {
       + (evs.length > 3 ? `<div style="font-size:10px;color:var(--text-muted);padding:1px 4px;">+${evs.length-3} más</div>` : '')
       + `</div>`;
   }
-  grid.innerHTML = html;
+  if(!enAgenda) grid.innerHTML = html;
 
   // ── Agenda (teléfono) ──
   // La rejilla de mes reparte el ancho entre siete columnas. En 375px eso deja
@@ -170,7 +190,7 @@ function renderCalendar() {
   // Se listan sólo los días que tienen algo. Un mes en blanco son treinta filas
   // vacías que hay que scrollear para descubrir que no hay nada; mejor decirlo.
   const agenda = document.getElementById('calAgenda');
-  if(agenda) {
+  if(agenda && enAgenda) {
     const DIAS = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
     const conEventos = [];
     for(let dnum = 1; dnum <= lastDay.getDate(); dnum++) {
@@ -190,8 +210,14 @@ function renderCalendar() {
         const finde = fecha.getDay() === 0 || fecha.getDay() === 6;
         // Aquí no se corta a tres como en la rejilla: en lista no hay motivo,
         // la fila crece y el "+2 más" obligaba a abrir el día para ver algo
-        // que ya cabía.
-        const chips = evs.map(ev => `<div class="cal-ag-chip" style="background:${ev.color};color:${ev.text};"><span class="cal-chip-icn">${ev.icon||ev.statusIcon||''}</span>${_esc(ev.label)}</div>`).join('');
+        // que ya cabía. Pero sin tope ninguno tampoco: un día de publicación
+        // masiva con doscientas filas de tracker apiladas deja el mes entero
+        // debajo de una pared de chips que hay que scrollear a ciegas — y son
+        // doscientos nodos por repintado. Doce entran de sobra en un día normal
+        // y el resto se cuenta, como en la rejilla.
+        const CAP_AGENDA = 12;
+        const chips = evs.slice(0, CAP_AGENDA).map(ev => `<div class="cal-ag-chip" style="background:${ev.color};color:${ev.text};"><span class="cal-chip-icn">${ev.icon||ev.statusIcon||''}</span>${_esc(ev.label)}</div>`).join('')
+          + (evs.length > CAP_AGENDA ? `<div class="cal-ag-mas">+${evs.length - CAP_AGENDA} más</div>` : '');
         return `<div class="cal-ag-dia${esHoy ? ' hoy' : ''}${finde ? ' finde' : ''}">
           <div class="cal-ag-fecha">
             <span class="cal-ag-num">${dnum}</span>

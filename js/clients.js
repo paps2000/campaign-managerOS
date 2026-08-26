@@ -349,7 +349,27 @@ async function cargarResenasCliente(clientId) {
    sería inventar un dato. */
 async function rellenarClientesDesdeCampanas() {
   if (!currentUser) return;
-  const yaHay = new Set(getClientes().map(c => c.id));
+  // Quiénes ya están se pregunta AL SERVIDOR, no a la caché.
+  //
+  // Esto corre desde el arranque de sesión, antes de attachListeners(), así que
+  // `_cache.clients` todavía está vacío: la caché decía "no hay ninguno" y la
+  // función re-escribía la ficha de TODOS los contactos de TODAS las campañas
+  // en cada login. Dos daños. Uno, la tanda de escrituras y su tanda de
+  // snapshots detrás, justo en el momento más cargado de la app. Y dos, el
+  // grave: `set({...}, {merge:true})` no fusiona arrays, los reemplaza, así que
+  // `historial` —que va acumulando por qué campañas pasó cada contacto— se
+  // quedaba con una sola entrada, y `createdAt` volvía a hoy. La memoria del
+  // cliente se borraba sola cada vez que alguien entraba a la aplicación.
+  let yaHay;
+  try {
+    const snap = await _clientsCol().get();
+    yaHay = new Set(snap.docs.map(d => d.id));
+  } catch (e) {
+    // Sin poder comprobar qué hay, no se escribe: re-crear una ficha cuesta un
+    // clic, recuperar un historial borrado no cuesta nada porque no se puede.
+    console.warn('rellenar clientes: no se pudo leer la base', e);
+    return;
+  }
   const campanas = getData('campaigns') || [];
   const pendientes = [];
 

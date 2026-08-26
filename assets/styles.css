@@ -6412,6 +6412,10 @@ html.dark :where(a, button, input, select, textarea, [tabindex]):focus-visible {
 .cal-ag-chip { display:flex; align-items:flex-start; gap:0; }
 .cal-ag-chip .cal-chip-icn { width:14px; height:14px; margin-top:2px; margin-right:7px; }
 
+/* Cuenta de lo que no cupo en el día. Mismo papel que el "+N más" de la
+   rejilla: decir que hay más sin apilar doscientos chips. */
+.cal-ag-mas { font-size:11px; font-weight:600; color:var(--text-muted); padding:4px 10px; }
+
 /* Icono de cada resultado de la paleta (⌘K). Antes era un emoji a 18px; ahora
    es SVG y necesita caja propia, si no se estira como pasaba con .empty-icon. */
 .cmd-item-icn { width:18px; height:18px; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; color:var(--text-muted); }

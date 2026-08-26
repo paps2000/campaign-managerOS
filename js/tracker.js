@@ -83,10 +83,12 @@ const TRACKER_CREATIVA_KEYS = ['PLATAFORMA CREATIVA','Plataforma Creativa','LINE
 // trackers tienen una col STATUS con bullets de seguimiento — eso no es el
 // estatus del contenido; el real vive en otra col, p.ej. PUBLICADO).
 function _trackerStatusOf(row){
+  const idx = _trackerRowIdx(row);
   for(const k of TRACKER_STATUS_KEYS){
-    const kn = _trackerNorm(k);
-    for(const rk of Object.keys(row)){
-      if(_trackerNorm(rk)===kn && row[rk]!=null && row[rk]!==''){
+    const rks = idx.get(_trackerNorm(k));
+    if(!rks) continue;
+    for(const rk of rks){
+      if(row[rk]!=null && row[rk]!==''){
         const v = String(row[rk]).trim();
         if(v.length > 35 || v.includes('\n') || (v.split(',').length-1) > 1) continue;
         return v;
@@ -120,12 +122,51 @@ const TRACKER_COL_DEFS = [
   {label:'Sentiment',          keys:['SENTIMENT','Sentiment']},
 ];
 
-function _trackerNorm(s){ return String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[_\s\/]+/g,' ').trim(); }
+/* Normalizar un rótulo de columna es la operación más repetida de la app: cada
+   lectura de una celda la corre sobre la clave buscada Y sobre cada clave de la
+   fila. Un tracker de 300 renglones son cientos de miles de `normalize('NFD')`
+   por repintado, siempre sobre el mismo puñado de rótulos. Se memoriza: las
+   cadenas se repiten, el resultado no cambia nunca. */
+const _trackerNormMemo = new Map();
+function _trackerNorm(s){
+  const raw = String(s||'');
+  const hit = _trackerNormMemo.get(raw);
+  if(hit !== undefined) return hit;
+  const val = raw.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[_\s\/]+/g,' ').trim();
+  // Tope por si algún sheet trae rótulos basura distintos en cada fila.
+  if(_trackerNormMemo.size < 5000) _trackerNormMemo.set(raw, val);
+  return val;
+}
+
+/* Y el índice de la fila: rótulo normalizado -> rótulos originales que caen en
+   él, en el orden en que vienen. Sin esto, buscar una columna recorre TODAS las
+   claves de la fila normalizándolas una por una, y eso se repite por cada
+   candidato de la lista y por cada fila. Va en un WeakMap porque las filas se
+   reconstruyen enteras en cada bajada del sheet: el índice viejo se recolecta
+   solo. Se guardan todas las claves que colisionan (un sheet puede traer
+   "ESTATUS" y "Estatus") para conservar la regla original: gana la primera que
+   tenga algo escrito, no la primera a secas. */
+const _trackerIdx = new WeakMap();
+function _trackerRowIdx(row){
+  let idx = _trackerIdx.get(row);
+  if(idx) return idx;
+  idx = new Map();
+  for(const rk of Object.keys(row)){
+    const kn = _trackerNorm(rk);
+    const prev = idx.get(kn);
+    if(prev) prev.push(rk); else idx.set(kn, [rk]);
+  }
+  _trackerIdx.set(row, idx);
+  return idx;
+}
+
 function _trackerGet(row, keys){
+  const idx = _trackerRowIdx(row);
   for(const k of keys){
-    const kn = _trackerNorm(k);
-    for(const rk of Object.keys(row)){
-      if(_trackerNorm(rk)===kn && row[rk]!=null && row[rk]!=='') return row[rk];
+    const rks = idx.get(_trackerNorm(k));
+    if(!rks) continue;
+    for(const rk of rks){
+      if(row[rk]!=null && row[rk]!=='') return row[rk];
     }
   }
   return '';

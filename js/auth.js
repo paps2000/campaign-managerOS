@@ -176,6 +176,12 @@ auth.onAuthStateChanged(async (user) => {
   _cache.campaigns = campaignsSnap.docs.map(d => (typeof _normalizarCampana==='function' ? _normalizarCampana(d.data()) : d.data()));
   _cache.globalTasks = tasksSnap.docs.map(d=>d.data());
   _cache.settings = settingsDoc.exists ? settingsDoc.data() : {};
+  // Los datos ya están aquí: nada de esqueletos de carga a partir de este
+  // punto. El listener también lo pone, pero su primer snapshot puede llegar
+  // después de que navigate() restaure la última página, y entonces la lista de
+  // campañas se pintaba un instante como "cargando" teniendo los datos ya en
+  // memoria. Ver renderCampaignGrid.
+  _cache._initialized = true;
   allUsers = membersSnap.docs.map(d => ({uid:d.id, ...d.data()}));
   // Ensure current user is always in allUsers even if fetch missed them
   if(!allUsers.find(u=>u.uid===user.uid)) allUsers.push(memberProfile);

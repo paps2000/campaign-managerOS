@@ -94,9 +94,14 @@ function renderDashboard() {
         upcomingPubs.push({...inf, campaignName:c.name, client:c.client});
       }
     });
-    // Also pull from tracker rows
-    const _n=s=>s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/_/g,' ').trim();
-    const gst = (r,...keys)=>{for(const k of keys){const kn=_n(k);for(const rk of Object.keys(r)){if(_n(rk)===kn&&r[rk])return r[rk];}}return '';};
+    // Also pull from tracker rows.
+    // Se lee con `_trackerGet`, el mismo lector que usa el resto de la app, en
+    // vez de la copia local que vivía aquí: aquélla normalizaba cada rótulo de
+    // cada fila en cada búsqueda, y este bucle corre sobre el tracker entero de
+    // cada campaña propia en cada repintado del Resumen. `_trackerGet` indexa
+    // la fila una sola vez. De paso deja de haber dos reglas distintas para
+    // decidir si "FECHA/POST" es la columna de fecha.
+    const gst = (r, ...keys) => _trackerGet(r, keys);
     const campYear = (c.startDate && parseInt(c.startDate.slice(0,4))) || new Date().getFullYear();
     (c.trackerRows||[]).forEach(row=>{
       const rawDate = gst(row,'FECHA DE POST','Fecha de Post','Fecha de publicación','Fecha publicación','Fecha pub','Fecha','publish date','date','fecha');
