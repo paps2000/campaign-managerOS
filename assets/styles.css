@@ -5739,6 +5739,8 @@ html.dark .tp-rc-warn { color:#ffb3d3; }
 }
 html.dark .tp-tx-amt { color:#ffb3d3; }
 .tp-tx-why { font-size:12px; color:var(--text-muted); line-height:1.5; margin-top:3px; overflow-wrap:anywhere; }
+/* El motivo ajeno no se enseña: el renglón queda, el texto no. */
+.tp-tx-why-priv { font-style:italic; opacity:.65; }
 .tp-tx-undo {
   margin-top:6px; padding:0; border:none; background:none; cursor:pointer; font-family:inherit;
   font-size:11px; font-weight:700; color:var(--tp-coin); text-decoration:underline;

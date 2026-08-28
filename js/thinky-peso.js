@@ -514,7 +514,7 @@ function renderMembers(){
           placeholder="Se quedó a cerrar el reporte de Coppel conmigo un viernes a las 9."
           oninput="tpReason('${esc(u.uid)}',this.value)">${esc(d.reason)}</textarea>
         <div class="tp-why-foot">
-          <span class="tp-why-hint">Sin motivo no se entrega. Sé específico: se lo van a leer.</span>
+          <span class="tp-why-hint">Sin motivo no se entrega. Sé específico: se lo va a leer, y solo esa persona.</span>
           <span class="tp-rc ${len>0&&len<REASON_MIN?'tp-rc-warn':''}" id="tpRc-${esc(u.uid)}">${len < REASON_MIN ? (REASON_MIN-len)+' caracteres más' : len+'/'+REASON_MAX}</span>
         </div>
       </div>` : ''}
@@ -542,7 +542,7 @@ function renderFooter(){
       <div class="tp-confirm">
         <div class="tp-confirm-txt">
           <strong>¿Entregar ${total} ${total===1?'ThinkyPeso':'ThinkyPesos'} a ${people} ${people===1?'persona':'personas'}?</strong>
-          <span>Van a ver tu nombre y tu motivo. Puedes deshacerlo mientras la ventana siga abierta.</span>
+          <span>Cada quien va a ver tu nombre y su motivo — nadie más lo lee. Puedes deshacerlo mientras la ventana siga abierta.</span>
         </div>
         <div class="tp-confirm-btns">
           <button type="button" class="tp-btn-ghost" onclick="tpCancelSend()">Volver</button>
@@ -590,6 +590,10 @@ function txCard(t, mode){
   const label = mode === 'recibidos' ? 'de ' + esc(nameOf(t.fromUid, t.fromName))
               : mode === 'enviados'  ? 'a ' + esc(nameOf(t.toUid, t.toName))
               : esc(nameOf(t.fromUid, t.fromName)) + ' → ' + esc(nameOf(t.toUid, t.toName));
+  // El motivo es un mensaje entre dos personas: solo lo lee quien lo escribió
+  // y quien lo recibió. En el feed del equipo se ve el movimiento (quién le
+  // dio a quién y cuánto), nunca el texto ajeno.
+  const canReadWhy = t.fromUid === _me() || t.toUid === _me();
   return `
     <div class="tp-tx">
       <span class="tp-tx-av">${avatar(who, 30)}</span>
@@ -598,7 +602,9 @@ function txCard(t, mode){
           <span class="tp-tx-who">${label}</span>
           <span class="tp-tx-amt">🪙 ${parseInt(t.amount)||0}</span>
         </div>
-        <div class="tp-tx-why">${esc(t.reason)}</div>
+        ${canReadWhy
+          ? `<div class="tp-tx-why">${esc(t.reason)}</div>`
+          : `<div class="tp-tx-why tp-tx-why-priv">🔒 El motivo solo lo ven esas dos personas</div>`}
         ${canUndo ? `<button type="button" class="tp-tx-undo" onclick="tpUndo('${esc(t.id)}')">Deshacer</button>` : ''}
       </div>
     </div>`;
@@ -622,7 +628,7 @@ function renderLedger(){
     empty = {t:'No has repartido nada este mes', s:'Tienes ' + myBalance() + ' ThinkyPesos esperando a alguien.'};
   } else {
     list = _period(p);
-    empty = {t:'El mes va en blanco', s:'Aquí aparece lo que se reparte el equipo, con motivo y todo.'};
+    empty = {t:'El mes va en blanco', s:'Aquí aparece quién le dio a quién. El motivo queda entre esas dos personas.'};
   }
 
   list = list.slice().sort((a,b) => (b.createdAt||0) - (a.createdAt||0));
@@ -677,7 +683,7 @@ const ONB_STEPS = [
   { emoji:'⏳', title:'Una semana para repartirlos',
     body:'El reparto solo abre en la última semana del mes. Lo que no repartas en esos días se pierde: no se acumula para el siguiente.' },
   { emoji:'📝', title:'Sin motivo no hay ThinkyPeso',
-    body:'Cuenta qué pasó de verdad: "se quedó a cerrar el reporte conmigo un viernes a las 9" dice mucho más que "buen trabajo".' },
+    body:'Cuenta qué pasó de verdad: "se quedó a cerrar el reporte conmigo un viernes a las 9" dice mucho más que "buen trabajo". Lo lee esa persona y nadie más.' },
   { emoji:'🏆', title:'El Top 5 del mes',
     body:'Los más reconocidos aparecen en un ranking — pero solo su lugar, nunca cuántos pesos llevan. Aquí se reconoce, no se compite por número.' },
 ];

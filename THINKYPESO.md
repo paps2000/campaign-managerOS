@@ -76,6 +76,20 @@ Este documento **no es la fuente de verdad de la UI** — el saldo que se ve
 sigue saliendo de sumar las entregas del periodo. Existe solo para que la regla
 tenga contra qué cobrar el tope.
 
+### El motivo es privado
+
+El motivo de una entrega solo lo ve **quien lo escribió y quien lo recibió**. En
+la pestaña *Equipo* del feed se pinta el movimiento (quién le dio a quién y
+cuánto) y en lugar del texto ajeno va un renglón "🔒 El motivo solo lo ven esas
+dos personas". El ranking nunca mostró motivos.
+
+Es un corte de **UI**, no de reglas: `allow read: if isThinky()` sigue dando
+lectura del documento a todo el workspace, y `core.js` escucha la colección
+completa porque el ranking necesita sumar lo que recibió cada quien. Restringir
+la lectura en Firestore a `fromUid == uid || toUid == uid` dejaría al ranking sin
+datos, así que quien abra la consola del navegador todavía puede ver los motivos.
+Sirve contra el que lee de más por descuido, no contra el que va a buscarlos.
+
 `fromName` / `toName` se guardan como respaldo para que el historial siga legible si alguien se va del workspace y desaparece de `members`. La UI siempre prefiere el nombre vivo de `allUsers`.
 
 ### Permiso en Firestore
