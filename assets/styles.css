@@ -5590,7 +5590,7 @@ html.dark { --tp-ink:#ffe6f0; }
   background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12);
 }
 .tp-cd { font-size:22px; font-weight:800; font-variant-numeric:tabular-nums; letter-spacing:-.5px; }
-.tp-cd-lab { font-size:10px; text-transform:uppercase; letter-spacing:1.2px; color:rgba(255,255,255,.55); }
+.tp-cd-lab { font-size:12px; text-transform:uppercase; letter-spacing:1.2px; color:rgba(255,255,255,.55); }
 .tp-hero-got { font-size:12px; color:rgba(255,255,255,.72); }
 .tp-hero-got b { color:#ffb03a; font-size:15px; }
 .tp-hero-bar {
@@ -5601,7 +5601,7 @@ html.dark { --tp-ink:#ffe6f0; }
   position:absolute; inset:0 auto 0 0; border-radius:20px;
   background:var(--tp-grad); transition:width var(--dur-slow) var(--ease);
 }
-.tp-hero-bartxt { position:relative; margin-top:8px; font-size:11px; color:rgba(255,255,255,.6); }
+.tp-hero-bartxt { position:relative; margin-top:8px; font-size:12px; color:rgba(255,255,255,.6); }
 
 /* LAYOUT */
 .tp-grid { display:grid; grid-template-columns:1fr 340px; gap:20px; align-items:start; }
@@ -5614,8 +5614,8 @@ html.dark { --tp-ink:#ffe6f0; }
   display:flex; align-items:center; gap:12px; flex-wrap:wrap;
   padding:16px 20px; border-bottom:1px solid var(--border);
 }
-.tp-panel-title { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:1.2px; }
-.tp-panel-hint { font-size:11px; color:var(--text-muted); flex:1; min-width:120px; }
+.tp-panel-title { font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:1.2px; }
+.tp-panel-hint { font-size:12px; color:var(--text-muted); flex:1; min-width:120px; }
 .tp-search {
   padding:8px 12px; border-radius:12px; border:1px solid var(--border);
   background:var(--bg); font-family:inherit; font-size:12px; color:var(--text); width:190px;
@@ -5635,7 +5635,7 @@ html.dark { --tp-ink:#ffe6f0; }
 }
 .tp-row-id { flex:1; min-width:0; }
 .tp-row-name { font-size:13px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.tp-row-sub { font-size:11px; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.tp-row-sub { font-size:12px; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
 /* STEPPER */
 .tp-stepper {
@@ -5652,7 +5652,7 @@ html.dark { --tp-ink:#ffe6f0; }
 .tp-step:hover:not(:disabled) { background:var(--tp-coin); color:#fff; }
 .tp-step:disabled { opacity:.3; cursor:not-allowed; }
 .tp-amt {
-  width:38px; text-align:center; border:none; background:none; font-family:inherit;
+  width:38px; height:28px; text-align:center; border:none; background:none; font-family:inherit;
   font-size:14px; font-weight:800; color:var(--text); font-variant-numeric:tabular-nums;
 }
 .tp-amt:focus { outline:none; }
@@ -5668,8 +5668,8 @@ html.dark .tp-why-lab { color:#ffb3d3; }
 }
 .tp-why-input:focus { outline:none; border-color:var(--tp-coin); background:var(--white); }
 .tp-why-foot { display:flex; justify-content:space-between; gap:10px; margin-top:5px; }
-.tp-why-hint { font-size:10.5px; color:var(--text-muted); }
-.tp-rc { font-size:10.5px; color:var(--text-muted); font-variant-numeric:tabular-nums; white-space:nowrap; }
+.tp-why-hint { font-size:12px; color:var(--text-muted); }
+.tp-rc { font-size:12px; color:var(--text-muted); font-variant-numeric:tabular-nums; white-space:nowrap; }
 .tp-rc-warn { color:var(--tp-coin-deep); font-weight:700; }
 html.dark .tp-rc-warn { color:#ffb3d3; }
 
@@ -5687,7 +5687,7 @@ html.dark .tp-rc-warn { color:#ffb3d3; }
 }
 .tp-foot-copy { display:flex; flex-direction:column; min-width:0; }
 .tp-foot-t { font-size:12.5px; font-weight:700; }
-.tp-foot-s { font-size:11px; color:var(--text-muted); }
+.tp-foot-s { font-size:12px; color:var(--text-muted); }
 .tp-foot-btns { display:flex; gap:8px; }
 .tp-btn-go {
   padding:10px 18px; border:none; border-radius:12px; cursor:pointer;
@@ -5711,13 +5711,13 @@ html.dark .tp-rc-warn { color:#ffb3d3; }
 .tp-confirm-btns { display:flex; gap:8px; }
 .tp-foot-shut { display:flex; flex-direction:column; gap:2px; }
 .tp-foot-shut-t { font-size:12.5px; font-weight:700; }
-.tp-foot-shut-s { font-size:11px; color:var(--text-muted); }
+.tp-foot-shut-s { font-size:12px; color:var(--text-muted); }
 
 /* MOVIMIENTOS */
 .tp-tabs { display:flex; gap:4px; background:var(--bg); padding:3px; border-radius:12px; }
 .tp-tab {
   flex:1; padding:7px 10px; border:none; border-radius:9px; cursor:pointer;
-  font-family:inherit; font-size:11.5px; font-weight:700; color:var(--text-muted);
+  font-family:inherit; font-size:12px; font-weight:700; color:var(--text-muted);
   background:none; transition-property:var(--t-ui); transition-duration:var(--dur-quick);
 }
 .tp-tab.active { background:var(--white); color:var(--text); box-shadow:var(--shadow); }
@@ -5729,16 +5729,20 @@ html.dark .tp-rc-warn { color:#ffb3d3; }
 .tp-tx-top { display:flex; align-items:center; justify-content:space-between; gap:8px; }
 .tp-tx-who { font-size:12px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .tp-tx-amt {
-  font-size:11px; font-weight:800; color:var(--tp-coin-deep); white-space:nowrap;
+  font-size:12px; font-weight:800; color:var(--tp-coin-deep); white-space:nowrap;
   background:rgba(255,45,135,.1); padding:2px 8px; border-radius:20px;
 }
 html.dark .tp-tx-amt { color:#ffb3d3; }
 .tp-tx-why { font-size:12px; color:var(--text-muted); line-height:1.5; margin-top:3px; overflow-wrap:anywhere; }
+/* La moneda y el candado son iconos del sistema, no emoji: heredan color y
+   tamaño de texto en vez de traer el suyo desde la fuente del sistema. */
+.tp-tx-amt .icn-inline { width:12px; height:12px; margin-right:4px; vertical-align:-2px; }
+.tp-tx-why-priv .icn-inline { width:12px; height:12px; margin-right:5px; vertical-align:-2px; }
 /* El motivo ajeno no se enseña: el renglón queda, el texto no. */
 .tp-tx-why-priv { font-style:italic; opacity:.65; }
 .tp-tx-undo {
   margin-top:6px; padding:0; border:none; background:none; cursor:pointer; font-family:inherit;
-  font-size:11px; font-weight:700; color:var(--tp-coin); text-decoration:underline;
+  font-size:12px; font-weight:700; color:var(--tp-coin); text-decoration:underline;
 }
 
 /* REGLAS */
@@ -5756,7 +5760,7 @@ html.dark .tp-rule-n { color:#ffb3d3; }
 /* VACÍOS */
 .tp-empty { padding:26px 20px; text-align:center; }
 .tp-empty-t { font-size:13px; font-weight:700; margin-bottom:4px; }
-.tp-empty-s { font-size:11.5px; color:var(--text-muted); line-height:1.5; max-width:34ch; margin:0 auto; }
+.tp-empty-s { font-size:12px; color:var(--text-muted); line-height:1.5; max-width:34ch; margin:0 auto; }
 
 @media (max-width:640px){
   .tp-hero { padding:20px; }
@@ -5766,8 +5770,27 @@ html.dark .tp-rule-n { color:#ffb3d3; }
   .tp-row-head { flex-wrap:wrap; }
 }
 
+/* Con el dedo, 28px es poco: el − y el + del reparto son el gesto que más se
+   repite en la pantalla y estaban en el mínimo justo de WCAG (24). En táctil
+   suben a 40 y se separan, que es lo que pide la guía de iOS/Android. */
+@media (max-width:768px){
+  .tp-stepper { gap:6px; padding:3px; }
+  .tp-step { width:40px; height:40px; border-radius:11px; font-size:18px; }
+  .tp-amt { width:44px; height:40px; font-size:15px; }
+}
+
+/* El botón flotante de "+" vive fijo abajo a la derecha, justo encima de la
+   columna de steppers: con la lista larga, la fila que quedaba bajo él tenía
+   su "+" INALCANZABLE (y el foco de teclado, tapado — WCAG 2.4.11). En esta
+   pestaña el atajo no hace falta: la acción principal ya vive en el pie
+   pegajoso del panel, así que en móvil se retira mientras se reparte.
+   El display:flex que le pone js/fab.js es inline, de ahí el !important. */
+@media (max-width:768px){
+  body[data-page="thinkypeso"] .fab-wrap { display:none !important; }
+}
+
 /* SALUDO PERSONALIZADO */
-.tp-greet { font-size:10px; font-weight:700; color:rgba(255,255,255,.7); letter-spacing:.2px; text-transform:none; }
+.tp-greet { font-size:12px; font-weight:700; color:rgba(255,255,255,.7); letter-spacing:.2px; text-transform:none; }
 
 /* CONFETI DE FONDO — decorativo, monedas flotando muy despacio */
 .tp-hero-confetti {
@@ -5812,7 +5835,7 @@ html.dark .tp-rule-n { color:#ffb3d3; }
 /* BOTÓN "VER TUTORIAL" en la tarjeta de reglas */
 .tp-replay {
   margin-left:auto; padding:5px 11px; border:1px solid var(--border); border-radius:20px; cursor:pointer;
-  font-family:inherit; font-size:11px; font-weight:700; color:var(--tp-coin-deep);
+  font-family:inherit; font-size:12px; font-weight:700; color:var(--tp-coin-deep);
   background:rgba(255,45,135,.08); transition-property:var(--t-ui); transition-duration:var(--dur-quick);
 }
 html.dark .tp-replay { color:#ffb3d3; }

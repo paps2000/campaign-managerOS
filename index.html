@@ -1150,6 +1150,11 @@
         </div>
       </div>
 
+      <!-- El número del riel cambia solo (al repartir, al abrir el mes) y un
+           lector de pantalla leería "3" sin más contexto. Este renglón dice la
+           frase completa una sola vez por cambio; el badge queda decorativo. -->
+      <p class="sr-only" id="tpSaldoStatus" role="status" aria-atomic="true"></p>
+
       <div class="tp-grid">
 
         <div class="tp-panel">
@@ -1167,8 +1172,8 @@
           <div class="card">
             <div class="card-header"><span class="card-title">Movimientos</span></div>
             <div class="tp-tabs">
-              <button type="button" class="tp-tab active" data-tptab="recibidos" onclick="tpLedgerTab('recibidos')">Recibidos</button>
-              <button type="button" class="tp-tab" data-tptab="enviados" onclick="tpLedgerTab('enviados')">Enviados</button>
+              <button type="button" class="tp-tab active" data-tptab="recibidos" aria-pressed="true" onclick="tpLedgerTab('recibidos')">Recibidos</button>
+              <button type="button" class="tp-tab" data-tptab="enviados" aria-pressed="false" onclick="tpLedgerTab('enviados')">Enviados</button>
             </div>
             <div class="tp-feed" id="tpLedger"></div>
           </div>

@@ -586,11 +586,11 @@ function txCard(t, mode){
       <div class="tp-tx-body">
         <div class="tp-tx-top">
           <span class="tp-tx-who">${label}</span>
-          <span class="tp-tx-amt">🪙 ${parseInt(t.amount)||0}</span>
+          <span class="tp-tx-amt"><span class="icn-inline" data-icn="coin" aria-hidden="true"></span>${parseInt(t.amount)||0}</span>
         </div>
         ${canReadWhy
           ? `<div class="tp-tx-why">${esc(t.reason)}</div>`
-          : `<div class="tp-tx-why tp-tx-why-priv">🔒 El motivo solo lo ven esas dos personas</div>`}
+          : `<div class="tp-tx-why tp-tx-why-priv"><span class="icn-inline" data-icn="lock" aria-hidden="true"></span>El motivo solo lo ven esas dos personas</div>`}
         ${canUndo ? `<button type="button" class="tp-tx-undo" onclick="tpUndo('${esc(t.id)}')">Deshacer</button>` : ''}
       </div>
     </div>`;
@@ -599,8 +599,11 @@ function txCard(t, mode){
 function renderLedger(){
   const host = document.getElementById('tpLedger');
   if(!host) return;
-  document.querySelectorAll('.tp-tab').forEach(b =>
-    b.classList.toggle('active', b.dataset.tptab === _ledgerTab));
+  document.querySelectorAll('.tp-tab').forEach(b => {
+    const on = b.dataset.tptab === _ledgerTab;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
 
   const p = currentPeriod();
   const me = _me();
@@ -618,6 +621,8 @@ function renderLedger(){
   host.innerHTML = list.length
     ? list.map(t => txCard(t, _ledgerTab)).join('')
     : `<div class="tp-empty"><div class="tp-empty-t">${esc(empty.t)}</div><div class="tp-empty-s">${esc(empty.s)}</div></div>`;
+  // Los data-icn recién escritos siguen vacíos hasta que alguien los rellena.
+  if(typeof hydrateIcons === 'function') hydrateIcons(host);
 }
 
 // ============================================================
@@ -758,17 +763,37 @@ window.tpOnData = function(){
 
 // El riel muestra cuántos pesos te quedan, y solo durante la ventana: fuera
 // de ella el número sería ruido permanente.
+let _saldoDicho = null;   // lo último que se le anunció a un lector de pantalla
+
+// El aviso hablado se manda SOLO cuando el número cambia: renderHero corre una
+// vez por segundo por el contador regresivo, y reescribir el role="status" en
+// cada tick dejaría al lector de pantalla repitiendo la misma frase sin parar.
+function tpAnunciarSaldo(bal, abierto){
+  const el = document.getElementById('tpSaldoStatus');
+  if(!el) return;
+  const frase = !abierto ? ''
+    : bal > 0 ? 'Te quedan ' + bal + (bal === 1 ? ' ThinkyPeso' : ' ThinkyPesos') + ' por repartir este mes'
+    : 'Ya repartiste todos tus ThinkyPesos de este mes';
+  if(frase === _saldoDicho) return;
+  _saldoDicho = frase;
+  el.textContent = frase;
+}
+
 window.tpSidebarBadge = function(){
   const item = document.querySelector('.nav-item[data-page="thinkypeso"]');
-  if(!item) return;
-  let badge = item.querySelector('.tp-nav-badge');
   const st = windowState();
   const bal = myBalance();
+  tpAnunciarSaldo(bal, st.open && !!_me());
+  if(!item) return;
+  let badge = item.querySelector('.tp-nav-badge');
   const show = st.open && bal > 0 && !!_me();
   if(!show){ if(badge) badge.remove(); item.classList.remove('tp-nav-live'); return; }
   if(!badge){
     badge = document.createElement('span');
     badge.className = 'nav-badge tp-nav-badge';
+    // El número solo tiene sentido con la frase de al lado; suelto, un lector
+    // de pantalla diría "3" y ya. La frase la pone tpAnunciarSaldo.
+    badge.setAttribute('aria-hidden', 'true');
     item.appendChild(badge);
   }
   badge.textContent = bal;

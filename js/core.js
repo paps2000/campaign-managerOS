@@ -26,6 +26,7 @@ const ICN_coin = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
 const ICN_refresh = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 1-15.5 6.2M3 12a9 9 0 0 1 15.5-6.2"/><path d="M18.5 3v3h-3M5.5 21v-3h3"/></svg>';
 const ICN_link = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1.5 1.5"/><path d="M14 11a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1.5-1.5"/></svg>';
 const ICN_bookmark = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4h12a1 1 0 0 1 1 1v15l-7-4-7 4V5a1 1 0 0 1 1-1z"/></svg>';
+const ICN_lock = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>';
 const ICN_unlock = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 7.5-2"/></svg>';
 const ICN_org = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="5" rx="1"/><rect x="2" y="16" width="6" height="5" rx="1"/><rect x="16" y="16" width="6" height="5" rx="1"/><path d="M12 8v4M5 16v-2h14v2"/></svg>';
 const ICN_badge = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="5" width="19" height="14" rx="2"/><circle cx="8.5" cy="11" r="2"/><path d="M5 16c.6-1.5 2-2.2 3.5-2.2S11.4 14.5 12 16M14.5 10h4M14.5 13.5h4"/></svg>';
@@ -74,7 +75,7 @@ const ICONS = {
   edit:ICN_edit, mail:ICN_mail, paperclip:ICN_paperclip, sheet:ICN_sheet,
   sparkle:ICN_sparkle, trash:ICN_trash, users:ICN_users,
   trophy:ICN_trophy, coin:ICN_coin, refresh:ICN_refresh, link:ICN_link,
-  bookmark:ICN_bookmark, unlock:ICN_unlock, org:ICN_org, badge:ICN_badge,
+  bookmark:ICN_bookmark, unlock:ICN_unlock, lock:ICN_lock, org:ICN_org, badge:ICN_badge,
   user:ICN_user, megaphone:ICN_megaphone, target:ICN_target, search:ICN_search,
   moon:ICN_moon, sun:ICN_sun, bell:ICN_bell, bellOff:ICN_bellOff,
   eye:ICN_eye, eyeOff:ICN_eyeOff, play:ICN_play,
@@ -1284,6 +1285,11 @@ function navigate(page) {
   // (WCAG: focus-on-route-change).
   const principal = document.getElementById('contenidoPrincipal');
   if(principal) { try { principal.focus({ preventScroll:true }); } catch(e){} }
+
+  // La página activa también se marca en el DOM: hay reglas de CSS que sólo
+  // aplican en una pestaña (p. ej. retirar el botón flotante en ThinkyPesos,
+  // donde tapaba los botones de reparto en móvil).
+  document.body.dataset.page = page;
 
   const name = getSettings().name || 'Génesis';
   const t = titles[page] || [page,'',''];
