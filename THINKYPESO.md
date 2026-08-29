@@ -46,7 +46,7 @@ Colección: `workspaces/default/thinkyPesos/{id}`
 ```js
 {
   id: 'm8x...',            // mismo valor que el id del doc
-  period: '2026-08',       // YYYY-MM — corta saldo, ranking e historial
+  period: '2026-08',       // YYYY-MM — corta saldo e historial
   fromUid, fromName,       // quién da
   toUid, toName,           // quién recibe
   amount: 3,               // entero ≥ 1
@@ -76,19 +76,37 @@ Este documento **no es la fuente de verdad de la UI** — el saldo que se ve
 sigue saliendo de sumar las entregas del periodo. Existe solo para que la regla
 tenga contra qué cobrar el tope.
 
-### El motivo es privado
+### Nadie ve lo ajeno
 
-El motivo de una entrega solo lo ve **quien lo escribió y quien lo recibió**. En
-la pestaña *Equipo* del feed se pinta el movimiento (quién le dio a quién y
-cuánto) y en lugar del texto ajeno va un renglón "🔒 El motivo solo lo ven esas
-dos personas". El ranking nunca mostró motivos.
+Una entrega la leen **dos personas: quien la dio y quien la recibió**. Ni el
+monto ni el motivo salen de ahí, y esto no es una cortesía de la interfaz: lo
+sostiene la regla.
 
-Es un corte de **UI**, no de reglas: `allow read: if isThinky()` sigue dando
-lectura del documento a todo el workspace, y `core.js` escucha la colección
-completa porque el ranking necesita sumar lo que recibió cada quien. Restringir
-la lectura en Firestore a `fromUid == uid || toUid == uid` dejaría al ranking sin
-datos, así que quien abra la consola del navegador todavía puede ver los motivos.
-Sirve contra el que lee de más por descuido, no contra el que va a buscarlos.
+```
+allow read: if isThinky()
+  && (resource.data.fromUid == request.auth.uid
+   || resource.data.toUid == request.auth.uid);
+```
+
+Consecuencias que hay que respetar al tocar esta parte:
+
+- **El cliente no puede escuchar la colección completa.** Firestore evalúa la
+  consulta contra la regla y rechaza *entera* la que pueda devolver documentos
+  negados — no devuelve "los que sí". Por eso `js/core.js` abre **dos**
+  listeners (`where fromUid == yo` y `where toUid == yo`) y junta las mitades
+  por id. Volver a una sola consulta sin filtro deja la pestaña vacía y la
+  consola llena de `permission-denied`.
+- **`_cache.thinkyPesos` solo trae lo mío.** Cualquier cálculo que necesite
+  datos de terceros (rankings, promedios, "quién recibió más") es imposible en
+  el cliente por diseño.
+- El contador `thinkyPesoBalances/{uid}_{periodo}` también es de lectura
+  propia. La salida `resource == null` de la regla existe porque el primer
+  envío del mes consulta un documento que todavía no existe.
+
+**Se quitó el Top 5 del mes** (agosto 2026). Ordenar un ranking exige leer lo
+que recibió todo el mundo, que es justo lo que se quiere impedir: la moneda es
+para reconocer, no para compararse. Con él se fue el contador "🪙 N" que salía
+al lado de cada nombre en la lista de reparto.
 
 `fromName` / `toName` se guardan como respaldo para que el historial siga legible si alguien se va del workspace y desaparece de `members`. La UI siempre prefiere el nombre vivo de `allUsers`.
 
@@ -158,7 +176,7 @@ El límite de Firestore es 20 por request multi-documento.
 | `js/thinky-peso.js` | Todo: calendario, saldo, borrador, envío, render. Script clásico, IIFE. |
 | `assets/styles.css` | Bloque `THINKYPESO` al final. |
 | `index.html` | Item del riel `data-page="thinkypeso"` y la página `#page-thinkypeso`. |
-| `js/core.js` | Listener de `thinkyPesos`, título de la pestaña y enganche en `navigate()`. |
+| `js/core.js` | Los **dos** listeners de `thinkyPesos` (dados y recibidos), título de la pestaña y enganche en `navigate()`. |
 | `firestore.rules` | Espejo de las reglas de la consola. |
 
 > Las reglas de este repo son **espejo**: hay que pegarlas en Firebase →
@@ -171,5 +189,6 @@ thinkyPeso.GRANT              // 10
 thinkyPeso.currentPeriod()    // '2026-08'
 thinkyPeso.windowState()      // {open, start, end, next}
 thinkyPeso.myBalance()        // saldo del usuario actual
-thinkyPeso.receivedIn(uid, p) // lo que recibió alguien en un periodo
+thinkyPeso.receivedIn(uid, p) // lo recibido en un periodo — en la práctica solo el propio:
+                              // la caché no tiene las entregas ajenas
 ```

@@ -98,11 +98,13 @@ service cloud.firestore {
     // creators, escenarios, notifications, creatorPrivateInfo, globalTasks,
     // influencerRatings… y las que vengan).
     match /workspaces/{ws}/{coll}/{doc=**} {
-      // `clientNotes` se excluye también de la LECTURA, no sólo de la
-      // escritura: son reseñas sobre personas del cliente y la regla de abajo
-      // no serviría de nada si esta las dejara leer a todo el workspace. Es el
-      // único caso hasta ahora en que leer ya es el problema.
-      allow read: if isThinky() && coll != 'clientNotes';
+      // `clientNotes` y `thinkyPesos` se excluyen también de la LECTURA, no
+      // sólo de la escritura. En los dos casos leer YA es el problema: las
+      // reseñas hablan de personas del cliente, y una entrega de ThinkyPeso
+      // lleva un mensaje privado y un monto que nadie más tiene por qué
+      // comparar. Si este bloque las dejara leer, las reglas de abajo no
+      // servirían de nada — las reglas se SUMAN, no se pisan.
+      allow read: if isThinky() && coll != 'clientNotes' && coll != 'thinkyPesos';
       allow write: if isThinky()
         && coll != 'thinkyPesos'
         && coll != 'thinkyPesoBalances'
@@ -148,7 +150,15 @@ service cloud.firestore {
     // entrega se puede crear sin subir este número, el total del mes no puede
     // superar 10 por más veces que se intente.
     match /workspaces/{ws}/thinkyPesoBalances/{bal} {
-      allow read: if isThinky();
+      // Solo tu propio contador: dice cuánto repartiste este mes y nadie más
+      // tiene por qué llevar esa cuenta. El id es 'uid_periodo', así que
+      // comparar contra el uid basta.
+      // `resource == null` va primero: el primer envío del mes lee un doc que
+      // todavía no existe (tpSend consulta el contador antes de escribirlo), y
+      // sin esta salida la evaluación reventaría y el envío moriría con
+      // "permission denied" justo en la primera entrega.
+      allow read: if isThinky()
+        && (resource == null || resource.data.uid == request.auth.uid);
 
       // No se borra. Si se pudiera, borrarlo sería resetear el saldo del mes.
       allow delete: if false;
@@ -187,7 +197,17 @@ service cloud.firestore {
     // ── Entregas ──
     // Una entrega por documento. Inmutable una vez escrita.
     match /workspaces/{ws}/thinkyPesos/{tx} {
-      allow read: if isThinky();
+      // Una entrega es cosa de dos: solo la leen quien la dio y quien la
+      // recibió. Así nadie puede ver el motivo ajeno ni sumar cuánto lleva
+      // recibido otra persona — ni desde la consola del navegador.
+      //
+      // Esto obliga al cliente a consultar con filtro: Firestore evalúa una
+      // consulta contra la regla y rechaza ENTERA la que pueda devolver
+      // documentos negados. Por eso js/core.js escucha dos consultas
+      // (where fromUid == yo, where toUid == yo) en vez de la colección.
+      allow read: if isThinky()
+        && (resource.data.fromUid == request.auth.uid
+         || resource.data.toUid == request.auth.uid);
 
       allow create: if isThinky()
         // no puedes dar a nombre de alguien más

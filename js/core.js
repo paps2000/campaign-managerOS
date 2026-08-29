@@ -759,10 +759,32 @@ function attachListeners() {
 
   // ThinkyPesos — cada doc es UNA entrega (de quién, a quién, cuánto, por qué).
   // El abono mensual de 10 no se guarda: se deriva del periodo en thinky-peso.js.
-  unsubscribers.push(ws.collection('thinkyPesos').onSnapshot(snap => {
-    _cache.thinkyPesos = snap.docs.map(d => d.data());
+  //
+  // DOS consultas, no una a la colección entera: la regla solo deja leer las
+  // entregas en las que participas (las que diste y las que te dieron), para
+  // que nadie pueda ver cuánto recibió otro ni leer motivos ajenos. Una
+  // consulta sin filtro pediría documentos que la regla niega y Firestore la
+  // rechaza completa — no devuelve "los que sí puedas". Cada mitad llega por
+  // su lado y se juntan aquí.
+  const tpMitades = { from: [], to: [] };
+  const tpJuntar = () => {
+    const vistos = new Set();
+    _cache.thinkyPesos = tpMitades.from.concat(tpMitades.to).filter(t => {
+      if(!t || !t.id || vistos.has(t.id)) return false;
+      vistos.add(t.id);
+      return true;
+    });
     if(typeof tpOnData==='function') tpOnData();
-  }, err => console.error('thinkyPesos listener',err)));
+  };
+  const tpUid = currentUser ? currentUser.uid : null;
+  if(tpUid){
+    [['fromUid','from'], ['toUid','to']].forEach(([campo, mitad]) => {
+      unsubscribers.push(ws.collection('thinkyPesos').where(campo,'==',tpUid).onSnapshot(snap => {
+        tpMitades[mitad] = snap.docs.map(d => ({ ...d.data(), id: d.id }));
+        tpJuntar();
+      }, err => console.error('thinkyPesos listener ('+campo+')',err)));
+    });
+  }
 
   // Base de clientes: la gente del lado del cliente. Vive aparte de las
   // campañas porque tiene que sobrevivir a que la saquen de una.

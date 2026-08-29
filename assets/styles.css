@@ -5636,11 +5636,6 @@ html.dark { --tp-ink:#ffe6f0; }
 .tp-row-id { flex:1; min-width:0; }
 .tp-row-name { font-size:13px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .tp-row-sub { font-size:11px; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.tp-row-got {
-  font-size:11px; font-weight:700; color:var(--tp-coin-deep);
-  background:rgba(255,45,135,.1); padding:3px 8px; border-radius:20px; white-space:nowrap;
-}
-html.dark .tp-row-got { color:#ffb3d3; }
 
 /* STEPPER */
 .tp-stepper {
@@ -5744,23 +5739,6 @@ html.dark .tp-tx-amt { color:#ffb3d3; }
 .tp-tx-undo {
   margin-top:6px; padding:0; border:none; background:none; cursor:pointer; font-family:inherit;
   font-size:11px; font-weight:700; color:var(--tp-coin); text-decoration:underline;
-}
-
-/* RANKING — solo lugar, nunca monto: sin barra ni número de pesos a propósito */
-.tp-rank-row { display:flex; align-items:center; gap:10px; padding:8px 0; }
-.tp-rank-n {
-  width:22px; font-size:13px; font-weight:800; color:var(--text-muted);
-  font-variant-numeric:tabular-nums; flex-shrink:0; text-align:center;
-}
-.tp-rank-n.tp-rank-medal { font-size:17px; }
-.tp-rank-av { display:inline-flex; flex-shrink:0; }
-.tp-rank-name {
-  font-size:12.5px; font-weight:600; flex:1; min-width:0;
-  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
-}
-.tp-rank-select {
-  padding:5px 8px; border-radius:9px; border:1px solid var(--border);
-  background:var(--white); font-family:inherit; font-size:11px; color:var(--text); cursor:pointer;
 }
 
 /* REGLAS */
@@ -6038,10 +6016,10 @@ html[data-text="grande"] { --ts:1.12; }
   html[data-text] .tb-av-empty, html[data-text] .tb-chev,
   html[data-text] .tb-col-count, html[data-text] .form-hint, html[data-text] .sb-mode-desc,
   html[data-text] .tp-hero-bartxt, html[data-text] .tp-panel-title,
-  html[data-text] .tp-panel-hint, html[data-text] .tp-row-sub, html[data-text] .tp-row-got,
+  html[data-text] .tp-panel-hint, html[data-text] .tp-row-sub,
   html[data-text] .tp-why-lab, html[data-text] .tp-foot-s, html[data-text] .tp-confirm-txt span,
   html[data-text] .tp-foot-shut-s, html[data-text] .tp-tx-amt, html[data-text] .tp-tx-undo,
-  html[data-text] .tp-rank-select, html[data-text] .tp-rule-n, html[data-text] .tp-replay,
+  html[data-text] .tp-rule-n, html[data-text] .tp-replay,
   html[data-text] .org-nivel-desc, html[data-text] .org-nivel-count, html[data-text] .org-nota
     { font-size:calc(11px * var(--ts)); }
   html[data-text] .tb-active-chip, html[data-text] .tb-result, html[data-text] .tb-group-count,
@@ -6074,7 +6052,7 @@ html[data-text="grande"] { --ts:1.12; }
   html[data-text] .pp-search, html[data-text] .profile-meta-mail,
   html[data-text] .profile-meta-status, html[data-text] .sb-mode-name, html[data-text] .td-link,
   html[data-text] .tp-why-input, html[data-text] .tp-foot-t, html[data-text] .tp-btn-go,
-  html[data-text] .tp-btn-ghost, html[data-text] .tp-foot-shut-t, html[data-text] .tp-rank-name,
+  html[data-text] .tp-btn-ghost, html[data-text] .tp-foot-shut-t,
   html[data-text] .org-person-name
     { font-size:calc(12.5px * var(--ts)); }
   html[data-text] .notif-empty, html[data-text] .sidebar-user .user-name,
@@ -6098,7 +6076,7 @@ html[data-text="grande"] { --ts:1.12; }
   html[data-text] .tb-card-title, html[data-text] .pp-chip-x, html[data-text] .pp-opt,
   html[data-text] .settings-switch, html[data-text] .profile-meta-line, html[data-text] .tp-sub,
   html[data-text] .tp-row-name, html[data-text] .tp-confirm-txt strong,
-  html[data-text] .tp-rank-n, html[data-text] .tp-empty-t, html[data-text] .tp-onb-text,
+  html[data-text] .tp-empty-t, html[data-text] .tp-onb-text,
   html[data-text] .org-nivel-n
     { font-size:calc(13px * var(--ts)); }
   html[data-text] .tb-title, html[data-text] .confirm-body
@@ -6118,7 +6096,7 @@ html[data-text="grande"] { --ts:1.12; }
   html[data-text] .tp-step
     { font-size:calc(16px * var(--ts)); }
   html[data-text] .profile-meta-name, html[data-text] .dl-x,
-  html[data-text] .tp-rank-n.tp-rank-medal, html[data-text] .confirm-title
+  html[data-text] .confirm-title
     { font-size:calc(17px * var(--ts)); }
   html[data-text] .notif-bell-btn, html[data-text] .cal-summary-count,
   html[data-text] .ai-panel-close, html[data-text] .tp-onb-title

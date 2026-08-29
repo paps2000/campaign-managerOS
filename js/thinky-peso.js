@@ -131,11 +131,13 @@ function draftPeople(){
 }
 function freeNow(){ return myBalance() - draftTotal(); }
 
-// Recibido por persona en un periodo → para el ranking.
-function receivedMap(p){
-  const map = new Map();
-  _period(p).forEach(t => map.set(t.toUid, (map.get(t.toUid)||0) + (parseInt(t.amount)||0)));
-  return map;
+// Lo que recibió alguien en un periodo. En la práctica solo se puede
+// preguntar por uno mismo: la regla de Firestore únicamente entrega las
+// entregas en las que participas, así que la caché no tiene las ajenas.
+function receivedIn(uid, p){
+  return _period(p || currentPeriod())
+    .filter(t => t.toUid === uid)
+    .reduce((a,t) => a + (parseInt(t.amount)||0), 0);
 }
 
 function userOf(uid){
@@ -151,11 +153,6 @@ function avatar(uid, size){
   if(u && typeof memberAvatarHtml === 'function') return memberAvatarHtml(u, size||28, '50%');
   const letter = esc((nameOf(uid)||'?')[0].toUpperCase());
   return `<span class="tp-av-fallback" style="width:${size||28}px;height:${size||28}px;">${letter}</span>`;
-}
-
-// Periodos con movimientos, del más nuevo al más viejo.
-function periodsWithData(){
-  return [...new Set(_txs().map(t => t.period))].filter(Boolean).sort().reverse();
 }
 
 // ============================================================
@@ -384,12 +381,6 @@ window.tpLedgerTab = function(tab){
   renderLedger();
 };
 
-window.tpHistoryPeriod = function(p){
-  const host = document.getElementById('tpRanking');
-  if(host) host.dataset.period = p;
-  renderRanking();
-};
-
 // ============================================================
 // RENDER — cabecera
 // ============================================================
@@ -445,8 +436,7 @@ function renderHero(){
   const barTxt = document.getElementById('tpHeroBarTxt');
   if(barTxt) barTxt.textContent = given + ' de ' + GRANT + ' repartidos en ' + periodLabel(p);
 
-  const gotMap = receivedMap(p);
-  const got = gotMap.get(_me()) || 0;
+  const got = receivedIn(_me(), p);
   const gotEl = document.getElementById('tpHeroGot');
   if(gotEl) gotEl.textContent = got;
 }
@@ -459,8 +449,6 @@ function renderMembers(){
   const host = document.getElementById('tpMembers');
   if(!host) return;
   const st = windowState();
-  const p = currentPeriod();
-  const got = receivedMap(p);
 
   let people = _members();
   if(_query){
@@ -489,7 +477,6 @@ function renderMembers(){
     const d = _draft[u.uid] || {amount:0, reason:''};
     const on = d.amount > 0;
     const len = d.reason.trim().length;
-    const recibio = got.get(u.uid) || 0;
     const sub = [u.puesto, u.area].filter(Boolean).join(' · ');
     return `
     <div class="tp-row ${on?'tp-row-on':''}" data-uid="${esc(u.uid)}">
@@ -499,7 +486,6 @@ function renderMembers(){
           <div class="tp-row-name">${esc(u.name || u.email)}</div>
           <div class="tp-row-sub">${esc(sub) || esc(u.email||'')}</div>
         </div>
-        ${recibio ? `<span class="tp-row-got" title="Lo que lleva recibido este mes">🪙 ${recibio}</span>` : ''}
         <div class="tp-stepper ${st.open?'':'tp-stepper-off'}">
           <button type="button" class="tp-step" onclick="tpBump('${esc(u.uid)}',-1)" ${!st.open||d.amount<=0?'disabled':''} aria-label="Quitar un ThinkyPeso a ${esc(u.name||u.email)}">−</button>
           <input class="tp-amt" inputmode="numeric" value="${d.amount}" ${st.open?'':'disabled'}
@@ -584,15 +570,15 @@ function txCard(t, mode){
   const st = windowState();
   const mine = t.fromUid === _me();
   const canUndo = mine && st.open && t.period === currentPeriod();
-  // En "recibidos" y "enviados" el otro lado siempre soy yo: repetir mi nombre
-  // en cada renglón no dice nada. Solo el feed del equipo necesita los dos.
+  // El otro lado siempre soy yo: repetir mi nombre en cada renglón no dice
+  // nada, así que se enseña solo a la otra persona.
   const who = mode === 'enviados' ? t.toUid : t.fromUid;
-  const label = mode === 'recibidos' ? 'de ' + esc(nameOf(t.fromUid, t.fromName))
-              : mode === 'enviados'  ? 'a ' + esc(nameOf(t.toUid, t.toName))
-              : esc(nameOf(t.fromUid, t.fromName)) + ' → ' + esc(nameOf(t.toUid, t.toName));
-  // El motivo es un mensaje entre dos personas: solo lo lee quien lo escribió
-  // y quien lo recibió. En el feed del equipo se ve el movimiento (quién le
-  // dio a quién y cuánto), nunca el texto ajeno.
+  const label = mode === 'enviados'
+    ? 'a ' + esc(nameOf(t.toUid, t.toName))
+    : 'de ' + esc(nameOf(t.fromUid, t.fromName));
+  // Cinturón además de tirantes: la regla de Firestore ya sólo entrega las
+  // entregas en las que participo, pero si alguna ajena llegara a la caché
+  // (una siembra local, un cambio de reglas mal hecho) el motivo no se pinta.
   const canReadWhy = t.fromUid === _me() || t.toUid === _me();
   return `
     <div class="tp-tx">
@@ -623,47 +609,15 @@ function renderLedger(){
   if(_ledgerTab === 'recibidos'){
     list = _period(p).filter(t => t.toUid === me);
     empty = {t:'Nadie te ha dado ThinkyPesos este mes', s:'Se ven aquí en cuanto alguien te reconozca. Tú también puedes empezar.'};
-  } else if(_ledgerTab === 'enviados'){
+  } else {
     list = _period(p).filter(t => t.fromUid === me);
     empty = {t:'No has repartido nada este mes', s:'Tienes ' + myBalance() + ' ThinkyPesos esperando a alguien.'};
-  } else {
-    list = _period(p);
-    empty = {t:'El mes va en blanco', s:'Aquí aparece quién le dio a quién. El motivo queda entre esas dos personas.'};
   }
 
   list = list.slice().sort((a,b) => (b.createdAt||0) - (a.createdAt||0));
   host.innerHTML = list.length
     ? list.map(t => txCard(t, _ledgerTab)).join('')
     : `<div class="tp-empty"><div class="tp-empty-t">${esc(empty.t)}</div><div class="tp-empty-s">${esc(empty.s)}</div></div>`;
-}
-
-// Solo el lugar, nunca el monto: el ranking es un reconocimiento, no un
-// marcador de cuánto le dieron a cada quien. Por eso se corta en 5 y las
-// filas no cargan ni número de pesos ni barra proporcional (delataría montos).
-const RANK_SIZE = 5;
-const MEDALS = ['🥇','🥈','🥉'];
-
-function renderRanking(){
-  const host = document.getElementById('tpRanking');
-  if(!host) return;
-  const p = host.dataset.period || currentPeriod();
-  const map = receivedMap(p);
-  const rows = [...map.entries()].sort((a,b) => b[1]-a[1]).slice(0, RANK_SIZE);
-
-  const sel = document.getElementById('tpRankPeriod');
-  if(sel){
-    const opts = periodsWithData();
-    if(!opts.includes(currentPeriod())) opts.unshift(currentPeriod());
-    sel.innerHTML = opts.map(o => `<option value="${esc(o)}" ${o===p?'selected':''}>${esc(periodLabel(o))}</option>`).join('');
-  }
-
-  host.innerHTML = rows.length ? rows.map(([uid], i) => `
-    <div class="tp-rank-row">
-      <span class="tp-rank-n ${MEDALS[i]?'tp-rank-medal':''}">${MEDALS[i] || (i+1)}</span>
-      <span class="tp-rank-av">${avatar(uid, 28)}</span>
-      <span class="tp-rank-name">${esc(nameOf(uid))}</span>
-    </div>`).join('')
-    : `<div class="tp-empty"><div class="tp-empty-t">Nadie ha recibido nada</div><div class="tp-empty-s">${periodLabel(p)} sigue sin movimientos.</div></div>`;
 }
 
 // ============================================================
@@ -684,8 +638,8 @@ const ONB_STEPS = [
     body:'El reparto solo abre en la última semana del mes. Lo que no repartas en esos días se pierde: no se acumula para el siguiente.' },
   { emoji:'📝', title:'Sin motivo no hay ThinkyPeso',
     body:'Cuenta qué pasó de verdad: "se quedó a cerrar el reporte conmigo un viernes a las 9" dice mucho más que "buen trabajo". Lo lee esa persona y nadie más.' },
-  { emoji:'🏆', title:'El Top 5 del mes',
-    body:'Los más reconocidos aparecen en un ranking — pero solo su lugar, nunca cuántos pesos llevan. Aquí se reconoce, no se compite por número.' },
+  { emoji:'🤐', title:'Nadie más se entera',
+    body:'Lo que te dan y lo que das solo lo ves tú y la otra persona: ni el monto ni el motivo salen de ahí. Esto es para reconocer, no para compararse.' },
 ];
 
 let _onbStep = 0;
@@ -760,7 +714,6 @@ window.tpCelebrate = function(){
 window.renderThinkyPeso = function(){
   renderAssign();
   renderLedger();
-  renderRanking();
   if(!_tick) _tick = setInterval(() => { renderHero(); tpSidebarBadge(); }, 1000);
   tpSidebarBadge();
   if(_me() && !tpOnboardSeen()) tpOnboardOpen();
@@ -801,7 +754,6 @@ window.tpOnData = function(){
   if(!typing) renderMembers();
   renderFooter();
   renderLedger();
-  renderRanking();
 };
 
 // El riel muestra cuántos pesos te quedan, y solo durante la ventana: fuera
@@ -826,8 +778,7 @@ window.tpSidebarBadge = function(){
 // Se expone lo mínimo para que otras vistas (dashboard, perfil) puedan leer
 // el estado sin duplicar el calendario.
 window.thinkyPeso = {
-  GRANT, currentPeriod, windowState, myBalance,
-  receivedIn: (uid, p) => receivedMap(p || currentPeriod()).get(uid) || 0
+  GRANT, currentPeriod, windowState, myBalance, receivedIn
 };
 
 })();
