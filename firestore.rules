@@ -78,9 +78,57 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/workspaces/default/members/$(request.auth.uid)).data.role == 'admin';
     }
 
+    // ── Quién puede nombrar admins ──
+    // El rol es el único campo del perfil que reparte permisos: esAdminWorkspace()
+    // lo lee de `members`, y con él se gana escritura sobre el perfil de
+    // cualquier otra persona (match /users/{uid}, abajo). Así que el rol no lo
+    // cambia su propio dueño: o lo mueve un admin, o no se mueve.
+    //
+    // La excepción es el primer admin, y no es un capricho: la app lo siembra
+    // desde el navegador en el primer login (INITIAL_ADMINS en js/core.js, se
+    // usa en js/auth.js). Sin excepción, un workspace nuevo —o el borrado
+    // accidental de ese perfil— se queda sin nadie que pueda nombrar
+    // administradores, y hay que destrabarlo a mano desde la consola de
+    // Firebase. La lista se repite aquí a propósito, con el mismo valor que el
+    // código: si cambia el primer admin, hay que cambiar los dos lugares.
+    function esAdminInicial() {
+      return request.auth.token.email.lower() == 'paulo@thinkydigital.com';
+    }
+
+    // El rol que quedaría después de escribir, y el que hay ahora. En los dos
+    // casos, 'member' cuando no hay campo: en un create no existe doc previo, y
+    // un perfil viejo puede no traer `role` — leerlo sin más reventaría la
+    // evaluación y la escritura se rechazaría sin que nadie entienda por qué.
+    function rolNuevo() {
+      return 'role' in request.resource.data ? request.resource.data.role : 'member';
+    }
+    function rolViejo() {
+      return resource != null && 'role' in resource.data ? resource.data.role : 'member';
+    }
+
+    // Escribir tu propio perfil está bien; ascenderte, no. Ojo: reescribir el
+    // MISMO rol sí tiene que pasar. El arranque copia el perfil de `users` a
+    // `members` en cada login, rol incluido (js/auth.js), y ese set no está
+    // dentro de un try: si la regla lo rechazara, no entraría nadie.
+    function sinAscenderse() {
+      return rolNuevo() == rolViejo() || esAdminInicial();
+    }
+
     match /users/{uid} {
       allow read: if isThinky();
-      allow write: if isThinky() && (request.auth.uid == uid || esAdminWorkspace());
+
+      // Antes esto era `write`, y bastaba con ser el dueño del doc. Como el
+      // arranque copia este rol a `members` —que es de donde esAdminWorkspace()
+      // lo saca—, ponerse 'admin' aquí y recargar la página alcanzaba para ser
+      // admin de verdad, sin pasar nunca por `members`. Ahora el rol lo mueve
+      // un admin; el resto del perfil, su dueño, como siempre.
+      allow create, update: if isThinky()
+        && (esAdminWorkspace() || (request.auth.uid == uid && sinAscenderse()));
+
+      // El borrado queda como estaba (Equipo borra perfiles, y cada quien
+      // podía borrar el propio). Va aparte porque en un delete no hay
+      // `request.resource` y sinAscenderse() no se puede evaluar.
+      allow delete: if isThinky() && (request.auth.uid == uid || esAdminWorkspace());
     }
 
     // El documento del workspace en sí.
@@ -108,7 +156,34 @@ service cloud.firestore {
       allow write: if isThinky()
         && coll != 'thinkyPesos'
         && coll != 'thinkyPesoBalances'
-        && coll != 'clientNotes';
+        && coll != 'clientNotes'
+        // `members` sale del write por lo mismo, y es el caso más caro de los
+        // cuatro: de ahí lee esAdminWorkspace(). Mientras estuvo aquí,
+        // cualquier cuenta del dominio podía escribir su propio doc de
+        // `members` y quedar admin. La LECTURA se queda arriba a propósito: la
+        // app necesita leer `members` para armar el Equipo y saber áreas, y sin
+        // eso no arranca.
+        && coll != 'members';
+    }
+
+    // ── El perfil visible del equipo ──
+    // Espejo de `users` que sí lee todo el workspace: de aquí sale allUsers, y
+    // con él el Equipo, la credencial de los demás y el selector de personas.
+    //
+    // Área y puesto se los sigue poniendo cada quien: los elige en el
+    // onboarding (obFinish, js/app.js) y el área también en la pantalla de
+    // login. Es como está pensada la app hoy y no se cambia acá. Queda dicho
+    // que `area == 'Cuentas'` abre las reseñas de clientes (esCuentasOAdmin):
+    // si eso tiene que dejar de ser autoservicio, es una decisión de producto,
+    // no un arreglo de reglas.
+    match /workspaces/{ws}/members/{uid} {
+      allow create, update: if isThinky()
+        && (esAdminWorkspace() || (request.auth.uid == uid && sinAscenderse()));
+
+      // Borrar un perfil del equipo es lo que hace Equipo (confirmDeleteUser,
+      // js/equipo.js), y ya pedía admin del lado de la app. Aparte del bloque
+      // de arriba por lo mismo: en un delete no hay `request.resource`.
+      allow delete: if isThinky() && (request.auth.uid == uid || esAdminWorkspace());
     }
 
     // ── Reseñas de clientes ──
